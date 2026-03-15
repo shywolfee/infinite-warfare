@@ -1,0 +1,98 @@
+// Account system for Infinite Warfare
+// Accounts are stored in: <prefsdir>/accounts/<username>.dat
+// Each account file is encrypted with ACCOUNT_SECRET.
+// Passwords are stored as an encrypted string using a per-account salt
+// so two users with the same password will have different stored values.
+
+// accounts_dir is set after prefsdir is known (main initialises it).
+string accounts_dir;
+
+// Secret used to encrypt account files and derive per-account password hashes.
+// Changing this will invalidate all existing accounts.
+const string ACCOUNT_SECRET = "IW_aCc0unt_K3y_xK9mP2vL7nQ4wR8t!";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// Return the path to a user's account file.
+string get_account_path(string username)
+{
+    return accounts_dir + "/" + string_to_lower_case(username) + ".dat";
+}
+
+// Return true if an account file exists for username.
+bool account_exists(string username)
+{
+    return file_exists(get_account_path(username));
+}
+
+// Produce a storable "hash" for a password.
+// We encrypt the password with a key derived from the global secret and the
+// lower-cased username so each account has a unique salt.
+string hash_password(string password, string username)
+{
+    return string_encrypt(password, ACCOUNT_SECRET + "_" + string_to_lower_case(username));
+}
+
+// Ensure the accounts directory exists.
+void ensure_accounts_dir()
+{
+    if (!directory_exists(accounts_dir))
+        directory_create(accounts_dir);
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+// Register a new account.
+// Returns an empty string on success, or a human-readable error message.
+string register_account(string username, string password, string confirm)
+{
+    if (username == "")
+        return "Username cannot be empty.";
+    if (string_contains(username, " ", 1) >= 0)
+        return "Username must not contain spaces.";
+    if (password == "")
+        return "Password cannot be empty.";
+    if (password.length() < 4)
+        return "Password must be at least 4 characters.";
+    if (password != confirm)
+        return "Passwords do not match.";
+    if (account_exists(username))
+        return "An account with that username already exists.";
+
+    ensure_accounts_dir();
+
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.add("username", username);
+    acct.add("password", hash_password(password, username));
+    acct.save();
+    return "";
+}
+
+// Verify login credentials.
+// Returns true if the username exists and the password is correct.
+bool verify_account(string username, string password)
+{
+    if (!account_exists(username))
+        return false;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    string stored = acct.read("password");
+    return stored == hash_password(password, username);
+}
+
+// Load the stored display-name for an account (preserves original casing).
+string get_account_username(string username)
+{
+    if (!account_exists(username))
+        return username;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    string stored = acct.read("username");
+    if (stored != "")
+        return stored;
+    return username;
+}

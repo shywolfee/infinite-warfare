@@ -1,0 +1,62 @@
+source@[] sources(0);
+class source
+{
+int lx;
+int rx;
+int miny;
+int maxy;
+int minz;
+int maxz;
+string soundfile;
+int time=0;
+int id=-1;
+string map;
+timer mstimer;
+bool delete=false;
+source(int source_lx, int source_rx, int source_miny, int source_maxy, int source_minz, int source_maxz, string file, string source_map, int source_time=0, int source_id=-1)
+{
+lx=source_lx;
+rx = source_rx;
+miny=source_miny;
+maxy= source_maxy;
+minz=source_minz;
+maxz=source_maxz;
+soundfile=file;
+map=source_map;
+time=source_time;
+id=source_id;
+}
+}
+void spawn_source(int source_lx, int source_rx, int source_miny, int source_maxy, int source_minz, int source_maxz, string soundfile, string source_map, int time=0, int id=-1, bool send=true)
+{
+if(id < 0)
+{
+return;
+}
+source source1(source_lx, source_rx, source_miny, source_maxy, source_minz, source_maxz, soundfile, source_map, time, id);
+sources.insert_last(source1);
+if(send==true)
+send_reliable(0, "spawnsource "+source_lx+" "+source_rx+" "+source_miny+" "+source_maxy+" "+source_minz+" "+source_maxz+" "+soundfile+" "+id, 0);
+}
+void destroy_source(int id)
+{
+for(uint i=0; i<sources.length(); i++)
+{
+if(sources[i].id==id and id > -1)
+{
+sources[i].delete=true;
+}
+}
+}
+bool source_exists(int id)
+{
+bool found=false;
+for(uint i=0; i<sources.length(); i++)
+{
+if(sources[i].id==id)
+{
+found=true;
+}
+}
+return found;
+}

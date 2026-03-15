@@ -1,0 +1,1662 @@
+﻿#include "includes/sizer.nvgt"
+#include "bgt_compat.nvgt"
+#include"includes/constants.nvgt"
+#include "includes/key_hold.nvgt"
+#include "includes/virtualizer.nvgt"
+#include"includes/building.nvgt"
+#include"includes/updater.nvgt"
+#include "speech.nvgt"
+#include "includes/ammo.nvgt"
+#include"includes/buffer.nvgt"
+#include"includes/dlg.nvgt"
+#include"includes/inventory.nvgt"
+#include "includes/dlgplayer.nvgt"
+#include "includes/m_pro.nvgt"
+#include "includes/map.nvgt"
+#include "includes/net.nvgt"
+//#include "includes/rotation.nvgt"
+#include "sound_pool.nvgt"
+#include "includes/src.nvgt"
+#include "includes/sd.nvgt"
+#include "includes/menu.nvgt"
+string webdir;
+string gamename="Infinite Warfare";
+string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
+bool melee=false;
+sound plane;
+bool can_fire=false;
+bool go_reload=false;
+bool can_stop=true; 
+bool go_out=false;
+bool prevconnected=false;
+int turn=1;
+int cameraspeed=50;
+int rctrl=0;
+timer drawtimer;
+bool in_plane=false;
+timer flytimer;
+bool bombloaded=false;
+timer bombloadtimer;
+bool can_move=true;
+virtualizer v;
+timer turntimer;
+timer gametracktimer;
+int mousey, mousex, mousez;
+string prefsdir=DIRECTORY_LOCAL_APPDATA+"/iw";
+timer respawntimer;
+int channels=1;
+int firetime;
+int w;
+string[] weapons;
+bool pinging=false;
+timer pingtimer;
+bool x=false;
+bool connected;
+double version=0.13;
+string name;
+string mate;
+double facing=0;
+sound_pool p,spool;
+timer rectimer,firetimer, walktimer;
+int walktime=170;
+savedata sd(prefsdir+"/settings.dat","hgdfgjkdfsglfggfhguhgyktryjkgseryjkgjkyg323454FAFHYGSYJTYGSTJHJTYgdfgsysdfjfgRhRHGRhdgshgsgyjstjkfgfbghsdfvdgsfgdsfgfG$%^&^%HFGHDTRGHYRHNTRsjk");
+vector me,wal,lad,mr,max,camera;
+string currentcameratile;
+string mapname;
+network n;
+network_event e;
+int movetime;
+string motd;
+timer xtimer;
+bool falling=false;
+timer falltimer;
+int falltime=50;
+int falldistance=0;
+bool jumping=false;
+timer jumptimer;
+int jumptime=100;
+int jumpup=0;
+int jumplandz;
+timer usetimer;
+string tracking="";
+int sph_tries=1;
+timer sph_timer;
+sound_pool distpool;
+key_hold kleft(KEY_LEFT,300,cameraspeed);
+key_hold kright(KEY_RIGHT,300,cameraspeed);
+key_hold kup(KEY_UP,300,cameraspeed);
+key_hold kdown(KEY_DOWN,300,cameraspeed);
+key_hold kpgdn(KEY_NEXT,300,cameraspeed);
+key_hold kpgup(KEY_PRIOR,300,cameraspeed);
+key_hold kPERIOD(KEY_PERIOD,300,30);
+key_hold kCOMMA(KEY_COMMA,300,30);
+
+void main()
+{
+sound_global_hrtf=true;
+
+p.behind_pitch_decrease=6;
+distpool.pan_step=0.2;
+distpool.volume_step=0.1;
+weapons.insert_last("empty");
+weapon_ammo("glock17", 50);
+weapon_ammo("benelli_m4_shotgun", 50);
+weapon_ammo("tar_21_assault_rifle", 50);
+weapon_ammo("120mm_mortar", 25);
+weapon_ammo("ks123shotgun", 50);
+weapon_ammo("taurus_model66_revolver", 50);
+weapon_ammo("famas_f1_assault_rifle", 50);
+weapon_ammo("beretta92fs_pistol", 50);
+weapon_ammo("p90_mp", 50);
+weapon_ammo("magnum_revolver", 50);
+weapon_ammo("hk_g36", 50);
+weapon_ammo("AK47", 50);
+weapon_ammo("m1garantBattleRifle", 50);
+weapon_ammo("sg08_sniper_rifle", 50);
+create_buffer("all");
+create_buffer("chats");
+create_buffer("misc");
+if (!directory_exists(prefsdir))
+directory_create(prefsdir);
+readprefs();
+set_sound_storage("sounds.dat");
+set_sound_decryption_key("roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69",true);
+if(file_exists("net.txt"))
+{
+netaddress="localhost";
+}
+show_game_window(gamename+"!, version "+version);
+if (screen_reader_is_running(1))
+install_keyhook();
+//cfu("iw","iw.zip",true);
+dlgplay("logo.ogg", true, false, 15);
+mainmenu();
+}
+void game(int first)
+{
+plane.stop();
+send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);
+send_reliable(0, "send_comp "+comp, 0);
+send_reliable(0, "send_mate "+mate, 0);
+send_reliable(0, "admin", 0);
+if(SCRIPT_COMPILED==false)
+{
+send_reliable(1, "is_dev" , 0);
+}
+if(first==1)
+{
+send_reliable(0, "welcome", 0);
+}
+while(true)
+{
+wait(5);
+netloop();
+mainloop();
+mouse_update();
+mousey=MOUSE_Y/3;
+mousex=MOUSE_X/8;
+mousez=MOUSE_Z/6;
+if(pingtimer.elapsed > 10000 and pinging==true)
+{
+p.play_stationary("pingstop.ogg", false);
+speak("Ping failed");
+pinging=false;
+}
+if (key_down(KEY_G))
+{
+if (key_pressed(KEY_T))
+{
+playcamera();
+}
+if (kpgdn.pressing)
+{
+camera.z-=1;
+playcamera();
+} 
+if (kpgup.pressing)
+{
+camera.z+=1;
+playcamera();
+}
+if (kleft.pressing)
+{
+camera=move(camera.x, camera.y, camera.z, facing, west);
+playcamera();
+}
+if (kright.pressing)
+{
+camera=move(camera.x, camera.y, camera.z, facing, east);
+playcamera();
+}
+if (kdown.pressing)
+{
+camera=move(camera.x, camera.y, camera.z, facing, south);
+playcamera();
+}
+if (kup.pressing)
+{
+camera=move(camera.x, camera.y, camera.z, facing, north);
+playcamera();
+}
+}
+if (key_up(KEY_G))
+{
+camera.x=mr.x;
+camera.y=mr.y;
+camera.z=me.z;
+}
+if(key_pressed(KEY_HOME) and get_sound_master_volume()<0)
+{
+set_sound_master_volume(get_sound_master_volume()+5);
+}
+if(key_pressed(KEY_END) and get_sound_master_volume()>-60)
+{
+set_sound_master_volume(get_sound_master_volume()-5);
+}
+if (key_pressed(KEY_TAB) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
+{
+if (shift_is_down())
+cycle_inv(0);
+else
+cycle_inv(1);
+p.play_stationary("invmove.ogg", false);
+}
+if (key_pressed(KEY_M))
+{
+send_reliable(0,"whatnear",0);
+}
+if (key_pressed(KEY_P))
+{
+send_reliable(0,"nearplayers",0);
+}
+if (weapons[w]=="hk_g36" or weapons[w]=="AK47" or weapons[w]=="p90_mp" or weapons[w]=="tar_21_assault_rifle")
+{
+can_fire=true;
+}
+else if (weapons[w]!="hk_g36" or weapons[w]!="AK47" or weapons[w]!="p90_mp" or weapons[w]!="tar_21_assault_rifle")
+{
+can_fire=false;
+}
+if(can_move==true)
+{
+if (firetimer.elapsed>=firetime and key_down(KEY_LCONTROL) and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_down(KEY_RCONTROL)&&rctrl==1 and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_LCONTROL) and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_RCONTROL)&&rctrl==1 and mapname!="battle_royale_waiting")
+{
+int weapon_ammo=ammo_check(weapons[w]);
+if(weapon_ammo>0 or melee==true)
+{
+ammo_give(weapons[w], -1);
+firetimer.restart();
+send_reliable(0,"fire "+weapons[w],0);
+}
+else if(weapon_ammo==0 and firetimer.elapsed>=firetime)
+{
+firetimer.restart();
+p.play_stationary(weapons[w]+"empty.ogg",false);
+ can_fire=false;
+}
+}
+}
+if(key_pressed(KEY_A))
+{
+int weapon_ammo=ammo_check(weapons[w]);
+if(weapon_ammo>-1)
+{
+speak(weapon_ammo+" ammunition left for this weapon");
+}
+else
+speak("this weapon doesn't use ammo!");
+}
+if (key_pressed(KEY_SLASH))
+{
+string chat=v.input("Enter your message","",true);
+if (chat!="")
+send_reliable(0,chat,1);
+}
+if (key_pressed(KEY_H) and key_up(KEY_LSHIFT))
+{
+send_reliable(0,"health",0);
+}
+if (key_pressed(KEY_B))
+{
+if (get_zone_at(mr.x,mr.y,me.z)!="")
+{
+string locate=get_zone_at(mr.x,mr.y,me.z);
+speak("Current zone: "+locate+" of "+mapname);
+}
+else
+{
+speak("Current zone: unknown area of "+mapname);
+}
+}
+if (key_pressed(KEY_F1))
+{
+send_reliable(0,"whoonline",0);
+}
+if(key_pressed(KEY_F3) and pinging==false)
+{
+send_reliable(1, "ping", 0);
+p.play_stationary("pingstart.ogg", false);
+pingtimer.restart();
+pinging=true;
+}
+if(key_pressed(KEY_F2))
+{
+send_reliable(0, "motd", 0);
+}
+if(key_pressed(KEY_W) and tracking!="")
+{
+send_reliable(1, "trackinfo "+tracking, 0);
+}
+if(key_pressed(KEY_T))
+{
+send_reliable(1, "playermenu", 0);
+}
+if (key_pressed(KEY_LBRACKET))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+firstbuffer();
+}
+else
+{
+bufferleft();
+}
+}
+if (key_pressed(KEY_RBRACKET))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+lastbuffer();
+}
+else
+{
+bufferright();
+}
+}
+if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+{
+if(key_pressed(KEY_RETURN) and mapname!="battle_royale_waiting" and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true or mouse_pressed(2) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true and mapname!="battle_royale_waiting")
+{
+usetimer.restart();
+if (inv.get_keys().length()>0 and invpos<inv.get_size())
+send_reliable(0, "use "+inv.get_keys()[invpos], 0);
+else
+speak("Your inventory is empti.");
+}
+if(key_pressed(KEY_O) and can_move==true)
+{
+send_reliable(0, "check_chest", 0);
+}
+if (kCOMMA.pressing)
+{
+prevbufferitem();
+}
+if (kPERIOD.pressing)
+{
+nextbufferitem();
+}
+}
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+if (key_pressed(KEY_COMMA))
+{
+topbufferitem();
+}
+if (key_pressed(KEY_PERIOD))
+{
+bottombufferitem();
+}
+}
+if(key_pressed(KEY_ESCAPE) and x==false)
+{
+int q;
+q=yesno("Are you sure you wish to exit the game?");
+if(q==1)
+{
+speak("Exiting the game");
+send_reliable(0, "close", 0);
+x=true;
+xtimer.restart();
+}
+}
+if(xtimer.elapsed>10 and x==true)
+{
+x=false;
+exitgame();
+}
+if(key_pressed(KEY_C))
+{
+speak(mr.x+", "+mr.y+", "+me.z);
+}
+if(key_pressed(KEY_SPACE) and jumping==false and falling==false and can_move==true)
+{
+p.play_stationary("jump.ogg", false);
+send_reliable(0, "jump", 0);
+jumping=true;
+jumptimer.restart();
+jumpup=1;
+jumplandz=me.z;
+}
+if(mousez<0) 
+{
+cycle_inv(0);
+p.play_stationary("inv"+random(1, 7)+".ogg", false);
+}
+if(mousez>0) 
+{
+cycle_inv(1);
+p.play_stationary("inv"+random(1, 7)+".ogg", false);
+}
+if(key_pressed(KEY_Q) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+{
+turntimer.restart();
+facing=snapleft(facing, getdir(facing));
+speak(dir_to_string(getdir(facing)));
+p.play_stationary("turn.ogg", false);
+send_reliable(0, "turn "+facing, 0);
+mouse_update();
+}
+if(key_pressed(KEY_X) and turn>0)
+{
+turn-=1;
+p.play_stationary("turn.ogg", false);
+string s="";
+if(turn==1)
+{
+s="streight forward";
+}
+if(turn==0)
+{
+s="streight down";
+}
+if(turn==2)
+{
+s="streight up";
+}
+string to_speak="facing "+s;
+speak(to_speak);
+send_reliable(0, "turn2 "+turn, 0);
+}
+if(key_pressed(KEY_S) and turn<2)
+{
+turn+=1;
+p.play_stationary("turn.ogg", false);
+string s="";
+if(turn==1)
+{
+s="streight forward";
+}
+if(turn==0)
+{
+s="streight down";
+}
+if(turn==2)
+{
+s="streight up";
+}
+string to_speak="facing "+s;
+speak(to_speak);
+send_reliable(0, "turn2 "+turn, 0);
+}
+if(key_pressed(KEY_E) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+{
+turntimer.restart();
+facing=snapright(facing, getdir(facing));
+speak(dir_to_string(getdir(facing)));
+p.play_stationary("turn.ogg", false);
+send_reliable(0, "turn "+facing, 0);
+mouse_update();
+}
+if(key_pressed(KEY_F))
+{
+speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees.");
+}
+if(MENU_is_down())
+{
+if(key_down(KEY_LEFT))
+{
+facing=turnleft(facing, 1);
+}
+if(key_down(KEY_RIGHT))
+{
+facing=turnright(facing, 1);
+}
+}
+if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
+{
+if(key_down(KEY_PRIOR) and walktimer.elapsed>movetime)
+{
+walktimer.restart();
+move(Up);
+}
+else if(key_down(KEY_NEXT) and walktimer.elapsed>movetime) 
+{
+walktimer.restart();
+move(Down);
+}
+if(key_down(KEY_UP) and walktimer.elapsed>movetime)
+{
+walktimer.restart();
+move(Forward);
+}
+else if(key_down(KEY_DOWN) and walktimer.elapsed>movetime)
+{
+walktimer.restart();
+move(Backward);
+}
+else if(key_down(KEY_LEFT) and walktimer.elapsed>movetime)
+{
+walktimer.restart();
+move(Left);
+}
+else if(key_down(KEY_RIGHT) and walktimer.elapsed>movetime)
+{
+walktimer.restart();
+move(Right);
+}
+}
+if(can_move==true)
+{
+if(key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and drawtimer.elapsed >1500)
+{
+if(key_pressed(KEY_1))
+{
+drawtimer.restart();
+weapons[w]="machete";
+speak("machete");
+send_reliable(1, "draw  machete", 0);
+}
+if(key_pressed(KEY_2))
+{
+drawtimer.restart();
+weapons[w]="glock17";
+speak("glock17");
+send_reliable(1, "draw  glock17", 0);
+}
+if(key_pressed(KEY_3))
+{
+drawtimer.restart();
+weapons[w]="benelli_m4_shotgun";
+speak("benelli_m4_shotgun");
+send_reliable(1, "draw  benelli_m4_shotgun", 0);
+}
+if(key_pressed(KEY_4))
+{
+drawtimer.restart();drawtimer.restart();
+weapons[w]="beretta92fs_pistol";
+speak("beretta92fs_pistol");
+send_reliable(1, "draw  beretta92fs_pistol", 0);
+}
+if(key_pressed(KEY_5))
+{
+drawtimer.restart();
+weapons[w]="magnum_revolver";
+speak("magnum_revolver");
+send_reliable(1, "draw  magnum_revolver", 0);
+}
+if(key_pressed(KEY_6))
+{
+drawtimer.restart();
+weapons[w]="hk_g36";
+speak("hk_g36");
+send_reliable(1, "draw  hk_g36", 0);
+}
+if(key_pressed(KEY_7))
+{
+drawtimer.restart();
+weapons[w]="AK47";
+speak("AK47");
+send_reliable(1, "draw  AK47", 0);
+}
+if(key_pressed(KEY_8))
+{
+drawtimer.restart();
+weapons[w]="m1garantBattleRifle";
+speak("m1garantBattleRifle");
+send_reliable(1, "draw  m1garantBattleRifle", 0);
+}
+if(key_pressed(KEY_9))
+{
+drawtimer.restart();
+weapons[w]="sg08_sniper_rifle";
+speak("sg08_sniper_rifle");
+send_reliable(1, "draw  sg08_sniper_rifle", 0);
+}
+if(key_pressed(KEY_0))
+{
+drawtimer.restart();
+weapons[w]="famas_f1_assault_rifle";
+speak("famas_f1_assault_rifle");
+send_reliable(1, "draw famas_f1_assault_rifle", 0);
+}
+}
+if(key_down(KEY_LSHIFT) and drawtimer.elapsed >1500 or key_down(KEY_RSHIFT) and drawtimer.elapsed >1500)
+{
+if(key_pressed(KEY_1))
+{
+drawtimer.restart();
+weapons[w]="combatknife";
+speak("combat knife");
+send_reliable(1, "draw combatknife", 0);
+}
+if(key_pressed(KEY_2))
+{
+drawtimer.restart();
+weapons[w]="taurus_model66_revolver";
+speak("taurus_model66_revolver");
+send_reliable(1, "draw taurus_model66_revolver", 0);
+}
+if(key_pressed(KEY_3))
+{
+drawtimer.restart();
+weapons[w]="tar_21_assault_rifle";
+speak("tar_21_assault_rifle");
+send_reliable(1, "draw tar_21_assault_rifle", 0);
+}
+if(key_pressed(KEY_4))
+{
+drawtimer.restart();
+weapons[w]="120mm_mortar";
+speak("120mm_mortar");
+send_reliable(1, "draw 120mm_mortar", 0);
+}
+}
+}
+}
+}
+bool shift_is_down()
+{
+if(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+return true;
+}
+return false;
+}
+bool MENU_is_down()
+{
+if(key_down(KEY_LMENU) or key_down(KEY_RMENU))
+{
+return true;
+}
+return false;
+}
+bool control_is_down()
+{
+if(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL))
+{
+return true;
+}
+return false;
+}
+void readprefs()
+{
+sd.load();
+if (sd.d.exists("name"))
+name=sd.read("name");
+if (sd.d.exists("mate"))
+mate=sd.read("mate");
+if (sd.d.exists("rctrl"))
+rctrl=sd.readn("rctrl");
+}
+void writeprefs()
+{
+sd.add("name",name);
+sd.add("mate",mate);
+sd.add("rctrl",rctrl);
+sd.save();
+}
+/*
+double convert_to_pan(double m1, double m2)
+{
+return (m1*100/m2)-50;
+}
+double convert_to_pan(double length,double index, double range1, double range2)
+{
+double range=range2-range1;
+double percent=0;
+if (length-1>0 and index>0)
+percent=index/(length-1);
+else
+percent=0;
+double value=range1+range*percent;
+return value;
+}
+*/
+void send_reliable(uint peer, string mess, uint channel)
+{
+mess=string_encrypt(mess, "_';'_clickclick!");
+n.send_reliable(peer, mess, channel);
+}
+void send_unreliable(uint peer, string mess, uint channel)
+{
+mess=string_encrypt(mess, "_';'_clickclick!");
+n.send_unreliable(peer, mess, channel);
+}
+string get_event_message()
+{
+string r=e.message;
+if(r=="")
+{
+return "";
+}
+r=string_decrypt(r, "masonandsamare2bitches");
+return r;
+}
+void netloop()
+{
+e=n.request();
+if (e.type==event_receive)
+{
+if (e.channel==0)
+{
+string[] parsed=string_split(get_event_message()," ",true);
+if(parsed[0]=="reset_ammo")
+{
+reset_ammo();
+}
+else if(parsed[0]=="revive")
+{
+send_reliable(0, "player_remove", 0);
+game(2);
+}
+else if(parsed[0]=="src"and parsed.length()>8)
+{
+spawn_source(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), string_to_number(parsed[4]), string_to_number(parsed[5]), string_to_number(parsed[6]), parsed[7],1, false, string_to_number(parsed[8]));
+}
+else if(parsed[0]=="dist_src"and parsed.length()>8)
+{
+spawn_source(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), string_to_number(parsed[4]), string_to_number(parsed[5]), string_to_number(parsed[6]), parsed[7],2, false, string_to_number(parsed[8]));
+}
+else if(parsed[0]=="sc")
+{
+if(can_stop==true)
+{
+can_stop=false;
+}
+else if(can_stop==false)
+{
+can_stop=true;
+}
+}
+else if(parsed[0]=="remove_src" and parsed.length()>1)
+{
+destroy_source(string_to_number(parsed[1])); 
+}
+else if(parsed[0]=="resetinv")
+{
+inv.delete_all();
+}
+else if(parsed[0]=="move_source" and parsed.length()>7)
+{
+int id=string_to_number(parsed[1]);
+int lx=string_to_number(parsed[2]);
+int rx=string_to_number(parsed[3]);
+int miny=string_to_number(parsed[4]);
+int maxy=string_to_number(parsed[5]);
+int minz=string_to_number(parsed[6]);
+int maxz=string_to_number(parsed[7]);
+move_src(id,lx,rx,miny,maxy,minz,maxz);
+}
+else if(parsed[0]=="plane_crash")
+{
+in_plane=false;
+go_out=true;
+}
+else if(parsed[0]=="start_the_plane")
+{
+pause_all_sources();
+splaneloop();
+}
+else if(parsed[0]=="start_plane")
+{
+pause_all_sources();
+planeloop();
+}
+else if(parsed[0]=="step")
+{
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+string map=parsed[4];
+if(parsed[5]!=name and mapname==map)
+{
+p.play_3d(get_tile_at(x, y, z)+"step"+random(1, 5)+".ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="mapdata") load_map(string_replace(get_event_message(), "mapdata ", "", true));
+else if(parsed[0]=="wallremove" and parsed.length()>3)
+{
+for (uint i=0; i<walls.length(); i++)
+{
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+if(walls[i].x==x and walls[i].y==y and walls[i].miniz==z)
+{
+walls.remove_at(i);
+return;
+}
+}
+}
+else if(parsed[0]=="ladderremove" and parsed.length()>3)
+{
+for (uint i=0; i<ladders.length(); i++)
+{
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+if(ladders[i].x==x and ladders[i].y==y and ladders[i].miniz==z)
+{
+ladders.remove_at(i);
+return;
+}
+}
+}
+else if(parsed[0]=="wall_spawned" and parsed.length()>4)
+ {
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+string map=parsed[4];
+spawn_wall(x,y,z,z+10,map,"wallwood");
+}
+else if(parsed[0]=="ladder_spawned" and parsed.length()>4)
+ {
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+string map=parsed[4];
+spawn_ladder(x,y,z,z+10,map,"wallwood");
+}
+else if(parsed[0]=="ping" and pinging==true)
+{
+p.play_stationary("pingstop.ogg", false);
+speak("the ping took "+pingtimer.elapsed+" milliseconds");
+pinging=false;
+}
+else if(parsed[0]=="ammogive" and parsed.length()>2)
+{
+ammo_give(parsed[1], string_to_number(parsed[2]));
+}
+else if(parsed[0]=="weapon_set" and parsed.length()>1)
+{
+weapons[w]=parsed[1];
+speak(parsed[1]);
+send_reliable(1, "draw "+parsed[1], 0);
+}
+else if(parsed[0]=="setcoords")
+{
+me.x=string_to_number(parsed[1]);
+me.y=string_to_number(parsed[2]);
+me.z=string_to_number(parsed[3]);
+}
+else if(parsed[0]=="playermenu")
+{
+string text=string_replace(get_event_message(), "playermenu ", "Stop Tracking\r\n", false);
+string[] players=string_split(text, "\r\n", false);
+playertrackmenu(players);
+}
+else if(parsed[0]=="distsound" and parsed.length()>5)
+{
+string soundname=parsed[1];
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string soundmap=parsed[5];
+if(soundmap==mapname)
+distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z,facing, false);
+}
+else if (parsed[0]=="play_s" and parsed.length()>=2)
+{
+p.play_stationary(parsed[1],false);
+}
+else if (parsed[0]=="give" and parsed.length()>2)
+{
+give(parsed[1],string_to_number(parsed[2]));
+}
+else if(parsed[0]=="updating")
+{
+dlg("The server is updating, please connect again in about 20 seconds. ");
+exit();
+}
+else if(parsed[0]=="hitwall")
+{
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string map=parsed[5];
+if(parsed[1]!=name and map==mapname)
+{
+p.play_3d("wall"+string_replace(get_tile_at(x, y, z), "wall", "", true)+".ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="jump")
+{
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string map=parsed[5];
+if(parsed[1]!=name and map==mapname)
+{
+p.play_3d("jump.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="turn")
+{
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string map=parsed[5];
+if(parsed[1]!=name and map==mapname)
+{
+p.play_3d("turn.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="hardland")
+{
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string map=parsed[5];
+if(parsed[1]!=name and map==mapname)
+{
+p.play_3d(get_tile_at(x, y, z)+"fall.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="land")
+{
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string map=parsed[5];
+if(parsed[1]!=name and map==mapname)
+{
+p.play_3d(get_tile_at(x, y, z)+"land.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="fall")
+{
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string map=parsed[5];
+if(parsed[1]!=name and map==mapname and in_plane==false)
+{
+p.play_3d("fall.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+}
+}
+else if(parsed[0]=="deathroyale")
+{
+send_reliable(0, "player_remove", 0);
+mapname="main";
+inv.delete_all();
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+connect();
+}
+else if(parsed[0]=="death")
+{
+death();
+}
+else if(parsed[0]=="offline" and parsed.length()>1)
+{
+if(parsed[4]==name)
+{
+x=false;
+exitgame();
+}
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+if(me.x > x-20 and me.x < x+20 and me.y > y-20 and me.y < y+20 and me.z>z-20 and me.z<z+20 and parsed[4]!=name and mapname==parsed[5])
+{
+p.play_3d("offline.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+add_buffer_item("misc",parsed[4]+" just went offline");
+}
+else if(parsed[4]!=name)
+{
+p.play_stationary("offline.ogg", false);
+add_buffer_item("misc",parsed[4]+" just went offline");
+}
+}
+else if(parsed[0]=="movestop")
+{
+can_move=false;
+}
+else if(parsed[0]=="movestart")
+{
+can_move=true;
+}
+else if(parsed[0]=="online")
+{
+int x=string_to_number(parsed[1]);
+int y=string_to_number(parsed[2]);
+int z=string_to_number(parsed[3]);
+if(me.x > x-20 and me.x < x+20 and me.y > y-20 and me.y < y+20 and me.z>z-20 and me.z<z+20 and parsed[4]!=name and parsed[5]==mapname)
+{
+p.play_3d("online.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+add_buffer_item("misc",parsed[4]+" just came online");
+}
+else if(parsed[4]!=name)
+{
+p.play_stationary("online.ogg", false);
+add_buffer_item("misc",parsed[4]+" just came online");
+}
+}
+else if(parsed.length()>=5 and is_sound_number(parsed[1]) and is_sound_number(parsed[2]) and is_sound_number(parsed[3]))
+{
+if(parsed[4]==mapname)
+p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), calculate_theta(facing), false);
+}
+else
+speak(get_event_message());
+}
+if(e.channel==5)
+{
+string[] parsed=string_split(get_event_message()," ",true);
+if(parsed.length()>=5 and is_sound_number(parsed[1]) and is_sound_number(parsed[2]) and is_sound_number(parsed[3]))
+{
+if(parsed[4]==mapname)
+p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), calculate_theta(facing), false);
+}
+else if(parsed[0]=="distsound" and parsed.length()>5)
+{
+string soundname=parsed[1];
+int x=string_to_number(parsed[2]);
+int y=string_to_number(parsed[3]);
+int z=string_to_number(parsed[4]);
+string soundmap=parsed[5];
+if(soundmap==mapname)
+distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z, facing,false);
+}
+}
+if (e.channel==3)
+{
+string[] parsed=string_split(get_event_message()," ",true);
+}
+if (e.channel==1)
+{
+p.play_stationary("chat.ogg", false);
+add_buffer_item("chats",get_event_message());
+}
+if(e.channel==4)
+{
+string[] parsed=string_split(get_event_message(), " ", true);
+if(parsed[0]=="csh" and parsed.length()>1)
+{
+int client_side=n.get_peer_average_round_trip_time(1);
+int server_side=string_to_number(parsed[1]);
+if(gametracktimer.elapsed>10000)
+{
+if(sph_timer.elapsed>2400+server_side)
+{
+sph_tries++;
+if(sph_tries>4)
+kill_speedhack();
+}
+else
+{
+sph_tries=0;
+}
+sph_timer.restart();
+}
+}
+}
+if (e.channel==2)
+{
+add_buffer_item("misc",get_event_message());
+}
+}
+}
+void exitgame()
+{
+plane.stop();
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+prevconnected=true;
+sources.resize(0);
+can_move=true;
+connected=false;
+mainmenu();
+}
+bool is_sound_number(string t)
+{
+t=string_replace(t, ".", "", true);
+t=string_replace(t, "-", "", true);
+if(string_is_digits(t))
+return true;
+return false;
+}
+void fallloop()
+{
+if(jumptimer.elapsed > jumptime and jumping==true)
+{
+jumptimer.restart();
+if(jumpup==1)
+{
+if(me.z <=jumplandz+5)
+{
+me.z++;
+send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
+checkzone();
+if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
+{
+jumpup=0;
+}
+}
+else
+{
+jumpup=0;
+}
+}
+else if(jumpup==0)
+{
+if(me.z > jumplandz)
+{
+me.z--;
+checkzone();
+send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
+if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
+{
+p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
+send_reliable(1, "land", 0);
+jumping=false;
+}
+}
+else
+{
+if(get_tile_at(mr.x, mr.y, me.z)=="" or get_tile_at(mr.x, mr.y, me.z)=="blank" and in_plane==false)
+{
+falling=true;
+falldistance=0;
+falltimer.restart();
+jumping=false;
+return;
+}
+p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
+send_reliable(0, "land", 0);
+jumping=false;
+}
+}
+}
+}
+void fallcheck()
+{
+if(in_plane==false and get_tile_at(mr.x, mr.y, me.z)=="" and falling==false and jumping==false or get_tile_at(mr.x, mr.y, me.z)=="blank" and falling==false and jumping==false and in_plane==false)
+{
+falling=true;
+falldistance=0;
+falltimer.restart();
+p.play_stationary("fall.ogg", false);
+send_reliable(1, "fall", 0);
+}
+}
+void fallingloop()
+{
+if(falling==true and falltimer.elapsed > falltime and in_plane==false)
+{
+if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
+{
+falling=false;
+if(falldistance < 10)
+{
+p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
+send_reliable(1, "land", 0);
+falling=false;
+}
+else
+{
+p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"fall.ogg", false);
+p.play_stationary("playerhit"+random(1, 6)+".ogg", false);
+send_reliable(1, "hardland "+falldistance, 0);
+falling=false;
+}
+return;
+}
+falltimer.restart();
+falldistance++;
+me.z--;
+checkzone();
+send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
+}
+}
+void mainloop()
+{
+ammocheatloop();
+sourcecheckloop();
+p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
+distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
+mr.x=round(me.x,0);
+mr.y=round(me.y,0);
+if (weapons[w]=="machete") firetime=1000;
+if (weapons[w]=="combatknife") firetime=500;
+if (weapons[w]=="tar_21_assault_rifle") firetime=180;
+if (weapons[w]=="taurus_model66_revolver") firetime=790;
+if(weapons[w]=="machete" or weapons[w]=="combatknife") walktime=170;
+if(weapons[w]=="p90_mp") walktime=190;
+if(weapons[w]=="p90_mp") firetime=90;
+if(weapons[w]=="120mm_mortar") walktime=5000;
+if(weapons[w]=="120mm_mortar") firetime=4000;
+if(weapons[w]=="famas_f1_assault_rifle") firetime=750;
+if(weapons[w]=="famas_f1_assault_rifle") walktime=210;
+if(weapons[w]=="ks123shotgun") firetime=850;
+if(weapons[w]=="hayvork") firetime=900;
+if(weapons[w]=="hayvork") walktime=185;
+if(weapons[w]=="trector_plow") firetime=1100;
+if(weapons[w]=="trector_plow") walktime=400;
+if(weapons[w]=="benelli_m4_shotgun") firetime=1500;
+if(weapons[w]=="benelli_m4_shotgun" or weapons[w]=="ks123shotgun") walktime=230;
+if(weapons[w]=="hk_g36") firetime=150;
+if(weapons[w]=="m1garantBattleRifle") walktime=400;
+if(weapons[w]=="m1garantBattleRifle") firetime=1200;
+if(weapons[w]=="hk_g36" or weapons[w]=="tar_21_assault_rifle" or weapons[w]=="AK47") walktime=220;
+if(weapons[w]=="beretta92fs_pistol") firetime=600;
+if(weapons[w]=="beretta92fs_pistol" or weapons[w]=="glock17") walktime=180;
+if (weapons[w]=="glock17") firetime=800;
+if(weapons[w]=="AK47") firetime=150;
+if(weapons[w]=="sg08_sniper_rifle") firetime=3000;
+if(weapons[w]=="sg08_sniper_rifle") walktime=1000;
+if(weapons[w]=="magnum_revolver") firetime=800;
+if(weapons[w]=="magnum_revolver" or weapons[w]=="taurus_model66_revolver") walktime=180;
+movetime=walktime;
+fallloop();
+fallcheck();
+fallingloop();
+if(weapons[w]=="machete" or weapons[w]=="combatknife" or weapons[w]=="trector_plow" or weapons[w]=="hayvork")
+{
+melee=true;
+}
+else
+melee=false;
+}
+string get_location()
+{
+if (get_zone_at(mr.x,mr.y,me.z)!="")
+{
+string locate=get_zone_at(mr.x,mr.y,me.z);
+return locate+" of "+mapname;
+}
+else
+{
+return "uncharted area on "+mapname;
+}
+}
+void playcamera()
+{
+if (gct()=="" or gct()=="blank")
+{
+p.play_3d("cameraair.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
+}
+for (uint i=0; i<walls.length(); i++)
+{
+if(camera.x==walls[i].x and camera.y==walls[i].y and camera.z>=walls[i].miniz and camera.z<=walls[i].maxz)
+{
+p.play_3d("wallwood.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
+}
+}
+for (uint i=0; i<ladders.length(); i++)
+{
+if(camera.x==ladders[i].x and camera.y==ladders[i].y and camera.z>=ladders[i].miniz and camera.z<=ladders[i].maxz)
+{
+p.play_3d("ladderstep"+random(1,5)+".ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
+}
+}
+if (gct()=="hazard")
+{
+p.play_3d("camerahazard.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
+}
+else if (string_contains(gct(),"wall",1)>-1)
+{
+p.play_extended_3d(gct()+".ogg", me.x, me.y, me.z, camera.x, camera.y, camera.z, calculate_theta(facing), 0, 0, 0, 0, 0,0,false, 0.0, 0.0, 0.0, 200.0);
+}
+else
+{
+p.play_extended_3d(gct()+"step"+random(1, 5)+".ogg", me.x, me.y, me.z, camera.x, camera.y, camera.z, calculate_theta(facing), 0, 0, 0, 0, 0,0,false, 0.0, 0.0, 0.0, 200.0);
+}
+}
+void kill_speedhack()
+{
+send_reliable(1, "speedhacked", 0);
+exit();
+}
+void death()
+{
+turn=1;
+plane.stop();
+timer dietimer;
+timer respawntimer;
+bool can_respawn=false;
+respawntimer.restart();
+dietimer.restart();
+while(true)
+{
+wait(5);
+netloop();
+mainloop();
+if(respawntimer.elapsed>=2000 and can_respawn==false)
+{
+can_respawn=true;
+respawntimer.restart();
+speak("Press enter to re connect!");
+}
+if(can_respawn==true)
+{
+if(key_pressed(KEY_LEFT) or key_pressed(KEY_RIGHT) or key_pressed(KEY_UP) or key_pressed(KEY_DOWN))
+{
+speak("to reconnect: press enter!");
+} 
+if(key_pressed(KEY_RETURN) or dietimer.elapsed>=45000)
+{
+dietimer.restart();
+send_reliable(0, "player_remove", 0);
+mapname="main";
+inv.delete_all();
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+connect();
+}
+ }
+}
+}
+void playertrackmenu(string[] players)
+{
+get_characters();
+string cl;
+speak("Tracking list, Please select a player with the up and down arrow keys, and press enter to track the selected player.");
+int counter=0;
+while(true)
+{
+cl=get_characters();
+wait(5);
+netloop();
+fallloop();
+if(counter > players.length())
+{
+counter=players.length()-1;
+}
+if(cl!="" and cl.length()==1)
+{
+int f=0;
+int oc=counter;
+for(uint i=counter; i<players.length(); i++)
+{
+if(i==counter)
+{
+continue;
+}
+if(players[i][0]==cl)
+{
+counter=i;
+speak(players[counter]);
+cl="";
+f=1;
+break;
+}
+}
+if(f==0)
+{
+counter=0;
+for(uint i=counter; i<players.length(); i++)
+{
+if(players[i][0]==cl)
+{
+counter=i;
+speak(players[counter]);
+cl="";
+f=1;
+break;
+}
+}
+}
+if(f==0)
+{
+speak("No player could be found.");
+}
+}
+if(key_pressed(KEY_UP))
+{
+if(players.length()==1)
+{
+speak(players[0]);
+counter=0;
+}
+else if(counter > 0)
+{
+counter--;
+speak(players[counter]);
+}
+}
+if(key_pressed(KEY_DOWN))
+{
+if(players.length()==1)
+{
+speak(players[0]);
+counter=0;
+}
+else if(counter < players.length()-1)
+{
+counter++;
+speak(players[counter]);
+}
+}
+if(key_pressed(KEY_RETURN) and counter <= players.length()-1)
+{
+if(counter>0)
+{
+p.play_stationary("trackingnew"+".ogg", false);
+speak("You are now tracking "+players[counter]);
+tracking=players[counter];
+return;
+}
+else
+{
+speak("stopped tracking");
+tracking="";
+return;
+}
+}
+if(key_pressed(KEY_ESCAPE))
+{
+speak("canceled");
+tracking="";
+return;
+}
+}
+return;
+}
+void planeloop()
+{
+send_reliable(0, "i_am_in_plane", 0);
+send_reliable(0, "plane_turn "+facing, 0);
+in_plane=true;
+plane.load("duoplaneinside.ogg");
+plane.play_looped();
+while(true)
+{
+mainloop();
+netloop();
+if (key_pressed(KEY_F1))
+{
+send_reliable(0,"whoonline",0);
+}
+if(key_pressed(KEY_F3) and pinging==false)
+{
+send_reliable(1, "ping", 0);
+p.play_stationary("pingstart.ogg", false);
+pingtimer.restart();
+pinging=true;
+}
+if(key_pressed(KEY_F2))
+{
+send_reliable(0, "motd", 0);
+}
+if(key_pressed(KEY_W) and tracking!="")
+{
+send_reliable(1, "trackinfo "+tracking, 0);
+}
+if(key_pressed(KEY_ESCAPE) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
+{
+go_out=false;
+send_reliable(0, "plane_stop", 0);
+in_plane=false;
+plane.stop();
+resume_all_sources();
+break;
+}
+if (key_pressed(KEY_H) and key_up(KEY_LSHIFT))
+{
+send_reliable(0,"health",0);
+}
+if(key_pressed(KEY_DOWN) and me.z>=1)
+{
+send_reliable(0, "go_down", 0);
+} 
+if(key_pressed(KEY_UP) and me.z<=74)
+{
+send_reliable(0, "go_up", 0);
+}
+if (key_pressed(KEY_SLASH))
+{
+string chat=v.input("Enter your message","",true);
+if (chat!="")
+send_reliable(0,chat,1);
+}
+if(key_pressed(KEY_T))
+{
+send_reliable(1, "playermenu", 0);
+}
+if(key_pressed(KEY_LEFT) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+{
+turntimer.restart();
+facing=snapleft(facing, getdir(facing));
+speak(dir_to_string(getdir(facing)));
+send_reliable(0, "plane_turn "+facing, 0);
+mouse_update();
+}
+if(key_pressed(KEY_RIGHT) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+{
+turntimer.restart();
+facing=snapright(facing, getdir(facing));
+speak(dir_to_string(getdir(facing)));
+send_reliable(0, "plane_turn "+facing, 0);
+mouse_update();
+}
+if(key_pressed(KEY_SPACE) and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank") 
+{
+send_reliable(0, "plane_rem", 0);
+p.play_stationary("duoplanerem.ogg",false);
+}
+if (key_pressed(KEY_LBRACKET))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+firstbuffer();
+}
+else
+{
+bufferleft();
+}
+}
+if (key_pressed(KEY_RBRACKET))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+lastbuffer();
+}
+else
+{
+bufferright();
+}
+}
+if (key_pressed(KEY_COMMA))
+{
+prevbufferitem();
+}
+if (key_pressed(KEY_PERIOD))
+{
+nextbufferitem();
+}
+}
+}
+void splaneloop()
+{
+send_reliable(0, "i_am_in_plane", 0);
+in_plane=true;
+plane.load("duoplaneinside.ogg");
+plane.play_looped();
+while(true)
+{
+mainloop();
+netloop();
+if (key_pressed(KEY_F1))
+{
+send_reliable(0,"whoonline",0);
+}
+if(key_pressed(KEY_F3) and pinging==false)
+{
+send_reliable(1, "ping", 0);
+p.play_stationary("pingstart.ogg", false);
+pingtimer.restart();
+pinging=true;
+}
+if (key_pressed(KEY_H) and key_up(KEY_LSHIFT))
+{
+send_reliable(0,"health",0);
+}
+if(key_pressed(KEY_F2))
+{
+send_reliable(0, "motd", 0);
+}
+if(key_pressed(KEY_W) and tracking!="")
+{
+send_reliable(1, "trackinfo "+tracking, 0);
+}
+if (key_pressed(KEY_SLASH))
+{
+string chat=v.input("Enter your message","",true);
+if (chat!="")
+send_reliable(0,chat,1);
+}
+if(key_pressed(KEY_T))
+{
+send_reliable(1, "playermenu", 0);
+}
+if(key_pressed(KEY_RETURN) and bombloaded==false and go_reload==false)
+{
+go_reload=true;
+bombloadtimer.restart();
+p.play_stationary("planebombreload.ogg",false);
+}
+if(key_pressed(KEY_ESCAPE) and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
+{
+go_out=false;
+send_reliable(0, "plane_stop", 0);
+in_plane=false;
+plane.stop();
+resume_all_sources();
+break;
+}
+if(key_pressed(KEY_SPACE) and bombloaded==true)
+{
+send_reliable(0, "spawn_planebomb", 0);
+bombloaded=false;
+}
+if(bombloadtimer.elapsed>=3375 and bombloaded==false and go_reload==true)
+{
+bombloaded=true;
+go_reload=false;
+}
+if (key_pressed(KEY_LBRACKET))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+firstbuffer();
+}
+else
+{
+bufferleft();
+}
+}
+if (key_pressed(KEY_RBRACKET))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+{
+lastbuffer();
+}
+else
+{
+bufferright();
+}
+}
+if (key_pressed(KEY_COMMA))
+{
+prevbufferitem();
+}
+if (key_pressed(KEY_PERIOD))
+{
+nextbufferitem();
+}
+}
+}
+
+bool int_to_bool(int num)
+{
+if(num==1)
+{
+return true;
+}
+return false;
+}
+int bool_to_int(bool b)
+{
+if(b==true)
+{
+return 1;
+}
+return 0;
+}

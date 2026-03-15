@@ -1,0 +1,246 @@
+player@[] players(0);
+class player
+{
+string comp="";
+dictionary inv;
+string cachedinv;
+dictionary ammo;
+string cachedammo;
+int turn=1;
+bool in_plane=false;
+timer life_injectiontimer;
+bool life_injection=false;
+timer buckettimer;
+bool use_bucket=false;
+timer watertanktimer;
+bool use_watertank=false;
+bool death=false;
+bool hk_g_supressor=false;
+bool taurus_supressor=false;
+bool magnum_revolver_supressor=false;
+bool beretta_supressor=false;
+bool battleroyale=false;
+bool ballista=false;
+timer ballistatimer;
+bool bunkerbomb;
+timer bunkerbombtimer;
+bool see=true;
+bool semtex=false;
+timer semtextimer;
+timer smokebombtimer;
+bool ultra_health_potion=false;
+timer ultra_health_potiontimer;
+bool kills2=false;
+bool kills1=false;
+int kills=0;
+string mate="";
+timer torpedotimer;
+timer fraggrenadetimer;
+timer fake_itemtimer;
+timer bombvesttimer;
+int bombvesttime=0;
+timer usehealth_potiontimer;
+bool usehealth_potion=false;
+timer health_potiontimer;
+bool bombveston;
+string hitby="no one";
+int health=10000;
+int x;
+int y;
+int z;
+string map;
+string zone;
+string name;
+int peer_id;
+bool dev;
+bool admin=false;
+int facing=0;
+bool invisible=false;
+timer invisibilitytimer;
+timer sendtriptimer;
+player(int px, int py, int pz, string pmap, string pname, int ppeer_id)
+{
+map=pmap;
+x=px;
+y=py;
+z=pz;
+name=pname;
+peer_id=ppeer_id;
+}
+}
+void playerloop()
+{
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].health>=10001)
+{
+players[i].health=10000;
+}
+if(players[i].kills==3 and players[i].kills1==false)
+{
+players[i].kills1=true;
+send_reliable(players[i].peer_id, "you have maked 3 kills so you get 5 fraggrenades", 2);
+send_reliable(players[i].peer_id, "play_s killachievement.ogg", 0);
+send_reliable(players[i].peer_id, "give frag_grenade 5", 0);
+}
+if(players[i].kills==5 and players[i].kills2==false)
+{
+players[i].kills2=true;
+send_reliable(players[i].peer_id, "you have maked 5 kills so you get a ultra_health_potion", 2);
+send_reliable(players[i].peer_id, "give ultra_health_potion 1", 0);
+send_reliable(players[i].peer_id, "play_s killachievement.ogg", 0);
+}
+if(players[i].sendtriptimer.elapsed>1500)
+{
+players[i].sendtriptimer.restart();
+send_reliable(players[i].peer_id, "csh "+n.get_peer_average_round_trip_time(players[i].peer_id), 4);
+}
+if(players[i].ballista==true and players[i].ballistatimer.elapsed>2350)
+{
+players[i].ballista=false;
+play("ballistafire"+random(1,3), players[i].x, players[i].y, players[i].z, players[i].map, i);
+send_reliable(0,"distsound ballistadist.ogg "+ballistas[i].x+" "+ballistas[i].y+" "+ballistas[i].z+" "+ballistas[i].map,0);
+send_reliable(players[i].peer_id, "movestart", 0);
+spawn_weapon(players[i].x,players[i].y,players[i].z,players[i].facing,players[i].turn,"ballista",players[i].name,players[i].map);
+}
+if(players[i].watertanktimer.elapsed>=7500 and players[i].use_watertank==true)
+{
+players[i].use_watertank=false;
+send_reliable(0, "src 0 500 0 500 -50 -45 floodstart.ogg", 0);
+send_reliable(0, "src 0 500 0 500 -30 10 flooddist.ogg 100", 0);
+spawn_flood();
+send_reliable(players[i].peer_id, "movestart", 0);
+}
+if(players[i].buckettimer.elapsed>=10000 and players[i].use_bucket==true)
+{
+players[i].use_bucket=false;
+send_reliable(players[i].peer_id, "movestart", 0);
+}
+if(players[i].life_injectiontimer.elapsed>=6850 and players[i].life_injection==true)
+{
+players[i].life_injectiontimer.restart();
+send_reliable(0, players[i].mate+" is revived.", 2);
+players[i].life_injection=false;
+send_reliable(players[i].peer_id, "movestart", 0);
+int index2=get_player_index_from(players[i].mate);
+if(index2>-1)
+{
+send_reliable(players[index2].peer_id, "revive", 0);
+players[index2].death==false;
+}
+}
+if(players[i].usehealth_potiontimer.elapsed>2000 and players[i].usehealth_potion==true)
+{
+players[i].usehealth_potion=false;
+send_reliable(players[i].peer_id, "movestart", 0);
+}
+if(players[i].ultra_health_potiontimer.elapsed>4400 and players[i].ultra_health_potion==true)
+{
+players[i].ultra_health_potion=false;
+send_reliable(players[i].peer_id, "movestart", 0);
+}
+if(players[i].bombvesttimer.elapsed>1500 and players[i].bombveston==true)
+{
+players[i].bombvesttimer.restart();
+players[i].bombvesttime+=1;
+play("bombvesttimer", players[i].x, players[i].y, players[i].z, players[i].map, i);
+}
+if(players[i].bombveston==true and players[i].bombvesttime>=20)
+{
+players[i].bombvesttime=0;
+players[i].bombveston=false;
+spawn_bomb(players[i].x,players[i].y,players[i].z,players[i].map,players[i].name);
+//haha
+}
+if(players[i].invisibilitytimer.elapsed>15000 and players[i].invisible==true)
+{
+players[i].see=true;
+players[i].invisible=false;
+}
+if(players[i].semtextimer.elapsed>4500 and players[i].semtex==true)
+{
+send_reliable(players[i].peer_id, "movestart", 0);
+players[i].semtex=false;
+}
+if(players[i].bunkerbombtimer.elapsed>3200 and players[i].bunkerbomb==true)
+{
+play("bunkerbombwarn",players[i].x,players[i].y,players[i].z,players[i].map);
+send_reliable(0,"distsound bunkerbombwarndist.ogg "+players[i].x+" "+players[i].y+" "+players[i].z+" "+players[i].map,0);
+send_reliable(players[i].peer_id, "movestart", 0);
+players[i].bunkerbomb=false;
+} 
+
+if(players[i].health<=0 and players[i].death==false)
+{
+string killer;
+{
+for(uint e=0; e<players.length(); e++)
+{
+if(string_contains(players[i].hitby,players[e].name,1)>-1)
+{
+killer=players[e].name;
+}
+}
+int p=get_player_index_from(killer);
+if(p>-1)
+{
+players[p].kills+=1;
+}
+}
+
+int index2=get_player_index_from(players[i].mate);
+if(index2>-1)
+{
+if(players[index2].mate==players[i].name)
+{
+send_reliable(players[index2].peer_id, "give life_injection 1", 0);
+send_reliable(players[index2].peer_id, "your duo mate died , you get a life_injection , go revive him!", 2);
+} 
+}
+send_reliable(0,killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone),2);
+send_reliable(0, "play_s killalert.ogg", 0);
+if(players[i].map=="battleroyale")
+{
+battlers-=1;
+}
+send_reliable(players[i].peer_id, "death", 0);
+play("death",players[i].x, players[i].y, players[i].z, players[i].map, i);
+spawn_corpse(players[i].x, players[i].y, players[i].z, players[i].map, players[i].inv, players[i].ammo);
+spawn_bodyfall(players[i].x, players[i].y, players[i].z, players[i].map, 3000);
+players[i].death=true;
+}
+}
+}
+void spawn_player(int x, int y, int z, string map, string name,int pi)
+{
+player p1(x,y,z,map,name,pi);
+players.insert_last(p1);
+send_reliable(0, "online "+x+" "+y+" "+z+" "+name+" "+map, 0);
+}
+int get_nearest_player(int px, int py, int pz, string pmap, int pindex=-1)
+{
+int current_distance=-1;
+int final_index=-1;
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].map!=pmap or i==pindex or players[i].invisible or players[i].death==true)
+{
+continue;
+}
+int dist=get_3d_distance(px, py, pz, players[i].x, players[i].y, players[i].z);
+if(current_distance==-1)
+{
+current_distance=dist;
+final_index=i;
+}
+else
+{
+if(dist<current_distance)
+{
+current_distance=dist;
+final_index=i;
+}
+}
+}
+return final_index;
+}

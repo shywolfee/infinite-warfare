@@ -1,0 +1,95 @@
+corpse@[] corpses(0);
+string chars="1234567890";
+class corpse
+{
+string id;
+dictionary inv;
+dictionary ammo;
+int x;int y;int z;string map;
+corpse(dictionary ammo, dictionary inv, int x, int y, int z, string map)
+{
+this.ammo=ammo;
+this.inv=inv;
+this.x=x;
+this.y=y;
+this.z=z;
+this.map=map;
+id=generate_id();
+//end constructor
+}
+//end class
+}
+string generate_id()
+{
+string vreturn="c";
+for(uint i=0; i<10; i++)
+{
+if(i==2 or i==5 or i==8)
+vreturn+="-";
+else
+vreturn+=chars[random(0,chars.length()-1)];
+}
+return vreturn;
+}
+void spawn_corpse(int x, int y, int z, string map, dictionary inv, dictionary ammo, int per=80)
+{
+if(random(1,100)<=per)
+{
+corpse tc(ammo, inv, x, y, z, map);
+corpses.insert_last(tc);
+spawn_citem(x, y, z, map, "corpse_"+tc.id);
+}
+}
+void open_corpse(string id, int index)
+{
+string final="you get the bag of a corpse and open it, the bag contains ";
+for(uint i=0; i<corpses.length(); i++)
+{
+if(corpses[i].id==id)
+{
+play("corpse", corpses[i].x, corpses[i].y, corpses[i].z, corpses[i].map);
+string[] keys;
+for(int x=0; x<2; x++)
+{
+if(x==0)
+{
+keys=corpses[i].inv.get_keys();
+final+="the following items: ";
+}
+if(x==1)
+{
+keys=corpses[i].ammo.get_keys();
+final+="and the following ammo: ";
+}
+for(uint i2=0; i2<keys.length(); i2++)
+{
+int amount;
+if(x==0)
+{
+corpses[i].inv.get(keys[i2], amount);
+//players[index].give(keys[i2], amount);
+send_reliable(players[index].peer_id, "give  "+keys[i2]+" amount",0);
+final+=amount+" "+keys[i2];
+if(i2==keys.length()-1)
+final+=". ";
+else
+final+=", ";
+}
+if(x==1)
+{
+corpses[i].ammo.get(keys[i2], amount);
+//players[index].ammogive(keys[i2], amount);
+send_reliable(players[index].peer_id, "ammogive "+keys[i2]+" amount",0);
+final+=amount+" "+keys[i2];
+if(i2==keys.length()-1)
+final+=".";
+else
+final+=", ";
+}
+}
+}
+send_reliable(players[index].peer_id, final, 0);
+corpses.remove_at(i);
+}
+}
+}

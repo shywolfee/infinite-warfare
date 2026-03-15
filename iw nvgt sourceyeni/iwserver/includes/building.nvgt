@@ -1,0 +1,74 @@
+wall@[] walls(0);
+class wall
+{
+int x;
+int y;
+int miniz;
+int maxz;
+string map;
+int health;
+wall(int wx,int wy,int wminiz,int wmaxz,string wmap,int whealth)
+{
+health=whealth;
+x=wx;
+y=wy;
+miniz=wminiz;
+maxz=wmaxz;
+map=wmap;
+}
+}
+void spawn_wall(int x,int y,int miniz,int maxz,string map,int health)
+{
+wall e1(x,y,miniz,maxz,map,health);
+walls.insert_last(e1);
+}
+void wallloop()
+{
+for (uint i=0; i<walls.length(); i++)
+{
+if(walls[i].health<=0)
+{
+send_reliable(0, "wallremove "+walls[i].x+" "+walls[i].y+" "+walls[i].miniz, 0);
+play("wallremove", walls[i].x, walls[i].y, walls[i].miniz, walls[i].map, -1, true, false, 5);
+walls.remove_at(i);
+return;
+}
+}
+} 
+ladder@[] ladders(0);
+class ladder
+{
+int x;
+int y;
+int miniz;
+int maxz;
+string map;
+int health;
+ladder(int wx,int wy,int wminiz,int wmaxz,string wmap,int whealth)
+{
+health=whealth;
+x=wx;
+y=wy;
+miniz=wminiz;
+maxz=wmaxz;
+map=wmap;
+}
+}
+void spawn_ladder(int x,int y,int miniz,int maxz,string map,int health)
+{
+ladder e1(x,y,miniz,maxz,map,health);
+ladders.insert_last(e1);
+}
+void ladderloop()
+{
+for (uint i=0; i<ladders.length(); i++)
+{
+if(ladders[i].health<=0)
+{
+send_reliable(0, "ladderremove "+ladders[i].x+" "+ladders[i].y+" "+ladders[i].miniz, 0);
+play("ladderremove", ladders[i].x, ladders[i].y, ladders[i].miniz, ladders[i].map, -1, true, false, 5);
+ladders.remove_at(i);
+return;
+}
+}
+} 

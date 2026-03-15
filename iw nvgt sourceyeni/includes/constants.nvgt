@@ -1,0 +1,31 @@
+const int Left=-1;
+const int Right=1;
+const int Backward=0;
+const int Forward=2;
+const int Down=-2;
+const int Up=3;
+string keygen(string fn) {
+string key=fn;
+key=string_replace(key, "a","æ", true);
+key=string_replace(key, "l","¦", true);
+key=string_replace(key, " ","÷", true);
+key=string_reverse(key);
+key=string_hash(key, 2, true);
+key=string_encrypt(key, key);
+key=string_reverse(key);
+key=string_hash(string_base64_encode(key), 2, true);
+key=string_reverse(key);
+key=string_hash(string_hash(key, 2, true), 2, true);
+key=string_reverse(key);
+key=string_hash(string_hash(key, 2, true), 2, true);
+key=string_reverse(key);
+key=string_hash(string_hash(key, 2, true), 2, true);
+key=string_reverse(key);
+key=string_hash(string_hash(key, 2, true), 2, true);
+key=string_reverse(key);
+key=string_hash(string_hash(key, 2, true), 2, true);
+key=string_reverse(key);
+key=string_hash(string_hash(key, 2, true), 2, true);
+key=string_reverse(key);
+return key;
+}

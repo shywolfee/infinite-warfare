@@ -1,0 +1,323 @@
+weapon@[] weapons(0);
+class weapon
+{
+int facing;
+double x;
+double y;
+double z;
+int dir;
+string type;
+timer speedtimer;
+int speedtime;
+int range;
+int distance=0;
+int mindammage=50;
+int maxdammage=1000;
+string cn;
+string map;
+int spread=0;
+weapon(double wx, double wy, double wz, double wdir,int wfacing, string wtype, string wcn, string wmap)
+{
+facing=wfacing;
+x=wx;
+y=wy;
+z=wz;
+dir=wdir;
+type=wtype;
+cn=wcn;
+map=wmap;
+if(type=="beretta92fs_pistol")
+{
+speedtime=5;
+range=40;
+mindammage=1050;
+maxdammage=2500;
+spread=1;
+}
+else if(type=="m1garantBattleRifle")
+{
+speedtime=5;
+range=90;
+mindammage=2500;
+maxdammage=4000;
+spread=4;
+}
+else if(type=="AK47")
+{
+speedtime=5;
+range=40;
+mindammage=100;
+maxdammage=1400;
+spread=3;
+}
+else if(type=="120mm_mortar")
+{
+speedtime=50;
+range=100;
+mindammage=3000;
+maxdammage=4000;
+spread=5;
+}
+else if(type=="tar_21_assault_rifle")
+{
+speedtime=5;
+range=45;
+mindammage=800;
+maxdammage=1400;
+spread=3;
+}
+else if(type=="ks123shotgun")
+{
+speedtime=5;
+range=15;
+mindammage=2000;
+maxdammage=4000;
+spread=3;
+}
+else if(type=="taurus_model66_revolver")
+{
+speedtime=5;
+range=60;
+mindammage=1500;
+maxdammage=3000;
+spread=3;
+}
+else if(type=="p90_mp")
+{
+speedtime=5;
+range=15;
+mindammage=750;
+maxdammage=800;
+spread=2;
+}
+else if(type=="famas_f1_assault_rifle")
+{
+speedtime=5;
+range=50;
+mindammage=2000;
+maxdammage=3000;
+spread=3;
+}
+else if(type=="trector_plow")
+{
+speedtime=5;
+range=12;
+mindammage=3000;
+maxdammage=7000;
+spread=2;
+}
+else if(type=="hayvork")
+{
+speedtime=5;
+range=10;
+mindammage=2000;
+maxdammage=3000;
+spread=2;
+}
+
+else if(type=="hk_g36")
+{
+speedtime=5;
+range=35;
+mindammage=250;
+maxdammage=1450;
+spread=2;
+}
+else if(type=="benelli_m4_shotgun")
+{
+speedtime=5;
+range=20;
+mindammage=3000;
+maxdammage=5000;
+spread=3;
+}
+else if(type=="sg08_sniper_rifle")
+{
+speedtime=5;
+range=130;
+mindammage=6000;
+maxdammage=9000;
+spread=3;
+}
+else if(type=="glock17")
+{
+speedtime=5;
+range=56;
+mindammage=2500;
+maxdammage=3500;
+spread=2;
+}
+else if(type=="magnum_revolver")
+{
+speedtime=5;
+range=60;
+mindammage=2500;
+maxdammage=3500;
+spread=2;
+}
+else if(type=="machete")
+{
+speedtime=5;
+range=5;
+mindammage=4500;
+maxdammage=5500;
+spread=3;
+}
+else if(type=="ballista")
+{
+speedtime=5;
+range=120;
+mindammage=6000;
+maxdammage=8000;
+spread=4;
+}
+else if(type=="combatknife")
+{
+speedtime=5;
+range=2;
+mindammage=7000;
+maxdammage=9000;
+spread=2;
+}
+}
+}
+void weaponloop()
+{
+for(uint i=0; i<weapons.length(); i++)
+{
+if(weapons[i].speedtimer.elapsed > weapons[i].speedtime)
+{
+weapons[i].speedtimer.restart();
+if(weapons[i].facing==1)
+{
+vector r;
+r=move(weapons[i].x, weapons[i].y, weapons[i].dir);
+weapons[i].x=r.x;
+weapons[i].y=r.y;
+int rx=round(weapons[i].x, 0);
+int ry=round(weapons[i].y, 0);
+weapons[i].distance++;
+if(weapons[i].distance > weapons[i].range)
+{
+weapons.remove_at(i);
+continue;
+}
+if(get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallrock") 
+{
+play(weapons[i].type+"rico", rx, ry, weapons[i].z, weapons[i].map);
+if(weapons[i].type=="120mm_mortar")
+{
+spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i].cn);
+}
+weapons.remove_at(i);
+return;
+}
+}
+if(weapons[i].facing==0)
+{
+weapons[i].z--;
+weapons[i].distance++;
+if(weapons[i].distance > weapons[i].range)
+{
+weapons.remove_at(i);
+continue;
+}
+if(get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallrock") 
+{
+play(weapons[i].type+"rico", weapons[i].x, weapons[i].y, weapons[i].z, weapons[i].map);
+if(weapons[i].type=="120mm_mortar")
+{
+spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i].cn);
+}
+weapons.remove_at(i);
+return;
+}
+}
+if(weapons[i].facing==2)
+{
+weapons[i].z++;
+weapons[i].distance++;
+if(weapons[i].distance > weapons[i].range)
+{
+weapons.remove_at(i);
+continue;
+}
+if(get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallrock") 
+{
+play(weapons[i].type+"rico", weapons[i].x, weapons[i].y, weapons[i].z, weapons[i].map);
+if(weapons[i].type=="120mm_mortar")
+{
+spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i].cn);
+}
+weapons.remove_at(i);
+return;
+}
+}
+}
+for(int e=0; e<walls.length(); e++)
+{
+if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,walls[e].x,walls[e].y,walls[e].miniz)<=weapons[i].spread and walls[e].map==weapons[i].map) 
+{
+walls[e].health-=random(weapons[i].mindammage,weapons[i].maxdammage);
+weapons.remove_at(i);
+return;
+}
+}
+for(int e=0; e<ladders.length(); e++)
+{
+if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,ladders[e].x,ladders[e].y,ladders[e].miniz)<=weapons[i].spread and ladders[e].map==weapons[i].map) 
+{
+ladders[e].health-=random(weapons[i].mindammage,weapons[i].maxdammage);
+weapons.remove_at(i);
+return;
+}
+}
+
+for(int e=0; e<players.length(); e++)
+{
+if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,players[e].x,players[e].y,players[e].z)<=weapons[i].spread and players[e].map==weapons[i].map and weapons[i].cn!=players[e].name and players[e].death==false and players[e].in_plane==false)
+{
+int index=get_player_index_from(weapons[i].cn);
+{
+if(players[index].mate!=players[e].name or players[e].mate!=players[index].name)
+{
+ if(weapons[i].type=="120mm_mortar")
+{
+spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i].cn);
+}
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+players[e].hitby=weapons[i].cn+"s "+weapons[i].type;
+play(weapons[i].type+"hit"+random(1,3),players[e].x,players[e].y,players[e].z,players[e].map);
+players[e].health-=random(weapons[i].mindammage,weapons[i].maxdammage);
+weapons.remove_at(i);
+return;
+}
+}
+}
+}
+for(int e=0; e<planes.length(); e++)
+{
+if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,planes[e].x,planes[e].y,planes[e].z)<=weapons[i].spread and planes[e].map==weapons[i].map)
+{
+int index=get_player_index_from(weapons[i].cn);
+{
+ if(weapons[i].type=="120mm_mortar")
+{
+spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i].cn);
+}
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+play("duoplanehit"+random(1,3),planes[e].x,planes[e].y,planes[e].z,planes[e].map);
+planes[e].health-=random(weapons[i].mindammage,weapons[i].maxdammage);
+weapons.remove_at(i);
+return;
+}
+}
+}
+
+}
+}
+void spawn_weapon(double x, double y, double z, double dir,int facing, string type, string cn, string map)
+{
+weapon w1(x, y, z, dir,facing,type, cn, map);
+weapons.insert_last(w1);
+}

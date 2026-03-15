@@ -1,0 +1,32 @@
+#pragma plugin nvgt_curl
+#include "audioutils.nvgt"
+#include "downloader.nvgt"
+void cfu(string name,string filename)
+{
+string new_version=url_get(webdir+"/game/langver.txt");
+string update_error_reason=url_get(webdir+"/game/update_error_reason.txt");
+if(new_version=="" or new_version=="0" or string_contains(new_version," ",1)!=-1 or string_contains(new_version,"html",1)!=-1 or new_version.length()<2 or new_version.length()>5)
+{
+
+speak("unable to check the update, reason, "+update_error_reason+".");
+}
+if(version!=new_version)
+{
+
+dlg("There is a new update available for game, your version, "+version+", latest version, "+new_version+".");
+{
+string version=version;
+speak("update starting");
+
+string status=dl_file(webdir+"/"+filename,filename);
+if(status=="finished")
+{
+speak("update complated. Please wait extracting the files");
+wait(2000);
+run("unzip.exe", "-o -qq "+filename, false, false);
+run(name+".exe","",false,false);
+exit();
+}
+}
+}
+}

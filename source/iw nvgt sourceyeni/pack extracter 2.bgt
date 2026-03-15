@@ -1,0 +1,138 @@
+file tempf;
+string[] contents;
+string filename;
+string decryption_key;
+string end;
+pack_file pfile;
+bool strpack=false;
+void main()
+{
+filename=input_box("pack extracter", "enter the name of the file you wish to extract");
+if (filename=="")
+{
+exit();
+}
+if(!file_exists(filename))
+{
+alert("error","this file does not exist");
+exit();
+}
+decryption_key=input_box("pack extracter", "please enter the decryption key.");
+if (get_last_error()==-12)
+{
+exit();
+}
+if(string_left(decryption_key,6)=="file::")
+{
+bool s=tempf.open(string_trim_left(decryption_key,6),"rb");
+if(!s)
+{
+alert("pack extracter","error opening key file specified");
+exit();
+}
+decryption_key=tempf.read();
+tempf.close();
+}
+if(string_left(decryption_key,5)=="str::")
+{
+strpack=true;
+decryption_key=string_trim_left(decryption_key,5);
+}
+if(string_left(decryption_key,5)=="hex::") decryption_key=hex_to_string(string_trim_left(decryption_key,5));
+end=input_box("pack extracter", "Enter anything you want added to the end of the filenames, such as .ogg or .wav.");
+if (get_last_error()==-12)
+{
+exit();
+}
+pfile.open(filename);
+contents=pfile.list_files();
+if(contents.length==0)
+{
+alert("error","this is not a valid pack file.");
+exit();
+}
+alert("get ready",contents.length()+" files are about to be extracted!");
+if (!directory_exists("packs/"+filename+"/decrypted"))
+{
+directory_create("packs/"+filename+"/decrypted");
+}
+string output;
+double temp=-1;
+show_game_window("working");
+uint failures=0;
+for (double i=0; i<contents.length(); i++)
+{
+double percent=(i+1)/contents.length()*100.0;
+percent=round(percent,0);
+if(percent!=temp)
+{
+beep_percentage(percent);
+temp=percent;
+}
+output+=contents[i]+"\r\n";
+pfile.extract_file(contents[i], "packs/"+filename+"/"+string2file(contents[i]+end,"packs/"+filename));
+if(decryption_key!="") 
+{
+bool s= decrypt("packs/"+filename+"/"+string2file(contents[i]+end,"packs/"+filename), "packs/"+filename+"/decrypted/"+string2file(contents[i]+end,"packs/"+filename+"/decrypted"), decryption_key);
+if(!s)
+{
+failures++;
+output+="**previous file failed to decrypt**\r\n";
+}
+file_copy("packs/"+filename+"/decrypted/"+string2file(contents[i]+end,"packs/"+filename+"/decrypted"), "packs/"+filename+"/"+string2file(contents[i]+end,"packs/"+filename), true);
+}
+}
+directory_delete("packs/"+filename+"/decrypted");
+if(failures==contents.length())
+{
+alert("error","pack wide decryption failure has occured. Please recheck key");
+}
+else if(failures>0)
+{
+alert("warning","decryption failed on "+failures+" out of "+contents.length()+" files of pack. Examine for other filetypes? Printing list to \"pack_list.txt\"");
+tempf.open("pack_list.txt","wb");
+tempf.write(output);
+tempf.close();
+}
+else alert("success",filename+" has been extracted. stats: "+contents.length()+" files are now in packs/"+filename);
+}
+tone_synth progress_synth;
+sound@ progress_sound;
+void beep_percentage(double val)
+{
+val=round(val,0);
+if(val<0) val=0;
+if(val>100) val=100;
+double freq=110*2**(val/25);
+progress_synth.waveform_type=4;
+progress_synth.set_edge_fades(1,1);
+progress_synth.freq_ms(""+freq,40);
+@progress_sound=progress_synth.write_wave_sound();
+progress_synth.reset();
+progress_sound.play();
+}
+string string2file(string thing,string basedir="packs")
+{
+thing=string_replace(thing,"\\","/",true);
+//thing=string_replace(thing,"/"," ",true);
+string[] sp=string_split(thing,"/",false);
+if(sp.length>1)
+{
+string dir=basedir+"/"+string_trim_right(thing,string_len(sp[sp.length-1])+1);
+if(!directory_exists(dir)) directory_create(dir);
+}
+return thing;
+}
+bool decrypt(string infile, string outfile, string key)
+{
+if(strpack==false) return file_decrypt(infile,outfile,key);
+tempf.open(infile,"rb");
+string dat=tempf.read();
+tempf.close();
+string dat2=string_decrypt(dat,key);
+if(dat2=="") return false;
+tempf.open(outfile,"wb");
+tempf.write(dat2);
+tempf.close();
+return dat!=dat2;
+}

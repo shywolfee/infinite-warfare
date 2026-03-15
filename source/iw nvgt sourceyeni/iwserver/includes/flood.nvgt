@@ -1,0 +1,65 @@
+flood@[] floods(0);
+class flood
+{
+timer hittimer;
+timer removetimer;
+flood()
+{
+send_reliable(0, "src 0 500 0 500 -50 -40 floodstart.ogg 100", 0);
+}
+}
+void spawn_flood()
+{
+flood e1();
+floods.insert_last(e1);
+}
+watertank@[] watertanks(0);
+class watertank
+{
+int x;
+int y;
+int z;
+string map;
+int water;
+watertank(int wx,int wy,int wz,string wmap)
+{
+x=wx;
+y=wy;
+z=wz;
+map=wmap;
+}
+}
+void spawn_watertank(int x,int y,int z,string map)
+{
+watertank e1(x,y,z,map);
+watertanks.insert_last(e1);
+}
+	
+void floodloop()
+{
+for (uint i=0; i<floods.length(); i++)
+{
+if(floods[i].hittimer.elapsed>=39726)
+{
+floods[i].hittimer.restart();
+send_reliable(0, "remove_src 100", 0);  
+send_reliable(0, "remove_src 100", 0);  
+send_reliable(0, "src 0 500 0 500 -50 -40 floodstop.ogg 100", 0);
+for (uint e=0; e<players.length(); e++)
+{
+if(players[e].z>=-51 and players[e].z<=-44)
+{
+players[e].hitby="a flood in the tunnels";
+play("floodhit",players[e].x,players[e].y,players[e].z,players[e].map);
+players[e].health-=100000;
+}
+}
+}
+if(floods[i].removetimer.elapsed>=49000)
+{
+send_reliable(0, "remove_src 100", 0);
+floods.remove_at(i);
+ return;
+}
+}
+}

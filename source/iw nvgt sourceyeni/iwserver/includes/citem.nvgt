@@ -1,0 +1,52 @@
+citem@[] citems(0);
+class citem
+{
+int x;
+int y;
+int z;
+string owner;
+string name;
+string map;
+timer deltimer;
+timer soundtimer;
+citem(int px, int py, int pz, string imap, string pname)
+{
+map=imap;
+x=px;
+y=py;
+z=pz;
+name=pname;
+}
+}
+void citemloop()
+{
+for(uint i=0; i<citems.length(); i++)
+{
+for(uint x=0; x<players.length(); x++)
+{
+if(citems[i].soundtimer.elapsed>1000)
+{
+citems[i].soundtimer.restart();
+play("item", citems[i].x, citems[i].y, citems[i].z, citems[i].map, -1, true, false, 5);
+}
+if(citems[i].deltimer.elapsed>180000)
+{
+citems.remove_at(i);
+continue;
+}
+if (get_3d_distance(citems[i].x,citems[i].y,citems[i].z,players[x].x,players[x].y,players[x].z)<=2 and players[x].map==citems[i].map and players[x].death==false)
+{
+play("itemget"+random(1,3), citems[i].x, citems[i].y, citems[i].z, citems[i].map, x);
+send_unreliable(players[x].peer_id,"give "+citems[i].name+" 1",0);
+send_reliable(players[x].peer_id, string_replace(citems[i].name,"_"," ",true), 2);
+}
+citems.remove_at(i);
+return;
+}
+}
+}
+void spawn_citem(int x, int y, int z, string map, string name)
+{
+citem i1(x,y,z,map, name);
+citems.insert_last(i1);
+}

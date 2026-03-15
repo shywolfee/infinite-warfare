@@ -1,0 +1,133 @@
+source@[] sources(0);
+class source
+{
+int source_sound;
+int lx;
+int rx;
+int miny;
+int maxy;
+int minz;
+int maxz;
+int dist;
+string soundfile;
+bool paused=false;
+int id=-1;
+bool p2;
+source(int source_lx, int source_rx, int source_miny, int source_maxy, int source_minz, int source_maxz, string file,int sdist, bool source_paused=false, int source_id=-1)
+{
+dist=sdist;
+lx=source_lx;
+rx = source_rx;
+miny=source_miny;
+maxy= source_maxy;
+minz=source_minz;
+maxz=source_maxz;
+soundfile=file;
+id=source_id;
+if(dist==1)
+{
+source_sound=p.play_3d(soundfile, me.x, me.y, me.z, lx, miny, minz, facing,true);
+p.update_sound_3d(source_sound, lx, miny, minz);
+paused=source_paused;
+if(paused==true)
+{
+p.pause_sound(source_sound);
+}
+p2=paused;
+p.update_sound_range_3d(source_sound, 0, rx-lx, 0, maxy-miny, 0, maxz-minz);
+}
+if(dist==2)
+{
+source_sound=distpool.play_3d(soundfile, me.x, me.y, me.z, lx, miny, minz, facing,true);
+distpool.update_sound_3d(source_sound, lx, miny, minz);
+paused=source_paused;
+if(paused==true)
+{
+distpool.pause_sound(source_sound);
+}
+p2=paused;
+distpool.update_sound_range_3d(source_sound, 0, rx-lx, 0, maxy-miny, 0, maxz-minz);
+}
+
+}
+}
+void sourcecheckloop()
+{
+for (uint i=0; i<sources.length(); i++)
+{
+if(sources[i].paused!=sources[i].p2)
+{
+if(sources[i].paused==true and sources[i].p2==false)
+{
+p.pause_sound(sources[i].source_sound);
+sources[i].p2=true;
+}
+else if(sources[i].paused==false and sources[i].p2==true)
+{
+p.resume_sound(sources[i].source_sound);
+sources[i].p2=false;
+}
+}
+}
+}
+void destroy_all_sources()
+{
+for(uint i=0; i<sources.length(); i++)
+{
+p.destroy_sound(sources[i].source_sound);
+distpool.destroy_sound(sources[i].source_sound);
+}
+sources.resize(0);
+}
+void pause_all_sources()
+{
+for(uint i=0; i<sources.length(); i++)
+{
+p.pause_sound(sources[i].source_sound);
+distpool.pause_sound(sources[i].source_sound);
+sources[i].paused=true;
+}
+}
+void resume_all_sources()
+{
+for(uint i=0; i<sources.length(); i++)
+{
+p.resume_sound(sources[i].source_sound);
+distpool.resume_sound(sources[i].source_sound);
+sources[i].paused=false;
+}
+}
+void spawn_source(int source_lx, int source_rx, int source_miny, int source_maxy, int source_minz, int source_maxz, string soundfile,int dist,bool paused=false, int id=-1)
+{
+source source1(source_lx, source_rx, source_miny, source_maxy, source_minz, source_maxz, soundfile,dist, paused, id);
+sources.insert_last(source1);
+}
+void destroy_source(int id)
+{
+for(uint i=0; i<sources.length(); i++)
+{
+if(sources[i].id==id and id > -1)
+{
+p.destroy_sound(sources[i].source_sound);
+distpool.destroy_sound(sources[i].source_sound);
+sources.remove_at(i);
+}
+}
+}
+void move_src(int id,int newminix,int newmaxx,int newminiy,int newmaxy,int newminiz,int newmaxz)
+{
+for (uint i=0; i<sources.length(); i++)
+{
+if(sources[i].id==id)
+{
+sources[i].lx=newminix;
+sources[i].miny=newminiy;
+sources[i].minz=newminiz;
+sources[i].rx=newmaxx;
+sources[i].maxy=newmaxy;
+sources[i].maxz=newmaxz;
+p.update_sound_3d(sources[i].source_sound, sources[i].lx, sources[i].miny, sources[i].minz);
+p.update_sound_range_3d(sources[i].source_sound, 0, sources[i].rx-sources[i].lx, 0, sources[i].maxy-sources[i].miny, 0, sources[i].maxz-sources[i].minz);
+}
+}
+}

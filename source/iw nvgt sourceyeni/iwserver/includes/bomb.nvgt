@@ -1,0 +1,398 @@
+planebomb@[] planebombs(0);
+class planebomb
+{
+timer bombtimer;
+int x;
+int y;
+int z;
+string map;
+string  owner;
+planebomb(int bx,int by,int bz,string bmap,string bowner)
+{
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+owner=bowner;
+}
+}
+void planebombloop()
+{
+for (uint i=0; i<planebombs.length(); i++)
+{
+if (planebombs[i].bombtimer.elapsed>=80 and get_tile_at(planebombs[i].x, planebombs[i].y, planebombs[i].z, planebombs[i].map)=="")
+{
+planebombs[i].bombtimer.restart();
+planebombs[i].z-=1;
+}
+if(get_tile_at(planebombs[i].x, planebombs[i].y, planebombs[i].z, planebombs[i].map)!="")
+{
+play("planebombexplode",planebombs[i].x,planebombs[i].y,planebombs[i].z,planebombs[i].map);
+send_reliable(0,"distsound planebombdist.ogg "+planebombs[i].x+" "+planebombs[i].y+" "+planebombs[i].z+" "+planebombs[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==planebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+{
+players[i2].hitby=planebombs[i].owner+"'s planebomb";
+players[i2].health-=random(6000,7000);
+play("planebombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==planebombs[i].map)
+{
+planes[i2].health-=random(6000,7000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+planebombs.remove_at(i);
+return;
+}
+}
+}
+mortarbomb@[] mortarbombs(0);
+class mortarbomb
+{
+int x;
+int y;
+int z;
+string map;
+timer bombtimer;
+string  owner;
+mortarbomb(int bx,int by,int bz,string bmap,string bowner)
+{
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+owner=bowner;
+}
+}
+void mortarloop()
+{
+for (uint i=0; i<mortarbombs.length(); i++)
+{
+if (mortarbombs[i].bombtimer.elapsed>=1)
+{
+mortarbombs[i].bombtimer.restart();
+play("120mm_mortarexplode",mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);
+send_reliable(0,"distsound 120mm_mortarexplodedist.ogg "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+{
+players[i2].hitby=mortarbombs[i].owner+"'s 120mm_mortar";
+players[i2].health-=random(1000,2000);
+play("120mm_mortarhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==mortarbombs[i].map)
+{
+planes[i2].health-=random(1000,2000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+
+}
+mortarbombs.remove_at(i);
+return;
+}
+}
+bunkerbomb@[] bunkerbombs(0);
+class bunkerbomb
+{
+timer bombtimer;
+int x;
+int y;
+int z;
+string map;
+string  owner;
+bunkerbomb(int bx,int by,int bz,string bmap,string bowner)
+{
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+owner=bowner;
+}
+}
+void bunkerbombloop()
+{
+for (uint i=0; i<bunkerbombs.length(); i++)
+{
+if (bunkerbombs[i].bombtimer.elapsed>=14000)
+{
+play("bunkerbombexplode",bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkerbombs[i].map);
+send_reliable(0,"distsound bunkerbombdist.ogg "+bunkerbombs[i].x+" "+bunkerbombs[i].y+" "+bunkerbombs[i].z+" "+bunkerbombs[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=150 and players[i2].map==bunkerbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+
+{
+int index=get_player_index_from(bunkerbombs[i].owner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+
+players[i2].hitby=bunkerbombs[i].owner+"'s bunkerbomb";
+players[i2].health-=random(11000,20000);
+play("bunkerbombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==bunkerbombs[i].map)
+{
+planes[i2].health-=random(10000,20000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+}
+
+bunkerbombs.remove_at(i);
+return;
+}
+}
+}
+void spawn_bunkerbomb(int x,int y, int z, string map,string owner)
+{
+bunkerbomb bomb1(x,y,z,map,owner);
+bunkerbombs.insert_last(bomb1);
+}
+void spawn_bunker(int x,int y, int z, string map,string owner,string name)
+{
+bunker bomb1(x,y,z,map,owner,name);
+bunkers.insert_last(bomb1);
+}
+void spawn_ballista(int x,int y, int z, string map)
+{
+ballista bomb1(x,y,z,map);
+ballistas.insert_last(bomb1);
+}
+bunker@[] bunkers(0);
+class bunker
+{
+string name;
+int x;
+int y;
+int z;
+timer healtimer;
+string map;
+string  owner;
+bunker(int bx,int by,int bz,string bmap,string bowner,string bname)
+{
+name=bname;
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+owner=bowner;
+}
+}
+ballista@[] ballistas(0);
+class ballista
+{
+int x;
+int y;
+int z;
+string map;
+ballista(int bx,int by,int bz,string bmap)
+{
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+}
+}
+void bunkerloop()
+{
+for (uint i=0; i<bunkers.length(); i++)
+{
+for (uint e=0; e<players.length(); e++)
+{
+if(bunkers[i].healtimer.elapsed>=3000 and players[e].x==bunkers[i].x and players[e].y==bunkers[i].y and players[e].z==bunkers[i].z and players[e].name==bunkers[i].owner)
+{
+play("healing",bunkers[i].x,bunkers[i].y,bunkers[i].z,bunkers[i].map);
+bunkers[i].healtimer.restart();
+players[e].health+=random(200,250);
+}
+}
+}
+}
+samtex@[] samtexs(0);
+class samtex
+{
+int x;
+int y;
+int z;
+string map;
+string owner;
+samtex(int sx,int sy,int sz,string smap,string sowner)
+{
+x=sx;
+y=sy;
+z=sz;
+map=smap;
+owner=sowner;
+}
+}
+void explode()
+{
+for (uint i=0; i<samtexs.length(); i++)
+{
+play("semtexexplode",samtexs[i].x,samtexs[i].y,samtexs[i].z,samtexs[i].map);
+send_reliable(0,"distsound semtexdist.ogg "+samtexs[i].x+" "+samtexs[i].y+" "+samtexs[i].z+" "+samtexs[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,players[i2].x,players[i2].y,players[i2].z)<=30 and players[i2].map==samtexs[i].map and players[i2].death==false and players[i2].in_plane==false)
+
+{
+int index=get_player_index_from(samtexs[i].owner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+
+players[i2].hitby=samtexs[i].owner+"'s semtex";
+players[i2].health-=random(5000,8000);
+play("semtexhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==samtexs[i].map)
+{
+planes[i2].health-=random(6000,7000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+
+}
+samtexs.remove_at(i);
+return;
+}
+}
+void spawn_samtex(int x,int y, int z, string map,string owner)
+{
+samtex bomb1(x,y,z,map,owner); 
+samtexs.insert_last(bomb1);
+}
+smokebomb@[] smokebombs(0);
+class smokebomb
+{
+timer bombtimer;
+string owner;
+int z;
+string explodesound;
+string distsound;
+string map;
+int x, y;
+smokebomb(int bx,int by,int bz, string bmap, string bowner)
+{
+owner=bowner;
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+play("smokebombplace",x,y,z,map);
+}
+}
+void smokebombloop()
+{
+for (uint i=0; i<smokebombs.length(); i++)
+{
+if (smokebombs[i].bombtimer.elapsed>=1500)
+{
+play("smokebombexplode",smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,smokebombs[i].map);
+send_reliable(0,"distsound smokebombdist.ogg "+smokebombs[i].x+" "+smokebombs[i].y+" "+smokebombs[i].z+" "+smokebombs[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==smokebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+
+{
+players[i2].see=false;
+players[i2].invisible=true;
+players[i2].invisibilitytimer.restart();
+play("smokebombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+
+}
+}
+smokebombs.remove_at(i);
+return;
+}
+}
+}
+void spawn_smokebomb(int x,int y,int z,string map,string owner)
+{
+smokebomb e1(x,y,z,map,owner);
+smokebombs.insert_last(e1);
+}
+bomb@[] bombs(0);
+class bomb
+{
+timer bombtimer;
+string owner;
+int z;
+string explodesound;
+string distsound;
+string map;
+int x, y;
+bomb(int bx,int by,int bz, string bmap, string bowner)
+{
+owner=bowner;
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+play("bombvesttimer",x,y,z,map);
+}
+}
+void bombloop()
+{
+for (uint i=0; i<bombs.length(); i++)
+{
+if (bombs[i].bombtimer.elapsed>=100)
+{
+play("bombvestexplode",bombs[i].x,bombs[i].y,bombs[i].z,bombs[i].map);
+send_reliable(0,"distsound bombvestdist.ogg "+bombs[i].x+" "+bombs[i].y+" "+bombs[i].z+" "+bombs[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==bombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+
+{
+players[i2].health-=random(9000, 9500);
+players[i2].hitby=bombs[i].owner+"'s bombvest";
+play("bombvesthit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==bombs[i].map)
+{
+planes[i2].health-=random(6000,7000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+
+}
+bombs.remove_at(i);
+return;
+}
+}
+}
+void spawn_bomb(int x,int y, int z, string map,string owner)
+{
+bomb bomb1(x,y,z,map,owner);
+bombs.insert_last(bomb1);
+}
+void spawn_mortarbomb(int x,int y, int z, string map,string owner)
+{
+mortarbomb bomb1(x,y,z,map,owner);
+mortarbombs.insert_last(bomb1);
+}
+void spawn_planebomb(int x,int y, int z, string map,string owner)
+{
+planebomb bomb1(x,y,z,map,owner);
+planebombs.insert_last(bomb1);
+}

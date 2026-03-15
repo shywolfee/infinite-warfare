@@ -1,0 +1,49 @@
+wall@[] walls(0);
+class wall
+{
+int x;
+int y;
+int miniz;
+int maxz;
+string type;
+string map;
+wall(int wx,int wy,int wminiz,int wmaxz,string wmap,string wtype)
+{
+x=wx;
+y=wy;
+miniz=wminiz;
+maxz=wmaxz;
+map=wmap;
+type=wtype;
+}
+}
+void spawn_wall(int x,int y,int miniz,int maxz,string map,string type)
+{
+wall e1(x,y,miniz,maxz,map,type);
+walls.insert_last(e1);
+}
+
+ladder@[] ladders(0);
+class ladder
+{
+int x;
+int y;
+int miniz;
+int maxz;
+string type;
+string map;
+ladder(int wx,int wy,int wminiz,int wmaxz,string wmap,string wtype)
+{
+x=wx;
+y=wy;
+miniz=wminiz;
+maxz=wmaxz;
+map=wmap;
+type=wtype;
+}
+}
+void spawn_ladder(int x,int y,int miniz,int maxz,string map,string type)
+{
+ladder e1(x,y,miniz,maxz,map,type);
+ladders.insert_last(e1);
+}

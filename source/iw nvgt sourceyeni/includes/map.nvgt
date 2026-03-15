@@ -1,0 +1,323 @@
+string oldzone="";
+void checkzone()
+{
+if (get_zone_at(mr.x,mr.y,me.z)!=oldzone)
+{
+speak(get_zone_at(mr.x,mr.y,me.z));
+oldzone=get_zone_at(mr.x,mr.y,me.z);
+}
+}
+string[] map;
+string[] zones;
+string get_tile_at(double x, double y, double z)
+{
+string final;
+for(uint i=0; i<map.length(); i++)
+{
+string[] parsed=string_split(map[i], ":", false);
+if(parsed.length()<1)
+continue;
+if(parsed[0]=="tile" and parsed.length()>7)
+{
+int minx=string_to_number(parsed[1]);
+int maxx=string_to_number(parsed[2]);
+int miny=string_to_number(parsed[3]);
+int maxy=string_to_number(parsed[4]);
+int minz=string_to_number(parsed[5]);
+int maxz=string_to_number(parsed[6]);
+if(minx>x)
+{
+continue;
+}
+if(minx<=x and maxx>=x and miny<=y and maxy>=y and minz<=z and maxz>=z)
+{
+final=parsed[7];
+}
+}
+}
+return final;
+}
+string linear(string[] a)
+{
+string final;
+for(uint i=0; i<a.length(); i++)
+{
+final+=(a[i]+"\r\n");
+}
+return final;
+}
+string[] delinear(string a)
+{
+return string_split(a, "\r\n", false);
+}
+string get_zone_at(int x, int y, int z)
+{
+string final;
+for(uint i=0; i<zones.length(); i++)
+{
+string[] parsed=string_split(zones[i], ":", false);
+if(parsed.length()>5)
+{
+int minx=string_to_number(parsed[0]);
+int maxx=string_to_number(parsed[1]);
+int miny=string_to_number(parsed[2]);
+int maxy=string_to_number(parsed[3]);
+int minz=string_to_number(parsed[4]);
+int maxz=string_to_number(parsed[5]);
+if(minx>x)
+{
+continue;
+}
+if(minx<=x and maxx>=x and miny<=y and maxy>=y and minz<=z and maxz>=z and parsed.length()>6)
+{
+final=parsed[6];
+}
+}
+}
+return final;
+}
+void load_map(string mdata)
+{
+p.destroy_all();
+destroy_all_sources();
+map.resize(0);
+zones.resize(0);
+string[] ldata=delinear(mdata);
+for(uint i=0; i<ldata.length(); i++)
+{
+string[] parsed=string_split(ldata[i], ":", true);
+if(parsed[0]=="mapname")
+{
+mapname=string_replace(ldata[i], "mapname:", "", false);
+}
+else if(parsed[0]=="tile")
+{
+map.insert_last(ldata[i]);
+}
+else if(parsed[0]=="zone")
+{
+zones.insert_last(string_replace(ldata[i], "zone:", "", false));
+}
+else if(parsed[0]=="maxx")
+{
+max.x=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="maxy")
+{
+max.y=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="maxz")
+{
+max.z=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="x")
+{
+me.x=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="y")
+{
+me.y=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="z")
+{
+me.z=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="src" and parsed.length()>8)
+{
+int lx=string_to_number(parsed[1]);
+int rx=string_to_number(parsed[2]);
+int miny=string_to_number(parsed[3]);
+int maxy=string_to_number(parsed[4]);
+int minz=string_to_number(parsed[5]);
+int maxz=string_to_number(parsed[6]);
+int id=string_to_number(parsed[8]);
+spawn_source(lx, rx, miny, maxy, minz, maxz, parsed[7],1, false, id);
+}
+else if (parsed[0]=="travelpoint" and parsed.length()>=8||parsed[0]=="reverb"&&parsed.length()>=8)
+{
+}
+}
+}
+void playstep()
+{
+if(in_plane==false)
+{
+p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"step"+random(1, 5)+".ogg", false);
+for(int i=0; i<ladders.length(); i++)
+{
+if(me.x==ladders[i].x and me.y==ladders[i].y and me.z>=ladders[i].miniz and me.z<=ladders[i].maxz)
+{
+p.play_stationary("ladderstep"+random(1,5)+".ogg",false);
+}
+}
+}
+}
+void move(string dir)
+{
+if(dir==Up)
+{
+if(get_tile_at(mr.x, mr.y, me.z+1)!="" and get_tile_at(mr.x, mr.y, me.z+1)!="blank")
+{
+me.z++;
+checkup();
+}
+}
+if(dir==Down)
+{
+if(get_tile_at(mr.x, mr.y, me.z-1)!="" and get_tile_at(mr.x, mr.y, me.z-1)!="blank")
+{
+me.z--;
+checkdown();
+}
+}
+
+if(dir==Forward)
+{
+double ox=me.x;
+double oy=me.y;
+me=move(me.x, me.y, me.z, facing, north);
+if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
+{
+me.x=ox;
+me.y=oy;
+return;
+}
+checkaround(ox, oy);
+}
+if(dir==Backward)
+{
+double ox=me.x;
+double oy=me.y;
+me=move(me.x, me.y, me.z, facing, south);
+if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
+{
+me.x=ox;
+me.y=oy;
+return;
+}
+checkaround(ox, oy);
+}
+if(dir==Left)
+{
+double ox=me.x;
+double oy=me.y;
+me=move(me.x, me.y, me.z, facing, west);
+if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
+{
+me.x=ox;
+me.y=oy;
+return;
+}
+checkaround(ox, oy);
+}
+if(dir==Right)
+{
+double ox=me.x;
+double oy=me.y;
+me=move(me.x, me.y, me.z, facing, east);
+if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
+{
+me.x=ox;
+me.y=oy;
+return;
+}
+checkaround(ox, oy);
+}
+}
+void checkaround(double ox, double oy)
+{
+mr.x=round(me.x, 0);
+mr.y=round(me.y, 0);
+for(int i=0; i<walls.length(); i++)
+{
+if(mr.x==walls[i].x and mr.y==walls[i].y and me.z>=walls[i].miniz and me.z<=walls[i].maxz)
+{
+p.play_stationary(walls[i].type+".ogg",false);
+me.x=ox;
+me.y=oy;
+}
+}
+if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)  
+{
+p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+send_reliable(0, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
+me.x=ox;
+me.y=oy;
+}
+else
+{
+playstep();
+send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
+checkzone();
+}
+}
+void checkup()
+{
+if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)
+{
+p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+send_reliable(0, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
+bounceback(Up);
+}
+else
+{
+send_reliable(0, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
+playstep();
+checkzone();
+}
+}
+void checkdown()
+{
+if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)
+{
+p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+send_reliable(1, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
+bounceback(Down);
+}
+else
+{
+playstep();
+send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
+checkzone();
+}
+}
+void bounceback(int d)
+{
+if(d==Up)
+{
+me.z--;
+}
+else if(d==Down)
+{
+me.z++;
+}
+}
+void spawn_platform(int leftx, int rightx, int miny, int maxy, int z, string plattype)
+{
+map.insert_last(leftx+":"+rightx+":"+miny+":"+maxy+":"+z+":"+z+":"+plattype);
+}
+void spawn_tiles(int leftx, int rightx, int miny, int maxy, int minz, int maxz, string plattype)
+{
+map.insert_last("tile:"+leftx+":"+rightx+":"+miny+":"+maxy+":"+minz+":"+maxz+":"+plattype);
+}
+void spawn_zone(int leftx, int rightx, int miny, int maxy, int minz, int maxz, string zonetype)
+{
+zones.insert_last(leftx+":"+rightx+":"+miny+":"+maxy+":"+minz+":"+maxz+":"+zonetype);
+}
+void spawn_tile(int x, int y, int z, string type)
+{
+map.insert_last("tile:"+x+":"+x+":"+y+":"+y+":"+z+":"+z+":"+type);
+}
+void spawn_tree(int x, int y)
+{
+int z=random(3, 10);
+spawn_tiles(x, x, y, y, 0, z, "tree");
+}
+void spawn_glass(int x, int y)
+{
+spawn_tile(x, y, 0, "glass");
+}
+string gct()
+{
+return get_tile_at(camera.x, camera.y, camera.z);
+}

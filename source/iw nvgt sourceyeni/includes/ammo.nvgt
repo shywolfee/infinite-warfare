@@ -1,0 +1,67 @@
+ammo@[] ammos(0);
+class ammo
+{
+string weapon_name;
+int ammo_amount=0;
+int ammo_amount_check=0;
+int orig_ammo;
+ammo(string aname, int aamount)
+{
+weapon_name=aname;
+ammo_amount=aamount;
+ammo_amount_check=aamount;
+orig_ammo=aamount;
+}
+void give_ammo(int amount)
+{
+ammo_amount+=amount;
+ammo_amount_check+=amount;
+}
+void ammo_check_cheat()
+{
+if(ammo_amount!=ammo_amount_check)
+exit();
+}
+}
+void weapon_ammo(string wname, int aamount)
+{
+ammo a(wname, aamount);
+ammos.insert_last(a);
+}
+void ammocheatloop()
+{
+for(uint i=0; i<ammos.length(); i++)
+{
+ammos[i].ammo_check_cheat();
+}
+}
+int ammo_check(string wname)
+{
+for(uint i=0; i<ammos.length(); i++)
+{
+if(ammos[i].weapon_name==wname)
+{
+return ammos[i].ammo_amount;
+}
+}
+return -1;
+}
+void ammo_give(string wname, int ammotogive)
+{
+for(uint i=0; i<ammos.length(); i++)
+{
+if(ammos[i].weapon_name==wname)
+{
+ammos[i].give_ammo(ammotogive);
+}
+}
+return;
+}
+void reset_ammo()
+{
+for(uint i=0; i<ammos.length(); i++)
+{
+ammos[i].ammo_amount=ammos[i].orig_ammo;
+ammos[i].ammo_amount_check=ammos[i].orig_ammo;
+}
+}

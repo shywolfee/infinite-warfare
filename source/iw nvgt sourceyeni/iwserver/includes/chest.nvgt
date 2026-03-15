@@ -1,0 +1,41 @@
+string[] in_chest={"duo_plane_chest","chest_of_rocks","ammunition_chest","grenades_and_bombs_chest"};
+chest@[] chests(0);
+class chest
+{
+int x;
+int y;
+int z;
+string map;
+timer soundtimer;
+string owner;
+string type;
+chest(int cx,int cy,int cz,string cmap,string ctype)
+{
+type=ctype;
+x=cx;
+y=cy;
+z=cz;
+map=cmap;
+}
+}
+void chestloop()
+{
+for(uint i=0; i<chests.length(); i++)
+{
+if(chests[i].soundtimer.elapsed>=1500)
+{
+chests[i].soundtimer.restart();
+play("chestloop", chests[i].x, chests[i].y, chests[i].z, chests[i].map, -1, true, false, 5);
+}
+if(string_contains(get_tile_at(chests[i].x, chests[i].y, chests[i].z, chests[i].map), "wall", 1)>-1) 
+{
+chests.remove_at(i);
+return;
+}
+}
+}
+void spawn_chest(int x,int y,int z,string map,string type)
+{
+chest e1(x,y,z,map,type);
+chests.insert_last(e1);
+}

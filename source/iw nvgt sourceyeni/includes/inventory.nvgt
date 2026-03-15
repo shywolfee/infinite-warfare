@@ -1,0 +1,71 @@
+int invpos;
+dictionary inv;
+void give(string item, int amount)
+{
+int a;
+if (!inv.exists(item))
+{
+inv.set(item,amount);
+}
+else
+{
+inv.get(item,a);
+if (a+amount<=0)
+inv.delete(item);
+else
+{
+inv.set(item,a+amount);
+}
+}
+}
+void cycle_inv(int dir)
+{
+if (dir==1)
+invpos+=1;
+else
+invpos-=1;
+if (invpos>=inv.get_size())
+{
+invpos=0;
+}
+else if (invpos<0)
+{
+invpos=inv.get_size()-1;
+}
+if (inv.get_size()==0)
+{
+speak("No items");
+}
+else
+{
+int a;
+inv.get(inv.get_keys()[invpos],a);
+if(a==1)
+speak(string_replace(inv.get_keys()[invpos],"_"," ",true)+". "+(invpos+1)+" of "+inv.get_keys().length());
+else
+speak(a+" "+string_replace(inv.get_keys()[invpos], "_", " ", true)+"s. "+(invpos+1)+" of "+inv.get_keys().length());
+}
+}
+int count_total_items()
+{
+int amount=0;
+for (uint i=0; i<inv.get_keys().length(); i++)
+{
+int a;
+inv.get(inv.get_keys()[i],a);
+amount+=a;
+}
+return amount;
+}
+int get_item_count(string item)
+{
+int amount=0;
+for (uint i=0; i<inv.get_keys().length(); i++)
+{
+int a=0;
+if (inv.get_keys()[i]==item)
+inv.get(inv.get_keys()[i],a);
+amount+=a;
+}
+return amount;
+}

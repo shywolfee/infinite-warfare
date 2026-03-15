@@ -1,0 +1,101 @@
+string netaddress="localhost";
+int netport=1316;
+uint peer_id=0;
+void connect()
+{
+timer connectiontimer;
+if(name=="")
+{
+dlg("you didn't set a name, you should set one before you are abled to connect.");
+mainmenu();
+return;
+}
+if(connected==false and prevconnected==false)
+{
+n.setup_client(20, 500);
+n.connect(netaddress, netport);
+speak("connecting to the server.");
+}
+if(connected==true or prevconnected==true)
+{
+e=n.request();
+send_reliable(0, "connect_me "+name+" "+version+" "+comp, 0);
+speak("logging in");
+}
+connectiontimer.restart();
+while(true)
+{
+wait(5);
+e=n.request();
+if (key_pressed(KEY_ESCAPE))
+{
+mainmenu();
+}
+if(e.type==event_disconnect or connected==false and connectiontimer.elapsed>=10000)
+{
+dlg("error: the server is currently down or under maintenance, try connecting later.");
+exitgame();
+}
+if(e.type==event_connect and connected==false)
+{
+peer_id=e.peer_id;
+send_reliable(0, "connect_me "+name+" "+version+" "+comp, 0);
+connected=true;
+speak("signing in");
+}
+else if(e.type==event_receive and get_event_message()=="loggedin123")
+{
+ sourcecheckloop();
+p.update_listener_3d(me.x, me.y, me.z);
+if(connected==false) connected=true;
+game(1);
+}
+else if(e.type==event_receive and get_event_message()=="ver")
+{
+dlg("you don't have the updated version of infinite warfare, get the latest version at http://darkserver.ru/iw/iw.zip or use the in game updater.");
+
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="alreadyin")
+{
+dlg("sorry, this name is allready in use.");
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="error")
+{
+dlg("error, unknown error");
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="banned")
+{
+dlg("woops, You are banned.");
+mainmenu();
+}
+else if(e.type==event_receive)
+{
+if(string_contains(get_event_message(), "error:", 1)>-1)
+dlg(get_event_message());
+string[] parsed=string_split(get_event_message(), " ", false);
+if(parsed[0]=="x")
+{
+me.x=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="y")
+{
+me.y=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="z")
+{
+me.z=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="mapdata")
+{
+load_map(string_replace(get_event_message(), "mapdata ", "", false));
+}
+else if(parsed[0]=="facing")
+{
+facing=string_to_number(parsed[1]);
+}
+}
+}
+}

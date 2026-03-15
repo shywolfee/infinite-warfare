@@ -1,0 +1,97 @@
+fraggrenade@[] fraggrenades(0);
+class fraggrenade
+{
+double x;
+bool canmove=true;
+double y;
+timer movetimer;
+int z;
+int dir;
+string map;
+string owner;
+timer explodetimer;
+timer landtimer;
+timer falltimer;
+fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner)
+{
+dir=gdir;
+x=gx;
+y=gy;
+z=gz;
+map=gmap;
+owner=gowner;
+play("fraggrenadethrow",x,y,z,map);
+}
+}
+void fraggrenadeloop()
+{
+for (uint i=0; i<fraggrenades.length(); i++)
+{
+if(fraggrenades[i].movetimer.elapsed > 200 and fraggrenades[i].canmove==true)
+{
+fraggrenades[i].movetimer.restart();
+vector r;
+r=move(fraggrenades[i].x, fraggrenades[i].y, fraggrenades[i].dir);
+fraggrenades[i].x=r.x;
+fraggrenades[i].y=r.y;
+if(string_contains(get_tile_at(r.x, r.y, fraggrenades[i].z, fraggrenades[i].map), "wall", 1)>-1) 
+{
+play("fraggrenadeboink",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+fraggrenades[i].dir+=180;
+}
+}
+if(fraggrenades[i].falltimer.elapsed>=80 and get_tile_at(fraggrenades[i].x, fraggrenades[i].y, fraggrenades[i].z, fraggrenades[i].map)=="" or fraggrenades[i].falltimer.elapsed>-80 and get_tile_at(fraggrenades[i].x, fraggrenades[i].y, fraggrenades[i].z, fraggrenades[i].map)=="blank")
+{
+fraggrenades[i].falltimer.restart();
+fraggrenades[i].z--;
+}
+if (fraggrenades[i].landtimer.elapsed>=1500 and get_tile_at(fraggrenades[i].x, fraggrenades[i].y, fraggrenades[i].z, fraggrenades[i].map)!="" and get_tile_at(fraggrenades[i].x, fraggrenades[i].y, fraggrenades[i].z, fraggrenades[i].map)!="blank")
+{
+fraggrenades[i].canmove=false;
+fraggrenades[i].landtimer.restart();
+play("fraggrenadeland",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+}
+if (fraggrenades[i].explodetimer.elapsed>=2200)
+{
+play("fraggrenadeexplode",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+send_reliable(0,"distsound fraggrenadedist.ogg "+fraggrenades[i].x+" "+fraggrenades[i].y+" "+fraggrenades[i].z+" "+fraggrenades[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[i2].x,players[i2].y,players[i2].z)<=16 and players[i2].map==fraggrenades[i].map and players[i2].death==false and players[i2].in_plane==false)
+{
+int index=get_player_index_from(fraggrenades[i].owner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+
+players[i2].health-=random(5000, 7000);
+players[i2].hitby=fraggrenades[i].owner+"'s fraggrenade";
+play("fraggrenadehit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+play("playerhit"+random(1,6),players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=16 and planes[i2].map==fraggrenades[i].map)
+{
+int index=get_player_index_from(fraggrenades[i].owner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+
+planes[i2].health-=random(5000, 7000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+fraggrenades.remove_at(i);
+return;
+}
+}
+}
+void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner)
+{
+fraggrenade e1(x,y,z,dir,map,owner);
+fraggrenades.insert_last(e1);
+}

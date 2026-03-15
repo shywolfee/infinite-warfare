@@ -45,7 +45,7 @@ smoke bomb: if you activate this one, players can't track you and you can't trac
 Semtex: this is a bomb you can place on the map, when placed, you can activate it with a semtex controler, (boath can be found in a semtex pack).
 torpedo: Just an explosive you can launch at players if they are on a water tile, a bit unrealistic but stil funny and powerful to use.
 frag grenade: this is a small grenade you can throw at other players, when thrown it will burst in to frags of glass and other sharp material after a small amount of time.
-fake item: when placed, it will become an item on the ground called fake.item, when someone picks it up it will explode and cause a fare bit of damage.
+land mine: when placed, it sits on the ground and explodes when an enemy steps on it, damaging everyone in range. You can also detonate your own land mines manually using the land mine detonator.
 health potion: this will give you some hp after drinking it.
 bomb vest: if you wear this soft, warm bomb vest, you are a danger to your self and others, after thirty seconds you and everyone around you will be blown up.
 ultra health potion: after gaining 5 kills, you will get this potion wich will reset your health to 10000 after drinking it.

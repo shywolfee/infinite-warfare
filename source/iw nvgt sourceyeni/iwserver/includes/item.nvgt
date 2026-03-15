@@ -39,14 +39,7 @@ continue;
 if (get_3d_distance(items[i].x,items[i].y,items[i].z,players[x].x,players[x].y,players[x].z)<=2 and players[x].map==items[i].map and players[x].death==false and items[i].bowner!=players[x].name)
 {
 play("itemget"+random(1,3), items[i].x, items[i].y, items[i].z, items[i].map, x);
-if(items[i].name=="fake.item")
-{
-players[x].health-=5000;
-play("fakeitem",players[x].x,players[x].y,players[x].z,players[x].map,x);
-send_reliable(0,"distsound fakeitemdist "+items[i].x+" "+items[i].y+" "+items[i].z+" "+items[i].map,0);
-players[x].hitby="a fake item on the ground";
-}
-else if(string_contains(items[i].name, "ammo_", 1)>-1)
+if(string_contains(items[i].name, "ammo_", 1)>-1)
 {
 string work=string_replace(items[i].name, "ammo_", "", false);
 string[] worksplit=string_split(work, "_", false);

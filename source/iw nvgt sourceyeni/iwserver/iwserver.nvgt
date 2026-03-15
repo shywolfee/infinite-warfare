@@ -110,6 +110,7 @@ bombloop();
 smokebombloop();
 fraggrenadeloop();
 torpedoloop();
+landmineloop();
 weaponloop();
 bodyfallloop();
 playerloop();
@@ -639,7 +640,7 @@ send_reliable(players[i2].peer_id, "give frag_grenade 5", 0);
 send_reliable(players[i2].peer_id, "give torpedo 5", 0);
 send_reliable(players[i2].peer_id, "give bomb_vest 5", 0);
 send_reliable(players[i2].peer_id, "give semtex_pack 2", 0);
-send_reliable(players[i2].peer_id, "give fake_item 5", 0);
+send_reliable(players[i2].peer_id, "give land_mine 5", 0);
 }
 if(chests[i].type=="chest_of_rocks")
 {
@@ -1101,18 +1102,30 @@ play("bagopen", players[index].x, players[index].y, players[index].z, players[in
 send_unreliable(players[index].peer_id, "ammogive benelli_m4_shotgun 15", 0);
 send_unreliable(players[index].peer_id, "ammogive 357magnum_revolver 30", 0);
 }
-if(parsed[1]=="fake_item" and players[index].fake_itemtimer.elapsed>2000)
+if(parsed[1]=="land_mine" and players[index].land_minetimer.elapsed>2000)
 {
-players[index].fake_itemtimer.restart();
-spawn_item(players[index].x,players[index].y,players[index].z,players[index].map,"fake.item",players[index].name);
-send_reliable(players[index].peer_id, "give fake_item -1", 0);
+players[index].land_minetimer.restart();
+spawn_landmine(players[index].x,players[index].y,players[index].z,players[index].map,players[index].name);
+send_reliable(players[index].peer_id, "give land_mine -1", 0);
 play("fakeitemplace",players[index].x,players[index].y,players[index].z,players[index].map);
+}
+if(parsed[1]=="land_mine_detonator")
+{
+for (uint i=0; i<landmines.length(); i++)
+{
+if(landmines[i].owner==players[index].name)
+{
+play("fakeitemplace",players[index].x,players[index].y,players[index].z,players[index].map);
+explode_landmines(players[index].name);
+break;
+}
+}
 }
 if(parsed[1]=="box")
 {
 send_reliable(players[index].peer_id, "give box -1", 0);
 send_reliable(players[index].peer_id, "give health_potion 5", 0);
-send_reliable(players[index].peer_id, "give fake_item 5", 0);
+send_reliable(players[index].peer_id, "give land_mine 5", 0);
 send_reliable(players[index].peer_id, "give ultra_health_potion 1", 0);
 send_unreliable(players[index].peer_id, "ammogive glock17 100", 0);
 send_unreliable(players[index].peer_id, "ammogive hk_g36 100", 0);

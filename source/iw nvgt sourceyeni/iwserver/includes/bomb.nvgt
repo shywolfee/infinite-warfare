@@ -396,3 +396,85 @@ void spawn_planebomb(int x,int y, int z, string map,string owner)
 planebomb bomb1(x,y,z,map,owner);
 planebombs.insert_last(bomb1);
 }
+landmine@[] landmines(0);
+class landmine
+{
+int x;
+int y;
+int z;
+string map;
+string owner;
+timer deltimer;
+landmine(int lx,int ly,int lz,string lmap,string lowner)
+{
+x=lx;
+y=ly;
+z=lz;
+map=lmap;
+owner=lowner;
+}
+}
+void explode_landmine(int lx, int ly, int lz, string lmap, string lowner)
+{
+play("fakeitem",lx,ly,lz,lmap);
+send_reliable(0,"distsound fakeitemdist "+lx+" "+ly+" "+lz+" "+lmap,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(lx,ly,lz,players[i2].x,players[i2].y,players[i2].z)<=15 and players[i2].map==lmap and players[i2].death==false and players[i2].in_plane==false)
+{
+int index=get_player_index_from(lowner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+players[i2].hitby=lowner+"'s land mine";
+players[i2].health-=random(4000,6000);
+play("fakeitem",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+if (get_3d_distance(lx,ly,lz,planes[i2].x,planes[i2].y,planes[i2].z)<=15 and planes[i2].map==lmap)
+{
+planes[i2].health-=random(4000,6000);
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+}
+}
+}
+void landmineloop()
+{
+for (uint i=0; i<landmines.length(); i++)
+{
+if(landmines[i].deltimer.elapsed>180000)
+{
+landmines.remove_at(i);
+return;
+}
+for (uint x=0; x<players.length(); x++)
+{
+if (get_3d_distance(landmines[i].x,landmines[i].y,landmines[i].z,players[x].x,players[x].y,players[x].z)<=2 and players[x].map==landmines[i].map and players[x].death==false and landmines[i].owner!=players[x].name)
+{
+explode_landmine(landmines[i].x,landmines[i].y,landmines[i].z,landmines[i].map,landmines[i].owner);
+landmines.remove_at(i);
+return;
+}
+}
+}
+}
+void explode_landmines(string owner)
+{
+for (uint i=0; i<landmines.length(); i++)
+{
+if(landmines[i].owner==owner)
+{
+explode_landmine(landmines[i].x,landmines[i].y,landmines[i].z,landmines[i].map,landmines[i].owner);
+landmines.remove_at(i);
+return;
+}
+}
+}
+void spawn_landmine(int x,int y, int z, string map,string owner)
+{
+landmine l1(x,y,z,map,owner);
+landmines.insert_last(l1);
+}

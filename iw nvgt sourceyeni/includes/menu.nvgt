@@ -1,0 +1,109 @@
+dynamic_menu_pro m;
+void mainmenu()
+{
+setupmenu(true, true);
+m.add_item_tts("connect to the server!","connect");
+m.add_item_tts("change some options.","options");
+m.add_item_tts("check for new updates.","cfu");
+m.add_item_tts("Exit the game.","exit");
+int mres=m.run("Main Menu",true);
+m.fade_music(20);
+if (m.get_item_name(mres)=="connect")
+connect();
+else if (m.get_item_name(mres)=="cfu")
+{
+cfu("iw","iw.zip");
+mainmenu();
+}
+else if (m.get_item_name(mres)=="options")
+optionsmenu();
+else
+exit();
+}
+void setupmenu(bool music=false, bool main=false)
+{
+m.reset(true);
+if (music==true)
+m.add_music("menumus.ogg");
+if(main==true)
+m.set_callback(main_events, "");
+else
+m.set_callback(cme, "");
+m.click_sound="menuclick.ogg";
+m.enter_sound="menuenter.ogg";
+m.wrap=false;
+m.enable_home_and_end=true;
+m.enable_up_and_down=true;
+m.enable_first_letter_navigation=true;
+m.open_sound="menuopen.ogg";
+m.wrap_sound="menumove.ogg";
+m.edge_sound="menuedge.ogg";
+m.enable_side_scrolling=false;
+m.enable_left_and_right=false;
+}
+void optionsmenu()
+{
+audio_form f;
+f.create_window("Options", false, true);
+int f_name=f.create_input_box("Name", "Enter your name, spaces are not allowed.", name, 0, false, false, false);
+int f_mate=f.create_input_box("Duo mate", "Enter the name of your duo mate, spaces are not allowed.", mate, 0, false, false, false);
+int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
+int f_save=f.create_button("&Save settings", true);
+int f_cancel=f.create_button("Cancel", false, true);
+f.focus(f_name);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(f_save))
+{
+string n=f.get_text(f_name);
+string m=f.get_text(f_mate);
+if(n!="" and string_contains(n, " ", 1)>=0)
+{
+dlg("I sayd. no spaces!");
+f.focus(f_name);
+continue;
+}
+if(m!="" and string_contains(m, " ", 1)>=0)
+{
+dlg("I sayd. no spaces!");
+f.focus(f_mate);
+continue;
+}
+if(n!="") name=n;
+if(m!="") mate=m;
+rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
+writeprefs();
+speak("Settings saved");
+break;
+}
+if(f.is_pressed(f_cancel))
+{
+speak("Canceled");
+break;
+}
+}
+mainmenu();
+}
+int yesno(string question)
+{
+setupmenu();
+m.add_item_tts("Yes","yes");
+m.add_item_tts("No","no");
+int mres=m.run(question,true);
+if (m.get_item_name(mres)=="yes")
+return 1;
+else
+return 2;
+}
+int cme(dynamic_menu_pro@ test, string data)
+{
+if (connected==true)
+netloop();
+return 0;
+}
+int main_events(dynamic_menu_pro@fuck, string fucking)
+{//if(key_pressed(KEY_V)) speak("version "+version);
+return 0;
+}

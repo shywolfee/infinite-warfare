@@ -1,6 +1,26 @@
 string netaddress="localhost";
 int netport=1316;
 uint peer_id=0;
+// Probe the server with a temporary connection and return true if it responds.
+// Times out after 5 seconds. Uses its own local network object so it does not
+// disturb the global n or connected state.
+bool server_online()
+{
+network probe;
+probe.setup_client(1, 100);
+probe.connect(netaddress, netport);
+timer pt;
+while(pt.elapsed<5000)
+{
+wait(5);
+network_event ev=probe.request();
+if(ev.type==event_connect)
+return true;
+if(ev.type==event_disconnect)
+return false;
+}
+return false;
+}
 void connect()
 {
 timer connectiontimer;

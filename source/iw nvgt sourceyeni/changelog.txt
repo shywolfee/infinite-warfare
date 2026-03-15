@@ -1,3 +1,17 @@
+New in 0.16
+The server must now be reachable before you can register a new account or log in via the options menu.
+If the server is offline, both actions are blocked with a clear error message.
+Added server_online() network probe that checks connectivity before sensitive account operations.
+
+New in 0.15
+Added a full account system.
+Accounts are stored in iwserver/accounts/ alongside the server data.
+Register a new account from the main menu: choose a username, password, confirm the password, and provide a valid email address.
+You must read and agree to the server rules before your account is created.
+The options menu now has a "Set account (login)" option which replaces the old "Set your name" entry.
+Enter your registered username and password to log in and set your in-game name.
+Passwords are stored encrypted with a per-account salt.
+
 New in 0.14
 Added buffer beeps
 Added code for corpses, they will be added soon

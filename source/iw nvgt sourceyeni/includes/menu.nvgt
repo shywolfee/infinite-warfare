@@ -25,6 +25,14 @@ exit();
 }
 void registermenu()
 {
+// Require the server to be reachable before accepting registrations.
+speak("Checking server status, please wait.");
+if (!server_online())
+{
+dlg("The server is currently offline. You cannot register a new account while the server is down. Please try again later.");
+mainmenu();
+return;
+}
 // Step 1: username
 string reg_user=input_box("Register - Username","Choose a username. No spaces allowed.");
 if (reg_user=="" or string_contains(reg_user," ",1)>=0)
@@ -128,6 +136,14 @@ m.add_item_tts("Go back","back");
 int mres=m.run("Options menu",true);
 if (m.get_item_name(mres)=="setaccount")
 {
+// Require the server to be reachable before allowing account login.
+speak("Checking server status, please wait.");
+if (!server_online())
+{
+dlg("The server is currently offline. You cannot log in to your account while the server is down. Please try again later.");
+optionsmenu();
+return;
+}
 // Ask for account username and password, then verify
 string acc_user=input_box("Account Login - Username","Enter your account username.");
 if (acc_user=="")

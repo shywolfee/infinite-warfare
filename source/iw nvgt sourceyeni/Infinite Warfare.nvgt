@@ -53,7 +53,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.16;
+double version=0.17;
 string name;
 string mate;
 double facing=0;
@@ -306,6 +306,10 @@ pinging=true;
 if(key_pressed(KEY_F2))
 {
 send_reliable(0, "motd", 0);
+}
+if(key_pressed(KEY_GRAVE))
+{
+gamemenu();
 }
 if(key_pressed(KEY_W) and tracking!="")
 {

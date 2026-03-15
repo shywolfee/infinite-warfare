@@ -119,7 +119,7 @@ create_buffer("chats");
 create_buffer("misc");
 if (!directory_exists(prefsdir))
 directory_create(prefsdir);
-accounts_dir=prefsdir+"/accounts";
+accounts_dir="iwserver/accounts";
 if (!directory_exists(accounts_dir))
 directory_create(accounts_dir);
 readprefs();

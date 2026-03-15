@@ -1,10 +1,9 @@
 // Account system for Infinite Warfare
-// Accounts are stored in: <prefsdir>/accounts/<username>.dat
+// Accounts are stored in: iwserver/accounts/<username>.dat
 // Each account file is encrypted with ACCOUNT_SECRET.
-// Passwords are stored as an encrypted string using a per-account salt
-// so two users with the same password will have different stored values.
+// Passwords are stored as an encrypted string using a per-account salt.
 
-// accounts_dir is set after prefsdir is known (main initialises it).
+// Set to "iwserver/accounts" (relative to game exe) in Infinite Warfare.nvgt main().
 string accounts_dir;
 
 // Secret used to encrypt account files and derive per-account password hashes.
@@ -28,11 +27,22 @@ bool account_exists(string username)
 }
 
 // Produce a storable "hash" for a password.
-// We encrypt the password with a key derived from the global secret and the
-// lower-cased username so each account has a unique salt.
+// Encrypted with a key derived from the global secret + lower-cased username salt.
 string hash_password(string password, string username)
 {
     return string_encrypt(password, ACCOUNT_SECRET + "_" + string_to_lower_case(username));
+}
+
+// Basic email format check: must contain @ and a dot after the @.
+bool is_valid_email(string email)
+{
+    int at = string_contains(email, "@", 1);
+    if (at < 1)
+        return false;
+    string after = email.substr(at + 1);
+    if (string_contains(after, ".", 1) < 1)
+        return false;
+    return true;
 }
 
 // Ensure the accounts directory exists.
@@ -48,7 +58,7 @@ void ensure_accounts_dir()
 
 // Register a new account.
 // Returns an empty string on success, or a human-readable error message.
-string register_account(string username, string password, string confirm)
+string register_account(string username, string password, string confirm, string email)
 {
     if (username == "")
         return "Username cannot be empty.";
@@ -60,6 +70,8 @@ string register_account(string username, string password, string confirm)
         return "Password must be at least 4 characters.";
     if (password != confirm)
         return "Passwords do not match.";
+    if (email == "" or !is_valid_email(email))
+        return "Please enter a valid email address.";
     if (account_exists(username))
         return "An account with that username already exists.";
 
@@ -68,6 +80,7 @@ string register_account(string username, string password, string confirm)
     savedata acct(get_account_path(username), ACCOUNT_SECRET);
     acct.add("username", username);
     acct.add("password", hash_password(password, username));
+    acct.add("email", email);
     acct.save();
     return "";
 }

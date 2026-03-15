@@ -44,15 +44,51 @@ return;
 }
 // Step 3: confirm password
 string reg_confirm=input_box("Register - Confirm Password","Re-enter your password to confirm.");
+if (reg_pass!=reg_confirm)
+{
+dlg("Passwords do not match.");
+mainmenu();
+return;
+}
+// Step 4: email address
+string reg_email=input_box("Register - Email","Enter your email address.");
+if (reg_email=="" or !is_valid_email(reg_email))
+{
+dlg("Please enter a valid email address.");
+mainmenu();
+return;
+}
+// Step 5: read and agree to the rules
+file rf;
+string rules_text="";
+if (rf.open("rules.txt","rb"))
+{
+rules_text=rf.read();
+rf.close();
+}
+else
+rules_text="Rules file not found. Please check the game folder.";
+dlg("Please read the following rules carefully.\n\n"+rules_text);
+// Present an agreement checkbox (yes/no menu)
+setupmenu();
+m.add_item_tts("I agree to the rules.","agree");
+m.add_item_tts("I do not agree. Go back.","disagree");
+int agree_res=m.run("Rules Agreement",true);
+if (m.get_item_name(agree_res)!="agree")
+{
+dlg("You must agree to the rules to register an account.");
+mainmenu();
+return;
+}
 // Attempt registration
-string reg_error=register_account(reg_user, reg_pass, reg_confirm);
+string reg_error=register_account(reg_user, reg_pass, reg_confirm, reg_email);
 if (reg_error!="")
 {
 dlg(reg_error);
 mainmenu();
 return;
 }
-// Success - also set the name preference to the newly registered username
+// Success: set name pref so user can connect straight away
 name=reg_user;
 writeprefs();
 dlg("Account created successfully! Your username is "+reg_user+". You can now connect to the server.");
@@ -82,7 +118,7 @@ m.enable_left_and_right=false;
 void optionsmenu()
 {
 setupmenu();
-m.add_item_tts("Set your name","name");
+m.add_item_tts("Set account (login)","setaccount");
 m.add_item_tts("Set your duo mate","mate");
 if(rctrl==0)
 m.add_item_tts("enable right control detection","rctrlo","r");
@@ -90,25 +126,39 @@ else
 m.add_item_tts("disable right control detection","rctrlo","r");
 m.add_item_tts("Go back","back");
 int mres=m.run("Options menu",true);
-if (m.get_item_name(mres)=="name")
+if (m.get_item_name(mres)=="setaccount")
 {
-string n=input_box("Name","Enter your name, spaces are not allowed.");
-if (n!="" and string_contains(n, " ", 1)<0)
+// Ask for account username and password, then verify
+string acc_user=input_box("Account Login - Username","Enter your account username.");
+if (acc_user=="")
 {
-name=n;
-writeprefs();
 optionsmenu();
+return;
 }
-else
-dlg("I sayd. no spaces!");
+string acc_pass=input_box("Account Login - Password","Enter your account password.");
+if (acc_pass=="")
+{
 optionsmenu();
+return;
+}
+if (!verify_account(acc_user, acc_pass))
+{
+dlg("Incorrect username or password.");
+optionsmenu();
+return;
+}
+name=get_account_username(acc_user);
+writeprefs();
+speak("Logged in as "+name+".");
+optionsmenu();
+return;
 }
 if (m.get_item_name(mres)=="mate")
 {
-string m=input_box("duo mate","Enter the name of your duo_mate, spaces are not allowed.");
-if (m!="" and string_contains(m, " ", 1)<0)
+string mt=input_box("duo mate","Enter the name of your duo_mate, spaces are not allowed.");
+if (mt!="" and string_contains(mt, " ", 1)<0)
 {
-mate=m;
+mate=mt;
 writeprefs();
 optionsmenu();
 }

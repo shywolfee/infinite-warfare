@@ -31,7 +31,7 @@ bool go_reload=false;
 bool can_stop=true; 
 bool go_out=false;
 bool prevconnected=false;
-int turn=1;
+double turn=0;
 int cameraspeed=50;
 int rctrl=0;
 timer drawtimer;
@@ -430,46 +430,20 @@ p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
-if(key_pressed(KEY_X) and turn>0)
+if(key_pressed(KEY_X) and turn>-90)
 {
-turn-=1;
+turn-=15;
+if(turn<-90) turn=-90;
 p.play_stationary("turn.ogg", false);
-string s="";
-if(turn==1)
-{
-s="streight forward";
-}
-if(turn==0)
-{
-s="streight down";
-}
-if(turn==2)
-{
-s="streight up";
-}
-string to_speak="facing "+s;
-speak(to_speak);
+speak("pitch "+calculate_vertical_string(turn)+", "+turn+" degrees");
 send_reliable(0, "turn2 "+turn, 0);
 }
-if(key_pressed(KEY_S) and turn<2)
+if(key_pressed(KEY_S) and turn<90)
 {
-turn+=1;
+turn+=15;
+if(turn>90) turn=90;
 p.play_stationary("turn.ogg", false);
-string s="";
-if(turn==1)
-{
-s="streight forward";
-}
-if(turn==0)
-{
-s="streight down";
-}
-if(turn==2)
-{
-s="streight up";
-}
-string to_speak="facing "+s;
-speak(to_speak);
+speak("pitch "+calculate_vertical_string(turn)+", "+turn+" degrees");
 send_reliable(0, "turn2 "+turn, 0);
 }
 if(key_pressed(KEY_E) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
@@ -483,7 +457,7 @@ mouse_update();
 }
 if(key_pressed(KEY_F))
 {
-speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees.");
+speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees, pitch "+calculate_vertical_string(turn)+", "+turn+" degrees.");
 }
 if(MENU_is_down())
 {
@@ -494,6 +468,18 @@ facing=turnleft(facing, 1);
 if(key_down(KEY_RIGHT))
 {
 facing=turnright(facing, 1);
+}
+if(key_down(KEY_UP) and turn<90)
+{
+turn+=1;
+if(turn>90) turn=90;
+send_reliable(0, "turn2 "+turn, 0);
+}
+if(key_down(KEY_DOWN) and turn>-90)
+{
+turn-=1;
+if(turn<-90) turn=-90;
+send_reliable(0, "turn2 "+turn, 0);
 }
 }
 if(!MENU_is_down() and key_up(KEY_G) and can_move==true)

@@ -280,3 +280,59 @@ return "in front and very slightly off to the left";
 }
 return "";
 }
+string calculate_vertical_string(double vdeg)
+{
+if(vdeg==0)
+{
+return "level";
+}
+else if(vdeg>0 and vdeg<=5)
+{
+return "very slightly upward";
+}
+else if(vdeg>5 and vdeg<=15)
+{
+return "slightly upward";
+}
+else if(vdeg>15 and vdeg<=30)
+{
+return "upward";
+}
+else if(vdeg>30 and vdeg<=60)
+{
+return "steeply upward";
+}
+else if(vdeg>60 and vdeg<=85)
+{
+return "very steeply upward";
+}
+else if(vdeg>85)
+{
+return "straight up";
+}
+else if(vdeg<0 and vdeg>=-5)
+{
+return "very slightly downward";
+}
+else if(vdeg<-5 and vdeg>=-15)
+{
+return "slightly downward";
+}
+else if(vdeg<-15 and vdeg>=-30)
+{
+return "downward";
+}
+else if(vdeg<-30 and vdeg>=-60)
+{
+return "steeply downward";
+}
+else if(vdeg<-60 and vdeg>=-85)
+{
+return "very steeply downward";
+}
+else if(vdeg<-85)
+{
+return "straight down";
+}
+return "";
+}

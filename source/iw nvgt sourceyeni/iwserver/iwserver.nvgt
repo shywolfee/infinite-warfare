@@ -1435,7 +1435,7 @@ else if(parsed[0]=="turn2" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
-players[index].turn=string_to_number(parsed[1]);
+players[index].turn=parse_float(parsed[1]);
 }
 }
 else if(parsed[0]=="turn" and parsed.length()>1)

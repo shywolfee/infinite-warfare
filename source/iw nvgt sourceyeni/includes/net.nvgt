@@ -65,10 +65,10 @@ speak("signing in");
 }
 else if(e.type==event_receive and get_event_message()=="loggedin123")
 {
- sourcecheckloop();
+sourcecheckloop();
 p.update_listener_3d(me.x, me.y, me.z);
 if(connected==false) connected=true;
-game(1);
+lobby();
 }
 else if(e.type==event_receive and get_event_message()=="ver")
 {

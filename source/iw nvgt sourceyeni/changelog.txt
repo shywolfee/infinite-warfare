@@ -1,3 +1,14 @@
+New in 0.19
+Connecting to the server now takes you to a lobby instead of dropping you straight into the game.
+The lobby has four tabs navigated with the arrow keys:
+  Modes: lists available game modes. Currently Battlegrounds is available.
+    Select Battlegrounds and press Enter to deploy to the main map and begin playing.
+  Account Info: displays your username, email, registration status, and duo mate.
+  Players: queries the server for the live in-game player list and reads it aloud.
+  Rewards: describes the kill-reward milestones (3 kills and 5 kills).
+Leaving the lobby returns you to the main menu without entering the game world.
+The server now handles the lobby_players request from pre-spawn clients.
+
 New in 0.18
 Weapons now use a realistic magazine and clip-based ammo system.
 Each weapon has a specific feed device with a real-world capacity and must be reloaded manually.

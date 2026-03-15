@@ -532,6 +532,25 @@ if(parsed[0]=="connect_me" and parsed.length() > 3)
 {
 login(parsed[1], e.peer_id, string_to_number(parsed[2]),parsed[3]);
 }
+else if(parsed[0]=="lobby_players")
+{
+// Pre-spawn request: returns in-game player list. No player index check needed.
+string s;
+if(players.length()==0)
+s="lobby_info No players are currently in-game.";
+else
+{
+s="lobby_info "+players.length()+(players.length()==1?" player":" players")+" in-game: ";
+for(uint i=0; i<players.length(); i++)
+{
+if(i<players.length()-1)
+s+=players[i].name+", ";
+else
+s+=players[i].name+".";
+}
+}
+send_reliable(e.peer_id, s, 0);
+}
 else if(parsed[0]=="welcome")
 {
 int index=get_player_index(e.peer_id);

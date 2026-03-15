@@ -1,0 +1,229 @@
+// Lobby system for Infinite Warfare
+// After a successful login the player lands here before entering any game mode.
+// The lobby has four tabs: Modes, Account Info, Players, Rewards.
+// Pressing Enter on "Battlegrounds" in the Modes tab enters the game world.
+//
+// Network notes:
+//   - The player is NOT yet in players[] on the server at this point.
+//     spawn_player is only sent when entering Battlegrounds (via game()).
+//   - The lobby_callback handles disconnect and server-restart messages
+//     while menu navigation is blocking.
+
+// ---------------------------------------------------------------------------
+// Network callback used during all lobby menus.
+// Keeps the connection alive and handles abnormal server events.
+// ---------------------------------------------------------------------------
+int lobby_callback(dynamic_menu_pro@ lm, string data)
+{
+e=n.request();
+if (e.type==event_disconnect)
+{
+speak("You have been disconnected from the server.");
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+mainmenu();
+}
+if (e.type==event_receive)
+{
+string msg=get_event_message();
+if (msg=="updating")
+{
+dlg("The server is restarting for an update. Please reconnect shortly.");
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+mainmenu();
+}
+}
+return 0;
+}
+
+// Apply the lobby menu style and network callback.
+void setup_lobby_menu()
+{
+m.reset(true);
+m.set_callback(lobby_callback, "");
+m.click_sound="menuclick.ogg";
+m.enter_sound="menuenter.ogg";
+m.wrap=false;
+m.enable_home_and_end=true;
+m.enable_up_and_down=true;
+m.enable_first_letter_navigation=true;
+m.open_sound="menuopen.ogg";
+m.wrap_sound="menumove.ogg";
+m.edge_sound="menuedge.ogg";
+m.enable_side_scrolling=false;
+m.enable_left_and_right=false;
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Modes
+// Lists available game modes. Selecting one enters the world via game().
+// ---------------------------------------------------------------------------
+void modes_tab()
+{
+while(true)
+{
+setup_lobby_menu();
+m.add_item_tts("Battlegrounds - Fight for survival on the main map. Press Enter to deploy.","battlegrounds");
+m.add_item_tts("Go back","back");
+int mres=m.run("Modes",true);
+string sel=m.get_item_name(mres);
+if (sel=="battlegrounds")
+{
+speak("Deploying to Battlegrounds. Good luck.");
+wait(600);
+// Transfer into the game world. game() never returns normally;
+// it stays in the game loop until the player exits to the main menu.
+game(1);
+return;
+}
+// back or escape: fall through and return to the lobby loop
+return;
+}
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Account Info
+// Shows local account data - no server round-trip needed.
+// ---------------------------------------------------------------------------
+void account_tab()
+{
+string info="Account information.";
+info+=" Username: "+name+".";
+if (account_exists(name))
+{
+savedata acct(get_account_path(name), ACCOUNT_SECRET);
+acct.load();
+string em=acct.read("email");
+if (em!="")
+info+=" Email: "+em+".";
+info+=" Status: registered account.";
+}
+else
+{
+info+=" Status: no registered account found for this username."
++" You can register from the main menu.";
+}
+if (mate!="")
+info+=" Duo mate: "+mate+".";
+else
+info+=" Duo mate: not set.";
+dlg(info);
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Players
+// Requests the live in-game player list from the server.
+// lobby_players works for pre-spawn clients (no player index check on server).
+// ---------------------------------------------------------------------------
+void players_tab()
+{
+speak("Fetching player list, please wait.");
+send_reliable(0, "lobby_players", 0);
+string info="";
+timer pt;
+while (pt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if (e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+mainmenu();
+return;
+}
+if (e.type==event_receive)
+{
+string msg=get_event_message();
+// Server prefixes the response with "lobby_info "
+if (string_contains(msg, "lobby_info ", 1)==0)
+{
+info=string_replace(msg, "lobby_info ", "", false);
+break;
+}
+}
+}
+if (info=="")
+info="Could not retrieve the player list. The server may not have responded.";
+dlg(info);
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Rewards
+// Shows the kill-reward milestones available in Battlegrounds.
+// ---------------------------------------------------------------------------
+void rewards_tab()
+{
+string info="Battlegrounds kill rewards. "
++"3 kills: you receive 5 frag grenades. "
++"5 kills: you receive an ultra health potion that fully restores your health. "
++"Rewards are granted automatically the first time you hit each milestone per session.";
+dlg(info);
+}
+
+// ---------------------------------------------------------------------------
+// Leave the lobby cleanly without having entered the game.
+// Sets prevconnected=false so the next connect() starts fresh.
+// ---------------------------------------------------------------------------
+void leave_lobby()
+{
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+connected=false;
+prevconnected=false;
+mainmenu();
+}
+
+// ---------------------------------------------------------------------------
+// Main lobby entry point — called right after loggedin123 is received.
+// ---------------------------------------------------------------------------
+void lobby()
+{
+speak("Welcome to the lobby, "+name
++". Navigate the tabs with the arrow keys and press Enter to select.");
+while(true)
+{
+setup_lobby_menu();
+m.add_item_tts("Modes","modes");
+m.add_item_tts("Account Info","acct");
+m.add_item_tts("Players","players");
+m.add_item_tts("Rewards","rewards");
+m.add_item_tts("Leave Lobby","leave");
+int mres=m.run("Lobby",true);
+string sel=m.get_item_name(mres);
+if (sel=="modes")
+modes_tab();
+else if (sel=="acct")
+account_tab();
+else if (sel=="players")
+players_tab();
+else if (sel=="rewards")
+rewards_tab();
+else
+{
+// "Leave Lobby" or Escape
+leave_lobby();
+return;
+}
+}
+}

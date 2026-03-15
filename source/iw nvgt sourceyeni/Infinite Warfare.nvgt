@@ -53,7 +53,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.17;
+double version=0.18;
 string name;
 string mate;
 double facing=0;
@@ -100,20 +100,22 @@ p.behind_pitch_decrease=6;
 distpool.pan_step=0.2;
 distpool.volume_step=0.1;
 weapons.insert_last("empty");
-weapon_ammo("glock17", 50);
-weapon_ammo("benelli_m4_shotgun", 50);
-weapon_ammo("tar_21_assault_rifle", 50);
-weapon_ammo("120mm_mortar", 25);
-weapon_ammo("ks123shotgun", 50);
-weapon_ammo("taurus_model66_revolver", 50);
-weapon_ammo("famas_f1_assault_rifle", 50);
-weapon_ammo("beretta92fs_pistol", 50);
-weapon_ammo("p90_mp", 50);
-weapon_ammo("magnum_revolver", 50);
-weapon_ammo("hk_g36", 50);
-weapon_ammo("AK47", 50);
-weapon_ammo("m1garantBattleRifle", 50);
-weapon_ammo("sg08_sniper_rifle", 50);
+// Beta: players start with a full weapon + generous reserve magazines.
+// register_gun(name, ammo_type, feed_device, mag_capacity, spare_mags, reload_ms)
+register_gun("glock17",                "9x19mm Parabellum",     "17-round magazine",      17, 10, 2000);
+register_gun("beretta92fs_pistol",     "9x19mm Parabellum",     "15-round magazine",      15, 10, 2000);
+register_gun("taurus_model66_revolver",".357 Magnum",           "6-round cylinder",        6, 12, 3500);
+register_gun("magnum_revolver",        ".44 Magnum",            "6-round cylinder",        6, 12, 3500);
+register_gun("p90_mp",                 "FN 5.7x28mm",           "50-round magazine",       50,  6, 2000);
+register_gun("hk_g36",                 "5.56x45mm NATO",        "30-round magazine",       30,  8, 2500);
+register_gun("AK47",                   "7.62x39mm",             "30-round magazine",       30,  8, 2500);
+register_gun("tar_21_assault_rifle",   "5.56x45mm NATO",        "30-round magazine",       30,  8, 2500);
+register_gun("famas_f1_assault_rifle", "5.56x45mm NATO",        "25-round magazine",       25,  8, 2500);
+register_gun("benelli_m4_shotgun",     "12-gauge buckshot",     "8-round tube magazine",    8,  8, 5000);
+register_gun("ks123shotgun",           "12-gauge buckshot",     "5-round tube magazine",    5,  8, 5000);
+register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc clip",     8,  8, 2000);
+register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10,  5, 3000);
+register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1,  5, 8000);
 create_buffer("all");
 create_buffer("chats");
 create_buffer("misc");
@@ -241,7 +243,7 @@ else if (weapons[w]!="hk_g36" or weapons[w]!="AK47" or weapons[w]!="p90_mp" or w
 {
 can_fire=false;
 }
-if(can_move==true)
+if(can_move==true and !is_reloading(weapons[w]))
 {
 if (firetimer.elapsed>=firetime and key_down(KEY_LCONTROL) and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_down(KEY_RCONTROL)&&rctrl==1 and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_LCONTROL) and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_RCONTROL)&&rctrl==1 and mapname!="battle_royale_waiting")
 {
@@ -256,19 +258,22 @@ else if(weapon_ammo==0 and firetimer.elapsed>=firetime)
 {
 firetimer.restart();
 p.play_stationary(weapons[w]+"empty.ogg",false);
- can_fire=false;
+can_fire=false;
+speak("Magazine empty. Press R to reload.");
 }
 }
 }
 if(key_pressed(KEY_A))
 {
-int weapon_ammo=ammo_check(weapons[w]);
-if(weapon_ammo>-1)
-{
-speak(weapon_ammo+" ammunition left for this weapon");
+announce_ammo(weapons[w]);
 }
-else
-speak("this weapon doesn't use ammo!");
+if(key_pressed(KEY_R) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+{
+start_reload(weapons[w]);
+}
+if(key_pressed(KEY_R) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+{
+unload_mag(weapons[w]);
 }
 if (key_pressed(KEY_SLASH))
 {
@@ -1194,6 +1199,7 @@ send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
 void mainloop()
 {
 ammocheatloop();
+reload_loop_all();
 sourcecheckloop();
 p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));

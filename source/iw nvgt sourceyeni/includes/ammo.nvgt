@@ -1,67 +1,178 @@
-ammo@[] ammos(0);
-class ammo
+// Magazine/clip-based ammo system for Infinite Warfare.
+// Each weapon tracks rounds currently loaded, a reserve pool, its ammo type,
+// the correct feed device name, magazine capacity, and reload timing.
+//
+// Weapon → ammo type, feed device, capacity, reload time (ms):
+//   glock17                → 9x19mm Parabellum,     17-round magazine,       17 rds, 2000ms
+//   beretta92fs_pistol     → 9x19mm Parabellum,     15-round magazine,       15 rds, 2000ms
+//   taurus_model66_revolver→ .357 Magnum,           6-round cylinder,         6 rds, 3500ms
+//   magnum_revolver        → .44 Magnum,            6-round cylinder,         6 rds, 3500ms
+//   p90_mp                 → FN 5.7x28mm,           50-round magazine,       50 rds, 2000ms
+//   hk_g36                 → 5.56x45mm NATO,        30-round magazine,       30 rds, 2500ms
+//   AK47                   → 7.62x39mm,             30-round magazine,       30 rds, 2500ms
+//   tar_21_assault_rifle   → 5.56x45mm NATO,        30-round magazine,       30 rds, 2500ms
+//   famas_f1_assault_rifle → 5.56x45mm NATO,        25-round magazine,       25 rds, 2500ms
+//   benelli_m4_shotgun     → 12-gauge buckshot,     8-round tube magazine,    8 rds, 5000ms
+//   ks123shotgun           → 12-gauge buckshot,     5-round tube magazine,    5 rds, 5000ms
+//   m1garantBattleRifle    → .30-06 Springfield,    8-round en-bloc clip,     8 rds, 2000ms
+//   sg08_sniper_rifle      → .308 Winchester,       10-round magazine,       10 rds, 3000ms
+//   120mm_mortar           → 120mm HE mortar shell, single-load barrel,       1 rd,  8000ms
+
+class gun_ammo
 {
 string weapon_name;
-int ammo_amount=0;
-int ammo_amount_check=0;
-int orig_ammo;
-ammo(string aname, int aamount)
+string ammo_type;        // e.g. "9x19mm Parabellum"
+string feed_device;      // e.g. "17-round magazine"
+int mag_capacity;        // rounds per full magazine / clip / cylinder
+int mag_loaded;          // rounds currently in the weapon
+int reserve_rounds;      // spare rounds not yet loaded
+int orig_loaded;         // starting value for reset
+int orig_reserve;        // starting value for reset
+bool reloading;
+timer reload_timer;
+int reload_ms;
+
+gun_ammo(string wn, string at, string fd, int mc, int reserve, int rms)
 {
-weapon_name=aname;
-ammo_amount=aamount;
-ammo_amount_check=aamount;
-orig_ammo=aamount;
-}
-void give_ammo(int amount)
-{
-ammo_amount+=amount;
-ammo_amount_check+=amount;
-}
-void ammo_check_cheat()
-{
-if(ammo_amount!=ammo_amount_check)
-exit();
-}
-}
-void weapon_ammo(string wname, int aamount)
-{
-ammo a(wname, aamount);
-ammos.insert_last(a);
-}
-void ammocheatloop()
-{
-for(uint i=0; i<ammos.length(); i++)
-{
-ammos[i].ammo_check_cheat();
+weapon_name=wn;
+ammo_type=at;
+feed_device=fd;
+mag_capacity=mc;
+mag_loaded=mc;
+reserve_rounds=reserve;
+orig_loaded=mc;
+orig_reserve=reserve;
+reloading=false;
+reload_ms=rms;
 }
 }
-int ammo_check(string wname)
+
+gun_ammo@[] gun_ammos(0);
+
+// Register a weapon's ammo data.
+// spare_mags = number of full extra magazines the player starts with (beta: generous).
+void register_gun(string wn, string at, string fd, int mc, int spare_mags, int rms)
 {
-for(uint i=0; i<ammos.length(); i++)
-{
-if(ammos[i].weapon_name==wname)
-{
-return ammos[i].ammo_amount;
+gun_ammo g(wn, at, fd, mc, mc*spare_mags, rms);
+gun_ammos.insert_last(g);
 }
+
+// Legacy stub kept so any old call sites compile.
+void weapon_ammo(string wname, int amount) { }
+
+// Return the array index for wname, or -1 if not found.
+int find_gun(string wname)
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (gun_ammos[i].weapon_name==wname) return i;
 }
 return -1;
 }
-void ammo_give(string wname, int ammotogive)
+
+// Return rounds loaded in the weapon. -1 means melee / no ammo system.
+int ammo_check(string wname)
 {
-for(uint i=0; i<ammos.length(); i++)
+int i=find_gun(wname);
+if (i<0) return -1;
+return gun_ammos[i].mag_loaded;
+}
+
+// Add or remove rounds from the loaded count (amount is negative when firing).
+void ammo_give(string wname, int amount)
 {
-if(ammos[i].weapon_name==wname)
+int i=find_gun(wname);
+if (i<0) return;
+gun_ammos[i].mag_loaded+=amount;
+if (gun_ammos[i].mag_loaded<0) gun_ammos[i].mag_loaded=0;
+}
+
+// Returns true while this weapon is mid-reload.
+bool is_reloading(string wname)
 {
-ammos[i].give_ammo(ammotogive);
+int i=find_gun(wname);
+if (i<0) return false;
+return gun_ammos[i].reloading;
+}
+
+// Called every frame from mainloop(): complete any in-progress reloads.
+void reload_loop_all()
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (!gun_ammos[i].reloading) continue;
+if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms)
+{
+// Return any remaining rounds to reserve, then load up to capacity.
+gun_ammos[i].reserve_rounds+=gun_ammos[i].mag_loaded;
+int to_load=gun_ammos[i].mag_capacity;
+if (to_load>gun_ammos[i].reserve_rounds)
+to_load=gun_ammos[i].reserve_rounds;
+gun_ammos[i].mag_loaded=to_load;
+gun_ammos[i].reserve_rounds-=to_load;
+gun_ammos[i].reloading=false;
+speak("Reloaded. "+to_load+" rounds in "+gun_ammos[i].feed_device+".");
 }
 }
-return;
 }
+
+// Cheat detection: mag_loaded must stay within valid bounds.
+void ammocheatloop()
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (gun_ammos[i].mag_loaded>gun_ammos[i].mag_capacity) exit();
+if (gun_ammos[i].mag_loaded<0) exit();
+}
+}
+
+// Speak full ammo status for the player's current weapon (A key).
+void announce_ammo(string wname)
+{
+int i=find_gun(wname);
+if (i<0) { speak("This weapon does not use ammunition."); return; }
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Reloading."); return; }
+speak(g.mag_loaded+" rounds of "+g.ammo_type
++" loaded in "+g.feed_device
++". "+g.reserve_rounds+" rounds in reserve.");
+}
+
+// Begin reloading the named weapon (R key). Returns false if nothing to do.
+bool start_reload(string wname)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Already reloading."); return false; }
+if (g.reserve_rounds<=0) { speak("No reserve ammunition."); return false; }
+if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
+g.reloading=true;
+g.reload_timer.restart();
+speak("Reloading "+g.feed_device+".");
+return true;
+}
+
+// Unload the current feed device back into reserve (Shift+R).
+void unload_mag(string wname)
+{
+int i=find_gun(wname);
+if (i<0) { speak("Nothing to unload."); return; }
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Cannot unload while reloading."); return; }
+if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
+g.reserve_rounds+=g.mag_loaded;
+g.mag_loaded=0;
+speak(g.feed_device+" unloaded. "+g.reserve_rounds+" rounds in reserve.");
+}
+
+// Reset all weapons to their starting ammo state (called on respawn).
 void reset_ammo()
 {
-for(uint i=0; i<ammos.length(); i++)
+for (uint i=0; i<gun_ammos.length(); i++)
 {
-ammos[i].ammo_amount=ammos[i].orig_ammo;
-ammos[i].ammo_amount_check=ammos[i].orig_ammo;
+gun_ammos[i].mag_loaded=gun_ammos[i].orig_loaded;
+gun_ammos[i].reserve_rounds=gun_ammos[i].orig_reserve;
+gun_ammos[i].reloading=false;
 }
 }

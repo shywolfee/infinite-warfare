@@ -55,7 +55,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.34;
+double version=0.40;
 string name;
 string mate;
 double facing=0;
@@ -126,6 +126,49 @@ register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc
 register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10, "sg08_magazine",             "magazine",     true,   5, 3000);
 // --- Heavy ordnance (individual shells) ---
 register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1, "120mm_mortar_shell",        "mortar shell", false,  5, 8000);
+// --- New pistols ---
+register_gun("desert_eagle",           ".50 Action Express",    "7-round magazine",          7, "desert_eagle_magazine",     "magazine",     true,   8, 2000);
+// --- New SMGs ---
+register_gun("mp5",                    "9x19mm Parabellum",     "30-round magazine",        30, "mp5_magazine",              "magazine",     true,   8, 2000);
+register_gun("uzi",                    "9x19mm Parabellum",     "32-round magazine",        32, "uzi_magazine",              "magazine",     true,   8, 2000);
+register_gun("mp7",                    "4.6x30mm HK",           "40-round magazine",        40, "mp7_magazine",              "magazine",     true,   7, 2000);
+// --- New assault rifles ---
+register_gun("m4a1_carbine",           "5.56x45mm NATO",        "30-round magazine",        30, "stanag_magazine",           "magazine",     true,   8, 2500);
+// --- New battle rifles ---
+register_gun("scar_h_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "scar_h_magazine",           "magazine",     true,   6, 2500);
+register_gun("fn_fal_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "fn_fal_magazine",           "magazine",     true,   6, 2500);
+// --- New LMGs ---
+register_gun("rpk_lmg",               "7.62x39mm",             "75-round drum magazine",   75, "rpk_drum_magazine",         "drum magazine",true,   3, 4000);
+register_gun("m249_saw",              "5.56x45mm NATO",        "200-round belt box",      200, "m249_belt_box",             "belt box",     true,   2, 6000);
+// --- New shotgun ---
+register_gun("spas_12_shotgun",        "12-gauge buckshot",     "8-round tube magazine",     8, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
+// --- New snipers ---
+register_gun("awp_sniper_rifle",       ".338 Lapua Magnum",     "5-round magazine",          5, "awp_magazine",              "magazine",     true,   4, 3500);
+register_gun("dragunov_svd",           "7.62x54mm R",           "10-round magazine",        10, "dragunov_magazine",         "magazine",     true,   5, 3000);
+// --- Crossbow ---
+register_gun("crossbow",              "crossbow bolt",         "single bolt",               1, "bolt_quiver",               "bolt quiver",  false, 20, 4000);
+// --- Fire mode registrations ---
+// Weapons with only one mode don't need registration (default semi).
+// SMGs: semi/auto or semi/burst/auto
+int[] modes_semi_auto = {FIREMODE_SEMI, FIREMODE_AUTO};
+int[] modes_semi_burst_auto = {FIREMODE_SEMI, FIREMODE_BURST, FIREMODE_AUTO};
+int[] modes_auto_only = {FIREMODE_AUTO};
+register_fire_modes("mp5", modes_semi_burst_auto);
+register_fire_modes("uzi", modes_semi_auto);
+register_fire_modes("mp7", modes_semi_burst_auto);
+register_fire_modes("p90_mp", modes_semi_auto);
+// Assault rifles: semi/burst/auto
+register_fire_modes("hk_g36", modes_semi_burst_auto);
+register_fire_modes("AK47", modes_semi_burst_auto);
+register_fire_modes("tar_21_assault_rifle", modes_semi_burst_auto);
+register_fire_modes("famas_f1_assault_rifle", modes_semi_burst_auto);
+register_fire_modes("m4a1_carbine", modes_semi_burst_auto);
+// Battle rifles: semi/auto
+register_fire_modes("scar_h_battle_rifle", modes_semi_auto);
+register_fire_modes("fn_fal_battle_rifle", modes_semi_auto);
+// LMGs: auto only
+register_fire_modes("rpk_lmg", modes_auto_only);
+register_fire_modes("m249_saw", modes_auto_only);
 // Starting loadout is given per-spawn in game() via give_starting_loadout().
 create_buffer("all");
 create_buffer("chats");
@@ -197,16 +240,19 @@ docs_dir = "docs";
 string[] flist;
 // Scan known doc files
 string[] known_docs = {
-"getting_started", "controls",
-"machete", "combatknife",
-"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver",
-"p90_mp",
-"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle",
-"benelli_m4_shotgun", "ks123shotgun",
-"m1garantBattleRifle", "sg08_sniper_rifle",
-"120mm_mortar", "ballista",
+"getting_started", "controls", "fire_modes", "stamina", "equipment", "buffs_debuffs",
+"machete", "combatknife", "katana", "baseball_bat",
+"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle",
+"p90_mp", "mp5", "uzi", "mp7",
+"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine",
+"scar_h_battle_rifle", "fn_fal_battle_rifle",
+"rpk_lmg", "m249_saw",
+"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun",
+"m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
+"120mm_mortar", "ballista", "crossbow",
 "hayvork", "trector_plow",
-"health_potion", "ultra_health_potion", "frag_grenade"
+"health_potion", "ultra_health_potion", "frag_grenade",
+"energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"
 };
 for (uint i = 0; i < known_docs.length(); i++)
 {
@@ -340,6 +386,47 @@ break;
 }
 }
 
+// ---------------------------------------------------------------------------
+// Item use side effects — apply buffs/effects on the client when items are used.
+// Called from use_quickbar_slot and Enter key use path.
+// ---------------------------------------------------------------------------
+void on_item_used(string item)
+{
+if (item == "health_potion")
+apply_residual_healing();
+else if (item == "ultra_health_potion")
+apply_ultra_residual_healing();
+else if (item == "bomb_vest")
+{
+equip_item("bomb_vest", "body");
+speak("Bomb vest equipped.");
+}
+else if (item == "energetic_potion_red")
+{
+restore_stamina(random(15, 25));
+give("energetic_potion_red", -1);
+speak("Stamina restored. " + get_stamina_string());
+}
+else if (item == "energetic_potion_blue")
+{
+restore_stamina(random(25, 40));
+give("energetic_potion_blue", -1);
+speak("Stamina restored. " + get_stamina_string());
+}
+else if (item == "energetic_potion_green")
+{
+restore_stamina(random(40, 60));
+give("energetic_potion_green", -1);
+speak("Stamina restored. " + get_stamina_string());
+}
+else if (item == "energetic_potion_rainbow")
+{
+restore_stamina(random(75, 100));
+give("energetic_potion_rainbow", -1);
+speak("Stamina fully restored. " + get_stamina_string());
+}
+}
+
 void draw_weapon(string wname)
 {
 if (drawtimer.elapsed<=1500) return;
@@ -365,6 +452,9 @@ else
 {
 if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
+on_item_used(item);
+// Energetic potions are client-only; others go to server.
+if (string_contains(item, "energetic_potion", 1) < 0)
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -478,14 +568,8 @@ if (key_pressed(KEY_P))
 {
 send_reliable(0,"nearplayers",0);
 }
-if (weapons[w]=="hk_g36" or weapons[w]=="AK47" or weapons[w]=="p90_mp" or weapons[w]=="tar_21_assault_rifle")
-{
-can_fire=true;
-}
-else if (weapons[w]!="hk_g36" or weapons[w]!="AK47" or weapons[w]!="p90_mp" or weapons[w]!="tar_21_assault_rifle")
-{
-can_fire=false;
-}
+// Fire mode determines if hold-fire is possible.
+can_fire = can_hold_fire(weapons[w]);
 if(can_move==true and !is_reloading(weapons[w]))
 {
 if (firetimer.elapsed>=firetime and key_down(KEY_LCONTROL) and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_down(KEY_RCONTROL)&&rctrl==1 and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_LCONTROL) and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_RCONTROL)&&rctrl==1 and mapname!="battle_royale_waiting")
@@ -496,6 +580,7 @@ if(weapon_ammo>0 or melee==true)
 ammo_give(weapons[w], -1);
 firetimer.restart();
 send_reliable(0,"fire "+weapons[w],0);
+if (melee) stamina_on_melee();
 }
 else if(weapon_ammo==0 and firetimer.elapsed>=firetime)
 {
@@ -506,9 +591,13 @@ speak("Magazine empty. Press R to reload.");
 }
 }
 }
-if(key_pressed(KEY_A))
+if(key_pressed(KEY_A) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 announce_ammo(weapons[w]);
+}
+if(key_pressed(KEY_A) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+{
+cycle_fire_mode(weapons[w]);
 }
 if(key_pressed(KEY_R) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
@@ -527,6 +616,7 @@ send_reliable(0,chat,1);
 if (key_pressed(KEY_H) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 send_reliable(0,"health",0);
+speak(get_stamina_string() + " " + get_effects_string());
 }
 if (key_pressed(KEY_H) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
 {
@@ -567,10 +657,7 @@ if(key_pressed(KEY_F2))
 {
 send_reliable(0, "motd", 0);
 }
-if(key_pressed(KEY_GRAVE))
-{
-gamemenu();
-}
+// Grave accent removed; escape menu replaces it.
 if(key_pressed(KEY_W) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
@@ -621,7 +708,11 @@ if (sel_item != "")
 if (is_weapon(sel_item))
 draw_weapon(sel_item);
 else
+{
+on_item_used(sel_item);
+if (string_contains(sel_item, "energetic_potion", 1) < 0)
 send_reliable(0, "use " + sel_item, 0);
+}
 }
 else
 speak("Your inventory is empty.");
@@ -652,15 +743,7 @@ bottombufferitem();
 }
 if(key_pressed(KEY_ESCAPE) and x==false)
 {
-int q;
-q=yesno("Are you sure you wish to exit the game?");
-if(q==1)
-{
-speak("Exiting the game");
-send_reliable(0, "close", 0);
-x=true;
-xtimer.restart();
-}
+escape_menu();
 }
 if(xtimer.elapsed>10 and x==true)
 {
@@ -679,6 +762,7 @@ jumping=true;
 jumptimer.restart();
 jumpup=1;
 jumplandz=me.z;
+stamina_on_jump();
 }
 if(mousez<0) 
 {
@@ -856,7 +940,7 @@ if(key_pressed(KEY_8)) use_quickbar_slot(7);
 if(key_pressed(KEY_9)) use_quickbar_slot(8);
 if(key_pressed(KEY_0)) use_quickbar_slot(9);
 }
-// Grave accent: give all (only when running from source).
+// Grave accent: give all (only when running from source) — legacy shortcut.
 if(key_pressed(KEY_GRAVE) and SCRIPT_COMPILED==false)
 {
 give_all();
@@ -1437,45 +1521,66 @@ void mainloop()
 ammocheatloop();
 reload_loop_all();
 sourcecheckloop();
+stamina_loop();
+int heal_tick = effects_loop();
+if (heal_tick > 0)
+send_reliable(0, "heal " + heal_tick, 0);
 p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 mr.x=round(me.x,0);
 mr.y=round(me.y,0);
-if (weapons[w]=="machete") firetime=1000;
-if (weapons[w]=="combatknife") firetime=500;
-if (weapons[w]=="tar_21_assault_rifle") firetime=180;
-if (weapons[w]=="taurus_model66_revolver") firetime=790;
-if(weapons[w]=="machete" or weapons[w]=="combatknife") walktime=170;
-if(weapons[w]=="p90_mp") walktime=190;
-if(weapons[w]=="p90_mp") firetime=90;
-if(weapons[w]=="120mm_mortar") walktime=5000;
-if(weapons[w]=="120mm_mortar") firetime=4000;
-if(weapons[w]=="famas_f1_assault_rifle") firetime=750;
-if(weapons[w]=="famas_f1_assault_rifle") walktime=210;
-if(weapons[w]=="ks123shotgun") firetime=850;
-if(weapons[w]=="hayvork") firetime=900;
-if(weapons[w]=="hayvork") walktime=185;
-if(weapons[w]=="trector_plow") firetime=1100;
-if(weapons[w]=="trector_plow") walktime=400;
-if(weapons[w]=="benelli_m4_shotgun") firetime=1500;
-if(weapons[w]=="benelli_m4_shotgun" or weapons[w]=="ks123shotgun") walktime=230;
-if(weapons[w]=="hk_g36") firetime=150;
-if(weapons[w]=="m1garantBattleRifle") walktime=400;
-if(weapons[w]=="m1garantBattleRifle") firetime=1200;
-if(weapons[w]=="hk_g36" or weapons[w]=="tar_21_assault_rifle" or weapons[w]=="AK47") walktime=220;
-if(weapons[w]=="beretta92fs_pistol") firetime=600;
-if(weapons[w]=="beretta92fs_pistol" or weapons[w]=="glock17") walktime=180;
-if (weapons[w]=="glock17") firetime=800;
-if(weapons[w]=="AK47") firetime=150;
-if(weapons[w]=="sg08_sniper_rifle") firetime=3000;
-if(weapons[w]=="sg08_sniper_rifle") walktime=1000;
-if(weapons[w]=="magnum_revolver") firetime=800;
-if(weapons[w]=="magnum_revolver" or weapons[w]=="taurus_model66_revolver") walktime=180;
+// --- Weapon fire rates and walk speeds ---
+// Melee
+if (weapons[w]=="machete") { firetime=1000; walktime=170; }
+if (weapons[w]=="combatknife") { firetime=500; walktime=170; }
+if (weapons[w]=="katana") { firetime=800; walktime=170; }
+if (weapons[w]=="baseball_bat") { firetime=600; walktime=170; }
+if (weapons[w]=="hayvork") { firetime=900; walktime=185; }
+if (weapons[w]=="trector_plow") { firetime=1100; walktime=400; }
+// Pistols
+if (weapons[w]=="glock17") { firetime=800; walktime=180; }
+if (weapons[w]=="beretta92fs_pistol") { firetime=600; walktime=180; }
+if (weapons[w]=="desert_eagle") { firetime=900; walktime=180; }
+if (weapons[w]=="taurus_model66_revolver") { firetime=790; walktime=180; }
+if (weapons[w]=="magnum_revolver") { firetime=800; walktime=180; }
+// SMGs
+if (weapons[w]=="p90_mp") { firetime=90; walktime=190; }
+if (weapons[w]=="mp5") { firetime=100; walktime=190; }
+if (weapons[w]=="uzi") { firetime=75; walktime=190; }
+if (weapons[w]=="mp7") { firetime=85; walktime=190; }
+// Assault rifles
+if (weapons[w]=="hk_g36") { firetime=150; walktime=220; }
+if (weapons[w]=="AK47") { firetime=150; walktime=220; }
+if (weapons[w]=="tar_21_assault_rifle") { firetime=180; walktime=220; }
+if (weapons[w]=="famas_f1_assault_rifle") { firetime=750; walktime=210; }
+if (weapons[w]=="m4a1_carbine") { firetime=140; walktime=210; }
+// Battle rifles
+if (weapons[w]=="scar_h_battle_rifle") { firetime=300; walktime=300; }
+if (weapons[w]=="fn_fal_battle_rifle") { firetime=280; walktime=300; }
+if (weapons[w]=="m1garantBattleRifle") { firetime=1200; walktime=400; }
+// LMGs
+if (weapons[w]=="rpk_lmg") { firetime=120; walktime=350; }
+if (weapons[w]=="m249_saw") { firetime=100; walktime=500; }
+// Shotguns
+if (weapons[w]=="ks123shotgun") { firetime=850; walktime=230; }
+if (weapons[w]=="benelli_m4_shotgun") { firetime=1500; walktime=230; }
+if (weapons[w]=="spas_12_shotgun") { firetime=1000; walktime=250; }
+// Snipers
+if (weapons[w]=="sg08_sniper_rifle") { firetime=3000; walktime=1000; }
+if (weapons[w]=="awp_sniper_rifle") { firetime=3500; walktime=1200; }
+if (weapons[w]=="dragunov_svd") { firetime=1500; walktime=600; }
+// Special
+if (weapons[w]=="120mm_mortar") { firetime=4000; walktime=5000; }
+if (weapons[w]=="crossbow") { firetime=2000; walktime=250; }
+// Apply stamina penalty for heavy weapons on movement.
 movetime=walktime;
+if (walktime >= 300) stamina_on_heavy_move(walktime);
+// Stamina affects movement speed when low.
+if (stamina < 20) movetime = walktime + 100;
 fallloop();
 fallcheck();
 fallingloop();
-if(weapons[w]=="machete" or weapons[w]=="combatknife" or weapons[w]=="trector_plow" or weapons[w]=="hayvork")
+if(weapons[w]=="machete" or weapons[w]=="combatknife" or weapons[w]=="trector_plow" or weapons[w]=="hayvork" or weapons[w]=="katana" or weapons[w]=="baseball_bat")
 {
 melee=true;
 }

@@ -10,6 +10,313 @@
 //                Used by revolvers (ammo belt), shotguns (shell box), and
 //                the mortar (loose shells).
 
+// ---------------------------------------------------------------------------
+// Fire mode system.
+// ---------------------------------------------------------------------------
+const int FIREMODE_SEMI = 0;
+const int FIREMODE_BURST = 1;
+const int FIREMODE_AUTO = 2;
+
+class fire_mode_info
+{
+string weapon_name;
+int[] modes;
+int current_mode;
+fire_mode_info(string wn, int[] m)
+{
+weapon_name = wn;
+modes = m;
+current_mode = 0;
+}
+}
+
+fire_mode_info@[] fire_modes(0);
+
+void register_fire_modes(string wn, int[] modes)
+{
+fire_mode_info fm(wn, modes);
+fire_modes.insert_last(fm);
+}
+
+int get_fire_mode(string wname)
+{
+for (uint i = 0; i < fire_modes.length(); i++)
+{
+if (fire_modes[i].weapon_name == wname)
+return fire_modes[i].modes[fire_modes[i].current_mode];
+}
+return FIREMODE_SEMI;
+}
+
+string fire_mode_name(int mode)
+{
+if (mode == FIREMODE_SEMI) return "semi-automatic";
+if (mode == FIREMODE_BURST) return "burst";
+if (mode == FIREMODE_AUTO) return "full automatic";
+return "unknown";
+}
+
+bool has_fire_modes(string wname)
+{
+for (uint i = 0; i < fire_modes.length(); i++)
+{
+if (fire_modes[i].weapon_name == wname and fire_modes[i].modes.length() > 1)
+return true;
+}
+return false;
+}
+
+void cycle_fire_mode(string wname)
+{
+for (uint i = 0; i < fire_modes.length(); i++)
+{
+if (fire_modes[i].weapon_name == wname)
+{
+if (fire_modes[i].modes.length() <= 1)
+{
+speak("This weapon only has one fire mode.");
+return;
+}
+fire_modes[i].current_mode++;
+if (fire_modes[i].current_mode >= int(fire_modes[i].modes.length()))
+fire_modes[i].current_mode = 0;
+speak(fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]));
+return;
+}
+}
+speak("This weapon does not have selectable fire modes.");
+}
+
+// Whether the current weapon can hold-fire (auto or burst).
+bool can_hold_fire(string wname)
+{
+int mode = get_fire_mode(wname);
+return (mode == FIREMODE_AUTO or mode == FIREMODE_BURST);
+}
+
+// ---------------------------------------------------------------------------
+// Stamina system.
+// ---------------------------------------------------------------------------
+int stamina = 100;
+int max_stamina = 100;
+timer stamina_regen_timer;
+int jump_count = 0;
+timer jump_window_timer;
+bool stamina_degraded = false;
+
+void reset_stamina()
+{
+stamina = max_stamina;
+jump_count = 0;
+stamina_degraded = false;
+stamina_regen_timer.restart();
+jump_window_timer.restart();
+}
+
+void degrade_stamina(int amount)
+{
+stamina -= amount;
+if (stamina < 0) stamina = 0;
+stamina_degraded = true;
+}
+
+void restore_stamina(int amount)
+{
+stamina += amount;
+if (stamina > max_stamina) stamina = max_stamina;
+}
+
+void stamina_on_melee()
+{
+degrade_stamina(5);
+}
+
+void stamina_on_jump()
+{
+if (jump_window_timer.elapsed > 25000)
+{
+jump_count = 0;
+jump_window_timer.restart();
+}
+jump_count++;
+if (jump_count > 3)
+degrade_stamina(8);
+}
+
+void stamina_on_heavy_move(int walktime_val)
+{
+if (walktime_val >= 300)
+degrade_stamina(2);
+}
+
+void stamina_loop()
+{
+if (stamina_regen_timer.elapsed >= 5000 and stamina < max_stamina)
+{
+stamina_regen_timer.restart();
+restore_stamina(3);
+}
+}
+
+string get_stamina_string()
+{
+return "Stamina: " + stamina + " of " + max_stamina + ".";
+}
+
+// ---------------------------------------------------------------------------
+// Buff / Debuff system.
+// ---------------------------------------------------------------------------
+class status_effect
+{
+string name;
+string type; // "buff" or "debuff"
+timer duration_timer;
+int duration_ms;
+timer tick_timer;
+int tick_ms;
+int heal_amount;
+bool active;
+status_effect(string n, string t, int dur, int tick, int heal)
+{
+name = n;
+type = t;
+duration_ms = dur;
+tick_ms = tick;
+heal_amount = heal;
+active = true;
+duration_timer.restart();
+tick_timer.restart();
+}
+}
+
+status_effect@[] active_effects(0);
+
+void apply_effect(string name, string type, int duration_ms, int tick_ms, int heal_amount)
+{
+// Remove existing effect with same name first.
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (active_effects[i].name == name)
+{
+active_effects.remove_at(i);
+break;
+}
+}
+status_effect ef(name, type, duration_ms, tick_ms, heal_amount);
+active_effects.insert_last(ef);
+}
+
+void apply_residual_healing()
+{
+apply_effect("Residual Healing", "buff", 120000, 15000, 500);
+}
+
+void apply_ultra_residual_healing()
+{
+apply_effect("Residual Healing", "buff", 300000, 25000, 1500);
+}
+
+void apply_blinded()
+{
+apply_effect("Blinded", "debuff", 15000, 0, 0);
+}
+
+bool has_effect(string name)
+{
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (active_effects[i].name == name and active_effects[i].active)
+return true;
+}
+return false;
+}
+
+void clear_all_effects()
+{
+active_effects.resize(0);
+}
+
+// Returns a string listing active buffs and debuffs for the H key.
+string get_effects_string()
+{
+string result = "";
+int count = 0;
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (!active_effects[i].active) continue;
+if (count > 0) result += " ";
+int remaining = (active_effects[i].duration_ms - active_effects[i].duration_timer.elapsed) / 1000;
+if (remaining < 0) remaining = 0;
+result += active_effects[i].name + " (" + remaining + "s remaining).";
+count++;
+}
+if (count == 0) return "No active effects.";
+return result;
+}
+
+// Called each frame from mainloop to tick effects and expire them.
+// Returns heal amount to apply this frame (0 if none).
+int effects_loop()
+{
+int heal = 0;
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (!active_effects[i].active) continue;
+if (active_effects[i].duration_timer.elapsed >= active_effects[i].duration_ms)
+{
+active_effects[i].active = false;
+active_effects.remove_at(i);
+i--;
+continue;
+}
+if (active_effects[i].tick_ms > 0 and active_effects[i].tick_timer.elapsed >= active_effects[i].tick_ms)
+{
+active_effects[i].tick_timer.restart();
+heal += active_effects[i].heal_amount;
+}
+}
+return heal;
+}
+
+// ---------------------------------------------------------------------------
+// Equipment system.
+// ---------------------------------------------------------------------------
+string equip_body = "";
+
+void equip_item(string item, string slot)
+{
+if (slot == "body")
+equip_body = item;
+}
+
+void unequip_item(string slot)
+{
+if (slot == "body")
+{
+if (equip_body != "")
+{
+give(equip_body, 1);
+speak(string_replace(equip_body, "_", " ", true) + " removed.");
+equip_body = "";
+}
+else
+speak("Nothing equipped on body.");
+}
+}
+
+string get_equipment_string()
+{
+string result = "Body: ";
+if (equip_body != "")
+result += string_replace(equip_body, "_", " ", true);
+else
+result += "empty";
+return result;
+}
+
+// ---------------------------------------------------------------------------
+// Gun ammo class & core functions.
+// ---------------------------------------------------------------------------
 class gun_ammo
 {
 string weapon_name;
@@ -137,7 +444,7 @@ if (gun_ammos[i].mag_loaded<0) exit();
 }
 }
 
-// Speak full ammo status for the player's current weapon (A key).
+// Speak full ammo status for the player's current weapon (A key without shift).
 void announce_ammo(string wname)
 {
 int i=find_gun(wname);
@@ -145,10 +452,13 @@ if (i<0) { speak("This weapon does not use ammunition."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Reloading."); return; }
 int reserve=get_item_count(g.reserve_item);
+string mode_str = "";
+if (has_fire_modes(wname))
+mode_str = " Fire mode: " + fire_mode_name(get_fire_mode(wname)) + ".";
 if (g.is_magazine)
-speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" spare "+g.reserve_label+"s.");
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" spare "+g.reserve_label+"s." + mode_str);
 else
-speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+".");
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+"." + mode_str);
 }
 
 // Begin reloading the named weapon (R key). Returns false if nothing to do.
@@ -218,9 +528,9 @@ if (diff>0) give(gun_ammos[i].reserve_item, diff);
 // and a few utility items.  Auto-assigns quickbar slots 1-5.
 void give_starting_loadout()
 {
-string[] melee_pool = {"machete", "combatknife"};
-string[] sidearm_pool = {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver"};
-string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "p90_mp", "benelli_m4_shotgun", "ks123shotgun"};
+string[] melee_pool = {"machete", "combatknife", "katana", "baseball_bat"};
+string[] sidearm_pool = {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle"};
+string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "p90_mp", "benelli_m4_shotgun", "ks123shotgun", "m4a1_carbine", "mp5", "uzi", "scar_h_battle_rifle", "fn_fal_battle_rifle", "mp7", "spas_12_shotgun"};
 
 string chosen_melee   = melee_pool[random(0, melee_pool.length()-1)];
 string chosen_sidearm = sidearm_pool[random(0, sidearm_pool.length()-1)];
@@ -245,19 +555,27 @@ quickbar[2] = chosen_primary;
 quickbar[3] = "health_potion";
 quickbar[4] = "frag_grenade";
 for (int i=5; i<10; i++) quickbar[i] = "";
+
+// Reset stamina and effects on spawn.
+reset_stamina();
+clear_all_effects();
+equip_body = "";
 }
 
 // Developer cheat: give every weapon, all ammo, and all items.
 void give_all()
 {
 string[] all_weps = {
-"machete", "combatknife",
-"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver",
-"p90_mp",
-"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle",
-"benelli_m4_shotgun", "ks123shotgun",
-"m1garantBattleRifle", "sg08_sniper_rifle",
+"machete", "combatknife", "katana", "baseball_bat",
+"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle",
+"p90_mp", "mp5", "uzi", "mp7",
+"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine",
+"scar_h_battle_rifle", "fn_fal_battle_rifle",
+"rpk_lmg", "m249_saw",
+"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun",
+"m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
 "120mm_mortar",
+"crossbow",
 "hayvork", "trector_plow"
 };
 for (uint i=0; i<all_weps.length(); i++)
@@ -284,6 +602,10 @@ give("water_tank", 1);
 give("bag", 2);
 give("box", 2);
 give("rock", 10);
+give("energetic_potion_red", 5);
+give("energetic_potion_blue", 3);
+give("energetic_potion_green", 2);
+give("energetic_potion_rainbow", 1);
 
 speak("All weapons, ammunition, and items given.");
 }

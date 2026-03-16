@@ -522,42 +522,59 @@ return;
 }
 }
 }
-// In-game menu opened with grave accent while connected and playing.
-// The cme callback keeps netloop running during navigation.
-void gamemenu()
+// ---------------------------------------------------------------------------
+// Escape menu — replaces the old grave-accent game menu.
+// Contains game info, equipment, statistics, and exit.
+// ---------------------------------------------------------------------------
+void escape_menu()
 {
-setupmenu();
-m.add_item_tts("View changes","gmchanges");
-m.add_item_tts("View rules","gmrules");
-m.add_item_tts("View account info","gmacct");
-m.add_item_tts("View developers","gmdevs");
-m.add_item_tts("Close menu","gmclose");
-int mres=m.run("Game Menu",true);
-if (m.get_item_name(mres)=="gmchanges")
+audio_form f;
+f.create_window("Game Menu", false, true);
+int f_list = f.create_list("Menu", 0, false);
+f.add_list_item(f_list, "View changes");
+f.add_list_item(f_list, "View rules");
+f.add_list_item(f_list, "View account info");
+f.add_list_item(f_list, "View developers");
+f.add_list_item(f_list, "Game statistics");
+f.add_list_item(f_list, "Equipment");
+f.add_list_item(f_list, "Account statistics");
+f.add_list_item(f_list, "Mode statistics");
+f.add_list_item(f_list, "Exit game");
+int f_select = f.create_button("&Select", true);
+int f_close = f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
 {
-file f;
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_select))
+{
+int sel = f.get_list_position(f_list);
+if (sel == 0) // View changes
+{
+file cf;
 string cl="Changelog not found.";
-if (f.open("changelog.txt","rb"))
+if (cf.open("changelog.txt","rb"))
 {
-cl=f.read();
-f.close();
+cl=cf.read();
+cf.close();
 }
 dlg(cl);
-gamemenu();
 }
-else if (m.get_item_name(mres)=="gmrules")
+else if (sel == 1) // View rules
 {
-file f;
+file rf;
 string rl="Rules file not found.";
-if (f.open("rules.txt","rb"))
+if (rf.open("rules.txt","rb"))
 {
-rl=f.read();
-f.close();
+rl=rf.read();
+rf.close();
 }
 dlg(rl);
-gamemenu();
 }
-else if (m.get_item_name(mres)=="gmacct")
+else if (sel == 2) // View account info
 {
 string info="Username: "+name;
 if (mate!="")
@@ -573,21 +590,111 @@ info+=". Email: "+em;
 else
 info+=". No registered account found for this username.";
 dlg(info);
-gamemenu();
 }
-else if (m.get_item_name(mres)=="gmdevs")
+else if (sel == 3) // View developers
 {
-file f;
+file df;
 string dv="Developers file not found.";
-if (f.open("developers.txt","rb"))
+if (df.open("developers.txt","rb"))
 {
-dv=f.read();
-f.close();
+dv=df.read();
+df.close();
 }
 dlg(dv);
-gamemenu();
 }
-// gmclose or escape: fall through and return to the game loop
+else if (sel == 4) // Game statistics
+{
+string stats = "Game Statistics.\n";
+stats += "Current weapon: " + string_replace(weapons[w], "_", " ", true) + ".\n";
+stats += "Inventory items: " + count_total_items() + ".\n";
+stats += get_stamina_string() + "\n";
+stats += get_effects_string() + "\n";
+stats += "Location: " + get_location() + ".";
+dlg(stats);
+}
+else if (sel == 5) // Equipment
+{
+equipment_menu();
+}
+else if (sel == 6) // Account statistics
+{
+string info = "Account Statistics.\n";
+info += "Username: " + name + ".\n";
+info += "Version: " + version + ".";
+dlg(info);
+}
+else if (sel == 7) // Mode statistics
+{
+string info = "Mode Statistics.\n";
+info += "Current map: " + mapname + ".\n";
+info += "Location: " + get_location() + ".";
+dlg(info);
+}
+else if (sel == 8) // Exit game
+{
+int q = yesno("Are you sure you wish to exit the game?");
+if (q == 1)
+{
+speak("Exiting the game");
+send_reliable(0, "close", 0);
+x = true;
+xtimer.restart();
+return;
+}
+}
+}
+else if (f.is_pressed(f_close))
+{
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Equipment menu — view and manage equipped items.
+// ---------------------------------------------------------------------------
+void equipment_menu()
+{
+audio_form f;
+f.create_window("Equipment", false, true);
+int f_list = f.create_list("Equipment slots", 0, false);
+string body_label = "Body: ";
+if (equip_body != "")
+body_label += string_replace(equip_body, "_", " ", true);
+else
+body_label += "empty";
+f.add_list_item(f_list, body_label);
+int f_remove = f.create_button("&Remove selected");
+int f_close = f.create_button("&Close", true, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_remove))
+{
+int sel = f.get_list_position(f_list);
+if (sel == 0)
+{
+unequip_item("body");
+// Refresh the label.
+string new_label = "Body: ";
+if (equip_body != "")
+new_label += string_replace(equip_body, "_", " ", true);
+else
+new_label += "empty";
+// Rebuild since audio_form doesn't have item update.
+equipment_menu();
+return;
+}
+}
+else if (f.is_pressed(f_close))
+{
+return;
+}
+}
 }
 void setupmenu(bool music=false, bool main=false)
 {

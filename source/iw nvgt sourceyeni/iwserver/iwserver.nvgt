@@ -1679,6 +1679,16 @@ string map=parsed[4];
 send_reliable(0, "ladder_spawned "+x+" "+y+" "+z+" "+map, 0);
 spawn_ladder(x,y,z,z+10,map,1000);
 }
+else if(parsed[0]=="heal" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+int heal_amount=string_to_number(parsed[1]);
+if(heal_amount>0 and heal_amount<=2000)
+players[index].health+=heal_amount;
+}
+}
 else if(parsed[0]=="fire" and parsed.length()>1)
 {
 int index=get_player_index(e.peer_id);

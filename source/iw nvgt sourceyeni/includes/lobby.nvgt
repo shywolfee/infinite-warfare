@@ -10,10 +10,10 @@
 //     while menu navigation is blocking.
 
 // ---------------------------------------------------------------------------
-// Network callback used during all lobby menus.
+// Network check used during all lobby forms.
 // Keeps the connection alive and handles abnormal server events.
 // ---------------------------------------------------------------------------
-int lobby_callback(dynamic_menu_pro@ lm, string data)
+void lobby_form_netcheck()
 {
 e=n.request();
 if (e.type==event_disconnect)
@@ -44,25 +44,6 @@ can_move=true;
 mainmenu();
 }
 }
-return 0;
-}
-
-// Apply the lobby menu style and network callback.
-void setup_lobby_menu()
-{
-m.reset(true);
-m.set_callback(lobby_callback, "");
-m.click_sound="menuclick.ogg";
-m.enter_sound="menuenter.ogg";
-m.wrap=false;
-m.enable_home_and_end=true;
-m.enable_up_and_down=true;
-m.enable_first_letter_navigation=true;
-m.open_sound="menuopen.ogg";
-m.wrap_sound="menumove.ogg";
-m.edge_sound="menuedge.ogg";
-m.enable_side_scrolling=false;
-m.enable_left_and_right=false;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,24 +52,27 @@ m.enable_left_and_right=false;
 // ---------------------------------------------------------------------------
 void modes_tab()
 {
+audio_form f;
+f.create_window("Modes", false, true);
+int f_bg=f.create_button("&Battlegrounds - Fight for survival on the main map", true);
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_bg);
 while(true)
 {
-setup_lobby_menu();
-m.add_item_tts("Battlegrounds - Fight for survival on the main map. Press Enter to deploy.","battlegrounds");
-m.add_item_tts("Go back","back");
-int mres=m.run("Modes",true);
-string sel=m.get_item_name(mres);
-if (sel=="battlegrounds")
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_bg))
 {
 speak("Deploying to Battlegrounds. Good luck.");
 wait(600);
-// Transfer into the game world. game() never returns normally;
-// it stays in the game loop until the player exits to the main menu.
 game(1);
 return;
 }
-// back or escape: fall through and return to the lobby loop
+else if (f.is_pressed(f_back))
+{
 return;
+}
 }
 }
 
@@ -200,30 +184,48 @@ mainmenu();
 void lobby()
 {
 speak("Welcome to the lobby, "+name
-+". Navigate the tabs with the arrow keys and press Enter to select.");
++". Use Tab to navigate and press Enter to select.");
 while(true)
 {
-setup_lobby_menu();
-m.add_item_tts("Modes","modes");
-m.add_item_tts("Account Info","acct");
-m.add_item_tts("Players","players");
-m.add_item_tts("Rewards","rewards");
-m.add_item_tts("Leave Lobby","leave");
-int mres=m.run("Lobby",true);
-string sel=m.get_item_name(mres);
-if (sel=="modes")
-modes_tab();
-else if (sel=="acct")
-account_tab();
-else if (sel=="players")
-players_tab();
-else if (sel=="rewards")
-rewards_tab();
-else
+audio_form f;
+f.create_window("Lobby", false, true);
+int f_modes=f.create_button("&Modes", true);
+int f_acct=f.create_button("&Account Info");
+int f_players=f.create_button("&Players");
+int f_rewards=f.create_button("&Rewards");
+int f_leave=f.create_button("&Leave Lobby", false, true);
+f.focus(f_modes);
+bool selected=false;
+while(!selected)
 {
-// "Leave Lobby" or Escape
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_modes))
+{
+modes_tab();
+selected=true;
+}
+else if (f.is_pressed(f_acct))
+{
+account_tab();
+selected=true;
+}
+else if (f.is_pressed(f_players))
+{
+players_tab();
+selected=true;
+}
+else if (f.is_pressed(f_rewards))
+{
+rewards_tab();
+selected=true;
+}
+else if (f.is_pressed(f_leave))
+{
 leave_lobby();
 return;
+}
 }
 }
 }

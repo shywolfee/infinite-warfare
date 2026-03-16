@@ -207,71 +207,71 @@ m.enable_left_and_right=false;
 }
 void optionsmenu()
 {
-setupmenu();
-m.add_item_tts("Set account (login)","setaccount");
-m.add_item_tts("Set your duo mate","mate");
-if(rctrl==0)
-m.add_item_tts("enable right control detection","rctrlo","r");
-else
-m.add_item_tts("disable right control detection","rctrlo","r");
-m.add_item_tts("Go back","back");
-int mres=m.run("Options menu",true);
-if (m.get_item_name(mres)=="setaccount")
+audio_form f;
+f.create_window("Options", false, true);
+int f_user=f.create_input_box("Account username", "", "", 0, false, false, false);
+int f_pass=f.create_input_box("Account password", "", "*", 0, false, false, false);
+int f_login=f.create_button("&Login");
+int f_mate=f.create_input_box("Duo mate", mate, "", 0, false, false, false);
+int f_setmate=f.create_button("Set &duo mate");
+int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
+int f_save=f.create_button("&Save and go back", true);
+int f_cancel=f.create_button("Cancel", false, true);
+f.focus(f_user);
+while(true)
 {
-// Require the server to be reachable before allowing account login.
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_login))
+{
+string acc_user=f.get_text(f_user);
+string acc_pass=f.get_text(f_pass);
+if (acc_user=="" or acc_pass=="")
+{
+dlg("Please enter both a username and password.");
+continue;
+}
 speak("Checking server status, please wait.");
 if (!server_online())
 {
 dlg("The server is currently offline. You cannot log in to your account while the server is down. Please try again later.");
-optionsmenu();
-return;
-}
-// Ask for account username and password, then verify
-string acc_user=input_box("Account Login - Username","Enter your account username.");
-if (acc_user=="")
-{
-optionsmenu();
-return;
-}
-string acc_pass=input_box("Account Login - Password","Enter your account password.");
-if (acc_pass=="")
-{
-optionsmenu();
-return;
+continue;
 }
 if (!verify_account(acc_user, acc_pass))
 {
 dlg("Incorrect username or password.");
-optionsmenu();
-return;
+continue;
 }
 name=get_account_username(acc_user);
 writeprefs();
 speak("Logged in as "+name+".");
-optionsmenu();
-return;
 }
-if (m.get_item_name(mres)=="mate")
+else if (f.is_pressed(f_setmate))
 {
-string mt=input_box("duo mate","Enter the name of your duo_mate, spaces are not allowed.");
+string mt=f.get_text(f_mate);
 if (mt!="" and string_contains(mt, " ", 1)<0)
 {
 mate=mt;
 writeprefs();
-optionsmenu();
+speak("Duo mate set to "+mate+".");
 }
 else
-dlg("I sayd. no spaces!");
-optionsmenu();
+dlg("Duo mate name must not be empty or contain spaces.");
 }
-if(m.get_item_name(mres)=="rctrlo")
+else if (f.is_pressed(f_save))
 {
-rctrl=(rctrl==0 ? 1 : 0);
-speak("right control detection has been "+(rctrl==0 ? "disabled" : "enabled"));
+rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
 writeprefs();
-optionsmenu();
+speak("Options saved.");
+break;
 }
-if (m.get_item_name(mres)=="back" or mres==0)
+else if (f.is_pressed(f_cancel))
+{
+break;
+}
+}
 mainmenu();
 }
 int yesno(string question)

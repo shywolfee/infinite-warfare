@@ -27,6 +27,7 @@ string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
 bool melee=false;
 sound plane;
 bool can_fire=false;
+bool pending_health_report=false;
 bool go_reload=false;
 bool can_stop=true; 
 bool go_out=false;
@@ -453,8 +454,8 @@ else
 if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
-// Energetic potions are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0)
+// Energetic potions and bomb vests are client-only; others go to server.
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest")
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -570,9 +571,30 @@ send_reliable(0,"nearplayers",0);
 }
 // Fire mode determines if hold-fire is possible.
 can_fire = can_hold_fire(weapons[w]);
+// Start a new burst on press in burst mode.
+int cur_fm = get_fire_mode(weapons[w]);
+if (cur_fm == FIREMODE_BURST and (key_pressed(KEY_LCONTROL) or (key_pressed(KEY_RCONTROL) and rctrl==1)))
+{
+burst_rounds_remaining = 3;
+burst_firing = true;
+}
+// Reset burst state when control is released.
+if (key_up(KEY_LCONTROL) and (key_up(KEY_RCONTROL) or rctrl==0))
+{
+burst_firing = false;
+burst_rounds_remaining = 0;
+}
 if(can_move==true and !is_reloading(weapons[w]))
 {
-if (firetimer.elapsed>=firetime and key_down(KEY_LCONTROL) and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_down(KEY_RCONTROL)&&rctrl==1 and can_fire==true and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_LCONTROL) and mapname!="battle_royale_waiting" or firetimer.elapsed>=firetime and key_pressed(KEY_RCONTROL)&&rctrl==1 and mapname!="battle_royale_waiting")
+bool fire_now = false;
+if (firetimer.elapsed>=firetime and mapname!="battle_royale_waiting")
+{
+if (cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(KEY_LCONTROL) or (key_down(KEY_RCONTROL) and rctrl==1)))
+fire_now = true;
+else if (key_down(KEY_LCONTROL) and can_fire==true or key_down(KEY_RCONTROL)&&rctrl==1 and can_fire==true or key_pressed(KEY_LCONTROL) or key_pressed(KEY_RCONTROL)&&rctrl==1)
+fire_now = true;
+}
+if (fire_now)
 {
 int weapon_ammo=ammo_check(weapons[w]);
 if(weapon_ammo>0 or melee==true)
@@ -581,12 +603,18 @@ ammo_give(weapons[w], -1);
 firetimer.restart();
 send_reliable(0,"fire "+weapons[w],0);
 if (melee) stamina_on_melee();
+if (cur_fm == FIREMODE_BURST and burst_firing)
+{
+burst_rounds_remaining--;
+if (burst_rounds_remaining <= 0) burst_firing = false;
+}
 }
 else if(weapon_ammo==0 and firetimer.elapsed>=firetime)
 {
 firetimer.restart();
 p.play_stationary(weapons[w]+"empty.ogg",false);
 can_fire=false;
+burst_firing = false;
 speak("Magazine empty. Press R to reload.");
 }
 }
@@ -616,7 +644,7 @@ send_reliable(0,chat,1);
 if (key_pressed(KEY_H) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 send_reliable(0,"health",0);
-speak(get_stamina_string() + " " + get_effects_string());
+pending_health_report=true;
 }
 if (key_pressed(KEY_H) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
 {
@@ -710,7 +738,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0)
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest")
 send_reliable(0, "use " + sel_item, 0);
 }
 }
@@ -893,21 +921,25 @@ if(key_down(KEY_UP) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Forward);
+if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
 else if(key_down(KEY_DOWN) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Backward);
+if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
 else if(key_down(KEY_LEFT) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Left);
+if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
 else if(key_down(KEY_RIGHT) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Right);
+if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
 }
 if(can_move==true)
@@ -1345,7 +1377,15 @@ if(parsed[4]==mapname)
 p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), calculate_theta(facing), false);
 }
 else
-speak(get_event_message());
+{
+string raw_msg = get_event_message();
+speak(raw_msg);
+if (pending_health_report and string_contains(raw_msg, "health", 1) >= 0)
+{
+pending_health_report = false;
+speak(get_stamina_string() + " " + get_effects_string());
+}
+}
 }
 if(e.channel==5)
 {
@@ -1572,9 +1612,7 @@ if (weapons[w]=="dragunov_svd") { firetime=1500; walktime=600; }
 // Special
 if (weapons[w]=="120mm_mortar") { firetime=4000; walktime=5000; }
 if (weapons[w]=="crossbow") { firetime=2000; walktime=250; }
-// Apply stamina penalty for heavy weapons on movement.
 movetime=walktime;
-if (walktime >= 300) stamina_on_heavy_move(walktime);
 // Stamina affects movement speed when low.
 if (stamina < 20) movetime = walktime + 100;
 fallloop();

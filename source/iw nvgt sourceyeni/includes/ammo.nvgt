@@ -26,11 +26,14 @@ fire_mode_info(string wn, int[] m)
 {
 weapon_name = wn;
 modes = m;
-current_mode = 0;
+// Default to last mode (AUTO for weapons that support it).
+current_mode = int(m.length()) - 1;
 }
 }
 
 fire_mode_info@[] fire_modes(0);
+int burst_rounds_remaining = 0;
+bool burst_firing = false;
 
 void register_fire_modes(string wn, int[] modes)
 {
@@ -87,9 +90,11 @@ return;
 speak("This weapon does not have selectable fire modes.");
 }
 
-// Whether the current weapon can hold-fire (auto or burst).
+// Whether the current weapon can hold-fire (auto or burst, or melee).
 bool can_hold_fire(string wname)
 {
+// Melee weapons always allow hold-fire.
+if (find_gun(wname) < 0) return true;
 int mode = get_fire_mode(wname);
 return (mode == FIREMODE_AUTO or mode == FIREMODE_BURST);
 }

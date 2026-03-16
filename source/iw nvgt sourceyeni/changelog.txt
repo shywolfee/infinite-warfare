@@ -1,3 +1,18 @@
+New in 0.3.2
+Added fine-grained turning controls with the Shift key.
+  Shift+Q: turn left by 1 degree (instead of the normal 45-degree snap).
+  Shift+E: turn right by 1 degree.
+  Shift+S: aim up by 1 degree.
+  Shift+X: aim down by 1 degree.
+  Without Shift, Q/E/S/X still snap to the major positions as before.
+Vertical aiming now uses a degree-based system internally (0 to 180 degrees).
+  0 degrees is straight down, 90 degrees is straight forward, 180 degrees is straight up.
+  The server weapon system has been updated to use range-based angle checks to match.
+Added new options to the options menu.
+  Camera speed: controls how fast the camera moves when holding arrow keys (1 to 200).
+  Master volume: adjusts the overall game volume (-60 to 0 dB).
+  Both settings are saved to your preferences and persist between sessions.
+
 New in 0.3.1
 Fixed a bug where unauthenticated players could bypass the authorization check and connect
   to the server. The connect function only checked whether a name was set, but the name could

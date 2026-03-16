@@ -611,7 +611,7 @@ m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
 // ---------------------------------------------------------------------------
-// Options menu — game settings only (duo mate, right control detection).
+// Options menu — game settings (duo mate, right control, camera speed, volume).
 // Account-related options have been moved to the Account menu.
 // ---------------------------------------------------------------------------
 void optionsmenu()
@@ -621,6 +621,8 @@ f.create_window("Options", false, true);
 int f_mate=f.create_input_box("Duo mate", mate, "", 0, false, false, false);
 int f_setmate=f.create_button("Set &duo mate");
 int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
+int f_camspeed=f.create_input_box("Camera speed (1 to 200, default 50)", ""+cameraspeed, "", 0, false, false, false);
+int f_vol=f.create_input_box("Master volume (-60 to 0, default 0)", ""+mastervol, "", 0, false, false, false);
 int f_save=f.create_button("&Save and go back", true);
 int f_cancel=f.create_button("Cancel", false, true);
 f.focus(f_mate);
@@ -645,6 +647,21 @@ dlg("Duo mate name must not be empty or contain spaces.");
 else if (f.is_pressed(f_save))
 {
 rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
+int newcam=string_to_number(f.get_text(f_camspeed));
+if(newcam<1) newcam=1;
+if(newcam>200) newcam=200;
+cameraspeed=newcam;
+kleft.setting_2=cameraspeed;
+kright.setting_2=cameraspeed;
+kup.setting_2=cameraspeed;
+kdown.setting_2=cameraspeed;
+kpgdn.setting_2=cameraspeed;
+kpgup.setting_2=cameraspeed;
+int newvol=string_to_number(f.get_text(f_vol));
+if(newvol<-60) newvol=-60;
+if(newvol>0) newvol=0;
+mastervol=newvol;
+set_sound_master_volume(mastervol);
 writeprefs();
 speak("Options saved.");
 break;

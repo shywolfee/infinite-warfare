@@ -188,8 +188,11 @@ for(uint i=0; i<weapons.length(); i++)
 if(weapons[i].speedtimer.elapsed > weapons[i].speedtime)
 {
 weapons[i].speedtimer.restart();
-if(weapons[i].facing==1)
+// Vertical aim is now in degrees: 0=down, 90=forward, 180=up.
+// Determine movement mode from the vertical angle.
+if(weapons[i].facing>=45 and weapons[i].facing<=135)
 {
+// Forward (horizontal) movement
 vector r;
 r=move(weapons[i].x, weapons[i].y, weapons[i].dir);
 weapons[i].x=r.x;
@@ -202,7 +205,7 @@ if(weapons[i].distance > weapons[i].range)
 weapons.remove_at(i);
 continue;
 }
-if(get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallrock") 
+if(get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(rx,ry,weapons[i].z,weapons[i].map)=="wallrock")
 {
 play(weapons[i].type+"rico", rx, ry, weapons[i].z, weapons[i].map);
 if(weapons[i].type=="120mm_mortar")
@@ -213,8 +216,9 @@ weapons.remove_at(i);
 return;
 }
 }
-if(weapons[i].facing==0)
+else if(weapons[i].facing<45)
 {
+// Aiming down
 weapons[i].z--;
 weapons[i].distance++;
 if(weapons[i].distance > weapons[i].range)
@@ -222,7 +226,7 @@ if(weapons[i].distance > weapons[i].range)
 weapons.remove_at(i);
 continue;
 }
-if(get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallrock") 
+if(get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallrock")
 {
 play(weapons[i].type+"rico", weapons[i].x, weapons[i].y, weapons[i].z, weapons[i].map);
 if(weapons[i].type=="120mm_mortar")
@@ -233,8 +237,9 @@ weapons.remove_at(i);
 return;
 }
 }
-if(weapons[i].facing==2)
+else if(weapons[i].facing>135)
 {
+// Aiming up
 weapons[i].z++;
 weapons[i].distance++;
 if(weapons[i].distance > weapons[i].range)
@@ -242,7 +247,7 @@ if(weapons[i].distance > weapons[i].range)
 weapons.remove_at(i);
 continue;
 }
-if(get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallrock") 
+if(get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallstone" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallwood" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallbrick" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallgrass" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallfence" or get_tile_at(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)=="wallrock")
 {
 play(weapons[i].type+"rico", weapons[i].x, weapons[i].y, weapons[i].z, weapons[i].map);
 if(weapons[i].type=="120mm_mortar")

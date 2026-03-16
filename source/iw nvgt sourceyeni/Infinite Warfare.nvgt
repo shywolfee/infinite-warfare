@@ -31,9 +31,10 @@ bool go_reload=false;
 bool can_stop=true; 
 bool go_out=false;
 bool prevconnected=false;
-int turn=1;
+int turn=90;
 int cameraspeed=50;
 int rctrl=0;
+int mastervol=0;
 timer drawtimer;
 bool in_plane=false;
 timer flytimer;
@@ -54,7 +55,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.31;
+double version=0.32;
 string name;
 string mate;
 double facing=0;
@@ -421,7 +422,15 @@ if(mousez>0)
 cycle_inv(1);
 p.play_stationary("inv"+random(1, 7)+".ogg", false);
 }
-if(key_pressed(KEY_Q) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+if(key_pressed(KEY_Q) and shift_is_down())
+{
+turntimer.restart();
+facing=turnleft(facing, 1);
+speak(facing+" degrees");
+p.play_stationary("turn.ogg", false);
+send_reliable(0, "turn "+facing, 0);
+}
+else if(key_pressed(KEY_Q) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
 turntimer.restart();
 facing=snapleft(facing, getdir(facing));
@@ -430,49 +439,59 @@ p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
-if(key_pressed(KEY_X) and turn>0)
+if(key_pressed(KEY_X) and shift_is_down() and turn>0)
 {
 turn-=1;
 p.play_stationary("turn.ogg", false);
-string s="";
-if(turn==1)
-{
-s="streight forward";
-}
-if(turn==0)
-{
-s="streight down";
-}
-if(turn==2)
-{
-s="streight up";
-}
-string to_speak="facing "+s;
-speak(to_speak);
+speak("vertical "+turn+" degrees");
 send_reliable(0, "turn2 "+turn, 0);
 }
-if(key_pressed(KEY_S) and turn<2)
+else if(key_pressed(KEY_X) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn>0)
+{
+if(turn>90)
+turn=90;
+else
+turn=0;
+p.play_stationary("turn.ogg", false);
+string s="";
+if(turn==90)
+s="straight forward";
+else if(turn==0)
+s="straight down";
+speak("facing "+s);
+send_reliable(0, "turn2 "+turn, 0);
+}
+if(key_pressed(KEY_S) and shift_is_down() and turn<180)
 {
 turn+=1;
 p.play_stationary("turn.ogg", false);
-string s="";
-if(turn==1)
-{
-s="streight forward";
-}
-if(turn==0)
-{
-s="streight down";
-}
-if(turn==2)
-{
-s="streight up";
-}
-string to_speak="facing "+s;
-speak(to_speak);
+speak("vertical "+turn+" degrees");
 send_reliable(0, "turn2 "+turn, 0);
 }
-if(key_pressed(KEY_E) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+else if(key_pressed(KEY_S) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn<180)
+{
+if(turn<90)
+turn=90;
+else
+turn=180;
+p.play_stationary("turn.ogg", false);
+string s="";
+if(turn==90)
+s="straight forward";
+else if(turn==180)
+s="straight up";
+speak("facing "+s);
+send_reliable(0, "turn2 "+turn, 0);
+}
+if(key_pressed(KEY_E) and shift_is_down())
+{
+turntimer.restart();
+facing=turnright(facing, 1);
+speak(facing+" degrees");
+p.play_stationary("turn.ogg", false);
+send_reliable(0, "turn "+facing, 0);
+}
+else if(key_pressed(KEY_E) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
 turntimer.restart();
 facing=snapright(facing, getdir(facing));
@@ -483,7 +502,13 @@ mouse_update();
 }
 if(key_pressed(KEY_F))
 {
-speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees.");
+string vert_info="";
+if(turn==90) vert_info=", aiming straight forward";
+else if(turn==0) vert_info=", aiming straight down";
+else if(turn==180) vert_info=", aiming straight up";
+else if(turn<90) vert_info=", aiming "+turn+" degrees vertical";
+else vert_info=", aiming "+turn+" degrees vertical";
+speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees"+vert_info+".");
 }
 if(MENU_is_down())
 {
@@ -671,12 +696,21 @@ if (sd.d.exists("mate"))
 mate=sd.read("mate");
 if (sd.d.exists("rctrl"))
 rctrl=sd.readn("rctrl");
+if (sd.d.exists("cameraspeed"))
+cameraspeed=sd.readn("cameraspeed");
+if (sd.d.exists("mastervol"))
+{
+mastervol=sd.readn("mastervol");
+set_sound_master_volume(mastervol);
+}
 }
 void writeprefs()
 {
 sd.add("name",name);
 sd.add("mate",mate);
 sd.add("rctrl",rctrl);
+sd.add("cameraspeed",cameraspeed);
+sd.add("mastervol",mastervol);
 sd.save();
 }
 /*
@@ -1299,7 +1333,7 @@ exit();
 }
 void death()
 {
-turn=1;
+turn=90;
 plane.stop();
 timer dietimer;
 timer respawntimer;

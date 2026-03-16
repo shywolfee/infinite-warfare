@@ -178,7 +178,7 @@ mainmenu();
 }
 // ---------------------------------------------------------------------------
 // Account menu — requires server to be online.
-// Contains login, authorization code entry, and password reset.
+// Hub menu that leads to Login, Authorize, and Password Reset sub-menus.
 // ---------------------------------------------------------------------------
 void accountmenu()
 {
@@ -189,16 +189,31 @@ dlg("The server is currently offline. Account options are not available while th
 mainmenu();
 return;
 }
+setupmenu();
+m.add_item_tts("Log in to your account.","login");
+m.add_item_tts("Authorize your account with a code.","authorize");
+m.add_item_tts("Reset your password.","resetpass");
+m.add_item_tts("Go back.","back");
+int mres=m.run("Account",true);
+if (m.get_item_name(mres)=="login")
+account_login_menu();
+else if (m.get_item_name(mres)=="authorize")
+account_authorize_menu();
+else if (m.get_item_name(mres)=="resetpass")
+account_reset_menu();
+else
+mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Account sub-menu: Login
+// ---------------------------------------------------------------------------
+void account_login_menu()
+{
 audio_form f;
-f.create_window("Account", false, true);
+f.create_window("Login", false, true);
 int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
 int f_pass=f.create_input_box("Password", "", "*", 0, false, false, false);
-int f_login=f.create_button("&Login");
-int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
-int f_authsubmit=f.create_button("&Authorize account");
-int f_resetreq=f.create_button("Request &password reset");
-int f_resetcode=f.create_input_box("Reset code", "", "", 0, false, false, false);
-int f_resetsubmit=f.create_button("&Submit reset code");
+int f_login=f.create_button("&Login", true);
 int f_back=f.create_button("Go &back", false, true);
 f.focus(f_user);
 while(true)
@@ -229,14 +244,40 @@ continue;
 name=get_account_username(acc_user);
 writeprefs();
 speak("Logged in as "+name+".");
+break;
 }
-else if (f.is_pressed(f_authsubmit))
+else if (f.is_pressed(f_back))
+{
+break;
+}
+}
+accountmenu();
+}
+// ---------------------------------------------------------------------------
+// Account sub-menu: Authorize
+// ---------------------------------------------------------------------------
+void account_authorize_menu()
+{
+audio_form f;
+f.create_window("Authorize Account", false, true);
+int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
+int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
+int f_submit=f.create_button("&Authorize account", true);
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_submit))
 {
 string acc_user=f.get_text(f_user);
 string code=f.get_text(f_authcode);
 if (acc_user=="")
 {
-dlg("Please enter your account username above before submitting the authorization code.");
+dlg("Please enter your account username.");
 continue;
 }
 if (code=="")
@@ -257,18 +298,45 @@ continue;
 if (authenticate_account(acc_user, code))
 {
 dlg("Account authenticated successfully! You can now log in.");
+break;
 }
 else
 {
 dlg("Invalid authorization code. Please check the code and try again.");
 }
 }
-else if (f.is_pressed(f_resetreq))
+else if (f.is_pressed(f_back))
+{
+break;
+}
+}
+accountmenu();
+}
+// ---------------------------------------------------------------------------
+// Account sub-menu: Password Reset
+// ---------------------------------------------------------------------------
+void account_reset_menu()
+{
+audio_form f;
+f.create_window("Password Reset", false, true);
+int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
+int f_resetreq=f.create_button("Request &password reset", true);
+int f_resetcode=f.create_input_box("Reset code", "", "", 0, false, false, false);
+int f_resetsubmit=f.create_button("&Submit reset code");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_resetreq))
 {
 string acc_user=f.get_text(f_user);
 if (acc_user=="")
 {
-dlg("Please enter your username above before requesting a password reset.");
+dlg("Please enter your username before requesting a password reset.");
 continue;
 }
 // Send the request to the server via a temporary connection.
@@ -318,7 +386,7 @@ string acc_user=f.get_text(f_user);
 string rcode=f.get_text(f_resetcode);
 if (acc_user=="")
 {
-dlg("Please enter your username above before submitting a reset code.");
+dlg("Please enter your username before submitting a reset code.");
 continue;
 }
 if (rcode=="")
@@ -372,7 +440,7 @@ else if (f.is_pressed(f_back))
 break;
 }
 }
-mainmenu();
+accountmenu();
 }
 // ---------------------------------------------------------------------------
 // Password reset form — lets the player enter and confirm a new password.

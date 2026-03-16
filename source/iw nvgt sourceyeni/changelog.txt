@@ -1,3 +1,15 @@
+New in 0.3.1
+Fixed a bug where unauthenticated players could bypass the authorization check and connect
+  to the server. The connect function only checked whether a name was set, but the name could
+  be loaded from saved preferences without going through the account login flow. An explicit
+  authentication check is now performed before connecting.
+The account menu has been reorganized into separate sub-menus for clarity.
+  Instead of one cluttered form with login fields, authorization code, and password reset all
+  mixed together, there is now a hub menu with three options:
+  Login: enter your username and password to log in.
+  Authorize account: enter your username and the authorization code from an administrator.
+  Password reset: request a reset, then enter the reset code to set a new password.
+
 New in 0.3
 Fixed the administrator panel so developers running from source can actually open it.
   Previously, the panel verified access using the computer ID against admins.txt, which

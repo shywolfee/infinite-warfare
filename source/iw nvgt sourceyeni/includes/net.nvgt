@@ -30,6 +30,15 @@ dlg("you didn't set a name, you should set one before you are abled to connect."
 mainmenu();
 return;
 }
+// Block unauthenticated accounts from connecting.
+// The name may have been loaded from saved preferences without going through
+// the account login flow, so we must verify authentication here as well.
+if(account_exists(name) and !is_account_authenticated(name))
+{
+dlg("Your account has not been authenticated yet. Please go to the Account menu and enter the authorization code provided by an administrator before connecting.");
+mainmenu();
+return;
+}
 if(connected==false and prevconnected==false)
 {
 n.setup_client(20, 500);

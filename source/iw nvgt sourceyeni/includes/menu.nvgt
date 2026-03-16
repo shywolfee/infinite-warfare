@@ -475,7 +475,7 @@ break;
 // Show unauthenticated players in a sub-form
 audio_form uf;
 uf.create_window("Unauthenticated Players", false, true);
-if(data=="" or string_trim_whitespace(data)=="")
+if(data=="")
 {
 uf.create_input_box("Info", "No unauthenticated players found.", "", 0, false, true, false);
 }

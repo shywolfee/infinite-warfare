@@ -227,7 +227,7 @@ break;
 }
 audio_form f;
 f.create_window("Players Online", false, true);
-if (data=="" or string_trim_whitespace(data)=="")
+if (data=="")
 {
 f.create_input_box("Info", "No players are currently online.", "", 0, false, true, false);
 }

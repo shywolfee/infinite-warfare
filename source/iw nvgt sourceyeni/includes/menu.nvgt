@@ -4,6 +4,7 @@ void mainmenu()
 setupmenu(true, true);
 m.add_item_tts("connect to the server and enter the lobby.","connect");
 m.add_item_tts("register a new account.","register");
+m.add_item_tts("account.","account");
 m.add_item_tts("view the changelog.","changelog");
 m.add_item_tts("change some options.","options");
 m.add_item_tts("check for new updates.","cfu");
@@ -16,6 +17,8 @@ if (m.get_item_name(mres)=="connect")
 connect();
 else if (m.get_item_name(mres)=="register")
 registermenu();
+else if (m.get_item_name(mres)=="account")
+accountmenu();
 else if (m.get_item_name(mres)=="changelog")
 changelogmenu();
 else if (m.get_item_name(mres)=="cfu")
@@ -147,6 +150,9 @@ else
 dlg("Account created successfully! Your username is "+reg_user+". You can now connect to the server.");
 mainmenu();
 }
+// ---------------------------------------------------------------------------
+// Changelog viewer — audio_form with read-only text field and close button.
+// ---------------------------------------------------------------------------
 void changelogmenu()
 {
 file cf;
@@ -156,8 +162,297 @@ if (cf.open("changelog.txt","rb"))
 cl=cf.read();
 cf.close();
 }
-dlg(cl);
+audio_form f;
+f.create_window("Changelog", false, true);
+f.create_input_box("Changes", cl, "", 0, false, true, false);
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_close))
+break;
+}
 mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Account menu — requires server to be online.
+// Contains login, authorization code entry, and password reset.
+// ---------------------------------------------------------------------------
+void accountmenu()
+{
+speak("Checking server status, please wait.");
+if (!server_online())
+{
+dlg("The server is currently offline. Account options are not available while the server is down. Please try again later.");
+mainmenu();
+return;
+}
+audio_form f;
+f.create_window("Account", false, true);
+int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
+int f_pass=f.create_input_box("Password", "", "*", 0, false, false, false);
+int f_login=f.create_button("&Login");
+int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
+int f_authsubmit=f.create_button("&Authorize account");
+int f_resetreq=f.create_button("Request &password reset");
+int f_resetcode=f.create_input_box("Reset code", "", "", 0, false, false, false);
+int f_resetsubmit=f.create_button("&Submit reset code");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_login))
+{
+string acc_user=f.get_text(f_user);
+string acc_pass=f.get_text(f_pass);
+if (acc_user=="" or acc_pass=="")
+{
+dlg("Please enter both a username and password.");
+continue;
+}
+if (!verify_account(acc_user, acc_pass))
+{
+dlg("Incorrect username or password.");
+continue;
+}
+if (!is_account_authenticated(acc_user))
+{
+dlg("Your account has not been authenticated yet. Please enter the authorization code provided by an administrator, or contact an administrator to receive your code.");
+continue;
+}
+name=get_account_username(acc_user);
+writeprefs();
+speak("Logged in as "+name+".");
+}
+else if (f.is_pressed(f_authsubmit))
+{
+string acc_user=f.get_text(f_user);
+string code=f.get_text(f_authcode);
+if (acc_user=="")
+{
+dlg("Please enter your account username above before submitting the authorization code.");
+continue;
+}
+if (code=="")
+{
+dlg("Please enter an authorization code.");
+continue;
+}
+if (!account_exists(acc_user))
+{
+dlg("No account found with that username.");
+continue;
+}
+if (is_account_authenticated(acc_user))
+{
+dlg("This account is already authenticated.");
+continue;
+}
+if (authenticate_account(acc_user, code))
+{
+dlg("Account authenticated successfully! You can now log in.");
+}
+else
+{
+dlg("Invalid authorization code. Please check the code and try again.");
+}
+}
+else if (f.is_pressed(f_resetreq))
+{
+string acc_user=f.get_text(f_user);
+if (acc_user=="")
+{
+dlg("Please enter your username above before requesting a password reset.");
+continue;
+}
+// Send the request to the server via a temporary connection.
+network rn;
+rn.setup_client(1, 100);
+rn.connect(netaddress, netport);
+timer rct;
+bool got_response=false;
+string rresult="";
+while(rct.elapsed<5000)
+{
+wait(5);
+network_event rev=rn.request();
+if(rev.type==event_connect)
+{
+string rmsg=string_encrypt("request_password_reset "+acc_user, "_';'_clickclick!");
+rn.send_reliable(0, rmsg, 0);
+timer rrt;
+while(rrt.elapsed<3000)
+{
+wait(5);
+rev=rn.request();
+if(rev.type==event_receive)
+{
+string rr=rev.message;
+if(rr!="") rr=string_decrypt(rr, "masonandsamare2bitches");
+rresult=rr;
+got_response=true;
+break;
+}
+}
+break;
+}
+if(rev.type==event_disconnect)
+break;
+}
+if(rresult=="reset_requested")
+dlg("Password reset requested. Please contact an administrator to receive your reset code.");
+else if(rresult=="reset_no_account")
+dlg("No account found with that username.");
+else
+dlg("Could not send the reset request. The server may not have responded.");
+}
+else if (f.is_pressed(f_resetsubmit))
+{
+string acc_user=f.get_text(f_user);
+string rcode=f.get_text(f_resetcode);
+if (acc_user=="")
+{
+dlg("Please enter your username above before submitting a reset code.");
+continue;
+}
+if (rcode=="")
+{
+dlg("Please enter a reset code.");
+continue;
+}
+// Verify the reset code with the server.
+network rn;
+rn.setup_client(1, 100);
+rn.connect(netaddress, netport);
+timer rct;
+string rresult="";
+while(rct.elapsed<5000)
+{
+wait(5);
+network_event rev=rn.request();
+if(rev.type==event_connect)
+{
+string rmsg=string_encrypt("submit_reset_code "+acc_user+" "+rcode, "_';'_clickclick!");
+rn.send_reliable(0, rmsg, 0);
+timer rrt;
+while(rrt.elapsed<3000)
+{
+wait(5);
+rev=rn.request();
+if(rev.type==event_receive)
+{
+string rr=rev.message;
+if(rr!="") rr=string_decrypt(rr, "masonandsamare2bitches");
+rresult=rr;
+break;
+}
+}
+break;
+}
+if(rev.type==event_disconnect)
+break;
+}
+if(rresult!="reset_code_ok")
+{
+dlg("Invalid reset code. Please check the code and try again.");
+continue;
+}
+// Code is valid — prompt for new password.
+password_reset_form(acc_user);
+break;
+}
+else if (f.is_pressed(f_back))
+{
+break;
+}
+}
+mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Password reset form — lets the player enter and confirm a new password.
+// Called after the reset code has been verified.
+// ---------------------------------------------------------------------------
+void password_reset_form(string username)
+{
+audio_form f;
+f.create_window("Reset Password", false, true);
+int f_newpass=f.create_input_box("New password", "", "*", 0, false, false, false);
+int f_confirm=f.create_input_box("Confirm new password", "", "*", 0, false, false, false);
+int f_submit=f.create_button("&Reset password", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_newpass);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_submit))
+{
+string newpass=f.get_text(f_newpass);
+string confirm=f.get_text(f_confirm);
+if (newpass.length()<4)
+{
+dlg("Password must be at least 4 characters.");
+continue;
+}
+if (newpass!=confirm)
+{
+dlg("Passwords do not match.");
+continue;
+}
+// Send the new password to the server.
+network rn;
+rn.setup_client(1, 100);
+rn.connect(netaddress, netport);
+timer rct;
+string rresult="";
+while(rct.elapsed<5000)
+{
+wait(5);
+network_event rev=rn.request();
+if(rev.type==event_connect)
+{
+string rmsg=string_encrypt("reset_password "+username+" "+newpass, "_';'_clickclick!");
+rn.send_reliable(0, rmsg, 0);
+timer rrt;
+while(rrt.elapsed<3000)
+{
+wait(5);
+rev=rn.request();
+if(rev.type==event_receive)
+{
+string rr=rev.message;
+if(rr!="") rr=string_decrypt(rr, "masonandsamare2bitches");
+rresult=rr;
+break;
+}
+}
+break;
+}
+if(rev.type==event_disconnect)
+break;
+}
+if(rresult=="reset_done")
+{
+dlg("Your password has been reset successfully. You can now log in with your new password.");
+return;
+}
+else
+{
+dlg("Failed to reset password. The server may not have responded.");
+return;
+}
+}
+else if (f.is_pressed(f_cancel))
+{
+return;
+}
+}
 }
 // In-game menu opened with grave accent while connected and playing.
 // The cme callback keeps netloop running during navigation.
@@ -247,90 +542,27 @@ m.edge_sound="menuedge.ogg";
 m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
+// ---------------------------------------------------------------------------
+// Options menu — game settings only (duo mate, right control detection).
+// Account-related options have been moved to the Account menu.
+// ---------------------------------------------------------------------------
 void optionsmenu()
 {
 audio_form f;
 f.create_window("Options", false, true);
-int f_user=f.create_input_box("Account username", "", "", 0, false, false, false);
-int f_pass=f.create_input_box("Account password", "", "*", 0, false, false, false);
-int f_login=f.create_button("&Login");
-int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
-int f_authsubmit=f.create_button("&Authorize account");
 int f_mate=f.create_input_box("Duo mate", mate, "", 0, false, false, false);
 int f_setmate=f.create_button("Set &duo mate");
 int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
 int f_save=f.create_button("&Save and go back", true);
 int f_cancel=f.create_button("Cancel", false, true);
-f.focus(f_user);
+f.focus(f_mate);
 while(true)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_login))
-{
-string acc_user=f.get_text(f_user);
-string acc_pass=f.get_text(f_pass);
-if (acc_user=="" or acc_pass=="")
-{
-dlg("Please enter both a username and password.");
-continue;
-}
-speak("Checking server status, please wait.");
-if (!server_online())
-{
-dlg("The server is currently offline. You cannot log in to your account while the server is down. Please try again later.");
-continue;
-}
-if (!verify_account(acc_user, acc_pass))
-{
-dlg("Incorrect username or password.");
-continue;
-}
-if (!is_account_authenticated(acc_user))
-{
-dlg("Your account has not been authenticated yet. Please enter the authorization code provided by an administrator, or contact an administrator to receive your code.");
-continue;
-}
-name=get_account_username(acc_user);
-writeprefs();
-speak("Logged in as "+name+".");
-}
-else if (f.is_pressed(f_authsubmit))
-{
-string acc_user=f.get_text(f_user);
-string code=f.get_text(f_authcode);
-if (acc_user=="")
-{
-dlg("Please enter your account username above before submitting the authorization code.");
-continue;
-}
-if (code=="")
-{
-dlg("Please enter an authorization code.");
-continue;
-}
-if (!account_exists(acc_user))
-{
-dlg("No account found with that username.");
-continue;
-}
-if (is_account_authenticated(acc_user))
-{
-dlg("This account is already authenticated.");
-continue;
-}
-if (authenticate_account(acc_user, code))
-{
-dlg("Account authenticated successfully! You can now log in.");
-}
-else
-{
-dlg("Invalid authorization code. Please check the code and try again.");
-}
-}
-else if (f.is_pressed(f_setmate))
+if (f.is_pressed(f_setmate))
 {
 string mt=f.get_text(f_mate);
 if (mt!="" and string_contains(mt, " ", 1)<0)
@@ -358,8 +590,9 @@ mainmenu();
 }
 // ---------------------------------------------------------------------------
 // Administrator Panel (only available when running from source)
-// Connects to the server to verify admin status, then provides
-// authorization mode toggle and unauthenticated player list.
+// Connects to the server to verify admin/dev status, then provides
+// authorization mode toggle, unauthenticated player list, and
+// password reset request viewer.
 // ---------------------------------------------------------------------------
 void adminpanel()
 {
@@ -376,7 +609,10 @@ wait(5);
 network_event ev=an.request();
 if(ev.type==event_connect)
 {
-string msg=string_encrypt("admin_panel "+comp, "_';'_clickclick!");
+string msg_str="admin_panel "+comp;
+if(SCRIPT_COMPILED==false)
+msg_str+=" dev";
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
 an.send_reliable(0, msg, 0);
 timer rt;
 while(rt.elapsed<3000)
@@ -418,6 +654,7 @@ f.create_window("Administrator Panel", false, true);
 int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
 int f_save_auth=f.create_button("&Save authorization mode");
 int f_viewunauth=f.create_button("&View unauthenticated players");
+int f_viewresets=f.create_button("View password &reset requests");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_authmode);
 while(true)
@@ -427,7 +664,10 @@ f.monitor();
 if (f.is_pressed(f_save_auth))
 {
 string val=(f.is_checked(f_authmode) ? "1" : "0");
-string msg=string_encrypt("admin_set_authmode "+val+" "+comp, "_';'_clickclick!");
+string msg_str="admin_set_authmode "+val+" "+comp;
+if(SCRIPT_COMPILED==false)
+msg_str+=" dev";
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
 an.send_reliable(0, msg, 0);
 timer rt;
 bool saved=false;
@@ -453,7 +693,10 @@ dlg("Failed to save setting. Server may not have responded.");
 }
 else if (f.is_pressed(f_viewunauth))
 {
-string msg=string_encrypt("admin_get_unauth "+comp, "_';'_clickclick!");
+string msg_str="admin_get_unauth "+comp;
+if(SCRIPT_COMPILED==false)
+msg_str+=" dev";
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
 an.send_reliable(0, msg, 0);
 string data="";
 timer rt;
@@ -496,6 +739,57 @@ while(true)
 wait(5);
 uf.monitor();
 if(uf.is_pressed(uf_close))
+break;
+}
+}
+else if (f.is_pressed(f_viewresets))
+{
+string msg_str="admin_get_resets "+comp;
+if(SCRIPT_COMPILED==false)
+msg_str+=" dev";
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "admin_reset_list ", 1)==0)
+{
+data=string_replace(r, "admin_reset_list ", "", false);
+break;
+}
+}
+}
+// Show password reset requests in a sub-form
+audio_form rf;
+rf.create_window("Password Reset Requests", false, true);
+if(data=="")
+{
+rf.create_input_box("Info", "No pending password reset requests.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+rf.create_input_box(parts[0], "Reset code: "+parts[1], "", 0, false, true, false);
+}
+}
+int rf_close=rf.create_button("&Close", true, true);
+rf.focus(0);
+while(true)
+{
+wait(5);
+rf.monitor();
+if(rf.is_pressed(rf_close))
 break;
 }
 }

@@ -634,8 +634,11 @@ send_reliable(e.peer_id, s, 0);
 }
 else if(parsed[0]=="admin_panel" and parsed.length()>1)
 {
+// Accept both admins (by comp) and devs (by "dev" flag)
 string acomp=parsed[1];
-if(string_contains(adminlist, acomp, 1)>-1)
+bool is_admin=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dev=(parsed.length()>2 and parsed[2]=="dev");
+if(is_admin or is_dev)
 send_reliable(e.peer_id, "admin_panel_ok "+(auth_mode ? "1" : "0"), 0);
 else
 send_reliable(e.peer_id, "admin_panel_denied", 0);
@@ -643,7 +646,9 @@ send_reliable(e.peer_id, "admin_panel_denied", 0);
 else if(parsed[0]=="admin_set_authmode" and parsed.length()>2)
 {
 string acomp=parsed[2];
-if(string_contains(adminlist, acomp, 1)>-1)
+bool is_adm=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dv=(parsed.length()>3 and parsed[3]=="dev");
+if(is_adm or is_dv)
 {
 auth_mode=(parsed[1]=="1");
 file af;
@@ -656,7 +661,9 @@ send_reliable(e.peer_id, "admin_authmode_saved", 0);
 else if(parsed[0]=="admin_get_unauth" and parsed.length()>1)
 {
 string acomp=parsed[1];
-if(string_contains(adminlist, acomp, 1)>-1)
+bool is_admu=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dvu=(parsed.length()>2 and parsed[2]=="dev");
+if(is_admu or is_dvu)
 {
 string result="admin_unauth_list ";
 string[] files=find_files("accounts/*.dat");
@@ -680,6 +687,86 @@ send_reliable(e.peer_id, result, 0);
 else if(parsed[0]=="check_authmode")
 {
 send_reliable(e.peer_id, "authmode_status "+(auth_mode ? "1" : "0"), 0);
+}
+else if(parsed[0]=="request_password_reset" and parsed.length()>1)
+{
+// Client requests a password reset. Generate a code and store it on the account.
+string ruser=parsed[1];
+string rpath="accounts/"+string_to_lower_case(ruser)+".dat";
+if(file_exists(rpath))
+{
+savedata acct(rpath, ACCOUNT_SECRET);
+acct.load();
+// Generate a 6-char reset code
+string chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+string rcode="";
+for(int i=0; i<6; i++)
+rcode+=chars[random(0, chars.length()-1)];
+acct.add("resetcode", rcode);
+acct.save();
+send_reliable(e.peer_id, "reset_requested", 0);
+}
+else
+send_reliable(e.peer_id, "reset_no_account", 0);
+}
+else if(parsed[0]=="submit_reset_code" and parsed.length()>2)
+{
+string ruser=parsed[1];
+string rcode=parsed[2];
+string rpath="accounts/"+string_to_lower_case(ruser)+".dat";
+if(file_exists(rpath))
+{
+savedata acct(rpath, ACCOUNT_SECRET);
+acct.load();
+string stored=acct.read("resetcode");
+if(stored!="" and stored==rcode)
+send_reliable(e.peer_id, "reset_code_ok", 0);
+else
+send_reliable(e.peer_id, "reset_code_bad", 0);
+}
+else
+send_reliable(e.peer_id, "reset_code_bad", 0);
+}
+else if(parsed[0]=="reset_password" and parsed.length()>2)
+{
+string ruser=parsed[1];
+string rnewpass=parsed[2];
+string rpath="accounts/"+string_to_lower_case(ruser)+".dat";
+if(file_exists(rpath))
+{
+savedata acct(rpath, ACCOUNT_SECRET);
+acct.load();
+// Re-hash with new password
+acct.add("password", string_encrypt(rnewpass, ACCOUNT_SECRET+"_"+string_to_lower_case(ruser)));
+acct.add("resetcode", "");
+acct.save();
+send_reliable(e.peer_id, "reset_done", 0);
+}
+}
+else if(parsed[0]=="admin_get_resets" and parsed.length()>1)
+{
+string acomp=parsed[1];
+bool is_admr=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dvr=(parsed.length()>2 and parsed[2]=="dev");
+if(is_admr or is_dvr)
+{
+string result="admin_reset_list ";
+string[] files=find_files("accounts/*.dat");
+bool first3=true;
+for(uint i=0; i<files.length(); i++)
+{
+savedata acct("accounts/"+files[i], ACCOUNT_SECRET);
+acct.load();
+string rc=acct.read("resetcode");
+if(rc!="")
+{
+if(!first3) result+=",";
+result+=acct.read("username")+"|"+rc;
+first3=false;
+}
+}
+send_reliable(e.peer_id, result, 0);
+}
 }
 else if(parsed[0]=="welcome")
 {

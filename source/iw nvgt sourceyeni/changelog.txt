@@ -1,3 +1,23 @@
+New in 0.3
+Fixed the administrator panel so developers running from source can actually open it.
+  Previously, the panel verified access using the computer ID against admins.txt, which
+  meant developers who weren't listed as admins were locked out of the panel they could see.
+The changelog viewer is now a form with a read-only text field and a close button.
+Account-related options (login, authorization code, password reset) have been moved out of
+  the options menu into a dedicated Account menu, which requires the server to be online.
+  The options menu is now cleaner, containing only game settings like duo mate and right control.
+Added a password reset feature.
+  Players can request a password reset from the account menu by entering their username.
+  A reset code is generated and stored on their account.
+  Administrators can view pending password reset requests and codes in the admin panel.
+  When the player enters their reset code, they are prompted to set a new password.
+
+New in 0.2.1
+Fixed a compilation error caused by calling string_trim_whitespace, a function that does not
+  exist in NVGT. The code confidently called it in two places as if it were a real function,
+  checking if server responses were blank. The empty string check alone was already sufficient
+  since the server sends controlled data, making the entire call both broken and unnecessary.
+
 New in 0.21
 Added an Administrator Panel to the main menu (only visible when running from source).
   The admin panel connects to the server to verify administrator access.

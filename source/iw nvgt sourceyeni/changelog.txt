@@ -1,3 +1,24 @@
+New in 0.3.4
+Completely redesigned the weapon system.
+  Weapons are now inventory items.  You can see them when cycling your
+  inventory alongside ammo, potions, and other gear.
+  Number keys 1-0 are now a quickbar with 10 customizable slots.
+  Press Alt and a number key to bind the currently selected inventory
+  item to that quickbar slot.  Press the number key by itself to use
+  the bound item: weapons are drawn, consumables are used.
+  Starting weapons are auto-assigned to quickbar slots 1-5.
+Players no longer spawn with all weapons.
+  Each spawn gives a random loadout from a pool:
+    1 melee weapon (machete or combat knife),
+    1 sidearm (Glock 17, Beretta 92FS, or a revolver),
+    1 primary weapon (assault rifle, SMG, or shotgun).
+  Ammunition is given only for the weapons you actually received.
+  You also start with 2 health potions and 3 frag grenades.
+  Additional weapons can be found from corpses, chests, and drops.
+Added a developer Give All command (grave accent key).
+  Only available when running from source (not in compiled builds).
+  Gives every weapon, all ammunition types, and all usable items.
+
 New in 0.3.3
 Fixed Q, E, S and X keys not working without Shift.
   The key press was consumed by the Shift check and never reached the

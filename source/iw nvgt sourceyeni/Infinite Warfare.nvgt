@@ -55,7 +55,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.33;
+double version=0.34;
 string name;
 string mate;
 double facing=0;
@@ -126,8 +126,7 @@ register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc
 register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10, "sg08_magazine",             "magazine",     true,   5, 3000);
 // --- Heavy ordnance (individual shells) ---
 register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1, "120mm_mortar_shell",        "mortar shell", false,  5, 8000);
-// Give starting reserve inventory items (deduplicates shared ammo types).
-reset_ammo();
+// Starting loadout is given per-spawn in game() via give_starting_loadout().
 create_buffer("all");
 create_buffer("chats");
 create_buffer("misc");
@@ -150,10 +149,41 @@ install_keyhook();
 dlgplay("logo.ogg", true, false, 15);
 mainmenu();
 }
+void draw_weapon(string wname)
+{
+if (drawtimer.elapsed<=1500) return;
+drawtimer.restart();
+weapons[w]=wname;
+speak(string_replace(wname, "_", " ", true));
+send_reliable(1, "draw  "+wname, 0);
+}
+void use_quickbar_slot(int slot)
+{
+if (quickbar[slot]=="") { speak("Empty slot."); return; }
+string item=quickbar[slot];
+if (get_item_count(item)<=0)
+{
+speak("You don't have "+string_replace(item, "_", " ", true)+".");
+return;
+}
+if (is_weapon(item))
+{
+draw_weapon(item);
+}
+else
+{
+if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
+usetimer.restart();
+send_reliable(0, "use "+item, 0);
+}
+}
 void game(int first)
 {
 plane.stop();
+give_starting_loadout();
+weapons[w]=quickbar[0];
 send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);
+send_reliable(1, "draw  "+weapons[w], 0);
 send_reliable(0, "send_comp "+comp, 0);
 send_reliable(0, "send_mate "+mate, 0);
 send_reliable(0, "admin", 0);
@@ -570,109 +600,38 @@ move(Right);
 }
 if(can_move==true)
 {
-if(key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and drawtimer.elapsed >1500)
+// Alt+number: bind current inventory item to that quickbar slot.
+if(MENU_is_down())
 {
-if(key_pressed(KEY_1))
-{
-drawtimer.restart();
-weapons[w]="machete";
-speak("machete");
-send_reliable(1, "draw  machete", 0);
+if(key_pressed(KEY_1)) bind_quickbar(0);
+if(key_pressed(KEY_2)) bind_quickbar(1);
+if(key_pressed(KEY_3)) bind_quickbar(2);
+if(key_pressed(KEY_4)) bind_quickbar(3);
+if(key_pressed(KEY_5)) bind_quickbar(4);
+if(key_pressed(KEY_6)) bind_quickbar(5);
+if(key_pressed(KEY_7)) bind_quickbar(6);
+if(key_pressed(KEY_8)) bind_quickbar(7);
+if(key_pressed(KEY_9)) bind_quickbar(8);
+if(key_pressed(KEY_0)) bind_quickbar(9);
 }
-if(key_pressed(KEY_2))
+// Number key without modifiers: activate quickbar slot.
+if(!MENU_is_down() and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
-drawtimer.restart();
-weapons[w]="glock17";
-speak("glock17");
-send_reliable(1, "draw  glock17", 0);
+if(key_pressed(KEY_1)) use_quickbar_slot(0);
+if(key_pressed(KEY_2)) use_quickbar_slot(1);
+if(key_pressed(KEY_3)) use_quickbar_slot(2);
+if(key_pressed(KEY_4)) use_quickbar_slot(3);
+if(key_pressed(KEY_5)) use_quickbar_slot(4);
+if(key_pressed(KEY_6)) use_quickbar_slot(5);
+if(key_pressed(KEY_7)) use_quickbar_slot(6);
+if(key_pressed(KEY_8)) use_quickbar_slot(7);
+if(key_pressed(KEY_9)) use_quickbar_slot(8);
+if(key_pressed(KEY_0)) use_quickbar_slot(9);
 }
-if(key_pressed(KEY_3))
+// Grave accent: give all (only when running from source).
+if(key_pressed(KEY_GRAVE) and SCRIPT_COMPILED==false)
 {
-drawtimer.restart();
-weapons[w]="benelli_m4_shotgun";
-speak("benelli_m4_shotgun");
-send_reliable(1, "draw  benelli_m4_shotgun", 0);
-}
-if(key_pressed(KEY_4))
-{
-drawtimer.restart();drawtimer.restart();
-weapons[w]="beretta92fs_pistol";
-speak("beretta92fs_pistol");
-send_reliable(1, "draw  beretta92fs_pistol", 0);
-}
-if(key_pressed(KEY_5))
-{
-drawtimer.restart();
-weapons[w]="magnum_revolver";
-speak("magnum_revolver");
-send_reliable(1, "draw  magnum_revolver", 0);
-}
-if(key_pressed(KEY_6))
-{
-drawtimer.restart();
-weapons[w]="hk_g36";
-speak("hk_g36");
-send_reliable(1, "draw  hk_g36", 0);
-}
-if(key_pressed(KEY_7))
-{
-drawtimer.restart();
-weapons[w]="AK47";
-speak("AK47");
-send_reliable(1, "draw  AK47", 0);
-}
-if(key_pressed(KEY_8))
-{
-drawtimer.restart();
-weapons[w]="m1garantBattleRifle";
-speak("m1garantBattleRifle");
-send_reliable(1, "draw  m1garantBattleRifle", 0);
-}
-if(key_pressed(KEY_9))
-{
-drawtimer.restart();
-weapons[w]="sg08_sniper_rifle";
-speak("sg08_sniper_rifle");
-send_reliable(1, "draw  sg08_sniper_rifle", 0);
-}
-if(key_pressed(KEY_0))
-{
-drawtimer.restart();
-weapons[w]="famas_f1_assault_rifle";
-speak("famas_f1_assault_rifle");
-send_reliable(1, "draw famas_f1_assault_rifle", 0);
-}
-}
-if(key_down(KEY_LSHIFT) and drawtimer.elapsed >1500 or key_down(KEY_RSHIFT) and drawtimer.elapsed >1500)
-{
-if(key_pressed(KEY_1))
-{
-drawtimer.restart();
-weapons[w]="combatknife";
-speak("combat knife");
-send_reliable(1, "draw combatknife", 0);
-}
-if(key_pressed(KEY_2))
-{
-drawtimer.restart();
-weapons[w]="taurus_model66_revolver";
-speak("taurus_model66_revolver");
-send_reliable(1, "draw taurus_model66_revolver", 0);
-}
-if(key_pressed(KEY_3))
-{
-drawtimer.restart();
-weapons[w]="tar_21_assault_rifle";
-speak("tar_21_assault_rifle");
-send_reliable(1, "draw tar_21_assault_rifle", 0);
-}
-if(key_pressed(KEY_4))
-{
-drawtimer.restart();
-weapons[w]="120mm_mortar";
-speak("120mm_mortar");
-send_reliable(1, "draw 120mm_mortar", 0);
-}
+give_all();
 }
 }
 }

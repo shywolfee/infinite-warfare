@@ -1,10 +1,15 @@
 int invpos;
 dictionary inv;
+
+// Quickbar: 10 slots mapped to number keys 1 through 0.
+string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
+
 void give(string item, int amount)
 {
 int a;
 if (!inv.exists(item))
 {
+if (amount>0)
 inv.set(item,amount);
 }
 else
@@ -68,4 +73,26 @@ inv.get(inv.get_keys()[i],a);
 amount+=a;
 }
 return amount;
+}
+
+// Returns true if the item is a drawable weapon (ranged or melee).
+bool is_weapon(string item)
+{
+if (find_gun(item)>=0) return true;
+if (item=="machete" or item=="combatknife" or item=="hayvork" or item=="trector_plow") return true;
+return false;
+}
+
+// Bind the currently selected inventory item to a quickbar slot (0-9).
+void bind_quickbar(int slot)
+{
+if (inv.get_size()==0)
+{
+speak("Inventory is empty.");
+return;
+}
+if (invpos>=inv.get_size()) invpos=0;
+string item=inv.get_keys()[invpos];
+quickbar[slot]=item;
+speak(string_replace(item, "_", " ", true)+" bound to slot "+(slot+1)+".");
 }

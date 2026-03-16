@@ -20,7 +20,7 @@ int mag_loaded;          // rounds currently in the weapon
 string reserve_item;     // inventory key for spare ammo
 string reserve_label;    // spoken name for the reserve ("magazine", "ammo belt", …)
 bool is_magazine;        // true = magazine reload, false = individual round reload
-int starting_reserve;    // qty given on reset (beta: generous)
+int starting_reserve;    // qty given on reset
 bool reloading;
 timer reload_timer;
 int reload_ms;
@@ -192,20 +192,98 @@ speak(g.feed_device+" emptied. "+get_item_count(g.reserve_item)+" rounds in "+g.
 }
 }
 
-// Reset all weapons to full load and replenish reserve inventory (respawn).
+// Reset weapons to full load and replenish reserves for owned weapons only.
 void reset_ammo()
 {
 dictionary seen;
 for (uint i=0; i<gun_ammos.length(); i++)
 {
-gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
 gun_ammos[i].reloading=false;
+// Only load and resupply weapons the player actually owns.
+if (get_item_count(gun_ammos[i].weapon_name)>0)
+{
+gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
 if (!seen.exists(gun_ammos[i].reserve_item))
 {
 seen.set(gun_ammos[i].reserve_item, true);
 int current=get_item_count(gun_ammos[i].reserve_item);
 int diff=gun_ammos[i].starting_reserve-current;
-if (diff!=0) give(gun_ammos[i].reserve_item, diff);
+if (diff>0) give(gun_ammos[i].reserve_item, diff);
 }
 }
+}
+}
+
+// Give a random starting loadout: 1 melee, 1 sidearm, 1 primary, plus ammo
+// and a few utility items.  Auto-assigns quickbar slots 1-5.
+void give_starting_loadout()
+{
+string[] melee_pool = {"machete", "combatknife"};
+string[] sidearm_pool = {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver"};
+string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "p90_mp", "benelli_m4_shotgun", "ks123shotgun"};
+
+string chosen_melee   = melee_pool[random(0, melee_pool.length()-1)];
+string chosen_sidearm = sidearm_pool[random(0, sidearm_pool.length()-1)];
+string chosen_primary = primary_pool[random(0, primary_pool.length()-1)];
+
+// Give weapons as inventory items.
+give(chosen_melee, 1);
+give(chosen_sidearm, 1);
+give(chosen_primary, 1);
+
+// Give ammo for the weapons the player now owns.
+reset_ammo();
+
+// A few utility items to start with.
+give("health_potion", 2);
+give("frag_grenade", 3);
+
+// Auto-assign quickbar.
+quickbar[0] = chosen_melee;
+quickbar[1] = chosen_sidearm;
+quickbar[2] = chosen_primary;
+quickbar[3] = "health_potion";
+quickbar[4] = "frag_grenade";
+for (int i=5; i<10; i++) quickbar[i] = "";
+}
+
+// Developer cheat: give every weapon, all ammo, and all items.
+void give_all()
+{
+string[] all_weps = {
+"machete", "combatknife",
+"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver",
+"p90_mp",
+"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle",
+"benelli_m4_shotgun", "ks123shotgun",
+"m1garantBattleRifle", "sg08_sniper_rifle",
+"120mm_mortar",
+"hayvork", "trector_plow"
+};
+for (uint i=0; i<all_weps.length(); i++)
+{
+if (get_item_count(all_weps[i])<=0) give(all_weps[i], 1);
+}
+
+// Reset ammo gives reserves for every weapon now in inventory.
+reset_ammo();
+
+// Every usable item.
+give("health_potion", 5);
+give("ultra_health_potion", 3);
+give("frag_grenade", 10);
+give("semtex", 5);
+give("torpedo", 5);
+give("smoke_bomb", 5);
+give("bomb_vest", 2);
+give("invisibility", 2);
+give("bucket", 2);
+give("life_injection", 3);
+give("duo_plane", 1);
+give("water_tank", 1);
+give("bag", 2);
+give("box", 2);
+give("rock", 10);
+
+speak("All weapons, ammunition, and items given.");
 }

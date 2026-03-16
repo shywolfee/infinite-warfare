@@ -24,18 +24,21 @@ return false;
 void connect()
 {
 timer connectiontimer;
-if(name=="")
+if(name=="" or !account_exists(name))
 {
-dlg("you didn't set a name, you should set one before you are abled to connect.");
+int reg_choice = yesno("You need an account to connect. Would you like to register one?");
+if (reg_choice == 1)
+{
+registermenu();
+return;
+}
 mainmenu();
 return;
 }
 // Block unauthenticated accounts from connecting.
-// The name may have been loaded from saved preferences without going through
-// the account login flow, so we must verify authentication here as well.
-if(account_exists(name) and !is_account_authenticated(name))
+if(!is_account_authenticated(name))
 {
-dlg("Your account has not been authenticated yet. Please go to the Account menu and enter the authorization code provided by an administrator before connecting.");
+dlg("Your account has not been authenticated yet. Please go to Account Management and enter the authorization code provided by an administrator before connecting.");
 mainmenu();
 return;
 }

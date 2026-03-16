@@ -56,7 +56,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.40;
+double version=0.41;
 string name;
 string mate;
 double facing=0;
@@ -191,7 +191,54 @@ if (screen_reader_is_running(1))
 install_keyhook();
 //cfu("iw","iw.zip",true);
 dlgplay("logo.ogg", true, false, 15);
+// First-run welcome: show beta notice and rules agreement.
+if (!sd.d.exists("first_run_done"))
+{
+first_run_welcome();
+}
 mainmenu();
+}
+// ---------------------------------------------------------------------------
+// First-run welcome — shown the very first time the game is launched.
+// Explains that this is a beta and that authorization may be required.
+// Shows the rules and requires agreement before proceeding.
+// ---------------------------------------------------------------------------
+void first_run_welcome()
+{
+dlg("Welcome to Infinite Warfare! This is a beta version of the game. You will need to register an account to play. If authorization mode is enabled on the server, an administrator will need to approve your account before you can connect.");
+// Load and show rules.
+file rf;
+string rules_text = "";
+if (rf.open("rules.txt", "rb"))
+{
+rules_text = rf.read();
+rf.close();
+}
+else
+rules_text = "Rules file not found. Please check the game folder.";
+audio_form f;
+f.create_window("Welcome - Please Read the Rules", false, true);
+f.create_input_box("Rules", rules_text, "", 0, false, true, false);
+int f_agree = f.create_checkbox("I agree to the rules", false);
+int f_continue = f.create_button("&Continue", true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_continue))
+{
+if (!f.is_checked(f_agree))
+{
+dlg("You must agree to the rules to continue.");
+continue;
+}
+break;
+}
+}
+// Mark first run as done.
+sd.add("first_run_done", 1);
+sd.save();
 }
 // ---------------------------------------------------------------------------
 // Developer Suite (Shift+D) — only available in dev builds.
@@ -619,21 +666,19 @@ speak("Magazine empty. Press R to reload.");
 }
 }
 }
-if(key_pressed(KEY_A) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+if(key_pressed(KEY_A))
 {
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+cycle_fire_mode(weapons[w]);
+else
 announce_ammo(weapons[w]);
 }
-if(key_pressed(KEY_A) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+if(key_pressed(KEY_R))
 {
-cycle_fire_mode(weapons[w]);
-}
-if(key_pressed(KEY_R) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
-{
-start_reload(weapons[w]);
-}
-if(key_pressed(KEY_R) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
-{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 unload_mag(weapons[w]);
+else
+start_reload(weapons[w]);
 }
 if (key_pressed(KEY_SLASH))
 {
@@ -641,14 +686,15 @@ string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }
-if (key_pressed(KEY_H) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+if (key_pressed(KEY_H))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+show_help_list();
+else
 {
 send_reliable(0,"health",0);
 pending_health_report=true;
 }
-if (key_pressed(KEY_H) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
-{
-show_help_list();
 }
 if (key_pressed(KEY_I) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
 {
@@ -1008,7 +1054,12 @@ void readprefs()
 {
 sd.load();
 if (sd.d.exists("name"))
-name=sd.read("name");
+{
+string saved_name = sd.read("name");
+// Only restore the name if a matching account actually exists.
+if (saved_name != "" and account_exists(saved_name))
+name = saved_name;
+}
 if (sd.d.exists("mate"))
 mate=sd.read("mate");
 if (sd.d.exists("rctrl"))

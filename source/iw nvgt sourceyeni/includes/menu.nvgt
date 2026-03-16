@@ -4,7 +4,9 @@ void mainmenu()
 setupmenu(true, true);
 m.add_item_tts("connect to the server and enter the lobby.","connect");
 m.add_item_tts("register a new account.","register");
-m.add_item_tts("account.","account");
+// Only show account management if the player is logged in.
+if (name != "" and account_exists(name))
+m.add_item_tts("account management.","account");
 m.add_item_tts("view the changelog.","changelog");
 m.add_item_tts("change some options.","options");
 m.add_item_tts("check for new updates.","cfu");
@@ -33,17 +35,9 @@ adminpanel();
 else
 exit();
 }
-void registermenu()
+// Check authorization mode from the server.
+bool check_auth_mode_from_server()
 {
-// Require the server to be reachable before accepting registrations.
-speak("Checking server status, please wait.");
-if (!server_online())
-{
-dlg("The server is currently offline. You cannot register a new account while the server is down. Please try again later.");
-mainmenu();
-return;
-}
-// Check if authorization mode is enabled by asking the server.
 bool auth_required=false;
 network probe;
 probe.setup_client(1, 100);
@@ -78,40 +72,21 @@ break;
 if(ev.type==event_disconnect)
 break;
 }
-// Step 1: username
-string reg_user=input_box("Register - Username","Choose a username. No spaces allowed.");
-if (reg_user=="" or string_contains(reg_user," ",1)>=0)
+return auth_required;
+}
+
+void registermenu()
 {
-if (reg_user!="")
-dlg("Username must not contain spaces.");
+// Require the server to be reachable before accepting registrations.
+speak("Checking server status, please wait.");
+if (!server_online())
+{
+dlg("The server is currently offline. You cannot register a new account while the server is down. Please try again later.");
 mainmenu();
 return;
 }
-// Step 2: password
-string reg_pass=input_box("Register - Password","Choose a password. Must be at least 4 characters.");
-if (reg_pass.length()<4)
-{
-dlg("Password must be at least 4 characters.");
-mainmenu();
-return;
-}
-// Step 3: confirm password
-string reg_confirm=input_box("Register - Confirm Password","Re-enter your password to confirm.");
-if (reg_pass!=reg_confirm)
-{
-dlg("Passwords do not match.");
-mainmenu();
-return;
-}
-// Step 4: email address
-string reg_email=input_box("Register - Email","Enter your email address.");
-if (reg_email=="" or !is_valid_email(reg_email))
-{
-dlg("Please enter a valid email address.");
-mainmenu();
-return;
-}
-// Step 5: read and agree to the rules
+bool auth_required = check_auth_mode_from_server();
+// Load rules text.
 file rf;
 string rules_text="";
 if (rf.open("rules.txt","rb"))
@@ -121,33 +96,73 @@ rf.close();
 }
 else
 rules_text="Rules file not found. Please check the game folder.";
-dlg("Please read the following rules carefully.\n\n"+rules_text);
-// Present an agreement checkbox (yes/no menu)
-setupmenu();
-m.add_item_tts("I agree to the rules.","agree");
-m.add_item_tts("I do not agree. Go back.","disagree");
-int agree_res=m.run("Rules Agreement",true);
-if (m.get_item_name(agree_res)!="agree")
+// Single registration form.
+audio_form f;
+f.create_window("Register a New Account", false, true);
+int f_user = f.create_input_box("Username", "", "", 0, false, false, false);
+int f_pass = f.create_input_box("Password (at least 4 characters)", "", "*", 0, false, false, false);
+int f_confirm = f.create_input_box("Confirm password", "", "*", 0, false, false, false);
+int f_email = f.create_input_box("Email address", "", "", 0, false, false, false);
+f.create_input_box("Rules", rules_text, "", 0, false, true, false);
+int f_agree = f.create_checkbox("I agree to the rules", false);
+int f_register = f.create_button("&Register", true);
+int f_back = f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_register))
+{
+string reg_user = f.get_text(f_user);
+string reg_pass = f.get_text(f_pass);
+string reg_confirm = f.get_text(f_confirm);
+string reg_email = f.get_text(f_email);
+if (!f.is_checked(f_agree))
 {
 dlg("You must agree to the rules to register an account.");
-mainmenu();
-return;
+continue;
 }
-// Attempt registration
-string reg_error=register_account(reg_user, reg_pass, reg_confirm, reg_email, auth_required);
-if (reg_error!="")
+if (reg_user == "" or string_contains(reg_user, " ", 1) >= 0)
+{
+dlg("Username must not be empty or contain spaces.");
+continue;
+}
+if (reg_pass.length() < 4)
+{
+dlg("Password must be at least 4 characters.");
+continue;
+}
+if (reg_pass != reg_confirm)
+{
+dlg("Passwords do not match.");
+continue;
+}
+if (reg_email == "" or !is_valid_email(reg_email))
+{
+dlg("Please enter a valid email address.");
+continue;
+}
+string reg_error = register_account(reg_user, reg_pass, reg_confirm, reg_email, auth_required);
+if (reg_error != "")
 {
 dlg(reg_error);
-mainmenu();
-return;
+continue;
 }
-// Success
-name=reg_user;
+// Success.
+name = reg_user;
 writeprefs();
 if (auth_required)
-dlg("Account created successfully! Your username is "+reg_user+". However, authorization mode is enabled. You will not be able to log in until an administrator provides you with your authorization code. Please contact an administrator.");
+dlg("Account created successfully! Your username is " + reg_user + ". However, authorization mode is enabled. You will not be able to log in until an administrator provides you with your authorization code. Please contact an administrator.");
 else
-dlg("Account created successfully! Your username is "+reg_user+". You can now connect to the server.");
+dlg("Account created successfully! Your username is " + reg_user + ". You can now connect to the server.");
+break;
+}
+else if (f.is_pressed(f_back))
+break;
+}
 mainmenu();
 }
 // ---------------------------------------------------------------------------
@@ -185,16 +200,18 @@ void accountmenu()
 speak("Checking server status, please wait.");
 if (!server_online())
 {
-dlg("The server is currently offline. Account options are not available while the server is down. Please try again later.");
+dlg("The server is currently offline. Account management is not available while the server is down. Please try again later.");
 mainmenu();
 return;
 }
 setupmenu();
 m.add_item_tts("Log in to your account.","login");
+// Only show authorize option if the account actually needs authorization.
+if (name != "" and account_exists(name) and !is_account_authenticated(name))
 m.add_item_tts("Authorize your account with a code.","authorize");
 m.add_item_tts("Reset your password.","resetpass");
 m.add_item_tts("Go back.","back");
-int mres=m.run("Account",true);
+int mres=m.run("Account Management",true);
 if (m.get_item_name(mres)=="login")
 account_login_menu();
 else if (m.get_item_name(mres)=="authorize")
@@ -231,9 +248,20 @@ if (acc_user=="" or acc_pass=="")
 dlg("Please enter both a username and password.");
 continue;
 }
+if (!account_exists(acc_user))
+{
+// Account doesn't exist — offer to register.
+int reg_choice = yesno("No account found with that username. Would you like to register a new account?");
+if (reg_choice == 1)
+{
+registermenu();
+return;
+}
+continue;
+}
 if (!verify_account(acc_user, acc_pass))
 {
-dlg("Incorrect username or password.");
+dlg("Incorrect password.");
 continue;
 }
 if (!is_account_authenticated(acc_user))
@@ -576,20 +604,30 @@ dlg(rl);
 }
 else if (sel == 2) // View account info
 {
-string info="Username: "+name;
+audio_form ai;
+ai.create_window("Account Info", false, true);
+ai.create_input_box("Username", name, "", 0, false, true, false);
 if (mate!="")
-info+=". Duo mate: "+mate;
+ai.create_input_box("Duo mate", mate, "", 0, false, true, false);
 if (account_exists(name))
 {
 savedata acct(get_account_path(name), ACCOUNT_SECRET);
 acct.load();
 string em=acct.read("email");
 if (em!="")
-info+=". Email: "+em;
+ai.create_input_box("Email", em, "", 0, false, true, false);
 }
 else
-info+=". No registered account found for this username.";
-dlg(info);
+ai.create_input_box("Account", "No registered account found for this username.", "", 0, false, true, false);
+int ai_close = ai.create_button("&Close", true, true);
+ai.focus(0);
+while(true)
+{
+wait(5);
+ai.monitor();
+if (connected==true) netloop();
+if (ai.is_pressed(ai_close)) break;
+}
 }
 else if (sel == 3) // View developers
 {
@@ -604,13 +642,22 @@ dlg(dv);
 }
 else if (sel == 4) // Game statistics
 {
-string stats = "Game Statistics.\n";
-stats += "Current weapon: " + string_replace(weapons[w], "_", " ", true) + ".\n";
-stats += "Inventory items: " + count_total_items() + ".\n";
-stats += get_stamina_string() + "\n";
-stats += get_effects_string() + "\n";
-stats += "Location: " + get_location() + ".";
-dlg(stats);
+audio_form gs;
+gs.create_window("Game Statistics", false, true);
+gs.create_input_box("Current weapon", string_replace(weapons[w], "_", " ", true), "", 0, false, true, false);
+gs.create_input_box("Inventory items", "" + count_total_items(), "", 0, false, true, false);
+gs.create_input_box("Stamina", get_stamina_string(), "", 0, false, true, false);
+gs.create_input_box("Effects", get_effects_string(), "", 0, false, true, false);
+gs.create_input_box("Location", get_location(), "", 0, false, true, false);
+int gs_close = gs.create_button("&Close", true, true);
+gs.focus(0);
+while(true)
+{
+wait(5);
+gs.monitor();
+if (connected==true) netloop();
+if (gs.is_pressed(gs_close)) break;
+}
 }
 else if (sel == 5) // Equipment
 {
@@ -618,17 +665,35 @@ equipment_menu();
 }
 else if (sel == 6) // Account statistics
 {
-string info = "Account Statistics.\n";
-info += "Username: " + name + ".\n";
-info += "Version: " + version + ".";
-dlg(info);
+audio_form as;
+as.create_window("Account Statistics", false, true);
+as.create_input_box("Username", name, "", 0, false, true, false);
+as.create_input_box("Version", "" + version, "", 0, false, true, false);
+int as_close = as.create_button("&Close", true, true);
+as.focus(0);
+while(true)
+{
+wait(5);
+as.monitor();
+if (connected==true) netloop();
+if (as.is_pressed(as_close)) break;
+}
 }
 else if (sel == 7) // Mode statistics
 {
-string info = "Mode Statistics.\n";
-info += "Current map: " + mapname + ".\n";
-info += "Location: " + get_location() + ".";
-dlg(info);
+audio_form ms;
+ms.create_window("Mode Statistics", false, true);
+ms.create_input_box("Current map", mapname, "", 0, false, true, false);
+ms.create_input_box("Location", get_location(), "", 0, false, true, false);
+int ms_close = ms.create_button("&Close", true, true);
+ms.focus(0);
+while(true)
+{
+wait(5);
+ms.monitor();
+if (connected==true) netloop();
+if (ms.is_pressed(ms_close)) break;
+}
 }
 else if (sel == 8) // Exit game
 {

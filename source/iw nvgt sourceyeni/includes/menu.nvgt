@@ -7,6 +7,8 @@ m.add_item_tts("register a new account.","register");
 m.add_item_tts("view the changelog.","changelog");
 m.add_item_tts("change some options.","options");
 m.add_item_tts("check for new updates.","cfu");
+if(SCRIPT_COMPILED==false)
+m.add_item_tts("Administrator panel.","adminpanel");
 m.add_item_tts("Exit the game.","exit");
 int mres=m.run("Main Menu",true);
 m.fade_music(20);
@@ -23,6 +25,8 @@ mainmenu();
 }
 else if (m.get_item_name(mres)=="options")
 optionsmenu();
+else if (m.get_item_name(mres)=="adminpanel")
+adminpanel();
 else
 exit();
 }
@@ -35,6 +39,41 @@ if (!server_online())
 dlg("The server is currently offline. You cannot register a new account while the server is down. Please try again later.");
 mainmenu();
 return;
+}
+// Check if authorization mode is enabled by asking the server.
+bool auth_required=false;
+network probe;
+probe.setup_client(1, 100);
+probe.connect(netaddress, netport);
+timer ct;
+while(ct.elapsed<5000)
+{
+wait(5);
+network_event ev=probe.request();
+if(ev.type==event_connect)
+{
+string msg=string_encrypt("check_authmode", "_';'_clickclick!");
+probe.send_reliable(0, msg, 0);
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+ev=probe.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "authmode_status ", 1)==0)
+{
+auth_required=(string_replace(r, "authmode_status ", "", false)=="1");
+break;
+}
+}
+}
+break;
+}
+if(ev.type==event_disconnect)
+break;
 }
 // Step 1: username
 string reg_user=input_box("Register - Username","Choose a username. No spaces allowed.");
@@ -92,16 +131,19 @@ mainmenu();
 return;
 }
 // Attempt registration
-string reg_error=register_account(reg_user, reg_pass, reg_confirm, reg_email);
+string reg_error=register_account(reg_user, reg_pass, reg_confirm, reg_email, auth_required);
 if (reg_error!="")
 {
 dlg(reg_error);
 mainmenu();
 return;
 }
-// Success: set name pref so user can connect straight away
+// Success
 name=reg_user;
 writeprefs();
+if (auth_required)
+dlg("Account created successfully! Your username is "+reg_user+". However, authorization mode is enabled. You will not be able to log in until an administrator provides you with your authorization code. Please contact an administrator.");
+else
 dlg("Account created successfully! Your username is "+reg_user+". You can now connect to the server.");
 mainmenu();
 }
@@ -212,6 +254,8 @@ f.create_window("Options", false, true);
 int f_user=f.create_input_box("Account username", "", "", 0, false, false, false);
 int f_pass=f.create_input_box("Account password", "", "*", 0, false, false, false);
 int f_login=f.create_button("&Login");
+int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
+int f_authsubmit=f.create_button("&Authorize account");
 int f_mate=f.create_input_box("Duo mate", mate, "", 0, false, false, false);
 int f_setmate=f.create_button("Set &duo mate");
 int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
@@ -244,9 +288,47 @@ if (!verify_account(acc_user, acc_pass))
 dlg("Incorrect username or password.");
 continue;
 }
+if (!is_account_authenticated(acc_user))
+{
+dlg("Your account has not been authenticated yet. Please enter the authorization code provided by an administrator, or contact an administrator to receive your code.");
+continue;
+}
 name=get_account_username(acc_user);
 writeprefs();
 speak("Logged in as "+name+".");
+}
+else if (f.is_pressed(f_authsubmit))
+{
+string acc_user=f.get_text(f_user);
+string code=f.get_text(f_authcode);
+if (acc_user=="")
+{
+dlg("Please enter your account username above before submitting the authorization code.");
+continue;
+}
+if (code=="")
+{
+dlg("Please enter an authorization code.");
+continue;
+}
+if (!account_exists(acc_user))
+{
+dlg("No account found with that username.");
+continue;
+}
+if (is_account_authenticated(acc_user))
+{
+dlg("This account is already authenticated.");
+continue;
+}
+if (authenticate_account(acc_user, code))
+{
+dlg("Account authenticated successfully! You can now log in.");
+}
+else
+{
+dlg("Invalid authorization code. Please check the code and try again.");
+}
 }
 else if (f.is_pressed(f_setmate))
 {
@@ -268,6 +350,156 @@ speak("Options saved.");
 break;
 }
 else if (f.is_pressed(f_cancel))
+{
+break;
+}
+}
+mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Administrator Panel (only available when running from source)
+// Connects to the server to verify admin status, then provides
+// authorization mode toggle and unauthenticated player list.
+// ---------------------------------------------------------------------------
+void adminpanel()
+{
+speak("Connecting to server to verify administrator access, please wait.");
+network an;
+an.setup_client(1, 100);
+an.connect(netaddress, netport);
+bool verified=false;
+bool current_authmode=false;
+timer ct;
+while(ct.elapsed<5000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_connect)
+{
+string msg=string_encrypt("admin_panel "+comp, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "admin_panel_ok ", 1)==0)
+{
+verified=true;
+current_authmode=(string_replace(r, "admin_panel_ok ", "", false)=="1");
+break;
+}
+else if(r=="admin_panel_denied")
+{
+dlg("Access denied. You are not an administrator.");
+mainmenu();
+return;
+}
+}
+}
+break;
+}
+if(ev.type==event_disconnect)
+break;
+}
+if(!verified)
+{
+dlg("Could not verify administrator access. The server may be offline.");
+mainmenu();
+return;
+}
+// Show admin panel form
+audio_form f;
+f.create_window("Administrator Panel", false, true);
+int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
+int f_save_auth=f.create_button("&Save authorization mode");
+int f_viewunauth=f.create_button("&View unauthenticated players");
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_authmode);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_save_auth))
+{
+string val=(f.is_checked(f_authmode) ? "1" : "0");
+string msg=string_encrypt("admin_set_authmode "+val+" "+comp, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer rt;
+bool saved=false;
+while(rt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(r=="admin_authmode_saved")
+{
+saved=true;
+break;
+}
+}
+}
+if(saved)
+speak("Authorization mode "+(f.is_checked(f_authmode) ? "enabled" : "disabled")+" and saved.");
+else
+dlg("Failed to save setting. Server may not have responded.");
+}
+else if (f.is_pressed(f_viewunauth))
+{
+string msg=string_encrypt("admin_get_unauth "+comp, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "admin_unauth_list ", 1)==0)
+{
+data=string_replace(r, "admin_unauth_list ", "", false);
+break;
+}
+}
+}
+// Show unauthenticated players in a sub-form
+audio_form uf;
+uf.create_window("Unauthenticated Players", false, true);
+if(data=="" or string_trim_whitespace(data)=="")
+{
+uf.create_input_box("Info", "No unauthenticated players found.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+uf.create_input_box(parts[0], "Code: "+parts[1], "", 0, false, true, false);
+}
+}
+int uf_close=uf.create_button("&Close", true, true);
+uf.focus(0);
+while(true)
+{
+wait(5);
+uf.monitor();
+if(uf.is_pressed(uf_close))
+break;
+}
+}
+else if (f.is_pressed(f_close))
 {
 break;
 }

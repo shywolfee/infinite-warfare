@@ -14,6 +14,7 @@
 #include "includes/grenade.nvgt"
 #include "includes/corpse.nvgt"
 #include "includes/citem.nvgt"
+#include "../includes/sd.nvgt"
 int battlers=0;
 string[] killmsgs;
 timer spawn_chesttimer;
@@ -27,6 +28,8 @@ network n;
 network_event e;
 timer uptimer;
 string motd;
+bool auth_mode=false;
+const string ACCOUNT_SECRET = "IW_aCc0unt_K3y_xK9mP2vL7nQ4wR8t!";
 void main()
 {
 show_window("Infinite Warfare server!, version "+ minversion);
@@ -63,6 +66,13 @@ file f;
 f.open("currentmap.txt", "rb");
 current_map=f.read();
 f.close();
+}
+if(file_exists("authmode.svr"))
+{
+file af;
+af.open("authmode.svr", "rb");
+auth_mode=(af.read()=="1");
+af.close();
 }
 n.setup_server(port, 20, 500);
 init_mapsystem();
@@ -621,6 +631,55 @@ s+="|"+players[i].map;
 first=false;
 }
 send_reliable(e.peer_id, s, 0);
+}
+else if(parsed[0]=="admin_panel" and parsed.length()>1)
+{
+string acomp=parsed[1];
+if(string_contains(adminlist, acomp, 1)>-1)
+send_reliable(e.peer_id, "admin_panel_ok "+(auth_mode ? "1" : "0"), 0);
+else
+send_reliable(e.peer_id, "admin_panel_denied", 0);
+}
+else if(parsed[0]=="admin_set_authmode" and parsed.length()>2)
+{
+string acomp=parsed[2];
+if(string_contains(adminlist, acomp, 1)>-1)
+{
+auth_mode=(parsed[1]=="1");
+file af;
+af.open("authmode.svr", "wb");
+af.write(auth_mode ? "1" : "0");
+af.close();
+send_reliable(e.peer_id, "admin_authmode_saved", 0);
+}
+}
+else if(parsed[0]=="admin_get_unauth" and parsed.length()>1)
+{
+string acomp=parsed[1];
+if(string_contains(adminlist, acomp, 1)>-1)
+{
+string result="admin_unauth_list ";
+string[] files=find_files("accounts/*.dat");
+bool first2=true;
+for(uint i=0; i<files.length(); i++)
+{
+savedata acct("accounts/"+files[i], ACCOUNT_SECRET);
+acct.load();
+if(!acct.d.exists("authenticated"))
+continue;
+if(acct.readn("authenticated")<1.0)
+{
+if(!first2) result+=",";
+result+=acct.read("username")+"|"+acct.read("authcode");
+first2=false;
+}
+}
+send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="check_authmode")
+{
+send_reliable(e.peer_id, "authmode_status "+(auth_mode ? "1" : "0"), 0);
 }
 else if(parsed[0]=="welcome")
 {

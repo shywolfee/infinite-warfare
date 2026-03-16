@@ -54,7 +54,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.2;
+double version=0.21;
 string name;
 string mate;
 double facing=0;
@@ -964,11 +964,12 @@ else if(parsed[0]=="deathroyale")
 send_reliable(0, "player_remove", 0);
 mapname="main";
 inv.delete_all();
+destroy_all_sources();
 distpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
-connect();
+lobby();
 }
 else if(parsed[0]=="death")
 {
@@ -1088,13 +1089,12 @@ void exitgame()
 {
 plane.stop();
 pinging=false;
+destroy_all_sources();
 distpool.destroy_all();
 p.destroy_all();
-prevconnected=true;
 sources.resize(0);
 can_move=true;
-connected=false;
-mainmenu();
+lobby();
 }
 bool is_sound_number(string t)
 {
@@ -1315,25 +1315,26 @@ if(respawntimer.elapsed>=2000 and can_respawn==false)
 {
 can_respawn=true;
 respawntimer.restart();
-speak("Press enter to re connect!");
+speak("You have been killed. Press enter to return to the lobby.");
 }
 if(can_respawn==true)
 {
 if(key_pressed(KEY_LEFT) or key_pressed(KEY_RIGHT) or key_pressed(KEY_UP) or key_pressed(KEY_DOWN))
 {
-speak("to reconnect: press enter!");
-} 
+speak("Press enter to return to the lobby.");
+}
 if(key_pressed(KEY_RETURN) or dietimer.elapsed>=45000)
 {
-dietimer.restart();
 send_reliable(0, "player_remove", 0);
 mapname="main";
 inv.delete_all();
+destroy_all_sources();
 distpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
-connect();
+lobby();
+return;
 }
  }
 }

@@ -56,9 +56,33 @@ void ensure_accounts_dir()
 // Public API
 // ---------------------------------------------------------------------------
 
+// Check whether authorization mode is enabled.
+bool is_auth_mode_enabled()
+{
+    if (!file_exists("iwserver/authmode.svr"))
+        return false;
+    file f;
+    f.open("iwserver/authmode.svr", "rb");
+    string val = f.read();
+    f.close();
+    return val == "1";
+}
+
+// Generate a random 6-character alphanumeric authorization code.
+string generate_auth_code()
+{
+    string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    string code = "";
+    for (int i = 0; i < 6; i++)
+        code += chars[random(0, chars.length() - 1)];
+    return code;
+}
+
 // Register a new account.
 // Returns an empty string on success, or a human-readable error message.
-string register_account(string username, string password, string confirm, string email)
+// When auth_required is true, the account is created but marked unauthenticated
+// with a random authorization code that an admin must provide to the user.
+string register_account(string username, string password, string confirm, string email, bool auth_required = false)
 {
     if (username == "")
         return "Username cannot be empty.";
@@ -81,8 +105,46 @@ string register_account(string username, string password, string confirm, string
     acct.add("username", username);
     acct.add("password", hash_password(password, username));
     acct.add("email", email);
+    if (auth_required)
+    {
+        acct.add("authenticated", 0.0);
+        acct.add("authcode", generate_auth_code());
+    }
+    else
+        acct.add("authenticated", 1.0);
     acct.save();
     return "";
+}
+
+// Check if an account is authenticated.
+// Returns true if the account is authenticated or has no auth requirement.
+// Existing accounts without the authenticated field are treated as authenticated.
+bool is_account_authenticated(string username)
+{
+    if (!account_exists(username))
+        return false;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    if (!acct.d.exists("authenticated"))
+        return true;
+    return acct.readn("authenticated") >= 1.0;
+}
+
+// Authenticate an account using the provided authorization code.
+// Returns true if the code matches and the account is now authenticated.
+bool authenticate_account(string username, string code)
+{
+    if (!account_exists(username))
+        return false;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    string stored_code = acct.read("authcode");
+    if (stored_code == "" or stored_code != code)
+        return false;
+    acct.add("authenticated", 1.0);
+    acct.add("authcode", "");
+    acct.save();
+    return true;
 }
 
 // Verify login credentials.

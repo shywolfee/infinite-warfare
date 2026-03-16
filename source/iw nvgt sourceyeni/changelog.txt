@@ -1,3 +1,16 @@
+New in 0.21
+Added an Administrator Panel to the main menu (only visible when running from source).
+  The admin panel connects to the server to verify administrator access.
+  Authorization mode: a checkbox that, when enabled, requires new accounts to be approved by an admin before they can log in.
+  View unauthenticated players: shows a list of players awaiting approval along with their authorization codes.
+When authorization mode is enabled, newly registered accounts are created but cannot log in.
+  A message tells the player that their account must be authenticated first.
+  Administrators can view the pending player and their authorization code in the admin panel, then provide the code to the player.
+  A new "Authorization code" field and "Authorize account" button have been added to the options menu.
+  Players enter their username and the code provided by the admin to authenticate their account.
+Players now respawn in the lobby instead of reconnecting to the server when they die.
+Exiting the game now returns you to the lobby instead of the main menu, keeping your connection alive.
+
 New in 0.2
 The options menu is now a proper form with input fields, a checkbox, and buttons instead of a list menu.
   Account login: enter your username and password directly in the form and press Login.

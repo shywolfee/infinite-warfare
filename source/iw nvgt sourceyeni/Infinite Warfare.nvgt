@@ -149,6 +149,197 @@ install_keyhook();
 dlgplay("logo.ogg", true, false, 15);
 mainmenu();
 }
+// ---------------------------------------------------------------------------
+// Developer Suite (Shift+D) — only available in dev builds.
+// ---------------------------------------------------------------------------
+void dev_suite()
+{
+audio_form f;
+f.create_window("Developer Suite", false, true);
+int f_giveall=f.create_button("Give &all items");
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_giveall);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_giveall))
+{
+give_all();
+speak("All items given.");
+}
+else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Documentation / Help system.
+// Reads .txt files from iwserver/docs/.
+// ---------------------------------------------------------------------------
+string[] get_help_entries()
+{
+string[] entries;
+string[] files = find_directories("iwserver/docs/*.txt");
+if (files.length() == 0)
+{
+// Try alternate path
+files = find_directories("docs/*.txt");
+}
+// Use manual directory listing approach
+string docs_dir = "iwserver/docs";
+if (!directory_exists(docs_dir))
+docs_dir = "docs";
+string[] flist;
+// Scan known doc files
+string[] known_docs = {
+"getting_started", "controls",
+"machete", "combatknife",
+"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver",
+"p90_mp",
+"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle",
+"benelli_m4_shotgun", "ks123shotgun",
+"m1garantBattleRifle", "sg08_sniper_rifle",
+"120mm_mortar", "ballista",
+"hayvork", "trector_plow",
+"health_potion", "ultra_health_potion", "frag_grenade"
+};
+for (uint i = 0; i < known_docs.length(); i++)
+{
+string path = docs_dir + "/" + known_docs[i] + ".txt";
+if (file_exists(path))
+entries.insert_last(known_docs[i]);
+}
+return entries;
+}
+
+string read_help_file(string entry_name)
+{
+string docs_dir = "iwserver/docs";
+if (!directory_exists(docs_dir))
+docs_dir = "docs";
+string path = docs_dir + "/" + entry_name + ".txt";
+if (!file_exists(path))
+return "No help available for " + string_replace(entry_name, "_", " ", true) + ".";
+file f;
+if (!f.open(path, "rb"))
+return "Could not open help file.";
+string content = f.read();
+f.close();
+return content;
+}
+
+void show_help_entry(string entry_name)
+{
+string content = read_help_file(entry_name);
+audio_form f;
+f.create_window("Help: " + string_replace(entry_name, "_", " ", true), false, true);
+f.create_input_box("Content", content, "", 0, false, true, false);
+int f_close = f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_close))
+break;
+}
+}
+
+void show_help_list()
+{
+string[] entries = get_help_entries();
+if (entries.length() == 0)
+{
+speak("No help entries found.");
+return;
+}
+audio_form f;
+f.create_window("Help Topics", false, true);
+int f_list = f.create_list("Select a topic", 0, false);
+for (uint i = 0; i < entries.length(); i++)
+{
+f.add_list_item(f_list, string_replace(entries[i], "_", " ", true));
+}
+int f_open = f.create_button("&Open", true);
+int f_close = f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_open))
+{
+int sel = f.get_list_position(f_list);
+if (sel >= 0 and sel < int(entries.length()))
+{
+show_help_entry(entries[sel]);
+}
+}
+else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+}
+
+void show_item_help(string item)
+{
+string content = read_help_file(item);
+if (string_contains(content, "No help available", 1) == 0)
+{
+speak("No help entry for " + string_replace(item, "_", " ", true) + ".");
+return;
+}
+show_help_entry(item);
+}
+
+// ---------------------------------------------------------------------------
+// Quickbar weapons view (Shift+I).
+// ---------------------------------------------------------------------------
+void show_quickbar_weapons()
+{
+audio_form f;
+f.create_window("Quickbar Weapons", false, true);
+int f_list = f.create_list("Weapons in quickbar", 0, false);
+int count = 0;
+for (int i = 0; i < 10; i++)
+{
+if (quickbar[i] != "" and is_weapon(quickbar[i]))
+{
+string label = "Slot " + (i+1) + ": " + string_replace(quickbar[i], "_", " ", true);
+int ammo = ammo_check(quickbar[i]);
+if (ammo >= 0)
+label += " (" + ammo + " loaded)";
+f.add_list_item(f_list, label);
+count++;
+}
+}
+if (count == 0)
+{
+f.add_list_item(f_list, "No weapons in quickbar.");
+}
+int f_close = f.create_button("&Close", true, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_close))
+break;
+}
+}
+
 void draw_weapon(string wname)
 {
 if (drawtimer.elapsed<=1500) return;
@@ -269,6 +460,16 @@ else
 cycle_inv(1);
 p.play_stationary("invmove.ogg", false);
 }
+if (key_pressed(KEY_J))
+{
+cycle_category(0);
+p.play_stationary("invmove.ogg", false);
+}
+if (key_pressed(KEY_K))
+{
+cycle_category(1);
+p.play_stationary("invmove.ogg", false);
+}
 if (key_pressed(KEY_M))
 {
 send_reliable(0,"whatnear",0);
@@ -323,9 +524,21 @@ string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }
-if (key_pressed(KEY_H) and key_up(KEY_LSHIFT))
+if (key_pressed(KEY_H) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 send_reliable(0,"health",0);
+}
+if (key_pressed(KEY_H) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+{
+show_help_list();
+}
+if (key_pressed(KEY_I) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+{
+show_quickbar_weapons();
+}
+if (key_pressed(KEY_D) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and SCRIPT_COMPILED==false)
+{
+dev_suite();
 }
 if (key_pressed(KEY_B))
 {
@@ -388,15 +601,30 @@ else
 bufferright();
 }
 }
-if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+// Alt+Enter: show help for the currently selected inventory item.
+if (MENU_is_down() and key_pressed(KEY_RETURN))
+{
+string sel_item = get_selected_item();
+if (sel_item != "")
+show_item_help(sel_item);
+else
+speak("No item selected.");
+}
+if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 if(key_pressed(KEY_RETURN) and mapname!="battle_royale_waiting" and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true or mouse_pressed(2) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true and mapname!="battle_royale_waiting")
 {
 usetimer.restart();
-if (inv.get_keys().length()>0 and invpos<inv.get_size())
-send_reliable(0, "use "+inv.get_keys()[invpos], 0);
+string sel_item = get_selected_item();
+if (sel_item != "")
+{
+if (is_weapon(sel_item))
+draw_weapon(sel_item);
 else
-speak("Your inventory is empti.");
+send_reliable(0, "use " + sel_item, 0);
+}
+else
+speak("Your inventory is empty.");
 }
 if(key_pressed(KEY_O) and can_move==true)
 {

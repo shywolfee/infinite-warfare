@@ -4,6 +4,48 @@ dictionary inv;
 // Quickbar: 10 slots mapped to number keys 1 through 0.
 string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
 
+// Inventory category system.
+string[] inv_categories = {"All", "Weapons", "Ammo", "Consumables", "Equipment"};
+int inv_category_index = 0;
+
+string get_item_category(string item)
+{
+if (is_weapon(item)) return "Weapons";
+if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1) return "Ammo";
+if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection") return "Consumables";
+return "Equipment";
+}
+
+// Get filtered inventory keys based on current category.
+string[] get_filtered_keys()
+{
+string[] all_keys = inv.get_keys();
+if (inv_category_index == 0) return all_keys;
+string cat = inv_categories[inv_category_index];
+string[] filtered;
+for (uint i = 0; i < all_keys.length(); i++)
+{
+if (get_item_category(all_keys[i]) == cat)
+filtered.insert_last(all_keys[i]);
+}
+return filtered;
+}
+
+void cycle_category(int dir)
+{
+if (dir == 1)
+inv_category_index++;
+else
+inv_category_index--;
+if (inv_category_index >= int(inv_categories.length()))
+inv_category_index = 0;
+else if (inv_category_index < 0)
+inv_category_index = int(inv_categories.length()) - 1;
+string[] filtered = get_filtered_keys();
+speak(inv_categories[inv_category_index] + ". " + filtered.length() + " items.");
+invpos = 0;
+}
+
 void give(string item, int amount)
 {
 int a;
@@ -25,32 +67,45 @@ inv.set(item,a+amount);
 }
 void cycle_inv(int dir)
 {
+string[] filtered = get_filtered_keys();
+if (filtered.length() == 0)
+{
+if (inv_category_index == 0)
+speak("No items");
+else
+speak("No items in " + inv_categories[inv_category_index]);
+return;
+}
 if (dir==1)
 invpos+=1;
 else
 invpos-=1;
-if (invpos>=inv.get_size())
+if (invpos>=int(filtered.length()))
 {
 invpos=0;
 }
 else if (invpos<0)
 {
-invpos=inv.get_size()-1;
+invpos=int(filtered.length())-1;
 }
-if (inv.get_size()==0)
-{
-speak("No items");
-}
-else
-{
 int a;
-inv.get(inv.get_keys()[invpos],a);
+string key = filtered[invpos];
+inv.get(key, a);
 if(a==1)
-speak(string_replace(inv.get_keys()[invpos],"_"," ",true)+". "+(invpos+1)+" of "+inv.get_keys().length());
+speak(string_replace(key,"_"," ",true)+". "+(invpos+1)+" of "+filtered.length());
 else
-speak(a+" "+string_replace(inv.get_keys()[invpos], "_", " ", true)+"s. "+(invpos+1)+" of "+inv.get_keys().length());
+speak(a+" "+string_replace(key, "_", " ", true)+"s. "+(invpos+1)+" of "+filtered.length());
 }
+
+// Get the currently selected item key (respecting category filter).
+string get_selected_item()
+{
+string[] filtered = get_filtered_keys();
+if (filtered.length() == 0) return "";
+if (invpos >= int(filtered.length())) invpos = 0;
+return filtered[invpos];
 }
+
 int count_total_items()
 {
 int amount=0;
@@ -91,8 +146,12 @@ if (inv.get_size()==0)
 speak("Inventory is empty.");
 return;
 }
-if (invpos>=inv.get_size()) invpos=0;
-string item=inv.get_keys()[invpos];
+string item = get_selected_item();
+if (item == "")
+{
+speak("No item selected.");
+return;
+}
 quickbar[slot]=item;
 speak(string_replace(item, "_", " ", true)+" bound to slot "+(slot+1)+".");
 }

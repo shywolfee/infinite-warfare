@@ -1,13 +1,12 @@
 // Lobby system for Infinite Warfare
 // After a successful login the player lands here before entering any game mode.
-// The lobby has four tabs: Modes, Account Info, Players, Rewards.
+// The lobby has tabs: Modes, Account Info, Players, Rewards.
 // Pressing Enter on "Battlegrounds" in the Modes tab enters the game world.
 //
 // Network notes:
 //   - The player is NOT yet in players[] on the server at this point.
 //     spawn_player is only sent when entering Battlegrounds (via game()).
-//   - The lobby_callback handles disconnect and server-restart messages
-//     while menu navigation is blocking.
+//   - lobby_form_netcheck() keeps the connection alive during form event loops.
 
 // ---------------------------------------------------------------------------
 // Network check used during all lobby forms.
@@ -64,6 +63,7 @@ f.monitor();
 lobby_form_netcheck();
 if (f.is_pressed(f_bg))
 {
+send_reliable(0, "enter_mode battlegrounds", 0);
 speak("Deploying to Battlegrounds. Good luck.");
 wait(600);
 game(1);
@@ -78,37 +78,41 @@ return;
 
 // ---------------------------------------------------------------------------
 // Tab: Account Info
-// Shows local account data - no server round-trip needed.
+// Shows local account data in a form with read-only fields.
 // ---------------------------------------------------------------------------
 void account_tab()
 {
-string info="Account information.";
-info+=" Username: "+name+".";
+audio_form f;
+f.create_window("Account Info", false, true);
+f.create_input_box("Username", name, "", 0, false, true, false);
+string status="no registered account";
+string em="";
 if (account_exists(name))
 {
 savedata acct(get_account_path(name), ACCOUNT_SECRET);
 acct.load();
-string em=acct.read("email");
+em=acct.read("email");
+status="registered account";
+}
 if (em!="")
-info+=" Email: "+em+".";
-info+=" Status: registered account.";
-}
-else
+f.create_input_box("Email", em, "", 0, false, true, false);
+f.create_input_box("Status", status, "", 0, false, true, false);
+f.create_input_box("Duo mate", (mate!="" ? mate : "not set"), "", 0, false, true, false);
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
 {
-info+=" Status: no registered account found for this username."
-+" You can register from the main menu.";
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_close))
+return;
 }
-if (mate!="")
-info+=" Duo mate: "+mate+".";
-else
-info+=" Duo mate: not set.";
-dlg(info);
 }
 
 // ---------------------------------------------------------------------------
 // Tab: Players
 // Requests the live in-game player list from the server.
-// lobby_players works for pre-spawn clients (no player index check on server).
 // ---------------------------------------------------------------------------
 void players_tab()
 {
@@ -136,7 +140,6 @@ return;
 if (e.type==event_receive)
 {
 string msg=get_event_message();
-// Server prefixes the response with "lobby_info "
 if (string_contains(msg, "lobby_info ", 1)==0)
 {
 info=string_replace(msg, "lobby_info ", "", false);
@@ -146,20 +149,121 @@ break;
 }
 if (info=="")
 info="Could not retrieve the player list. The server may not have responded.";
-dlg(info);
+audio_form f;
+f.create_window("Players", false, true);
+f.create_input_box("Player list", info, "", 0, false, true, false);
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_close))
+return;
+}
 }
 
 // ---------------------------------------------------------------------------
 // Tab: Rewards
-// Shows the kill-reward milestones available in Battlegrounds.
+// Shows the kill-reward milestones in a form.
 // ---------------------------------------------------------------------------
 void rewards_tab()
 {
-string info="Battlegrounds kill rewards. "
-+"3 kills: you receive 5 frag grenades. "
-+"5 kills: you receive an ultra health potion that fully restores your health. "
-+"Rewards are granted automatically the first time you hit each milestone per session.";
-dlg(info);
+audio_form f;
+f.create_window("Rewards", false, true);
+f.create_input_box("3 kills", "You receive 5 frag grenades", "", 0, false, true, false);
+f.create_input_box("5 kills", "You receive an ultra health potion that fully restores your health", "", 0, false, true, false);
+f.create_input_box("Note", "Rewards are granted automatically the first time you hit each milestone per session", "", 0, false, true, false);
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_close))
+return;
+}
+}
+
+// ---------------------------------------------------------------------------
+// F1 Player List
+// Requests structured player data from the server and displays it in a form
+// showing each player's name, dev/admin status, and current location.
+// ---------------------------------------------------------------------------
+void lobby_player_list()
+{
+speak("Fetching player list, please wait.");
+send_reliable(0, "lobby_playerlist", 0);
+string data="";
+timer pt;
+while (pt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if (e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+mainmenu();
+return;
+}
+if (e.type==event_receive)
+{
+string msg=get_event_message();
+if (string_contains(msg, "lobby_plist ", 1)==0)
+{
+data=string_replace(msg, "lobby_plist ", "", false);
+break;
+}
+}
+}
+audio_form f;
+f.create_window("Players Online", false, true);
+if (data=="" or string_trim_whitespace(data)=="")
+{
+f.create_input_box("Info", "No players are currently online.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+int count=0;
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<3) continue;
+string pname=parts[0];
+string flags=parts[1];
+string status=parts[2];
+string label=pname;
+if(string_contains(flags, "d", 1)>-1)
+label+=" (dev)";
+if(string_contains(flags, "a", 1)>-1)
+label+=" (admin)";
+label+=" - "+status;
+f.create_input_box("Player "+(count+1), label, "", 0, false, true, false);
+count++;
+}
+if(count==0)
+f.create_input_box("Info", "No players are currently online.", "", 0, false, true, false);
+}
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_close))
+return;
+}
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +272,7 @@ dlg(info);
 // ---------------------------------------------------------------------------
 void leave_lobby()
 {
+send_reliable(0, "leave_lobby", 0);
 pinging=false;
 distpool.destroy_all();
 p.destroy_all();
@@ -183,8 +288,11 @@ mainmenu();
 // ---------------------------------------------------------------------------
 void lobby()
 {
+send_reliable(0, "enter_lobby "+name+" "+comp, 0);
+if(SCRIPT_COMPILED==false)
+send_reliable(0, "lobby_is_dev", 0);
 speak("Welcome to the lobby, "+name
-+". Use Tab to navigate and press Enter to select.");
++". Use Tab to navigate and press Enter to select. Press F1 to view the player list.");
 while(true)
 {
 audio_form f;
@@ -201,7 +309,12 @@ while(!selected)
 wait(5);
 f.monitor();
 lobby_form_netcheck();
-if (f.is_pressed(f_modes))
+if (key_pressed(KEY_F1))
+{
+lobby_player_list();
+selected=true;
+}
+else if (f.is_pressed(f_modes))
 {
 modes_tab();
 selected=true;

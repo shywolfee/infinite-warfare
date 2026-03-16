@@ -65,8 +65,10 @@ speak("signing in");
 }
 else if(e.type==event_receive and get_event_message()=="loggedin123")
 {
-sourcecheckloop();
-p.update_listener_3d(me.x, me.y, me.z);
+// Stop map ambience that was loaded during login - it should not
+// play until the player actually enters a game mode.
+destroy_all_sources();
+p.destroy_all();
 if(connected==false) connected=true;
 lobby();
 }

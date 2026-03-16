@@ -1,3 +1,33 @@
+// Lightweight tracker for clients sitting in the lobby (before spawn_player).
+lobby_client@[] lobby_clients(0);
+class lobby_client
+{
+int peer_id;
+string name;
+string comp;
+bool dev=false;
+bool admin=false;
+lobby_client(int p, string n, string c)
+{
+peer_id=p;
+name=n;
+comp=c;
+}
+}
+int get_lobby_client_index(int pid)
+{
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].peer_id==pid) return i;
+}
+return -1;
+}
+void remove_lobby_client(int pid)
+{
+int i=get_lobby_client_index(pid);
+if(i>-1) lobby_clients.remove_at(i);
+}
+
 player@[] players(0);
 class player
 {

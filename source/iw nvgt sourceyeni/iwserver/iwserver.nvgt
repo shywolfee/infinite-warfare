@@ -166,6 +166,12 @@ send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[in
 wait(100);
 players.remove_at(index);
 }
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1)
+{
+send_reliable(0, lobby_clients[li].name+" has left the lobby", 2);
+lobby_clients.remove_at(li);
+}
 }
 else if(e.type==event_receive)
 {
@@ -548,6 +554,71 @@ s+=players[i].name+", ";
 else
 s+=players[i].name+".";
 }
+}
+send_reliable(e.peer_id, s, 0);
+}
+else if(parsed[0]=="enter_lobby" and parsed.length()>2)
+{
+// Client entered the lobby. Track them.
+string lname=parsed[1];
+string lcomp=parsed[2];
+// Remove any stale entry first
+remove_lobby_client(e.peer_id);
+lobby_client lc(e.peer_id, lname, lcomp);
+if(string_contains(adminlist, lcomp, 1)>-1)
+lc.admin=true;
+lobby_clients.insert_last(lc);
+send_reliable(0, lname+" has entered the lobby", 2);
+}
+else if(parsed[0]=="lobby_is_dev")
+{
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1)
+lobby_clients[li].dev=true;
+}
+else if(parsed[0]=="leave_lobby")
+{
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1)
+{
+send_reliable(0, lobby_clients[li].name+" has left the lobby", 2);
+lobby_clients.remove_at(li);
+}
+}
+else if(parsed[0]=="enter_mode" and parsed.length()>1)
+{
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1)
+{
+send_reliable(0, lobby_clients[li].name+" has entered "+parsed[1], 2);
+lobby_clients.remove_at(li);
+}
+}
+else if(parsed[0]=="lobby_playerlist")
+{
+// Returns structured list of all connected clients for the F1 player menu.
+// Format: lobby_plist name|flags|status,name|flags|status,...
+// flags: d=dev, a=admin
+// status: lobby or mode name
+string s="lobby_plist ";
+bool first=true;
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(!first) s+=",";
+s+=lobby_clients[i].name+"|";
+if(lobby_clients[i].dev) s+="d";
+if(lobby_clients[i].admin) s+="a";
+s+="|lobby";
+first=false;
+}
+for(uint i=0; i<players.length(); i++)
+{
+if(!first) s+=",";
+s+=players[i].name+"|";
+if(players[i].dev) s+="d";
+if(players[i].admin) s+="a";
+s+="|"+players[i].map;
+first=false;
 }
 send_reliable(e.peer_id, s, 0);
 }

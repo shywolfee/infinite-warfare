@@ -1,22 +1,14 @@
-// Magazine/clip-based ammo system for Infinite Warfare.
-// Each weapon tracks rounds currently loaded, a reserve pool, its ammo type,
-// the correct feed device name, magazine capacity, and reload timing.
+// Inventory-backed ammunition system for Infinite Warfare.
+// Ammo reserves are stored as inventory items (magazines, ammo belts, shell
+// boxes, clips, mortar shells).  Each weapon tracks only what is currently
+// loaded; spare ammunition lives in the shared inventory dictionary.
 //
-// Weapon → ammo type, feed device, capacity, reload time (ms):
-//   glock17                → 9x19mm Parabellum,     17-round magazine,       17 rds, 2000ms
-//   beretta92fs_pistol     → 9x19mm Parabellum,     15-round magazine,       15 rds, 2000ms
-//   taurus_model66_revolver→ .357 Magnum,           6-round cylinder,         6 rds, 3500ms
-//   magnum_revolver        → .44 Magnum,            6-round cylinder,         6 rds, 3500ms
-//   p90_mp                 → FN 5.7x28mm,           50-round magazine,       50 rds, 2000ms
-//   hk_g36                 → 5.56x45mm NATO,        30-round magazine,       30 rds, 2500ms
-//   AK47                   → 7.62x39mm,             30-round magazine,       30 rds, 2500ms
-//   tar_21_assault_rifle   → 5.56x45mm NATO,        30-round magazine,       30 rds, 2500ms
-//   famas_f1_assault_rifle → 5.56x45mm NATO,        25-round magazine,       25 rds, 2500ms
-//   benelli_m4_shotgun     → 12-gauge buckshot,     8-round tube magazine,    8 rds, 5000ms
-//   ks123shotgun           → 12-gauge buckshot,     5-round tube magazine,    5 rds, 5000ms
-//   m1garantBattleRifle    → .30-06 Springfield,    8-round en-bloc clip,     8 rds, 2000ms
-//   sg08_sniper_rifle      → .308 Winchester,       10-round magazine,       10 rds, 3000ms
-//   120mm_mortar           → 120mm HE mortar shell, single-load barrel,       1 rd,  8000ms
+// Two reload modes:
+//   magazine   – consume 1 inventory item, weapon loads to full capacity.
+//                Used by pistols, rifles, and SMGs.
+//   individual – consume rounds one-by-one from the inventory item.
+//                Used by revolvers (ammo belt), shotguns (shell box), and
+//                the mortar (loose shells).
 
 class gun_ammo
 {
@@ -25,23 +17,25 @@ string ammo_type;        // e.g. "9x19mm Parabellum"
 string feed_device;      // e.g. "17-round magazine"
 int mag_capacity;        // rounds per full magazine / clip / cylinder
 int mag_loaded;          // rounds currently in the weapon
-int reserve_rounds;      // spare rounds not yet loaded
-int orig_loaded;         // starting value for reset
-int orig_reserve;        // starting value for reset
+string reserve_item;     // inventory key for spare ammo
+string reserve_label;    // spoken name for the reserve ("magazine", "ammo belt", …)
+bool is_magazine;        // true = magazine reload, false = individual round reload
+int starting_reserve;    // qty given on reset (beta: generous)
 bool reloading;
 timer reload_timer;
 int reload_ms;
 
-gun_ammo(string wn, string at, string fd, int mc, int reserve, int rms)
+gun_ammo(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
 {
 weapon_name=wn;
 ammo_type=at;
 feed_device=fd;
 mag_capacity=mc;
 mag_loaded=mc;
-reserve_rounds=reserve;
-orig_loaded=mc;
-orig_reserve=reserve;
+reserve_item=ri;
+reserve_label=rl;
+is_magazine=im;
+starting_reserve=sr;
 reloading=false;
 reload_ms=rms;
 }
@@ -49,11 +43,10 @@ reload_ms=rms;
 
 gun_ammo@[] gun_ammos(0);
 
-// Register a weapon's ammo data.
-// spare_mags = number of full extra magazines the player starts with (beta: generous).
-void register_gun(string wn, string at, string fd, int mc, int spare_mags, int rms)
+// Register a weapon's ammo profile.
+void register_gun(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
 {
-gun_ammo g(wn, at, fd, mc, mc*spare_mags, rms);
+gun_ammo g(wn, at, fd, mc, ri, rl, im, sr, rms);
 gun_ammos.insert_last(g);
 }
 
@@ -103,15 +96,33 @@ for (uint i=0; i<gun_ammos.length(); i++)
 if (!gun_ammos[i].reloading) continue;
 if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms)
 {
-// Return any remaining rounds to reserve, then load up to capacity.
-gun_ammos[i].reserve_rounds+=gun_ammos[i].mag_loaded;
-int to_load=gun_ammos[i].mag_capacity;
-if (to_load>gun_ammos[i].reserve_rounds)
-to_load=gun_ammos[i].reserve_rounds;
-gun_ammos[i].mag_loaded=to_load;
-gun_ammos[i].reserve_rounds-=to_load;
-gun_ammos[i].reloading=false;
-speak("Reloaded. "+to_load+" rounds in "+gun_ammos[i].feed_device+".");
+gun_ammo@ g=gun_ammos[i];
+int have=get_item_count(g.reserve_item);
+if (have<=0)
+{
+g.reloading=false;
+speak("No spare "+g.reserve_label+" remaining.");
+continue;
+}
+if (g.is_magazine)
+{
+// Magazine reload: swap the whole magazine.
+give(g.reserve_item, -1);
+g.mag_loaded=g.mag_capacity;
+g.reloading=false;
+speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+". "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+}
+else
+{
+// Individual reload: pull rounds from belt / box.
+int need=g.mag_capacity-g.mag_loaded;
+int to_load=need;
+if (to_load>have) to_load=have;
+give(g.reserve_item, -to_load);
+g.mag_loaded+=to_load;
+g.reloading=false;
+speak("Loaded "+to_load+" rounds. "+g.mag_loaded+" in "+g.feed_device+". "+get_item_count(g.reserve_item)+" left in "+g.reserve_label+".");
+}
 }
 }
 }
@@ -133,9 +144,11 @@ int i=find_gun(wname);
 if (i<0) { speak("This weapon does not use ammunition."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Reloading."); return; }
-speak(g.mag_loaded+" rounds of "+g.ammo_type
-+" loaded in "+g.feed_device
-+". "+g.reserve_rounds+" rounds in reserve.");
+int reserve=get_item_count(g.reserve_item);
+if (g.is_magazine)
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" spare "+g.reserve_label+"s.");
+else
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+".");
 }
 
 // Begin reloading the named weapon (R key). Returns false if nothing to do.
@@ -145,11 +158,15 @@ int i=find_gun(wname);
 if (i<0) return false;
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Already reloading."); return false; }
-if (g.reserve_rounds<=0) { speak("No reserve ammunition."); return false; }
+int reserve=get_item_count(g.reserve_item);
+if (reserve<=0) { speak("No spare "+g.reserve_label+" remaining."); return false; }
 if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
 g.reloading=true;
 g.reload_timer.restart();
-speak("Reloading "+g.feed_device+".");
+if (g.is_magazine)
+speak("Swapping "+g.feed_device+".");
+else
+speak("Loading "+g.feed_device+".");
 return true;
 }
 
@@ -161,18 +178,34 @@ if (i<0) { speak("Nothing to unload."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Cannot unload while reloading."); return; }
 if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
-g.reserve_rounds+=g.mag_loaded;
+if (g.is_magazine)
+{
+give(g.reserve_item, 1);
 g.mag_loaded=0;
-speak(g.feed_device+" unloaded. "+g.reserve_rounds+" rounds in reserve.");
+speak(g.feed_device+" removed. "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+}
+else
+{
+give(g.reserve_item, g.mag_loaded);
+g.mag_loaded=0;
+speak(g.feed_device+" emptied. "+get_item_count(g.reserve_item)+" rounds in "+g.reserve_label+".");
+}
 }
 
-// Reset all weapons to their starting ammo state (called on respawn).
+// Reset all weapons to full load and replenish reserve inventory (respawn).
 void reset_ammo()
 {
+dictionary seen;
 for (uint i=0; i<gun_ammos.length(); i++)
 {
-gun_ammos[i].mag_loaded=gun_ammos[i].orig_loaded;
-gun_ammos[i].reserve_rounds=gun_ammos[i].orig_reserve;
+gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
 gun_ammos[i].reloading=false;
+if (!seen.exists(gun_ammos[i].reserve_item))
+{
+seen.set(gun_ammos[i].reserve_item, true);
+int current=get_item_count(gun_ammos[i].reserve_item);
+int diff=gun_ammos[i].starting_reserve-current;
+if (diff!=0) give(gun_ammos[i].reserve_item, diff);
+}
 }
 }

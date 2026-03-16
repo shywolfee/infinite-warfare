@@ -1,3 +1,19 @@
+New in 0.3.3
+Fixed Q, E, S and X keys not working without Shift.
+  The key press was consumed by the Shift check and never reached the
+  normal handler.  All four keys now cache the press in a variable first.
+Refactored the ammunition system to use inventory items for reserves.
+  Magazine-fed weapons (pistols, rifles, SMGs) consume a magazine item
+  from your inventory when you reload.  Unloading returns the magazine.
+  Revolvers draw individual rounds from an ammo belt carried in your
+  inventory.  Reloading pulls rounds from the belt into the cylinder.
+  Shotguns load individual shells from a shell box in your inventory.
+  The M1 Garand uses en-bloc clips and the mortar uses loose shells.
+  Shared ammo types work across weapons (e.g. STANAG magazines are
+  used by both the HK G36 and TAR-21).
+All reserve ammunition is now visible when cycling your inventory.
+Beta: players start with all weapons and generous reserve ammo.
+
 New in 0.3.2
 Added fine-grained turning controls with the Shift key.
   Shift+Q: turn left by 1 degree (instead of the normal 45-degree snap).

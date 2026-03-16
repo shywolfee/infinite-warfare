@@ -55,7 +55,7 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.32;
+double version=0.33;
 string name;
 string mate;
 double facing=0;
@@ -102,22 +102,32 @@ p.behind_pitch_decrease=6;
 distpool.pan_step=0.2;
 distpool.volume_step=0.1;
 weapons.insert_last("empty");
-// Beta: players start with a full weapon + generous reserve magazines.
-// register_gun(name, ammo_type, feed_device, mag_capacity, spare_mags, reload_ms)
-register_gun("glock17",                "9x19mm Parabellum",     "17-round magazine",      17, 10, 2000);
-register_gun("beretta92fs_pistol",     "9x19mm Parabellum",     "15-round magazine",      15, 10, 2000);
-register_gun("taurus_model66_revolver",".357 Magnum",           "6-round cylinder",        6, 12, 3500);
-register_gun("magnum_revolver",        ".44 Magnum",            "6-round cylinder",        6, 12, 3500);
-register_gun("p90_mp",                 "FN 5.7x28mm",           "50-round magazine",       50,  6, 2000);
-register_gun("hk_g36",                 "5.56x45mm NATO",        "30-round magazine",       30,  8, 2500);
-register_gun("AK47",                   "7.62x39mm",             "30-round magazine",       30,  8, 2500);
-register_gun("tar_21_assault_rifle",   "5.56x45mm NATO",        "30-round magazine",       30,  8, 2500);
-register_gun("famas_f1_assault_rifle", "5.56x45mm NATO",        "25-round magazine",       25,  8, 2500);
-register_gun("benelli_m4_shotgun",     "12-gauge buckshot",     "8-round tube magazine",    8,  8, 5000);
-register_gun("ks123shotgun",           "12-gauge buckshot",     "5-round tube magazine",    5,  8, 5000);
-register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc clip",     8,  8, 2000);
-register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10,  5, 3000);
-register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1,  5, 8000);
+// Beta: players start with everything.  Ammo reserves are inventory items.
+// register_gun(name, ammo_type, feed_device, capacity,
+//              reserve_item, reserve_label, is_magazine, starting_qty, reload_ms)
+// --- Pistols (magazine-fed) ---
+register_gun("glock17",                "9x19mm Parabellum",     "17-round magazine",       17, "glock_17_magazine",         "magazine",     true,  10, 2000);
+register_gun("beretta92fs_pistol",     "9x19mm Parabellum",     "15-round magazine",       15, "beretta_92fs_magazine",     "magazine",     true,  10, 2000);
+// --- Revolvers (individual rounds from ammo belt) ---
+register_gun("taurus_model66_revolver",".357 Magnum",           "6-round cylinder",         6, ".357_magnum_ammo_belt",     "ammo belt",    false, 72, 3500);
+register_gun("magnum_revolver",        ".44 Magnum",            "6-round cylinder",         6, ".44_magnum_ammo_belt",      "ammo belt",    false, 72, 3500);
+// --- Sub-machine guns (magazine-fed) ---
+register_gun("p90_mp",                 "FN 5.7x28mm",           "50-round magazine",       50, "p90_magazine",              "magazine",     true,   6, 2000);
+// --- Assault rifles (magazine-fed) ---
+register_gun("hk_g36",                 "5.56x45mm NATO",        "30-round magazine",       30, "stanag_magazine",           "magazine",     true,   8, 2500);
+register_gun("AK47",                   "7.62x39mm",             "30-round magazine",       30, "ak47_magazine",             "magazine",     true,   8, 2500);
+register_gun("tar_21_assault_rifle",   "5.56x45mm NATO",        "30-round magazine",       30, "stanag_magazine",           "magazine",     true,   8, 2500);
+register_gun("famas_f1_assault_rifle", "5.56x45mm NATO",        "25-round magazine",       25, "famas_magazine",            "magazine",     true,   8, 2500);
+// --- Shotguns (individual shells from shell box) ---
+register_gun("benelli_m4_shotgun",     "12-gauge buckshot",     "8-round tube magazine",    8, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
+register_gun("ks123shotgun",           "12-gauge buckshot",     "5-round tube magazine",    5, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
+// --- Battle rifle / sniper (magazine or clip fed) ---
+register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc clip",     8, "m1_garand_clip",            "clip",         true,   8, 2000);
+register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10, "sg08_magazine",             "magazine",     true,   5, 3000);
+// --- Heavy ordnance (individual shells) ---
+register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1, "120mm_mortar_shell",        "mortar shell", false,  5, 8000);
+// Give starting reserve inventory items (deduplicates shared ammo types).
+reset_ammo();
 create_buffer("all");
 create_buffer("chats");
 create_buffer("misc");
@@ -422,7 +432,8 @@ if(mousez>0)
 cycle_inv(1);
 p.play_stationary("inv"+random(1, 7)+".ogg", false);
 }
-if(key_pressed(KEY_Q) and shift_is_down())
+bool qp=key_pressed(KEY_Q);
+if(qp and shift_is_down())
 {
 turntimer.restart();
 facing=turnleft(facing, 1);
@@ -430,7 +441,7 @@ speak(facing+" degrees");
 p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 }
-else if(key_pressed(KEY_Q) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+else if(qp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
 turntimer.restart();
 facing=snapleft(facing, getdir(facing));
@@ -439,14 +450,15 @@ p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
-if(key_pressed(KEY_X) and shift_is_down() and turn>0)
+bool xp=key_pressed(KEY_X);
+if(xp and shift_is_down() and turn>0)
 {
 turn-=1;
 p.play_stationary("turn.ogg", false);
 speak("vertical "+turn+" degrees");
 send_reliable(0, "turn2 "+turn, 0);
 }
-else if(key_pressed(KEY_X) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn>0)
+else if(xp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn>0)
 {
 if(turn>90)
 turn=90;
@@ -461,14 +473,15 @@ s="straight down";
 speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
-if(key_pressed(KEY_S) and shift_is_down() and turn<180)
+bool sp=key_pressed(KEY_S);
+if(sp and shift_is_down() and turn<180)
 {
 turn+=1;
 p.play_stationary("turn.ogg", false);
 speak("vertical "+turn+" degrees");
 send_reliable(0, "turn2 "+turn, 0);
 }
-else if(key_pressed(KEY_S) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn<180)
+else if(sp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn<180)
 {
 if(turn<90)
 turn=90;
@@ -483,7 +496,8 @@ s="straight up";
 speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
-if(key_pressed(KEY_E) and shift_is_down())
+bool ep=key_pressed(KEY_E);
+if(ep and shift_is_down())
 {
 turntimer.restart();
 facing=turnright(facing, 1);
@@ -491,7 +505,7 @@ speak(facing+" degrees");
 p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 }
-else if(key_pressed(KEY_E) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+else if(ep and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
 turntimer.restart();
 facing=snapright(facing, getdir(facing));

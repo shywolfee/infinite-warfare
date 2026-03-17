@@ -92,17 +92,17 @@ mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="alreadyin")
 {
-dlg("sorry, this name is allready in use.");
+dlg("Sorry, this name is already in use.");
 mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="error")
 {
-dlg("error, unknown error");
+dlg("An unknown error occurred.");
 mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="banned")
 {
-dlg("woops, You are banned.");
+dlg("You are banned from this server.");
 mainmenu();
 }
 else if(e.type==event_receive)

@@ -46,6 +46,59 @@ mainmenu();
 }
 
 // ---------------------------------------------------------------------------
+// Wait for the server to send map data after entering a mode.
+// Processes incoming mapdata and coordinate messages before game() starts.
+// ---------------------------------------------------------------------------
+void lobby_wait_for_map()
+{
+bool got_map=false;
+timer mwait;
+while(mwait.elapsed < 3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_disconnect)
+{
+speak("You have been disconnected from the server.");
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+mainmenu();
+return;
+}
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+string[] parsed=string_split(msg, " ", false);
+if(parsed[0]=="mapdata")
+{
+load_map(string_replace(msg, "mapdata ", "", false));
+got_map=true;
+}
+else if(parsed[0]=="x")
+{
+me.x=string_to_number(parsed[1]);
+mr.x=me.x;
+}
+else if(parsed[0]=="y")
+{
+me.y=string_to_number(parsed[1]);
+mr.y=me.y;
+}
+else if(parsed[0]=="z")
+{
+me.z=string_to_number(parsed[1]);
+}
+}
+if(got_map) break;
+}
+}
+
+// ---------------------------------------------------------------------------
 // Tab: Modes
 // Lists available game modes. Selecting one enters the world via game().
 // ---------------------------------------------------------------------------
@@ -53,8 +106,8 @@ void modes_tab()
 {
 audio_form f;
 f.create_window("Modes", false, true);
-int f_bg=f.create_button("&Battlegrounds - Fight for survival on the main map", true);
-int f_ha=f.create_button("&Habitat Alpha - Last one standing in an abandoned colony");
+int f_bg=f.create_button("&Battlegrounds - Fight for survival on a war-torn island archipelago", true);
+int f_ha=f.create_button("&Habitat Alpha - Fight for survival in an abandoned alien colony");
 int f_back=f.create_button("Go &back", false, true);
 f.focus(f_bg);
 while(true)
@@ -66,7 +119,7 @@ if (f.is_pressed(f_bg))
 {
 send_reliable(0, "enter_mode battlegrounds", 0);
 speak("Deploying to Battlegrounds. Good luck.");
-wait(600);
+lobby_wait_for_map();
 game(1);
 return;
 }
@@ -74,7 +127,7 @@ else if (f.is_pressed(f_ha))
 {
 send_reliable(0, "enter_mode habitat_alpha", 0);
 speak("Deploying to Habitat Alpha. Survive the colony.");
-wait(600);
+lobby_wait_for_map();
 game(1);
 return;
 }

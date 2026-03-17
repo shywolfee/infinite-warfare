@@ -49,8 +49,6 @@ bool hk_g_supressor=false;
 bool taurus_supressor=false;
 bool magnum_revolver_supressor=false;
 bool beretta_supressor=false;
-bool battleroyale=false;
-bool habitat_alpha=false;
 bool ballista=false;
 timer ballistatimer;
 bool bunkerbomb;
@@ -110,14 +108,14 @@ players[i].health=10000;
 if(players[i].kills==3 and players[i].kills1==false)
 {
 players[i].kills1=true;
-send_reliable(players[i].peer_id, "you have maked 3 kills so you get 5 fraggrenades", 2);
+send_reliable(players[i].peer_id, "You've reached 3 kills! You receive 5 frag grenades.", 2);
 send_reliable(players[i].peer_id, "play_s killachievement.ogg", 0);
 send_reliable(players[i].peer_id, "give frag_grenade 5", 0);
 }
 if(players[i].kills==5 and players[i].kills2==false)
 {
 players[i].kills2=true;
-send_reliable(players[i].peer_id, "you have maked 5 kills so you get a ultra_health_potion", 2);
+send_reliable(players[i].peer_id, "You've reached 5 kills! You receive an ultra health potion.", 2);
 send_reliable(players[i].peer_id, "give ultra_health_potion 1", 0);
 send_reliable(players[i].peer_id, "play_s killachievement.ogg", 0);
 }
@@ -157,7 +155,7 @@ int index2=get_player_index_from(players[i].mate);
 if(index2>-1)
 {
 send_reliable(players[index2].peer_id, "revive", 0);
-players[index2].death==false;
+players[index2].death=false;
 }
 }
 if(players[i].usehealth_potiontimer.elapsed>2000 and players[i].usehealth_potion==true)
@@ -225,19 +223,11 @@ if(index2>-1)
 if(players[index2].mate==players[i].name)
 {
 send_reliable(players[index2].peer_id, "give life_injection 1", 0);
-send_reliable(players[index2].peer_id, "your duo mate died , you get a life_injection , go revive him!", 2);
+send_reliable(players[index2].peer_id, "Your duo mate died! You receive a life injection. Go revive them!", 2);
 } 
 }
 send_reliable(0,killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone),2);
 send_reliable(0, "play_s killalert.ogg", 0);
-if(players[i].map=="battleroyale")
-{
-battlers-=1;
-}
-if(players[i].map=="habitat_alpha")
-{
-habitat_fighters-=1;
-}
 send_reliable(players[i].peer_id, "death", 0);
 play("death",players[i].x, players[i].y, players[i].z, players[i].map, i);
 spawn_corpse(players[i].x, players[i].y, players[i].z, players[i].map, players[i].inv, players[i].ammo);

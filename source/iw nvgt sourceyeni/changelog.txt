@@ -1,3 +1,12 @@
+New in 0.453, build 7 (2026-03-17)
+Removed battle royale start and waiting room logic. Habitat Alpha and Battlegrounds now take you directly to their respective maps when selected from the lobby, no waiting rooms involved.
+Deleted the battle_royale_waiting and habitat_alpha_waiting map files.
+Simplified the item use and fire conditions on the client by removing waiting room map checks.
+Removed dead code: deathroyale client handler, battleroyale/habitat_alpha player flags, and victory counter logic.
+Fixed a bug where reviving a duo mate did not actually clear their death state (== instead of =).
+Polished mode descriptions in the lobby: Battlegrounds and Habitat Alpha now have clearer map-themed descriptions.
+QOL message pass: fixed grammar and typos across server and client messages, including kill reward announcements, duo chat confirmation, duo mate status, ban messages, welcome message, and error dialogs.
+
 New in 0.452, build 6 (2026-03-17)
 Added Habitat Alpha, a new game mode. Similar to Battlegrounds but set on a sci-fi map: an abandoned colony on a distant world far from Earth.
 The map features several city/district and administrative domes connected by underground tunnels, each with a stairwell and staircase leading up to the street (or in admin domes, an access corridor leading into the tunnel network).

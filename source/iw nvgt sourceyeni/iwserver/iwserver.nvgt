@@ -15,12 +15,8 @@
 #include "includes/corpse.nvgt"
 #include "includes/citem.nvgt"
 #include "../includes/sd.nvgt"
-int battlers=0;
-int habitat_fighters=0;
-string habitat_winner;
 string[] killmsgs;
 timer spawn_chesttimer;
-string winner;
 string changes;
 double minversion=0.12;
 string current_map="";
@@ -127,64 +123,6 @@ bodyfallloop();
 playerloop();
 itemloop();
 maploop();
-if(battlers==1)
-{
-for(int i=0; i<players.length(); i++)
-{
-if(players[i].map=="battleroyale" and players[i].death==false)
-{
-winner=players[i].name;
-}
-}
-int index=get_player_index_from(winner);
-if(index>-1)
-{
-send_reliable(players[index].peer_id, "nice job. you winned the battle royale!", 2);
-players[index].x=random(0,500);
-players[index].y=random(0,500);
-players[index].battleroyale=false;
-players[index].z=0;
-players[index].map="main";
-send_reliable(players[index].peer_id, "setcoords "+players[index].x+" "+players[index].y+" "+players[index].z, 0);
-file f;
-f.open("map/main.map", "rb");
-send_reliable(players[index].peer_id, "mapdata "+f.read(), 0);
-f.close();
-send_reliable(0, players[index].name+"  wins the battleroyale.", 2); 
-send_reliable(0, "play_s win.ogg", 0);
-winner=""; 
-}
-battlers=0;
-}
-if(habitat_fighters==1)
-{
-for(int i=0; i<players.length(); i++)
-{
-if(players[i].map=="habitat_alpha" and players[i].death==false)
-{
-habitat_winner=players[i].name;
-}
-}
-int hindex=get_player_index_from(habitat_winner);
-if(hindex>-1)
-{
-send_reliable(players[hindex].peer_id, "nice job. you won habitat alpha!", 2);
-players[hindex].x=random(0,500);
-players[hindex].y=random(0,500);
-players[hindex].habitat_alpha=false;
-players[hindex].z=0;
-players[hindex].map="main";
-send_reliable(players[hindex].peer_id, "setcoords "+players[hindex].x+" "+players[hindex].y+" "+players[hindex].z, 0);
-file hf;
-hf.open("map/main.map", "rb");
-send_reliable(players[hindex].peer_id, "mapdata "+hf.read(), 0);
-hf.close();
-send_reliable(0, players[hindex].name+" wins habitat alpha!", 2);
-send_reliable(0, "play_s win.ogg", 0);
-habitat_winner="";
-}
-habitat_fighters=0;
-}
 e=n.request();
 if(key_pressed(KEY_H))
 {
@@ -289,7 +227,7 @@ wait(300);
 run("iwserver.exe", "", false, false);
 exit();
 }
-else send_reliable(players[index].peer_id, "you must be adev to perform this action", 0);
+else send_reliable(players[index].peer_id, "You must be a dev to perform this action.", 0);
 }
 else if(parsed[0]=="/duomate" and parsed.length()>1)  
 {
@@ -298,10 +236,10 @@ if (index2>=-1)
 {
 if(players[index2].mate!="") 
 {
-send_reliable(players[index].peer_id, players[index2].name+"s duo_mate is"+players[index2].mate, 2);
+send_reliable(players[index].peer_id, players[index2].name+"'s duo mate is "+players[index2].mate, 2);
 }
 else 
-send_reliable(players[index].peer_id, "this player don't have a duo mate", 2);
+send_reliable(players[index].peer_id, "This player doesn't have a duo mate.", 2);
 }
 else 
 send_reliable(e.peer_id,"Not found",2);
@@ -335,67 +273,7 @@ else send_reliable(players[index].peer_id, "player not found", 0);
 }
 }
 }
-else send_reliable(players[index].peer_id, "you must be a dev to perform this command", 0);
-}
-else if(parsed[0]=="/leave" and players[index].battleroyale==true and players[index].map=="battle_royale_waiting")
-{
-players[index].battleroyale=false;
-players[index].x=random(0,500);
-players[index].y=random(0,500);
-players[index].z=0;
-players[index].map="main";
-send_reliable(players[index].peer_id, "setcoords "+players[index].x+" "+players[index].y+" "+players[index].z, 0);
-file f;
-f.open("map/main.map", "rb");
-send_reliable(players[index].peer_id, "mapdata "+f.read(), 0);
-f.close();
-send_reliable(players[index].peer_id, "done!", 0); 
-}
-else if(parsed[0]=="/br" and players[index].battleroyale==false)
-{
-players[index].battleroyale=true;
-players[index].x=0;
-players[index].y=0;
-players[index].z=0;
-players[index].map="battle_royale_waiting";
-send_reliable(players[index].peer_id, "setcoords "+players[index].x+" "+players[index].y+" "+players[index].z, 0);
-file f;
-f.open("map/battle_royale_waiting.map", "rb");
-send_reliable(players[index].peer_id, "mapdata "+f.read(), 0);
-f.close();
-send_reliable(players[index].peer_id, "reset_ammo", 0);
-send_reliable(players[index].peer_id, "resetinv", 0);
-send_reliable(players[index].peer_id, "done!", 0);
-}
-else if(parsed[0]=="/leave" and players[index].habitat_alpha==true and players[index].map=="habitat_alpha_waiting")
-{
-players[index].habitat_alpha=false;
-players[index].x=random(0,500);
-players[index].y=random(0,500);
-players[index].z=0;
-players[index].map="main";
-send_reliable(players[index].peer_id, "setcoords "+players[index].x+" "+players[index].y+" "+players[index].z, 0);
-file f;
-f.open("map/main.map", "rb");
-send_reliable(players[index].peer_id, "mapdata "+f.read(), 0);
-f.close();
-send_reliable(players[index].peer_id, "done!", 0);
-}
-else if(parsed[0]=="/ha" and players[index].habitat_alpha==false)
-{
-players[index].habitat_alpha=true;
-players[index].x=0;
-players[index].y=0;
-players[index].z=0;
-players[index].map="habitat_alpha_waiting";
-send_reliable(players[index].peer_id, "setcoords "+players[index].x+" "+players[index].y+" "+players[index].z, 0);
-file f;
-f.open("map/habitat_alpha_waiting.map", "rb");
-send_reliable(players[index].peer_id, "mapdata "+f.read(), 0);
-f.close();
-send_reliable(players[index].peer_id, "reset_ammo", 0);
-send_reliable(players[index].peer_id, "resetinv", 0);
-send_reliable(players[index].peer_id, "done!", 0);
+else send_reliable(players[index].peer_id, "You must be a dev to perform this command.", 0);
 }
 else if(parsed[0]=="/d" and parsed.length()>1)
 {
@@ -410,7 +288,7 @@ if(players[index2].mate==players[index].name)
 {
 send_reliable(players[index2].peer_id, "play_s dc.ogg", 0);
 send_reliable(players[index2].peer_id, players[index].name+ " says in the duo chat: "+message, 2);
-send_reliable(players[index].peer_id, "your duo message has been send!", 0);
+send_reliable(players[index].peer_id, "Your duo message has been sent!", 0);
 }
 }
 }
@@ -443,7 +321,7 @@ pr.close();
 send_reliable(players[index].peer_id,message , 2);
 }
 else
-  send_reliable(players[index].peer_id, "you don't need the feedback , because you are not a dev.", 2);
+  send_reliable(players[index].peer_id, "Only devs can view feedback.", 2);
 }
 }
 if(parsed[0]=="/feedback")
@@ -486,7 +364,7 @@ pr.close();
 send_reliable(0, "offline "+players[index2].x+" "+players[index2].y+" "+players[index2].z+" "+players[index2].name+" "+players[index2].map, 0);
 players.remove_at(index2);
 send_reliable(0, "play_s ban.ogg", 0);
-send_reliable(0, parsed[1]+"was just banned by the ban fist.", 0);
+send_reliable(0, parsed[1]+" was just banned.", 0);
 send_reliable(players[index].peer_id, players[index2].name+" banned.", 2);
 }
 else send_reliable(players[index].peer_id, "player can't be banned.", 2);
@@ -662,6 +540,26 @@ int li=get_lobby_client_index(e.peer_id);
 if(li>-1)
 {
 send_reliable(0, lobby_clients[li].name+" has entered "+parsed[1], 2);
+if(parsed[1]=="habitat_alpha")
+{
+file mf;
+mf.open("map/habitat_alpha.map", "rb");
+send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
+mf.close();
+send_reliable(e.peer_id, "x "+random(0, 600), 0);
+send_reliable(e.peer_id, "y "+random(0, 600), 0);
+send_reliable(e.peer_id, "z 0", 0);
+}
+else if(parsed[1]=="battlegrounds")
+{
+file mf;
+mf.open("map/battleroyale.map", "rb");
+send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
+mf.close();
+send_reliable(e.peer_id, "x "+random(0, 400), 0);
+send_reliable(e.peer_id, "y "+random(0, 400), 0);
+send_reliable(e.peer_id, "z 0", 0);
+}
 lobby_clients.remove_at(li);
 }
 }
@@ -835,7 +733,7 @@ int index=get_player_index(e.peer_id);
 if(index>-1)
 {
 send_reliable(players[index].peer_id, "play_s welcome.ogg", 0);
-send_reliable(players[index].peer_id, " hi and Welcome to Infinite Warfare. currently there are "+players.length()+"   players online", 2);
+send_reliable(players[index].peer_id, "Welcome to Infinite Warfare! There are currently "+players.length()+" players online.", 2);
 }
 }
 else if(parsed[0]=="spawn_player" and parsed.length() > 5)
@@ -1274,7 +1172,7 @@ spawn_plane(players[index].x,players[index].y, players[index].z,players[index].m
 send_reliable(players[index].peer_id, "give duo_plane -1", 0);
 }
 else
-send_reliable(players[index].peer_id, "your duo has allready a plane : so you can't place 1 more.", 0);
+send_reliable(players[index].peer_id, "Your duo already has a plane, so you can't place another one.", 0);
 }
 else if(parsed[1]=="health_potion" and players[index].health<=10001 and players[index].health_potiontimer.elapsed>20000)
 {

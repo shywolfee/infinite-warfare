@@ -9,19 +9,19 @@ if(new_version=="" or new_version=="0" or string_contains(new_version," ",1)!=-1
 {
 
 speak("unable to check the update, reason, "+update_error_reason+".");
+return;
 }
 if(version!=new_version)
 {
 
 dlg("There is a new update available for game, your version, "+version+", latest version, "+new_version+".");
 {
-string version=version;
 speak("update starting");
 
 string status=dl_file(webdir+"/"+filename,filename);
 if(status=="finished")
 {
-speak("update complated. Please wait extracting the files");
+speak("update completed. Please wait, extracting the files");
 wait(2000);
 run("unzip.exe", "-o -qq "+filename, false, false);
 run(name+".exe","",false,false);

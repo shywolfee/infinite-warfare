@@ -98,7 +98,7 @@ music_added = true;
 }
 }
 void play_click_sound() {
-if (click_sound != "" or !file_exists(click_sound)) {
+if (click_sound != "" and file_exists(click_sound)) {
 if (enable_side_scrolling == true)
 spool.play_stationary_extended(click_sound, false, 0, convert_to_pan(get_item_count(), menu_position, -25, 25), 0, 100, false);
 else
@@ -106,7 +106,7 @@ spool.play_stationary(click_sound, false, false);
 }
 }
 void play_edge_sound() {
-if (edge_sound != "" or !file_exists(edge_sound)) {
+if (edge_sound != "" and file_exists(edge_sound)) {
 if (enable_side_scrolling == true)
 spool.play_stationary_extended(edge_sound, false, 0, convert_to_pan(get_item_count(), menu_position, -25, 25), 0, 100, false);
 else
@@ -114,7 +114,7 @@ spool.play_stationary(edge_sound, false, false);
 }
 }
 void play_enter_sound() {
-if (enter_sound != "" or !file_exists(enter_sound)) {
+if (enter_sound != "" and file_exists(enter_sound)) {
 if (enable_side_scrolling == true)
 spool.play_stationary_extended(enter_sound, false, 0, convert_to_pan(get_item_count(), menu_position, -25, 25), 0, 100, false);
 else

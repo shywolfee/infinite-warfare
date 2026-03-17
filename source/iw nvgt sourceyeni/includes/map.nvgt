@@ -133,9 +133,6 @@ int maxz=string_to_number(parsed[6]);
 int id=string_to_number(parsed[8]);
 spawn_source(lx, rx, miny, maxy, minz, maxz, parsed[7],1, false, id);
 }
-else if (parsed[0]=="travelpoint" and parsed.length()>=8||parsed[0]=="reverb"&&parsed.length()>=8)
-{
-}
 }
 }
 void playstep()

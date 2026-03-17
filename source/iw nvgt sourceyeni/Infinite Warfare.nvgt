@@ -56,8 +56,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.43;
-int build_number=2;
+double version=0.44;
+int build_number=3;
 string build_date="2026-03-17";
 string name;
 string mate;
@@ -109,45 +109,45 @@ weapons.insert_last("empty");
 // register_gun(name, ammo_type, feed_device, capacity,
 //              reserve_item, reserve_label, is_magazine, starting_qty, reload_ms)
 // --- Pistols (magazine-fed) ---
-register_gun("glock17",                "9x19mm Parabellum",     "17-round magazine",       17, "glock_17_magazine",         "magazine",     true,  10, 2000);
-register_gun("beretta92fs_pistol",     "9x19mm Parabellum",     "15-round magazine",       15, "beretta_92fs_magazine",     "magazine",     true,  10, 2000);
+register_gun("glock17",                "9x19mm Parabellum",     "17-round magazine",       17, "9x19mm_17_round_magazine",  "magazine",     true,  10, 2000);
+register_gun("beretta92fs_pistol",     "9x19mm Parabellum",     "15-round magazine",       15, "9x19mm_15_round_magazine",  "magazine",     true,  10, 2000);
 // --- Revolvers (individual rounds from ammo belt) ---
 register_gun("taurus_model66_revolver",".357 Magnum",           "6-round cylinder",         6, ".357_magnum_ammo_belt",     "ammo belt",    false, 72, 3500);
 register_gun("magnum_revolver",        ".44 Magnum",            "6-round cylinder",         6, ".44_magnum_ammo_belt",      "ammo belt",    false, 72, 3500);
 // --- Sub-machine guns (magazine-fed) ---
-register_gun("p90_mp",                 "FN 5.7x28mm",           "50-round magazine",       50, "p90_magazine",              "magazine",     true,   6, 2000);
-// --- Assault rifles (magazine-fed) ---
-register_gun("hk_g36",                 "5.56x45mm NATO",        "30-round magazine",       30, "stanag_magazine",           "magazine",     true,   8, 2500);
-register_gun("AK47",                   "7.62x39mm",             "30-round magazine",       30, "ak47_magazine",             "magazine",     true,   8, 2500);
-register_gun("tar_21_assault_rifle",   "5.56x45mm NATO",        "30-round magazine",       30, "stanag_magazine",           "magazine",     true,   8, 2500);
-register_gun("famas_f1_assault_rifle", "5.56x45mm NATO",        "25-round magazine",       25, "famas_magazine",            "magazine",     true,   8, 2500);
+register_gun("p90_mp",                 "FN 5.7x28mm",           "50-round magazine",       50, "5.7x28mm_50_round_magazine","magazine",     true,   6, 2000);
+// --- Assault rifles (magazine-fed, STANAG shared across 5.56mm rifles) ---
+register_gun("hk_g36",                 "5.56x45mm NATO",        "30-round magazine",       30, "5.56mm_stanag_magazine",    "magazine",     true,   8, 2500);
+register_gun("AK47",                   "7.62x39mm",             "30-round magazine",       30, "7.62x39mm_30_round_magazine","magazine",    true,   8, 2500);
+register_gun("tar_21_assault_rifle",   "5.56x45mm NATO",        "30-round magazine",       30, "5.56mm_stanag_magazine",    "magazine",     true,   8, 2500);
+register_gun("famas_f1_assault_rifle", "5.56x45mm NATO",        "25-round magazine",       25, "5.56mm_25_round_magazine",  "magazine",     true,   8, 2500);
 // --- Shotguns (individual shells from shell box) ---
 register_gun("benelli_m4_shotgun",     "12-gauge buckshot",     "8-round tube magazine",    8, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
 register_gun("ks123shotgun",           "12-gauge buckshot",     "5-round tube magazine",    5, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
 // --- Battle rifle / sniper (magazine or clip fed) ---
-register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc clip",     8, "m1_garand_clip",            "clip",         true,   8, 2000);
-register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10, "sg08_magazine",             "magazine",     true,   5, 3000);
+register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc clip",     8, ".30-06_en_bloc_clip",       "clip",         true,   8, 2000);
+register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10, ".308_10_round_magazine",    "magazine",     true,   5, 3000);
 // --- Heavy ordnance (individual shells) ---
 register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1, "120mm_mortar_shell",        "mortar shell", false,  5, 8000);
-// --- New pistols ---
-register_gun("desert_eagle",           ".50 Action Express",    "7-round magazine",          7, "desert_eagle_magazine",     "magazine",     true,   8, 2000);
-// --- New SMGs ---
-register_gun("mp5",                    "9x19mm Parabellum",     "30-round magazine",        30, "mp5_magazine",              "magazine",     true,   8, 2000);
-register_gun("uzi",                    "9x19mm Parabellum",     "32-round magazine",        32, "uzi_magazine",              "magazine",     true,   8, 2000);
-register_gun("mp7",                    "4.6x30mm HK",           "40-round magazine",        40, "mp7_magazine",              "magazine",     true,   7, 2000);
-// --- New assault rifles ---
-register_gun("m4a1_carbine",           "5.56x45mm NATO",        "30-round magazine",        30, "stanag_magazine",           "magazine",     true,   8, 2500);
-// --- New battle rifles ---
-register_gun("scar_h_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "scar_h_magazine",           "magazine",     true,   6, 2500);
-register_gun("fn_fal_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "fn_fal_magazine",           "magazine",     true,   6, 2500);
-// --- New LMGs ---
-register_gun("rpk_lmg",               "7.62x39mm",             "75-round drum magazine",   75, "rpk_drum_magazine",         "drum magazine",true,   3, 4000);
-register_gun("m249_saw",              "5.56x45mm NATO",        "200-round belt box",      200, "m249_belt_box",             "belt box",     true,   2, 6000);
-// --- New shotgun ---
+// --- Pistols (continued) ---
+register_gun("desert_eagle",           ".50 Action Express",    "7-round magazine",          7, ".50ae_7_round_magazine",    "magazine",     true,   8, 2000);
+// --- SMGs (continued) ---
+register_gun("mp5",                    "9x19mm Parabellum",     "30-round magazine",        30, "9x19mm_30_round_magazine",  "magazine",     true,   8, 2000);
+register_gun("uzi",                    "9x19mm Parabellum",     "32-round magazine",        32, "9x19mm_32_round_magazine",  "magazine",     true,   8, 2000);
+register_gun("mp7",                    "4.6x30mm HK",           "40-round magazine",        40, "4.6x30mm_40_round_magazine","magazine",     true,   7, 2000);
+// --- Assault rifles (continued) ---
+register_gun("m4a1_carbine",           "5.56x45mm NATO",        "30-round magazine",        30, "5.56mm_stanag_magazine",    "magazine",     true,   8, 2500);
+// --- Battle rifles (SCAR-H and FN FAL share 7.62x51mm 20-round magazines) ---
+register_gun("scar_h_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "7.62x51mm_20_round_magazine","magazine",    true,   6, 2500);
+register_gun("fn_fal_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "7.62x51mm_20_round_magazine","magazine",    true,   6, 2500);
+// --- LMGs ---
+register_gun("rpk_lmg",               "7.62x39mm",             "75-round drum magazine",   75, "7.62x39mm_75_round_drum",   "drum magazine",true,   3, 4000);
+register_gun("m249_saw",              "5.56x45mm NATO",        "200-round belt box",      200, "5.56mm_200_round_belt_box", "belt box",     true,   2, 6000);
+// --- Shotguns (continued) ---
 register_gun("spas_12_shotgun",        "12-gauge buckshot",     "8-round tube magazine",     8, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
-// --- New snipers ---
-register_gun("awp_sniper_rifle",       ".338 Lapua Magnum",     "5-round magazine",          5, "awp_magazine",              "magazine",     true,   4, 3500);
-register_gun("dragunov_svd",           "7.62x54mm R",           "10-round magazine",        10, "dragunov_magazine",         "magazine",     true,   5, 3000);
+// --- Snipers ---
+register_gun("awp_sniper_rifle",       ".338 Lapua Magnum",     "5-round magazine",          5, ".338_lapua_5_round_magazine","magazine",    true,   4, 3500);
+register_gun("dragunov_svd",           "7.62x54mm R",           "10-round magazine",        10, "7.62x54mm_10_round_magazine","magazine",    true,   5, 3000);
 // --- Crossbow ---
 register_gun("crossbow",              "crossbow bolt",         "single bolt",               1, "bolt_quiver",               "bolt quiver",  false, 20, 4000);
 // --- Laser weapons (energy cell, percentage charge display) ---

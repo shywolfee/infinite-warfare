@@ -1,3 +1,12 @@
+New in 0.44, build 3 (2026-03-17)
+Feature quality-of-life pass.
+Overhauled the escape menu. Quick stats (weapon, location, stamina, effects, inventory count, map, player info) are now displayed as read-only fields at the top of the menu instead of being buried in separate statistics sub-menus. Game statistics, account statistics, and mode statistics sub-menus have been removed; all useful info is visible immediately when you open the menu.
+Magazines now use real-world caliber names instead of weapon-specific names. For example, "glock_17_magazine" is now "9x19mm 17-round magazine", "stanag_magazine" is now "5.56mm STANAG magazine", and so on for all weapon types.
+Weapons that share caliber and magazine capacity now share the same magazine item. SCAR-H and FN FAL both use "7.62x51mm 20-round magazine", and Glock 17 and Beretta 92FS share "9x19mm" magazines with their respective capacities.
+Fixed updater: added missing return after a failed version check, which previously caused the update logic to run with invalid data.
+Fixed sound file checks in dynamic_menu_pro: corrected inverted logic that attempted to play sounds even when the file did not exist.
+Added explicit parentheses to fire control conditions for readability.
+
 New in 0.43, build 2 (2026-03-17)
 Quality-of-life pass.
 Weapon fire rates, walk speeds, and melee flag are now set once when a weapon is drawn instead of every frame. Extracted into apply_weapon_stats function called from draw_weapon, weapon_set, and game init.

@@ -558,29 +558,36 @@ void escape_menu()
 {
 audio_form f;
 f.create_window("Game Menu", false, true);
-int f_list = f.create_list("Menu", 0, false);
-f.add_list_item(f_list, "View changes");
-f.add_list_item(f_list, "View rules");
-f.add_list_item(f_list, "View account info");
-f.add_list_item(f_list, "View developers");
-f.add_list_item(f_list, "Game statistics");
-f.add_list_item(f_list, "Equipment");
-f.add_list_item(f_list, "Account statistics");
-f.add_list_item(f_list, "Mode statistics");
-f.add_list_item(f_list, "Exit game");
-int f_select = f.create_button("&Select", true);
-int f_close = f.create_button("&Close", false, true);
-f.focus(f_list);
+// Quick stats at the top so the player sees key info immediately.
+f.create_input_box("Weapon", string_replace(weapons[w], "_", " ", true), "", 0, false, true, false);
+f.create_input_box("Location", get_location(), "", 0, false, true, false);
+f.create_input_box("Stamina", get_stamina_string(), "", 0, false, true, false);
+f.create_input_box("Effects", get_effects_string(), "", 0, false, true, false);
+f.create_input_box("Items", "" + count_total_items() + " in inventory", "", 0, false, true, false);
+f.create_input_box("Map", mapname, "", 0, false, true, false);
+f.create_input_box("Player", name + " | version " + version + ", build " + build_number + " (" + build_date + ")", "", 0, false, true, false);
+// Direct action buttons — no list+select needed.
+int f_equip = f.create_button("&Equipment");
+int f_changes = f.create_button("View &changes");
+int f_rules = f.create_button("View &rules");
+int f_account = f.create_button("&Account info");
+int f_devs = f.create_button("View &developers");
+int f_exit = f.create_button("E&xit game");
+int f_close = f.create_button("Cl&ose", true, true);
+f.focus(f_equip);
 while(true)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_select))
+if (f.is_pressed(f_equip))
 {
-int sel = f.get_list_position(f_list);
-if (sel == 0) // View changes
+equipment_menu();
+escape_menu();
+return;
+}
+else if (f.is_pressed(f_changes))
 {
 file cf;
 string cl="Changelog not found.";
@@ -591,7 +598,7 @@ cf.close();
 }
 dlg(cl);
 }
-else if (sel == 1) // View rules
+else if (f.is_pressed(f_rules))
 {
 file rf;
 string rl="Rules file not found.";
@@ -602,7 +609,7 @@ rf.close();
 }
 dlg(rl);
 }
-else if (sel == 2) // View account info
+else if (f.is_pressed(f_account))
 {
 audio_form ai;
 ai.create_window("Account Info", false, true);
@@ -629,7 +636,7 @@ if (connected==true) netloop();
 if (ai.is_pressed(ai_close)) break;
 }
 }
-else if (sel == 3) // View developers
+else if (f.is_pressed(f_devs))
 {
 file df;
 string dv="Developers file not found.";
@@ -640,62 +647,7 @@ df.close();
 }
 dlg(dv);
 }
-else if (sel == 4) // Game statistics
-{
-audio_form gs;
-gs.create_window("Game Statistics", false, true);
-gs.create_input_box("Current weapon", string_replace(weapons[w], "_", " ", true), "", 0, false, true, false);
-gs.create_input_box("Inventory items", "" + count_total_items(), "", 0, false, true, false);
-gs.create_input_box("Stamina", get_stamina_string(), "", 0, false, true, false);
-gs.create_input_box("Effects", get_effects_string(), "", 0, false, true, false);
-gs.create_input_box("Location", get_location(), "", 0, false, true, false);
-int gs_close = gs.create_button("&Close", true, true);
-gs.focus(0);
-while(true)
-{
-wait(5);
-gs.monitor();
-if (connected==true) netloop();
-if (gs.is_pressed(gs_close)) break;
-}
-}
-else if (sel == 5) // Equipment
-{
-equipment_menu();
-}
-else if (sel == 6) // Account statistics
-{
-audio_form as;
-as.create_window("Account Statistics", false, true);
-as.create_input_box("Username", name, "", 0, false, true, false);
-as.create_input_box("Version", "" + version + ", build " + build_number + " (" + build_date + ")", "", 0, false, true, false);
-int as_close = as.create_button("&Close", true, true);
-as.focus(0);
-while(true)
-{
-wait(5);
-as.monitor();
-if (connected==true) netloop();
-if (as.is_pressed(as_close)) break;
-}
-}
-else if (sel == 7) // Mode statistics
-{
-audio_form ms;
-ms.create_window("Mode Statistics", false, true);
-ms.create_input_box("Current map", mapname, "", 0, false, true, false);
-ms.create_input_box("Location", get_location(), "", 0, false, true, false);
-int ms_close = ms.create_button("&Close", true, true);
-ms.focus(0);
-while(true)
-{
-wait(5);
-ms.monitor();
-if (connected==true) netloop();
-if (ms.is_pressed(ms_close)) break;
-}
-}
-else if (sel == 8) // Exit game
+else if (f.is_pressed(f_exit))
 {
 int q = yesno("Are you sure you wish to exit the game?");
 if (q == 1)
@@ -705,7 +657,6 @@ send_reliable(0, "close", 0);
 x = true;
 xtimer.restart();
 return;
-}
 }
 }
 else if (f.is_pressed(f_close))

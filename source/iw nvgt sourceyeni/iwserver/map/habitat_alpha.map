@@ -1,0 +1,560 @@
+mapname:habitat_alpha
+maxx:1200
+maxy:1200
+maxz:60
+
+// ===========================
+// BASE LAYER: Barren alien surface
+// The colony sits on a desolate world far from Earth.
+// Outside is a rocky, airless wasteland between domes.
+// ===========================
+tile:0:1200:0:1200:0:0:rocks1
+zone:0:1200:0:1200:0:5:the surface of the colony world
+src:0:1200:0:1200:0:5:wind1.ogg:-3
+src:0:1200:0:1200:0:5:rumble.ogg:-15
+
+// ===========================
+// DOME ALPHA - City Dome (center)
+// A large residential and commercial district dome.
+// Center of the colony at (500-800, 500-800)
+// ===========================
+// Dome shell
+tile:500:800:500:800:0:0:concrete2
+tile:500:500:500:800:0:50:wallstone
+tile:800:800:500:800:0:50:wallstone
+tile:500:800:500:500:0:50:wallstone
+tile:500:800:800:800:0:50:wallstone
+tile:500:800:500:800:50:50:wallstone
+zone:500:800:500:800:0:50:dome Alpha, the city district
+
+// Dome Alpha streets
+tile:640:660:500:800:0:0:concrete5
+zone:640:660:500:800:0:5:dome Alpha main street, north-south
+tile:500:800:640:660:0:0:concrete5
+zone:500:800:640:660:0:5:dome Alpha main street, east-west
+
+// Central plaza
+tile:620:680:620:680:0:0:tile1
+zone:620:680:620:680:0:10:dome Alpha central plaza
+src:648:652:648:652:0:5:waves2.ogg:-5
+tile:648:652:648:652:0:0:water1
+tile:648:648:648:652:0:3:wallstone
+tile:652:652:648:652:0:3:wallstone
+tile:648:652:648:648:0:3:wallstone
+tile:648:652:652:652:0:3:wallstone
+zone:648:652:648:652:0:5:the fountain in dome Alpha plaza
+
+// --- Colony Administration building (north side of plaza) ---
+tile:625:675:690:730:0:0:tile2
+tile:625:625:690:730:0:30:wallbrick
+tile:675:675:690:730:0:30:wallbrick
+tile:625:675:690:690:0:30:wallbrick
+tile:625:675:730:730:0:30:wallbrick
+tile:625:675:690:730:30:30:wallbrick
+tile:625:675:690:730:31:31:concrete2
+zone:625:675:690:730:0:30:the colony administration building
+zone:625:675:690:730:31:50:roof of the administration building
+// Entrance
+tile:648:652:690:690:6:30:wallbrick
+ispawn:626:674:691:729:0:0:5000:3:health_potion:bunker_key:frag_grenade:life_injection
+
+// --- Habitation block A (west side of plaza) ---
+tile:520:570:620:680:0:0:carpet1
+tile:520:520:620:680:0:25:wallbrick
+tile:570:570:620:680:0:25:wallbrick
+tile:520:570:620:620:0:25:wallbrick
+tile:520:570:680:680:0:25:wallbrick
+tile:520:570:620:680:25:25:wallbrick
+tile:520:570:620:680:26:26:concrete2
+zone:520:570:620:680:0:25:habitation block A
+// Entrance
+tile:520:520:648:652:6:25:wallbrick
+ispawn:521:569:621:679:0:0:3000:2:health_potion:empty_bucket:smoke_bomb
+
+// --- Habitation block B (east side of plaza) ---
+tile:730:780:620:680:0:0:carpet1
+tile:730:730:620:680:0:25:wallbrick
+tile:780:780:620:680:0:25:wallbrick
+tile:730:780:620:620:0:25:wallbrick
+tile:730:780:680:680:0:25:wallbrick
+tile:730:780:620:680:25:25:wallbrick
+tile:730:780:620:680:26:26:concrete2
+zone:730:780:620:680:0:25:habitation block B
+// Entrance
+tile:730:730:648:652:6:25:wallbrick
+ispawn:731:779:621:679:0:0:3000:2:health_potion:empty_bucket:beretta92fs.pistol_ammo_10_20
+
+// --- Market hall (south side of plaza) ---
+tile:615:685:560:610:0:0:hardwood
+tile:615:615:560:610:0:25:wallwood
+tile:685:685:560:610:0:25:wallwood
+tile:615:685:560:560:0:25:wallwood
+tile:615:685:610:610:0:25:wallwood
+tile:615:685:560:610:25:25:wallwood
+tile:615:685:560:610:26:26:plank
+zone:615:685:560:610:0:25:the market hall
+tile:648:652:610:610:6:25:wallwood
+ispawn:616:684:561:609:0:0:2000:5:empty_bucket:health_potion:energetic_potion_red:smoke_bomb:frag_grenade
+
+// --- Watchtower in NE corner of dome ---
+tile:760:770:760:770:0:0:metal4
+tile:760:760:760:770:0:40:wallbrick
+tile:770:770:760:770:0:40:wallbrick
+tile:760:770:760:760:0:40:wallbrick
+tile:760:770:770:770:0:40:wallbrick
+tile:761:761:761:769:0:10:cement
+tile:762:769:761:769:10:10:concrete2
+tile:762:769:760:770:9:9:wallbrick
+tile:769:769:761:769:10:20:cement
+tile:761:768:761:769:20:20:concrete2
+tile:761:768:760:770:19:19:wallbrick
+tile:761:761:761:769:20:40:cement
+tile:762:769:761:769:40:40:concrete2
+zone:760:770:760:770:0:40:the watchtower
+zone:761:761:761:769:0:40:watchtower staircase
+zone:760:770:760:770:40:50:top of the watchtower
+
+// --- Medical bay (SW corner) ---
+tile:510:550:520:560:0:0:tile2
+tile:510:510:520:560:0:25:wallbrick
+tile:550:550:520:560:0:25:wallbrick
+tile:510:550:520:520:0:25:wallbrick
+tile:510:550:560:560:0:25:wallbrick
+tile:510:550:520:560:25:25:wallbrick
+tile:510:550:520:560:26:26:concrete2
+zone:510:550:520:560:0:25:the medical bay
+tile:528:532:560:560:6:25:wallbrick
+ispawn:511:549:521:559:0:0:5000:3:health_potion:ultra_health_potion:life_injection:energetic_potion_red:energetic_potion_blue
+
+// --- Armory (NW corner) ---
+tile:510:550:750:790:0:0:metal4
+tile:510:510:750:790:0:25:wallbrick
+tile:550:550:750:790:0:25:wallbrick
+tile:510:550:750:750:0:25:wallbrick
+tile:510:550:790:790:0:25:wallbrick
+tile:510:550:750:790:25:25:wallbrick
+tile:510:550:750:790:26:26:metal2
+zone:510:550:750:790:0:25:the armory
+tile:528:532:750:750:6:25:wallbrick
+ispawn:511:549:751:789:0:0:3000:3:AK47_ammo_10_50:hk.g36_ammo_20_50:benelli.m4.shotgun_ammo_10_40:famas.f1.assault.rifle_ammo_10_20:tar.21.assault.rifle_ammo_10_30
+
+// --- Dome Alpha Airlock South ---
+tile:648:652:500:504:0:10:metal4
+tile:648:648:500:504:0:10:wallstone
+tile:652:652:500:504:0:10:wallstone
+tile:648:652:500:500:6:10:wallstone
+tile:648:652:504:504:6:10:wallstone
+zone:648:652:500:504:0:10:dome Alpha south airlock
+zone:648:652:500:500:0:10:dome Alpha south airlock outer door
+zone:648:652:504:504:0:10:dome Alpha south airlock inner door
+
+// --- Dome Alpha Airlock North ---
+tile:648:652:796:800:0:10:metal4
+tile:648:648:796:800:0:10:wallstone
+tile:652:652:796:800:0:10:wallstone
+tile:648:652:800:800:6:10:wallstone
+tile:648:652:796:796:6:10:wallstone
+zone:648:652:796:800:0:10:dome Alpha north airlock
+zone:648:652:800:800:0:10:dome Alpha north airlock outer door
+zone:648:652:796:796:0:10:dome Alpha north airlock inner door
+
+// --- Dome Alpha Airlock West ---
+tile:500:504:648:652:0:10:metal4
+tile:500:504:648:648:0:10:wallstone
+tile:500:504:652:652:0:10:wallstone
+tile:500:500:648:652:6:10:wallstone
+tile:504:504:648:652:6:10:wallstone
+zone:500:504:648:652:0:10:dome Alpha west airlock
+zone:500:500:648:652:0:10:dome Alpha west airlock outer door
+zone:504:504:648:652:0:10:dome Alpha west airlock inner door
+
+// --- Dome Alpha Airlock East ---
+tile:796:800:648:652:0:10:metal4
+tile:796:800:648:648:0:10:wallstone
+tile:796:800:652:652:0:10:wallstone
+tile:800:800:648:652:6:10:wallstone
+tile:796:796:648:652:6:10:wallstone
+zone:796:800:648:652:0:10:dome Alpha east airlock
+zone:800:800:648:652:0:10:dome Alpha east airlock outer door
+zone:796:796:648:652:0:10:dome Alpha east airlock inner door
+
+// --- Dome Alpha Stairwell to tunnels ---
+tile:650:650:650:650:0:0:metal4
+tile:650:650:650:650:-20:-1:ladder1
+zone:650:650:650:650:-20:-1:dome Alpha stairwell
+zone:650:650:650:650:0:5:entrance to dome Alpha stairwell
+
+// ===========================
+// DOME BRAVO - Industrial Dome (south)
+// A factory and storage dome at (500-800, 100-300)
+// ===========================
+tile:500:800:100:300:0:0:concrete10
+tile:500:500:100:300:0:50:wallstone
+tile:800:800:100:300:0:50:wallstone
+tile:500:800:100:100:0:50:wallstone
+tile:500:800:300:300:0:50:wallstone
+tile:500:800:100:300:50:50:wallstone
+zone:500:800:100:300:0:50:dome Bravo, the industrial district
+
+// Main street
+tile:640:660:100:300:0:0:concrete5
+zone:640:660:100:300:0:5:dome Bravo main street
+
+// --- Factory floor ---
+tile:520:620:130:230:0:0:metal2
+tile:520:520:130:230:0:30:wallbrick
+tile:620:620:130:230:0:30:wallbrick
+tile:520:620:130:130:0:30:wallbrick
+tile:520:620:230:230:0:30:wallbrick
+tile:520:620:130:230:30:30:wallbrick
+tile:520:620:130:230:31:31:metal2
+zone:520:620:130:230:0:30:the factory floor
+tile:568:572:230:230:6:30:wallbrick
+ispawn:521:619:131:229:0:0:3000:3:AK47_ammo_10_50:hk.g36_ammo_20_50:tar.21.assault.rifle_ammo_10_30:frag_grenade:bomb_vest
+
+// --- Storage warehouse ---
+tile:690:780:130:230:0:0:concrete10
+tile:690:690:130:230:0:30:wallbrick
+tile:780:780:130:230:0:30:wallbrick
+tile:690:780:130:130:0:30:wallbrick
+tile:690:780:230:230:0:30:wallbrick
+tile:690:780:130:230:30:30:wallbrick
+tile:690:780:130:230:31:31:metal2
+zone:690:780:130:230:0:30:the storage warehouse
+tile:733:737:230:230:6:30:wallbrick
+ispawn:691:779:131:229:0:0:2000:5:empty_bucket:box:bag:health_potion:frag_grenade
+
+// --- Power plant ---
+tile:600:700:250:290:0:0:metal4
+tile:600:600:250:290:0:20:wallbrick
+tile:700:700:250:290:0:20:wallbrick
+tile:600:700:250:250:0:20:wallbrick
+tile:600:700:290:290:0:20:wallbrick
+tile:600:700:250:290:20:20:wallbrick
+zone:600:700:250:290:0:20:the power plant
+tile:648:652:290:290:6:20:wallbrick
+src:601:699:251:289:0:20:rumble.ogg:-5
+ispawn:601:699:251:289:0:0:5000:2:bunker_key:torpedo:semtex_pack
+
+// --- Dome Bravo Airlock North ---
+tile:648:652:296:300:0:10:metal4
+tile:648:648:296:300:0:10:wallstone
+tile:652:652:296:300:0:10:wallstone
+tile:648:652:300:300:6:10:wallstone
+tile:648:652:296:296:6:10:wallstone
+zone:648:652:296:300:0:10:dome Bravo north airlock
+zone:648:652:300:300:0:10:dome Bravo north airlock outer door
+zone:648:652:296:296:0:10:dome Bravo north airlock inner door
+
+// --- Dome Bravo Airlock South ---
+tile:648:652:100:104:0:10:metal4
+tile:648:648:100:104:0:10:wallstone
+tile:652:652:100:104:0:10:wallstone
+tile:648:652:100:100:6:10:wallstone
+tile:648:652:104:104:6:10:wallstone
+zone:648:652:100:104:0:10:dome Bravo south airlock
+zone:648:652:100:100:0:10:dome Bravo south airlock outer door
+zone:648:652:104:104:0:10:dome Bravo south airlock inner door
+
+// --- Dome Bravo Stairwell to tunnels ---
+tile:650:650:200:200:0:0:metal4
+tile:650:650:200:200:-20:-1:ladder1
+zone:650:650:200:200:-20:-1:dome Bravo stairwell
+zone:650:650:200:200:0:5:entrance to dome Bravo stairwell
+
+// ===========================
+// DOME CHARLIE - Research Dome (north)
+// A science and research facility at (500-800, 900-1100)
+// ===========================
+tile:500:800:900:1100:0:0:tile1
+tile:500:500:900:1100:0:50:wallstone
+tile:800:800:900:1100:0:50:wallstone
+tile:500:800:900:900:0:50:wallstone
+tile:500:800:1100:1100:0:50:wallstone
+tile:500:800:900:1100:50:50:wallstone
+zone:500:800:900:1100:0:50:dome Charlie, the research district
+
+// Main street
+tile:640:660:900:1100:0:0:concrete5
+zone:640:660:900:1100:0:5:dome Charlie main street
+
+// --- Main laboratory ---
+tile:540:630:950:1050:0:0:tile2
+tile:540:540:950:1050:0:30:wallbrick
+tile:630:630:950:1050:0:30:wallbrick
+tile:540:630:950:950:0:30:wallbrick
+tile:540:630:1050:1050:0:30:wallbrick
+tile:540:630:950:1050:30:30:wallbrick
+tile:540:630:950:1050:31:31:concrete2
+zone:540:630:950:1050:0:30:the main laboratory
+tile:583:587:1050:1050:6:30:wallbrick
+ispawn:541:629:951:1049:0:0:4000:3:health_potion:energetic_potion_blue:sg08.sniper.rifle_ammo_1_10:life_injection
+
+// --- Specimen containment ---
+tile:690:770:950:1020:0:0:metal4
+tile:690:690:950:1020:0:25:wallbrick
+tile:770:770:950:1020:0:25:wallbrick
+tile:690:770:950:950:0:25:wallbrick
+tile:690:770:1020:1020:0:25:wallbrick
+tile:690:770:950:1020:25:25:wallbrick
+zone:690:770:950:1020:0:25:specimen containment
+tile:728:732:1020:1020:6:25:wallbrick
+ispawn:691:769:951:1019:0:0:5000:2:torpedo:bomb_vest:frag_grenade
+
+// --- Observatory ---
+tile:620:680:1050:1090:0:0:tile1
+tile:620:620:1050:1090:0:35:wallbrick
+tile:680:680:1050:1090:0:35:wallbrick
+tile:620:680:1050:1050:0:35:wallbrick
+tile:620:680:1090:1090:0:35:wallbrick
+tile:620:680:1050:1090:35:35:wallbrick
+zone:620:680:1050:1090:0:35:the observatory
+tile:648:652:1050:1050:6:35:wallbrick
+src:621:679:1051:1089:0:35:calm.ogg:-6
+
+// --- Dome Charlie Airlock South ---
+tile:648:652:900:904:0:10:metal4
+tile:648:648:900:904:0:10:wallstone
+tile:652:652:900:904:0:10:wallstone
+tile:648:652:900:900:6:10:wallstone
+tile:648:652:904:904:6:10:wallstone
+zone:648:652:900:904:0:10:dome Charlie south airlock
+zone:648:652:900:900:0:10:dome Charlie south airlock outer door
+zone:648:652:904:904:0:10:dome Charlie south airlock inner door
+
+// --- Dome Charlie Airlock North ---
+tile:648:652:1096:1100:0:10:metal4
+tile:648:648:1096:1100:0:10:wallstone
+tile:652:652:1096:1100:0:10:wallstone
+tile:648:652:1100:1100:6:10:wallstone
+tile:648:652:1096:1096:6:10:wallstone
+zone:648:652:1096:1100:0:10:dome Charlie north airlock
+zone:648:652:1100:1100:0:10:dome Charlie north airlock outer door
+zone:648:652:1096:1096:0:10:dome Charlie north airlock inner door
+
+// --- Dome Charlie Stairwell to tunnels ---
+tile:650:650:1000:1000:0:0:metal4
+tile:650:650:1000:1000:-20:-1:ladder1
+zone:650:650:1000:1000:-20:-1:dome Charlie stairwell
+zone:650:650:1000:1000:0:5:entrance to dome Charlie stairwell
+
+// ===========================
+// DOME DELTA - Admin Dome (west)
+// Colony command and administration at (100-350, 550-750)
+// ===========================
+tile:100:350:550:750:0:0:tile2
+tile:100:100:550:750:0:50:wallstone
+tile:350:350:550:750:0:50:wallstone
+tile:100:350:550:550:0:50:wallstone
+tile:100:350:750:750:0:50:wallstone
+tile:100:350:550:750:50:50:wallstone
+zone:100:350:550:750:0:50:dome Delta, colony command
+
+// Main corridor
+tile:100:350:648:652:0:0:concrete5
+zone:100:350:648:652:0:5:dome Delta main corridor
+
+// --- Command center ---
+tile:150:280:670:740:0:0:tile1
+tile:150:150:670:740:0:30:wallbrick
+tile:280:280:670:740:0:30:wallbrick
+tile:150:280:670:670:0:30:wallbrick
+tile:150:280:740:740:0:30:wallbrick
+tile:150:280:670:740:30:30:wallbrick
+tile:150:280:670:740:31:31:concrete2
+zone:150:280:670:740:0:30:the command center
+tile:213:217:670:670:6:30:wallbrick
+ispawn:151:279:671:739:0:0:5000:3:bunker_key:health_potion:ultra_health_potion:life_injection
+
+// --- Communications room ---
+tile:150:250:570:630:0:0:metal4
+tile:150:150:570:630:0:20:wallbrick
+tile:250:250:570:630:0:20:wallbrick
+tile:150:250:570:570:0:20:wallbrick
+tile:150:250:630:630:0:20:wallbrick
+tile:150:250:570:630:20:20:wallbrick
+zone:150:250:570:630:0:20:the communications room
+tile:198:202:630:630:6:20:wallbrick
+src:151:249:571:629:0:20:calm.ogg:-8
+
+// --- Dome Delta access corridor to tunnel network ---
+// Admin domes use corridors instead of stairwells
+tile:340:350:648:652:0:0:metal4
+tile:340:350:648:648:0:10:wallstone
+tile:340:350:652:652:0:10:wallstone
+tile:350:350:648:652:6:10:wallstone
+zone:340:350:648:652:0:10:dome Delta access corridor
+zone:350:350:648:652:0:10:entrance to dome Delta access corridor
+tile:345:345:650:650:0:0:metal4
+tile:345:345:650:650:-20:-1:ladder1
+zone:345:345:650:650:-20:-1:dome Delta staircase down to tunnel network
+
+// --- Dome Delta Airlock East ---
+tile:346:350:648:652:0:10:metal4
+tile:346:350:648:648:0:10:wallstone
+tile:346:350:652:652:0:10:wallstone
+tile:350:350:648:652:6:10:wallstone
+tile:346:346:648:652:6:10:wallstone
+zone:346:350:648:652:0:10:dome Delta east airlock
+zone:350:350:648:652:0:10:dome Delta east airlock outer door
+zone:346:346:648:652:0:10:dome Delta east airlock inner door
+
+// ===========================
+// DOME ECHO - Garrison Dome (east)
+// Military barracks and defense at (950-1150, 550-750)
+// ===========================
+tile:950:1150:550:750:0:0:metal2
+tile:950:950:550:750:0:50:wallstone
+tile:1150:1150:550:750:0:50:wallstone
+tile:950:1150:550:550:0:50:wallstone
+tile:950:1150:750:750:0:50:wallstone
+tile:950:1150:550:750:50:50:wallstone
+zone:950:1150:550:750:0:50:dome Echo, the garrison
+
+// Main corridor
+tile:950:1150:648:652:0:0:concrete5
+zone:950:1150:648:652:0:5:dome Echo main corridor
+
+// --- Barracks ---
+tile:980:1060:670:740:0:0:carpet1
+tile:980:980:670:740:0:25:wallbrick
+tile:1060:1060:670:740:0:25:wallbrick
+tile:980:1060:670:670:0:25:wallbrick
+tile:980:1060:740:740:0:25:wallbrick
+tile:980:1060:670:740:25:25:wallbrick
+tile:980:1060:670:740:26:26:concrete2
+zone:980:1060:670:740:0:25:the barracks
+tile:1018:1022:670:670:6:25:wallbrick
+ispawn:981:1059:671:739:0:0:3000:2:health_potion:frag_grenade:smoke_bomb
+
+// --- Weapons depot ---
+tile:980:1100:570:630:0:0:metal4
+tile:980:980:570:630:0:25:wallbrick
+tile:1100:1100:570:630:0:25:wallbrick
+tile:980:1100:570:570:0:25:wallbrick
+tile:980:1100:630:630:0:25:wallbrick
+tile:980:1100:570:630:25:25:wallbrick
+tile:980:1100:570:630:26:26:metal2
+zone:980:1100:570:630:0:25:the weapons depot
+tile:1038:1042:630:630:6:25:wallbrick
+ispawn:981:1099:571:629:0:0:3000:5:AK47_ammo_10_50:hk.g36_ammo_20_50:benelli.m4.shotgun_ammo_10_40:magnum.revolver_ammo_5_40:glock17_ammo_10_40:beretta92fs.pistol_ammo_10_40:sg08.sniper.rifle_ammo_1_10:m1garantBattleRifle_ammo_10_20:famas.f1.assault.rifle_ammo_10_20:tar.21.assault.rifle_ammo_10_30:taurus.model66.revolver_ammo_10_20
+
+// --- Dome Echo access corridor to tunnel network ---
+tile:950:960:648:652:0:0:metal4
+tile:950:960:648:648:0:10:wallstone
+tile:950:960:652:652:0:10:wallstone
+tile:950:950:648:652:6:10:wallstone
+zone:950:960:648:652:0:10:dome Echo access corridor
+zone:950:950:648:652:0:10:entrance to dome Echo access corridor
+tile:955:955:650:650:0:0:metal4
+tile:955:955:650:650:-20:-1:ladder1
+zone:955:955:650:650:-20:-1:dome Echo staircase down to tunnel network
+
+// --- Dome Echo Airlock West ---
+tile:950:954:648:652:0:10:metal4
+tile:950:954:648:648:0:10:wallstone
+tile:950:954:652:652:0:10:wallstone
+tile:950:950:648:652:6:10:wallstone
+tile:954:954:648:652:6:10:wallstone
+zone:950:954:648:652:0:10:dome Echo west airlock
+zone:950:950:648:652:0:10:dome Echo west airlock outer door
+zone:954:954:648:652:0:10:dome Echo west airlock inner door
+
+// ===========================
+// OUTSIDE ZONES - Detailed navigation between domes
+// Surface paths, roads, and position descriptions
+// ===========================
+
+// --- Path from Dome Alpha south to Dome Bravo north ---
+tile:645:655:300:500:0:0:concrete5
+zone:645:655:300:400:0:5:path between dome Bravo and dome Alpha, south section
+zone:645:655:400:500:0:5:path between dome Alpha and dome Bravo, north section
+zone:640:660:490:500:0:5:near the south wall of dome Alpha
+zone:640:660:300:310:0:5:near the north wall of dome Bravo
+zone:648:652:500:500:0:5:near the entrance to dome Alpha south airlock
+zone:648:652:300:300:0:5:near the entrance to dome Bravo north airlock
+
+// --- Path from Dome Alpha north to Dome Charlie south ---
+tile:645:655:800:900:0:0:concrete5
+zone:645:655:800:850:0:5:path between dome Alpha and dome Charlie, south section
+zone:645:655:850:900:0:5:path between dome Charlie and dome Alpha, north section
+zone:640:660:800:810:0:5:near the north wall of dome Alpha
+zone:640:660:890:900:0:5:near the south wall of dome Charlie
+zone:648:652:800:800:0:5:near the entrance to dome Alpha north airlock
+zone:648:652:900:900:0:5:near the entrance to dome Charlie south airlock
+
+// --- Path from Dome Alpha west to Dome Delta east ---
+tile:350:500:645:655:0:0:concrete5
+zone:350:420:645:655:0:5:path between dome Delta and dome Alpha, west section
+zone:420:500:645:655:0:5:path between dome Alpha and dome Delta, east section
+zone:490:500:640:660:0:5:near the west wall of dome Alpha
+zone:350:360:640:660:0:5:near the east wall of dome Delta
+zone:500:500:648:652:0:5:near the entrance to dome Alpha west airlock
+zone:350:350:648:652:0:5:near the entrance to dome Delta east airlock
+
+// --- Path from Dome Alpha east to Dome Echo west ---
+tile:800:950:645:655:0:0:concrete5
+zone:800:870:645:655:0:5:path between dome Alpha and dome Echo, west section
+zone:870:950:645:655:0:5:path between dome Echo and dome Alpha, east section
+zone:800:810:640:660:0:5:near the east wall of dome Alpha
+zone:940:950:640:660:0:5:near the west wall of dome Echo
+zone:800:800:648:652:0:5:near the entrance to dome Alpha east airlock
+zone:950:950:648:652:0:5:near the entrance to dome Echo west airlock
+
+// --- Along dome walls (outside) ---
+zone:500:510:500:800:0:5:along the west wall of dome Alpha
+zone:790:800:500:800:0:5:along the east wall of dome Alpha
+zone:500:800:500:510:0:5:along the south wall of dome Alpha
+zone:500:800:790:800:0:5:along the north wall of dome Alpha
+
+zone:500:510:100:300:0:5:along the west wall of dome Bravo
+zone:790:800:100:300:0:5:along the east wall of dome Bravo
+zone:500:800:100:110:0:5:along the south wall of dome Bravo
+zone:500:800:290:300:0:5:along the north wall of dome Bravo
+
+zone:500:510:900:1100:0:5:along the west wall of dome Charlie
+zone:790:800:900:1100:0:5:along the east wall of dome Charlie
+zone:500:800:900:910:0:5:along the south wall of dome Charlie
+zone:500:800:1090:1100:0:5:along the north wall of dome Charlie
+
+zone:100:110:550:750:0:5:along the west wall of dome Delta
+zone:340:350:550:750:0:5:along the east wall of dome Delta
+zone:100:350:550:560:0:5:along the south wall of dome Delta
+zone:100:350:740:750:0:5:along the north wall of dome Delta
+
+zone:950:960:550:750:0:5:along the west wall of dome Echo
+zone:1140:1150:550:750:0:5:along the east wall of dome Echo
+zone:950:1150:550:560:0:5:along the south wall of dome Echo
+zone:950:1150:740:750:0:5:along the north wall of dome Echo
+
+// ===========================
+// UNDERGROUND TUNNEL NETWORK
+// Connects all five domes via tunnels and stairwells
+// ===========================
+tile:345:955:648:652:-20:-20:tunnel
+tile:345:955:648:652:-19:-11:blank
+zone:345:955:648:652:-20:-11:underground tunnel, east-west passage
+
+tile:648:652:200:1000:-20:-20:tunnel
+tile:648:652:200:1000:-19:-11:blank
+zone:648:652:200:1000:-20:-11:underground tunnel, north-south passage
+
+// Junction under Dome Alpha
+tile:645:655:645:655:-20:-20:metal4
+zone:645:655:645:655:-20:-11:tunnel junction under dome Alpha
+
+// Ambient sounds in tunnels
+src:345:955:645:655:-20:-11:rumble.ogg:-10
+src:645:655:200:1000:-20:-11:cave1.ogg:-12
+
+// ===========================
+// ITEM SPAWNS (general, across dome interiors)
+// ===========================
+ispawn:500:800:500:800:0:0:500:100:empty_bucket:taurus_model66_revolver_suppressor:magnum_revolver_suppressor:beretta92fs_pistol_suppressor:hk_g36_suppressor:120mm.mortar_ammo_1_5:tar.21.assault.rifle_ammo_10_30:bunker_key:semtex_pack:smoke_bomb:taurus.model66.revolver_ammo_10_20:famas.f1.assault.rifle_ammo_10_20:torpedo:frag_grenade:fake_item:health_potion:bomb_vest:hk.g36_ammo_20_50:AK47_ammo_10_50:magnum.revolver_ammo_5_40:benelli.m4.shotgun_ammo_10_40:glock17_ammo_10_40:beretta92fs.pistol_ammo_10_40:sg08.sniper.rifle_ammo_1_10:m1garantBattleRifle_ammo_10_20
+
+// ===========================
+// AMBIENT SOUNDS
+// ===========================
+src:500:800:500:800:0:50:calm.ogg:-3
+src:500:800:900:1100:0:50:calm.ogg:-5
+src:950:1150:550:750:0:50:calm.ogg:-5

@@ -50,6 +50,7 @@ bool taurus_supressor=false;
 bool magnum_revolver_supressor=false;
 bool beretta_supressor=false;
 bool battleroyale=false;
+bool habitat_alpha=false;
 bool ballista=false;
 timer ballistatimer;
 bool bunkerbomb;
@@ -232,6 +233,10 @@ send_reliable(0, "play_s killalert.ogg", 0);
 if(players[i].map=="battleroyale")
 {
 battlers-=1;
+}
+if(players[i].map=="habitat_alpha")
+{
+habitat_fighters-=1;
 }
 send_reliable(players[i].peer_id, "death", 0);
 play("death",players[i].x, players[i].y, players[i].z, players[i].map, i);

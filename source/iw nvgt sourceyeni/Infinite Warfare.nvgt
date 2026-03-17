@@ -731,7 +731,7 @@ burst_rounds_remaining = 0;
 if(can_move==true and !is_reloading(weapons[w]))
 {
 bool fire_now = false;
-if (firetimer.elapsed>=firetime and mapname!="battle_royale_waiting")
+if (firetimer.elapsed>=firetime and mapname!="battle_royale_waiting" and mapname!="habitat_alpha_waiting")
 {
 if (cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(KEY_LCONTROL) or (key_down(KEY_RCONTROL) and rctrl==1)))
 fire_now = true;
@@ -915,7 +915,7 @@ speak("No item selected.");
 }
 if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
-if(key_pressed(KEY_RETURN) and mapname!="battle_royale_waiting" and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true or mouse_pressed(2) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true and mapname!="battle_royale_waiting")
+if(key_pressed(KEY_RETURN) and mapname!="battle_royale_waiting" and mapname!="habitat_alpha_waiting" and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true or mouse_pressed(2) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true and mapname!="battle_royale_waiting" and mapname!="habitat_alpha_waiting")
 {
 usetimer.restart();
 string sel_item = get_selected_item();

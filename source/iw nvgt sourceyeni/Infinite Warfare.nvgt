@@ -56,7 +56,9 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.41;
+double version=0.42;
+int build_number=1;
+string build_date="2026-03-17";
 string name;
 string mate;
 double facing=0;
@@ -148,6 +150,23 @@ register_gun("awp_sniper_rifle",       ".338 Lapua Magnum",     "5-round magazin
 register_gun("dragunov_svd",           "7.62x54mm R",           "10-round magazine",        10, "dragunov_magazine",         "magazine",     true,   5, 3000);
 // --- Crossbow ---
 register_gun("crossbow",              "crossbow bolt",         "single bolt",               1, "bolt_quiver",               "bolt quiver",  false, 20, 4000);
+// --- Laser weapons (energy cell, percentage charge display) ---
+register_gun("laser_pistol",          "focused energy beam",   "energy cell",              40, "laser_energy_cell",         "energy cell",  true,  8, 2000);
+register_gun("laser_smg",             "rapid energy pulse",    "energy cell",              60, "laser_energy_cell",         "energy cell",  true,  6, 1800);
+register_gun("laser_rifle",           "concentrated beam",     "energy cell",              80, "laser_energy_cell",         "energy cell",  true,  5, 2500);
+register_gun("laser_sniper",          "high-energy beam",      "energy cell",             120, "laser_energy_cell",         "energy cell",  true,  3, 3500);
+register_gun("laser_cannon",          "devastating beam",      "heavy energy cell",       200, "laser_energy_cell",         "energy cell",  true,  2, 5000);
+// --- Flamethrower and Chainsaw (fuel canister, percentage fuel display) ---
+register_gun("flamethrower",          "pressurized flame",     "fuel canister",           100, "fuel_canister",             "fuel canister", true, 4, 3000);
+register_gun("chainsaw",              "gas-powered chain",     "fuel canister",            80, "fuel_canister",             "fuel canister", true, 4, 2500);
+// Set percentage-based ammo display for energy and fuel weapons.
+set_ammo_display("laser_pistol", "charge");
+set_ammo_display("laser_smg", "charge");
+set_ammo_display("laser_rifle", "charge");
+set_ammo_display("laser_sniper", "charge");
+set_ammo_display("laser_cannon", "charge");
+set_ammo_display("flamethrower", "fuel");
+set_ammo_display("chainsaw", "fuel");
 // --- Fire mode registrations ---
 // Weapons with only one mode don't need registration (default semi).
 // SMGs: semi/auto or semi/burst/auto
@@ -170,6 +189,12 @@ register_fire_modes("fn_fal_battle_rifle", modes_semi_auto);
 // LMGs: auto only
 register_fire_modes("rpk_lmg", modes_auto_only);
 register_fire_modes("m249_saw", modes_auto_only);
+// Laser weapons
+register_fire_modes("laser_smg", modes_semi_auto);
+register_fire_modes("laser_rifle", modes_semi_burst_auto);
+register_fire_modes("laser_cannon", modes_auto_only);
+// Flamethrower
+register_fire_modes("flamethrower", modes_auto_only);
 // Starting loadout is given per-spawn in game() via give_starting_loadout().
 create_buffer("all");
 create_buffer("chats");
@@ -186,7 +211,7 @@ if(file_exists("net.txt"))
 {
 netaddress="localhost";
 }
-show_game_window(gamename+"!, version "+version);
+show_game_window(gamename+"!, version "+version+", build "+build_number+" ("+build_date+")");
 if (screen_reader_is_running(1))
 install_keyhook();
 //cfu("iw","iw.zip",true);
@@ -677,6 +702,45 @@ if(key_pressed(KEY_R))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 unload_mag(weapons[w]);
+else if (needs_reload_menu(weapons[w]))
+{
+// Show menu to choose between full and partial ammo items.
+int gi=find_gun(weapons[w]);
+gun_ammo@ rg=gun_ammos[gi];
+setupmenu();
+int full_count=get_item_count(rg.reserve_item);
+if (full_count>0)
+{
+if (rg.ammo_display=="charge")
+m.add_item_tts("Full energy cell ("+full_count+" available)","full");
+else if (rg.ammo_display=="fuel")
+m.add_item_tts("Full fuel canister ("+full_count+" available)","full");
+else
+m.add_item_tts("Full "+rg.reserve_label+" ("+full_count+" available)","full");
+}
+int[] pindices=get_partial_indices_for(rg.reserve_item);
+for (uint pi=0; pi<pindices.length(); pi++)
+{
+int pct=get_ammo_percentage(partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
+string pct_label;
+if (rg.ammo_display=="charge")
+pct_label="Partial energy cell ("+pct+"% charge)";
+else if (rg.ammo_display=="fuel")
+pct_label="Partial fuel canister ("+pct+"% fuel)";
+else
+pct_label="Partial "+rg.reserve_label+" ("+pct+"%, "+partial_items[pindices[pi]].remaining+" rounds)";
+m.add_item_tts(pct_label, "partial_"+pindices[pi]);
+}
+int mres=m.run("Select ammunition to load",true);
+string choice=m.get_item_name(mres);
+if (choice=="full")
+start_reload(weapons[w]);
+else if (string_contains(choice, "partial_", 1)==0)
+{
+int pidx=string_to_number(string_replace(choice, "partial_", "", false));
+start_reload_partial(weapons[w], pidx);
+}
+}
 else
 start_reload(weapons[w]);
 }
@@ -1663,6 +1727,15 @@ if (weapons[w]=="dragunov_svd") { firetime=1500; walktime=600; }
 // Special
 if (weapons[w]=="120mm_mortar") { firetime=4000; walktime=5000; }
 if (weapons[w]=="crossbow") { firetime=2000; walktime=250; }
+// Laser weapons
+if (weapons[w]=="laser_pistol") { firetime=700; walktime=180; }
+if (weapons[w]=="laser_smg") { firetime=80; walktime=190; }
+if (weapons[w]=="laser_rifle") { firetime=160; walktime=220; }
+if (weapons[w]=="laser_sniper") { firetime=2500; walktime=800; }
+if (weapons[w]=="laser_cannon") { firetime=90; walktime=450; }
+// Flamethrower and Chainsaw
+if (weapons[w]=="flamethrower") { firetime=50; walktime=300; }
+if (weapons[w]=="chainsaw") { firetime=100; walktime=250; }
 movetime=walktime;
 // Stamina affects movement speed when low.
 if (stamina < 20) movetime = walktime + 100;

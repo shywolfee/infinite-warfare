@@ -1,4 +1,12 @@
-New in 0.4.2
+New in 0.42, build 1 (2026-03-17)
+Added build system. Version now displays with a build number and date, e.g. "version 0.42, build 1 (2026-03-17)". Visible in the window title and account statistics.
+Added 5 laser weapons: Laser Pistol, Laser SMG, Laser Rifle, Laser Sniper, Laser Cannon. All use energy cells and display charge as a percentage instead of raw ammo counts.
+Added Flamethrower and Chainsaw. Both use fuel canisters and display fuel as a percentage.
+New weapons added to starting loadout pools: Laser Pistol (sidearm), Laser SMG and Laser Rifle (primary), Chainsaw (melee).
+Laser SMG and Laser Rifle support semi/burst/auto fire modes. Laser Cannon and Flamethrower are full-auto only.
+Added partial ammo item system. Unloading a magazine-fed weapon (including energy cells and fuel canisters) that is not fully loaded now creates a separate partial ammo item instead of returning a full one.
+Partial ammo items show their percentage when cycling inventory with Tab/Shift+Tab, e.g. "glock 17 magazine (70%)".
+Pressing R to reload a magazine-fed weapon when partial ammo items are available now opens a selection menu, letting you choose between full and partial items.
 Fixed H key not reporting health, stamina, or effects. The network event message was being consumed before the health handler could read it.
 Ammo containers (ammo belts, shell boxes, bolt quivers) now display as a single item with round count in parentheses, e.g. ".357 magnum ammo belt (72)" instead of "72 .357 magnum ammo belts".
 

@@ -1,14 +1,20 @@
 // Inventory-backed ammunition system for Infinite Warfare.
 // Ammo reserves are stored as inventory items (magazines, ammo belts, shell
-// boxes, clips, mortar shells).  Each weapon tracks only what is currently
-// loaded; spare ammunition lives in the shared inventory dictionary.
+// boxes, clips, mortar shells, energy cells, fuel canisters).
+// Each weapon tracks only what is currently loaded; spare ammunition lives
+// in the shared inventory dictionary.
 //
-// Two reload modes:
+// Three reload modes:
 //   magazine   – consume 1 inventory item, weapon loads to full capacity.
-//                Used by pistols, rifles, and SMGs.
+//                Used by pistols, rifles, SMGs, and energy/fuel weapons.
 //   individual – consume rounds one-by-one from the inventory item.
 //                Used by revolvers (ammo belt), shotguns (shell box), and
 //                the mortar (loose shells).
+//
+// Ammo display modes:
+//   rounds  – show raw round count (default for ballistic weapons).
+//   charge  – show percentage as "charge" (laser weapons).
+//   fuel    – show percentage as "fuel" (flamethrower, chainsaw).
 
 // ---------------------------------------------------------------------------
 // Fire mode system.
@@ -320,6 +326,79 @@ return result;
 }
 
 // ---------------------------------------------------------------------------
+// Partial ammo item tracking.
+// When a magazine, energy cell, or fuel canister is unloaded with ammo still
+// in it, a partial item is created instead of returning a full inventory item.
+// ---------------------------------------------------------------------------
+class partial_ammo_item
+{
+string base_item;    // inventory key (e.g. "glock_17_magazine", "laser_energy_cell")
+int remaining;       // units left in this item
+int max_capacity;    // full capacity (for percentage calculation)
+partial_ammo_item(string bi, int rem, int mc)
+{
+base_item = bi;
+remaining = rem;
+max_capacity = mc;
+}
+}
+
+partial_ammo_item@[] partial_items(0);
+
+int get_ammo_percentage(int loaded, int capacity)
+{
+if (capacity <= 0) return 0;
+return (loaded * 100) / capacity;
+}
+
+int add_partial(string base, int remaining, int max_cap)
+{
+partial_ammo_item p(base, remaining, max_cap);
+partial_items.insert_last(p);
+return int(partial_items.length()) - 1;
+}
+
+void remove_partial(int index)
+{
+if (index >= 0 and index < int(partial_items.length()))
+partial_items.remove_at(index);
+}
+
+int count_partials_for(string base_item)
+{
+int count = 0;
+for (uint i = 0; i < partial_items.length(); i++)
+{
+if (partial_items[i].base_item == base_item)
+count++;
+}
+return count;
+}
+
+int[] get_partial_indices_for(string base_item)
+{
+int[] result;
+for (uint i = 0; i < partial_items.length(); i++)
+{
+if (partial_items[i].base_item == base_item)
+result.insert_last(i);
+}
+return result;
+}
+
+void clear_partials_for(string base_item)
+{
+for (uint i = 0; i < partial_items.length(); i++)
+{
+if (partial_items[i].base_item == base_item)
+{
+partial_items.remove_at(i);
+i--;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
 // Gun ammo class & core functions.
 // ---------------------------------------------------------------------------
 class gun_ammo
@@ -336,6 +415,8 @@ int starting_reserve;    // qty given on reset
 bool reloading;
 timer reload_timer;
 int reload_ms;
+string ammo_display;     // "rounds", "charge", or "fuel"
+int reload_from_partial; // -1 = full item, >= 0 = index into partial_items
 
 gun_ammo(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
 {
@@ -350,6 +431,8 @@ is_magazine=im;
 starting_reserve=sr;
 reloading=false;
 reload_ms=rms;
+ammo_display="rounds";
+reload_from_partial=-1;
 }
 }
 
@@ -360,6 +443,14 @@ void register_gun(string wn, string at, string fd, int mc, string ri, string rl,
 {
 gun_ammo g(wn, at, fd, mc, ri, rl, im, sr, rms);
 gun_ammos.insert_last(g);
+}
+
+// Set the ammo display mode for a weapon after registration.
+void set_ammo_display(string wname, string display)
+{
+int i = find_gun(wname);
+if (i < 0) return;
+gun_ammos[i].ammo_display = display;
 }
 
 // Legacy stub kept so any old call sites compile.
@@ -409,6 +500,55 @@ if (!gun_ammos[i].reloading) continue;
 if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms)
 {
 gun_ammo@ g=gun_ammos[i];
+if (g.is_magazine)
+{
+if (g.reload_from_partial >= 0)
+{
+// Loading from a partial item.
+if (g.reload_from_partial >= int(partial_items.length()) or partial_items[g.reload_from_partial].base_item != g.reserve_item)
+{
+g.reloading=false;
+g.reload_from_partial=-1;
+speak("Partial "+g.reserve_label+" no longer available.");
+continue;
+}
+g.mag_loaded=partial_items[g.reload_from_partial].remaining;
+remove_partial(g.reload_from_partial);
+g.reloading=false;
+g.reload_from_partial=-1;
+if (g.ammo_display=="charge")
+speak("Reloaded. "+get_ammo_percentage(g.mag_loaded, g.mag_capacity)+"% charge.");
+else if (g.ammo_display=="fuel")
+speak("Reloaded. "+get_ammo_percentage(g.mag_loaded, g.mag_capacity)+"% fuel.");
+else
+speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+".");
+}
+else
+{
+// Loading from a full item.
+int have=get_item_count(g.reserve_item);
+if (have<=0)
+{
+g.reloading=false;
+g.reload_from_partial=-1;
+speak("No spare "+g.reserve_label+" remaining.");
+continue;
+}
+give(g.reserve_item, -1);
+g.mag_loaded=g.mag_capacity;
+g.reloading=false;
+g.reload_from_partial=-1;
+if (g.ammo_display=="charge")
+speak("Reloaded. 100% charge. "+get_item_count(g.reserve_item)+" spare energy cells.");
+else if (g.ammo_display=="fuel")
+speak("Reloaded. 100% fuel. "+get_item_count(g.reserve_item)+" spare fuel canisters.");
+else
+speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+". "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+}
+}
+else
+{
+// Individual reload: pull rounds from belt / box.
 int have=get_item_count(g.reserve_item);
 if (have<=0)
 {
@@ -416,17 +556,6 @@ g.reloading=false;
 speak("No spare "+g.reserve_label+" remaining.");
 continue;
 }
-if (g.is_magazine)
-{
-// Magazine reload: swap the whole magazine.
-give(g.reserve_item, -1);
-g.mag_loaded=g.mag_capacity;
-g.reloading=false;
-speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+". "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
-}
-else
-{
-// Individual reload: pull rounds from belt / box.
 int need=g.mag_capacity-g.mag_loaded;
 int to_load=need;
 if (to_load>have) to_load=have;
@@ -457,13 +586,48 @@ if (i<0) { speak("This weapon does not use ammunition."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Reloading."); return; }
 int reserve=get_item_count(g.reserve_item);
+int partials=count_partials_for(g.reserve_item);
 string mode_str = "";
 if (has_fire_modes(wname))
 mode_str = " Fire mode: " + fire_mode_name(get_fire_mode(wname)) + ".";
-if (g.is_magazine)
-speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" spare "+g.reserve_label+"s." + mode_str);
+if (g.ammo_display=="charge")
+{
+int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+string reserve_str=reserve+" full";
+if (partials>0) reserve_str+=", "+partials+" partial";
+speak(pct+"% charge remaining. "+reserve_str+" energy cells in reserve."+mode_str);
+}
+else if (g.ammo_display=="fuel")
+{
+int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+string reserve_str=reserve+" full";
+if (partials>0) reserve_str+=", "+partials+" partial";
+speak(pct+"% fuel remaining. "+reserve_str+" fuel canisters in reserve."+mode_str);
+}
+else if (g.is_magazine)
+{
+string reserve_str=reserve+" spare "+g.reserve_label+"s";
+if (partials>0) reserve_str+=", "+partials+" partial";
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve_str+"."+mode_str);
+}
 else
-speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+"." + mode_str);
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+"."+mode_str);
+}
+
+// Check whether a reload menu is needed (partial items available for magazine weapons).
+bool needs_reload_menu(string wname)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+gun_ammo@ g=gun_ammos[i];
+if (!g.is_magazine) return false;
+if (g.reloading) return false;
+if (g.mag_loaded==g.mag_capacity) return false;
+int reserve=get_item_count(g.reserve_item);
+int partials=count_partials_for(g.reserve_item);
+if (reserve<=0 and partials<=0) return false;
+if (partials<=0) return false;
+return true;
 }
 
 // Begin reloading the named weapon (R key). Returns false if nothing to do.
@@ -474,14 +638,43 @@ if (i<0) return false;
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Already reloading."); return false; }
 int reserve=get_item_count(g.reserve_item);
-if (reserve<=0) { speak("No spare "+g.reserve_label+" remaining."); return false; }
+int partials=count_partials_for(g.reserve_item);
+if (reserve<=0 and partials<=0) { speak("No spare "+g.reserve_label+" remaining."); return false; }
 if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
+g.reload_from_partial=-1;
 g.reloading=true;
 g.reload_timer.restart();
 if (g.is_magazine)
+{
+if (g.ammo_display=="charge")
+speak("Swapping energy cell.");
+else if (g.ammo_display=="fuel")
+speak("Swapping fuel canister.");
+else
 speak("Swapping "+g.feed_device+".");
+}
 else
 speak("Loading "+g.feed_device+".");
+return true;
+}
+
+// Begin reloading from a specific partial item.
+bool start_reload_partial(string wname, int partial_index)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Already reloading."); return false; }
+if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
+g.reload_from_partial=partial_index;
+g.reloading=true;
+g.reload_timer.restart();
+if (g.ammo_display=="charge")
+speak("Swapping energy cell.");
+else if (g.ammo_display=="fuel")
+speak("Swapping fuel canister.");
+else
+speak("Swapping "+g.feed_device+".");
 return true;
 }
 
@@ -495,9 +688,28 @@ if (g.reloading) { speak("Cannot unload while reloading."); return; }
 if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
 if (g.is_magazine)
 {
+if (g.mag_loaded==g.mag_capacity)
+{
+// Fully loaded — return a full inventory item.
 give(g.reserve_item, 1);
 g.mag_loaded=0;
 speak(g.feed_device+" removed. "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+}
+else
+{
+// Partially loaded — create a partial ammo item.
+int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+add_partial(g.reserve_item, g.mag_loaded, g.mag_capacity);
+g.mag_loaded=0;
+int full_count=get_item_count(g.reserve_item);
+int partial_count=count_partials_for(g.reserve_item);
+if (g.ammo_display=="charge")
+speak("Partial energy cell removed ("+pct+"% charge). "+full_count+" full, "+partial_count+" partial energy cells.");
+else if (g.ammo_display=="fuel")
+speak("Partial fuel canister removed ("+pct+"% fuel). "+full_count+" full, "+partial_count+" partial fuel canisters.");
+else
+speak("Partial "+g.reserve_label+" removed ("+pct+"%). "+full_count+" full, "+partial_count+" partial "+g.reserve_label+"s.");
+}
 }
 else
 {
@@ -514,6 +726,7 @@ dictionary seen;
 for (uint i=0; i<gun_ammos.length(); i++)
 {
 gun_ammos[i].reloading=false;
+gun_ammos[i].reload_from_partial=-1;
 // Only load and resupply weapons the player actually owns.
 if (get_item_count(gun_ammos[i].weapon_name)>0)
 {
@@ -521,6 +734,7 @@ gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
 if (!seen.exists(gun_ammos[i].reserve_item))
 {
 seen.set(gun_ammos[i].reserve_item, true);
+clear_partials_for(gun_ammos[i].reserve_item);
 int current=get_item_count(gun_ammos[i].reserve_item);
 int diff=gun_ammos[i].starting_reserve-current;
 if (diff>0) give(gun_ammos[i].reserve_item, diff);
@@ -533,9 +747,9 @@ if (diff>0) give(gun_ammos[i].reserve_item, diff);
 // and a few utility items.  Auto-assigns quickbar slots 1-5.
 void give_starting_loadout()
 {
-string[] melee_pool = {"machete", "combatknife", "katana", "baseball_bat"};
-string[] sidearm_pool = {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle"};
-string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "p90_mp", "benelli_m4_shotgun", "ks123shotgun", "m4a1_carbine", "mp5", "uzi", "scar_h_battle_rifle", "fn_fal_battle_rifle", "mp7", "spas_12_shotgun"};
+string[] melee_pool = {"machete", "combatknife", "katana", "baseball_bat", "chainsaw"};
+string[] sidearm_pool = {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle", "laser_pistol"};
+string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "p90_mp", "benelli_m4_shotgun", "ks123shotgun", "m4a1_carbine", "mp5", "uzi", "scar_h_battle_rifle", "fn_fal_battle_rifle", "mp7", "spas_12_shotgun", "laser_rifle", "laser_smg"};
 
 string chosen_melee   = melee_pool[random(0, melee_pool.length()-1)];
 string chosen_sidearm = sidearm_pool[random(0, sidearm_pool.length()-1)];
@@ -547,6 +761,7 @@ give(chosen_sidearm, 1);
 give(chosen_primary, 1);
 
 // Give ammo for the weapons the player now owns.
+partial_items.resize(0);
 reset_ammo();
 
 // A few utility items to start with.
@@ -581,7 +796,9 @@ string[] all_weps = {
 "m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
 "120mm_mortar",
 "crossbow",
-"hayvork", "trector_plow"
+"hayvork", "trector_plow",
+"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon",
+"flamethrower", "chainsaw"
 };
 for (uint i=0; i<all_weps.length(); i++)
 {
@@ -589,6 +806,7 @@ if (get_item_count(all_weps[i])<=0) give(all_weps[i], 1);
 }
 
 // Reset ammo gives reserves for every weapon now in inventory.
+partial_items.resize(0);
 reset_ammo();
 
 // Every usable item.

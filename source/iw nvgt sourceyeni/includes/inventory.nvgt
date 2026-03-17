@@ -11,22 +11,33 @@ int inv_category_index = 0;
 string get_item_category(string item)
 {
 if (is_weapon(item)) return "Weapons";
-if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1) return "Ammo";
+if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
 if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1) return "Consumables";
 return "Equipment";
 }
 
 // Get filtered inventory keys based on current category.
+// Includes virtual keys for partial ammo items ("__partial__N").
 string[] get_filtered_keys()
 {
 string[] all_keys = inv.get_keys();
+// Append virtual keys for each partial ammo item.
+for (uint i = 0; i < partial_items.length(); i++)
+all_keys.insert_last("__partial__" + i);
 if (inv_category_index == 0) return all_keys;
 string cat = inv_categories[inv_category_index];
 string[] filtered;
 for (uint i = 0; i < all_keys.length(); i++)
 {
-if (get_item_category(all_keys[i]) == cat)
-filtered.insert_last(all_keys[i]);
+string key = all_keys[i];
+if (string_contains(key, "__partial__", 1) == 0)
+{
+// Partial items are always in the Ammo category.
+if (cat == "Ammo")
+filtered.insert_last(key);
+}
+else if (get_item_category(key) == cat)
+filtered.insert_last(key);
 }
 return filtered;
 }
@@ -88,8 +99,21 @@ else if (invpos<0)
 {
 invpos=int(filtered.length())-1;
 }
-int a;
 string key = filtered[invpos];
+if (string_contains(key, "__partial__", 1) == 0)
+{
+// Partial ammo item — show base name with percentage.
+int pidx = string_to_number(string_replace(key, "__partial__", "", false));
+if (pidx >= 0 and pidx < int(partial_items.length()))
+{
+string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
+int pct = get_ammo_percentage(partial_items[pidx].remaining, partial_items[pidx].max_capacity);
+speak(base_name + " (" + pct + "%). " + (invpos+1) + " of " + filtered.length());
+}
+}
+else
+{
+int a;
 inv.get(key, a);
 string display_name = string_replace(key, "_", " ", true);
 if (is_ammo_container(key))
@@ -98,6 +122,7 @@ else if(a==1)
 speak(display_name+". "+(invpos+1)+" of "+filtered.length());
 else
 speak(a+" "+display_name+"s. "+(invpos+1)+" of "+filtered.length());
+}
 }
 
 // Get the currently selected item key (respecting category filter).
@@ -118,6 +143,7 @@ int a;
 inv.get(inv.get_keys()[i],a);
 amount+=a;
 }
+amount += int(partial_items.length());
 return amount;
 }
 int get_item_count(string item)
@@ -147,7 +173,7 @@ return false;
 bool is_weapon(string item)
 {
 if (find_gun(item)>=0) return true;
-if (item=="machete" or item=="combatknife" or item=="hayvork" or item=="trector_plow" or item=="katana" or item=="baseball_bat") return true;
+if (item=="machete" or item=="combatknife" or item=="hayvork" or item=="trector_plow" or item=="katana" or item=="baseball_bat" or item=="chainsaw") return true;
 return false;
 }
 

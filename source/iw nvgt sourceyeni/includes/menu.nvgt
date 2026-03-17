@@ -668,7 +668,7 @@ else if (sel == 6) // Account statistics
 audio_form as;
 as.create_window("Account Statistics", false, true);
 as.create_input_box("Username", name, "", 0, false, true, false);
-as.create_input_box("Version", "" + version, "", 0, false, true, false);
+as.create_input_box("Version", "" + version + ", build " + build_number + " (" + build_date + ")", "", 0, false, true, false);
 int as_close = as.create_button("&Close", true, true);
 as.focus(0);
 while(true)

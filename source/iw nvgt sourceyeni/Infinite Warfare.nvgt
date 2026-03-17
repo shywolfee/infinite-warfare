@@ -1125,7 +1125,8 @@ if (e.type==event_receive)
 {
 if (e.channel==0)
 {
-string[] parsed=string_split(get_event_message()," ",true);
+string full_msg=get_event_message();
+string[] parsed=string_split(full_msg," ",true);
 if(parsed[0]=="reset_ammo")
 {
 reset_ammo();
@@ -1429,9 +1430,8 @@ p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, string_to_number(parsed[1]), strin
 }
 else
 {
-string raw_msg = get_event_message();
-speak(raw_msg);
-if (pending_health_report and string_contains(raw_msg, "health", 1) >= 0)
+speak(full_msg);
+if (pending_health_report and string_contains(full_msg, "health", 1) >= 0)
 {
 pending_health_report = false;
 speak(get_stamina_string() + " " + get_effects_string());

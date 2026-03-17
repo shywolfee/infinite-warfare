@@ -91,10 +91,13 @@ invpos=int(filtered.length())-1;
 int a;
 string key = filtered[invpos];
 inv.get(key, a);
-if(a==1)
-speak(string_replace(key,"_"," ",true)+". "+(invpos+1)+" of "+filtered.length());
+string display_name = string_replace(key, "_", " ", true);
+if (is_ammo_container(key))
+speak(display_name + " (" + a + "). " + (invpos+1) + " of " + filtered.length());
+else if(a==1)
+speak(display_name+". "+(invpos+1)+" of "+filtered.length());
 else
-speak(a+" "+string_replace(key, "_", " ", true)+"s. "+(invpos+1)+" of "+filtered.length());
+speak(a+" "+display_name+"s. "+(invpos+1)+" of "+filtered.length());
 }
 
 // Get the currently selected item key (respecting category filter).
@@ -128,6 +131,16 @@ inv.get(inv.get_keys()[i],a);
 amount+=a;
 }
 return amount;
+}
+
+// Returns true if the item is an ammo container that holds individual rounds
+// (ammo belts, shell boxes, bolt quivers) rather than discrete units like magazines.
+bool is_ammo_container(string item)
+{
+if (string_contains(item, "ammo_belt", 1)>-1) return true;
+if (string_contains(item, "shell_box", 1)>-1) return true;
+if (string_contains(item, "bolt_quiver", 1)>-1) return true;
+return false;
 }
 
 // Returns true if the item is a drawable weapon (ranged or melee).

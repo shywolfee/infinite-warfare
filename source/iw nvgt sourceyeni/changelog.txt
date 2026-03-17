@@ -1,3 +1,7 @@
+New in 0.4.2
+Fixed H key not reporting health, stamina, or effects. The network event message was being consumed before the health handler could read it.
+Ammo containers (ammo belts, shell boxes, bolt quivers) now display as a single item with round count in parentheses, e.g. ".357 magnum ammo belt (72)" instead of "72 .357 magnum ammo belts".
+
 New in 0.4.1
 Revamped account experience. Registration is now a single form with all fields, rules, and agreement checkbox.
 First-time players see a welcome dialog explaining the beta and are shown the rules before proceeding.

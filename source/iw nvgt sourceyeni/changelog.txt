@@ -1,3 +1,13 @@
+New in 0.454, build 8 (2026-03-17)
+Shift+Q, Shift+E, Shift+S, and Shift+X now support hold-to-repeat for faster fine-grained turning and aiming. Previously you had to press repeatedly; now just hold the key combination.
+Added a command menu accessible with Alt+C. Lists all available slash commands with descriptions. Select a command and press Run to execute it. Commands with parameters prompt you for input. Dev/admin commands are shown only in dev builds.
+Added 15 new help files:
+  Maps: Battlegrounds Map, Habitat Alpha Map, Archipelago Map.
+  Game info: Modes, Commands, Duo System, Bunkers, Inventory System, Ammo System, Turning and Aiming, Rewards.
+  Developer reference (only visible in dev builds): Developer Commands, Admin System, Network Architecture, Map File Format.
+Updated the help system to support dev-only entries. Developer reference topics appear at the end of the help list only when running from source.
+Updated the controls help file with the new Alt+C command menu, hold-to-repeat turning, and fire mode cycling.
+
 New in 0.453, build 7 (2026-03-17)
 Removed battle royale start and waiting room logic. Habitat Alpha and Battlegrounds now take you directly to their respective maps when selected from the lobby, no waiting rooms involved.
 Deleted the battle_royale_waiting and habitat_alpha_waiting map files.

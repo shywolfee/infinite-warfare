@@ -56,8 +56,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.453;
-int build_number=7;
+double version=0.454;
+int build_number=8;
 string build_date="2026-03-17";
 string name;
 string mate;
@@ -96,6 +96,10 @@ key_hold kpgdn(KEY_NEXT,300,cameraspeed);
 key_hold kpgup(KEY_PRIOR,300,cameraspeed);
 key_hold kPERIOD(KEY_PERIOD,300,30);
 key_hold kCOMMA(KEY_COMMA,300,30);
+key_hold kQ(KEY_Q,300,40);
+key_hold kE(KEY_E,300,40);
+key_hold kS(KEY_S,300,40);
+key_hold kX(KEY_X,300,40);
 
 void main()
 {
@@ -294,26 +298,98 @@ break;
 }
 
 // ---------------------------------------------------------------------------
+// Command menu (Alt+C).
+// Lists all slash commands and sends the selected one to the server.
+// ---------------------------------------------------------------------------
+void command_menu()
+{
+audio_form f;
+f.create_window("Commands", false, true);
+int f_list=f.create_list("Select a command", 0, false);
+// Player commands
+f.add_list_item(f_list, "/bunkers - Show bunker locations");
+f.add_list_item(f_list, "/duomate [name] - Check a player's duo mate");
+f.add_list_item(f_list, "/d [message] - Send a duo chat message");
+f.add_list_item(f_list, "/pm [name] [message] - Private message a player");
+f.add_list_item(f_list, "/feedback [message] - Submit feedback");
+f.add_list_item(f_list, "/changes - View the changelog");
+f.add_list_item(f_list, "/start_admin - Activate admin (if authorized)");
+if (SCRIPT_COMPILED==false)
+{
+f.add_list_item(f_list, "/currentmap [name] - Get or set current map (dev)");
+f.add_list_item(f_list, "/reboot - Reboot the server (dev)");
+f.add_list_item(f_list, "/kick [name] - Kick a player (dev/admin)");
+f.add_list_item(f_list, "/go [x y z] - Teleport to coordinates (dev/admin)");
+f.add_list_item(f_list, "/ban [name] - Ban a player (dev/admin)");
+f.add_list_item(f_list, "/newadmin [name] - Add an admin (dev)");
+f.add_list_item(f_list, "/notify [message] - Broadcast a message (dev/admin)");
+f.add_list_item(f_list, "/motd [message] - Set message of the day (dev/admin)");
+f.add_list_item(f_list, "/give [name item amount] - Give items (dev/admin)");
+f.add_list_item(f_list, "/givemyself [item amount] - Give items to self (admin)");
+f.add_list_item(f_list, "/getmyshit - Get all world items (dev)");
+f.add_list_item(f_list, "/removeitems - Remove all world items (dev)");
+f.add_list_item(f_list, "/getfeedback - View feedback (dev)");
+}
+int f_run=f.create_button("&Run", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_run))
+{
+int sel=f.get_list_position(f_list);
+string item=f.get_list_item(f_list, sel);
+// Extract the command part (before " - ")
+string cmd=item;
+int dash=string_contains(cmd, " - ", 1);
+if (dash>-1) cmd=string_mid(cmd, 0, dash);
+// If command has parameters (brackets), prompt the user for input
+if (string_contains(cmd, "[", 1)>-1)
+{
+// Extract the base command (before first bracket)
+int bracket=string_contains(cmd, " [", 1);
+string base=cmd;
+if (bracket>-1) base=string_mid(cmd, 0, bracket);
+string args=v.input("Enter arguments for "+base, "", true);
+if (args!="")
+{
+send_reliable(0, base+" "+args, 1);
+speak("Command sent.");
+}
+}
+else
+{
+send_reliable(0, cmd, 1);
+speak("Command sent.");
+}
+break;
+}
+else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
 // Documentation / Help system.
 // Reads .txt files from iwserver/docs/.
 // ---------------------------------------------------------------------------
-string[] get_help_entries()
+string[] get_help_entries(bool include_dev=false)
 {
 string[] entries;
-string[] files = find_directories("iwserver/docs/*.txt");
-if (files.length() == 0)
-{
-// Try alternate path
-files = find_directories("docs/*.txt");
-}
-// Use manual directory listing approach
 string docs_dir = "iwserver/docs";
 if (!directory_exists(docs_dir))
 docs_dir = "docs";
-string[] flist;
 // Scan known doc files
 string[] known_docs = {
-"getting_started", "controls", "fire_modes", "stamina", "equipment", "buffs_debuffs",
+"getting_started", "controls", "turning_and_aiming", "fire_modes", "stamina", "equipment", "buffs_debuffs",
+"modes", "battlegrounds_map", "habitat_alpha_map", "archipelago_map",
+"commands", "duo_system", "bunkers", "inventory_system", "ammo_system", "rewards",
 "machete", "combatknife", "katana", "baseball_bat",
 "glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle",
 "p90_mp", "mp5", "uzi", "mp7",
@@ -334,6 +410,18 @@ for (uint i = 0; i < known_docs.length(); i++)
 string path = docs_dir + "/" + known_docs[i] + ".txt";
 if (file_exists(path))
 entries.insert_last(known_docs[i]);
+}
+if (include_dev)
+{
+string[] dev_docs = {
+"dev_commands", "dev_admin_system", "dev_network_architecture", "dev_map_format"
+};
+for (uint i = 0; i < dev_docs.length(); i++)
+{
+string path = docs_dir + "/" + dev_docs[i] + ".txt";
+if (file_exists(path))
+entries.insert_last(dev_docs[i]);
+}
 }
 return entries;
 }
@@ -375,7 +463,7 @@ break;
 
 void show_help_list()
 {
-string[] entries = get_help_entries();
+string[] entries = get_help_entries(SCRIPT_COMPILED==false);
 if (entries.length() == 0)
 {
 speak("No help entries found.");
@@ -904,6 +992,11 @@ else
 bufferright();
 }
 }
+// Alt+C: open the command menu.
+if (MENU_is_down() and key_pressed(KEY_C))
+{
+command_menu();
+}
 // Alt+Enter: show help for the currently selected inventory item.
 if (MENU_is_down() and key_pressed(KEY_RETURN))
 {
@@ -991,7 +1084,7 @@ cycle_inv(1);
 p.play_stationary("inv"+random(1, 7)+".ogg", false);
 }
 bool qp=key_pressed(KEY_Q);
-if(qp and shift_is_down())
+if(shift_is_down() and kQ.pressing)
 {
 turntimer.restart();
 facing=turnleft(facing, 1);
@@ -1009,7 +1102,7 @@ send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
 bool xp=key_pressed(KEY_X);
-if(xp and shift_is_down() and turn>0)
+if(shift_is_down() and kX.pressing and turn>0)
 {
 turn-=1;
 p.play_stationary("turn.ogg", false);
@@ -1032,7 +1125,7 @@ speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
 bool sp=key_pressed(KEY_S);
-if(sp and shift_is_down() and turn<180)
+if(shift_is_down() and kS.pressing and turn<180)
 {
 turn+=1;
 p.play_stationary("turn.ogg", false);
@@ -1055,7 +1148,7 @@ speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
 bool ep=key_pressed(KEY_E);
-if(ep and shift_is_down())
+if(shift_is_down() and kE.pressing)
 {
 turntimer.restart();
 facing=turnright(facing, 1);

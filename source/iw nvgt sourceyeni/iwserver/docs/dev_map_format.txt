@@ -1,0 +1,23 @@
+Map File Format (Developer Reference)
+
+Map files are plain text stored in iwserver/map/ with the .map extension.
+
+Header fields (one per line):
+mapname:[name] - The display name of the map.
+maxx:[value] - Maximum X coordinate.
+maxy:[value] - Maximum Y coordinate.
+maxz:[value] - Maximum Z coordinate.
+
+Tile definitions:
+tile:x1:x2:y1:y2:z1:z2:tilename - Defines a walkable tile in a rectangular region.
+
+Zone definitions:
+zone:x1:x2:y1:y2:z1:z2:zonename - Defines a named zone for player orientation. Zone names are shown when pressing B.
+
+Ambience definitions:
+ambience:x1:x2:y1:y2:z1:z2:soundfile - Plays a looping sound in the specified region.
+
+Ladder definitions:
+ladder:x:y:z1:z2:mapname - A climbable ladder at the given position connecting two Z levels.
+
+The map system is initialized with init_mapsystem() on the server. Maps are sent to clients as raw text via the mapdata message.

@@ -1,0 +1,12 @@
+Admin System (Developer Reference)
+
+The admin system controls server access and moderation.
+
+Admin list: Stored in admins.txt on the server, contains computer IDs of administrators.
+Authorization mode: When enabled, new accounts must be approved by an admin before they can log in. Toggle via the admin panel or /admin_set_authmode.
+
+Players use /start_admin to activate their admin role if their computer ID is in the admin list.
+
+Admin panel: Accessible from the main menu when running from source. Connects to the server and verifies access. Allows toggling authorization mode and viewing unauthenticated players with their authorization codes.
+
+Developers automatically have admin privileges when running from source (SCRIPT_COMPILED==false). The developer suite (Shift+D) provides a give-all function for testing.

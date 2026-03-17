@@ -150,7 +150,7 @@ if (buffers[i].speak==true and buffer_muted("all")==true)
 {
 if (buffers[i].soundname!="")
 bufferpool.play_stationary(snd>""?snd:buffers[i].soundname,false);
-speak(item,int_to_bool(buffers[i].interrupt));
+speak(item,buffers[i].interrupt!=0);
 }
 }
 if (buffers[i].name=="all" and buffer_muted(buffername)==false)

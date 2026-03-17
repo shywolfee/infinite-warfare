@@ -1,3 +1,12 @@
+New in 0.43, build 2 (2026-03-17)
+Quality-of-life pass.
+Weapon fire rates, walk speeds, and melee flag are now set once when a weapon is drawn instead of every frame. Extracted into apply_weapon_stats function called from draw_weapon, weapon_set, and game init.
+"Magazine empty" message is now context-aware: laser weapons say "Energy cell depleted", fuel weapons say "Fuel canister empty".
+Quickbar weapons view (Shift+I) now shows percentage for charge and fuel weapons instead of raw ammo numbers.
+Added laser weapons, flamethrower, and chainsaw to the help system known_docs list.
+Removed dead code: unused int_to_bool and bool_to_int functions, commented-out convert_to_pan functions, and empty channel 3 network handler.
+Fixed redundant falling=false assignments in fallingloop (was set 3 times, now set once).
+
 New in 0.42, build 1 (2026-03-17)
 Added build system. Version now displays with a build number and date, e.g. "version 0.42, build 1 (2026-03-17)". Visible in the window title and account statistics.
 Added 5 laser weapons: Laser Pistol, Laser SMG, Laser Rifle, Laser Sniper, Laser Cannon. All use energy cells and display charge as a percentage instead of raw ammo counts.
@@ -10,7 +19,7 @@ Pressing R to reload a magazine-fed weapon when partial ammo items are available
 Fixed H key not reporting health, stamina, or effects. The network event message was being consumed before the health handler could read it.
 Ammo containers (ammo belts, shell boxes, bolt quivers) now display as a single item with round count in parentheses, e.g. ".357 magnum ammo belt (72)" instead of "72 .357 magnum ammo belts".
 
-New in 0.4.1
+New in 0.41
 Revamped account experience. Registration is now a single form with all fields, rules, and agreement checkbox.
 First-time players see a welcome dialog explaining the beta and are shown the rules before proceeding.
 Logging in with a nonexistent account now asks if you want to register one.
@@ -23,7 +32,7 @@ Fixed Shift+A fire mode cycling not working (key press was consumed by the ammo 
 Fixed Shift+H help list, Shift+R unload not working for the same reason.
 Fixed H key health display to properly show health from the server, then stamina and effects.
 
-New in 0.4
+New in 0.40
 Added 15 new weapons: Desert Eagle, MP5, UZI, M4A1 Carbine, SCAR-H, RPK LMG, M249 SAW, AWP Sniper, Dragunov SVD, SPAS-12, MP7, FN FAL, Crossbow, Katana, Baseball Bat.
 Added fire mode system. Press Shift+A to cycle between semi-automatic, burst, and full automatic on supported weapons.
 Added stamina system. Stamina degrades when using melee weapons, jumping excessively, or moving with heavy weapons. Restores every 5 seconds naturally.
@@ -41,7 +50,7 @@ Enter key now draws weapons from inventory in addition to using items, matching 
 Added Shift+I to view all weapons currently in quickbar slots.
 Added inventory category cycling with J and K keys. Categories: All, Weapons, Ammo, Consumables, Equipment. Tab and Shift+Tab only show items in the selected category.
 
-New in 0.3.4
+New in 0.34
 Completely redesigned the weapon system.
   Weapons are now inventory items.  You can see them when cycling your
   inventory alongside ammo, potions, and other gear.
@@ -62,7 +71,7 @@ Added a developer Give All command (grave accent key).
   Only available when running from source (not in compiled builds).
   Gives every weapon, all ammunition types, and all usable items.
 
-New in 0.3.3
+New in 0.33
 Fixed Q, E, S and X keys not working without Shift.
   The key press was consumed by the Shift check and never reached the
   normal handler.  All four keys now cache the press in a variable first.
@@ -78,7 +87,7 @@ Refactored the ammunition system to use inventory items for reserves.
 All reserve ammunition is now visible when cycling your inventory.
 Beta: players start with all weapons and generous reserve ammo.
 
-New in 0.3.2
+New in 0.32
 Added fine-grained turning controls with the Shift key.
   Shift+Q: turn left by 1 degree (instead of the normal 45-degree snap).
   Shift+E: turn right by 1 degree.
@@ -93,7 +102,7 @@ Added new options to the options menu.
   Master volume: adjusts the overall game volume (-60 to 0 dB).
   Both settings are saved to your preferences and persist between sessions.
 
-New in 0.3.1
+New in 0.31
 Fixed a bug where unauthenticated players could bypass the authorization check and connect
   to the server. The connect function only checked whether a name was set, but the name could
   be loaded from saved preferences without going through the account login flow. An explicit
@@ -105,7 +114,7 @@ The account menu has been reorganized into separate sub-menus for clarity.
   Authorize account: enter your username and the authorization code from an administrator.
   Password reset: request a reset, then enter the reset code to set a new password.
 
-New in 0.3
+New in 0.30
 Fixed the administrator panel so developers running from source can actually open it.
   Previously, the panel verified access using the computer ID against admins.txt, which
   meant developers who weren't listed as admins were locked out of the panel they could see.
@@ -119,7 +128,7 @@ Added a password reset feature.
   Administrators can view pending password reset requests and codes in the admin panel.
   When the player enters their reset code, they are prompted to set a new password.
 
-New in 0.2.1
+New in 0.22
 Fixed a compilation error caused by calling string_trim_whitespace, a function that does not
   exist in NVGT. The code confidently called it in two places as if it were a real function,
   checking if server responses were blank. The empty string check alone was already sufficient
@@ -138,7 +147,7 @@ When authorization mode is enabled, newly registered accounts are created but ca
 Players now respawn in the lobby instead of reconnecting to the server when they die.
 Exiting the game now returns you to the lobby instead of the main menu, keeping your connection alive.
 
-New in 0.2
+New in 0.20
 The options menu is now a proper form with input fields, a checkbox, and buttons instead of a list menu.
   Account login: enter your username and password directly in the form and press Login.
   Duo mate: type your duo mate name and press Set duo mate.

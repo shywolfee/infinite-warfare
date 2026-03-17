@@ -56,8 +56,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.42;
-int build_number=1;
+double version=0.43;
+int build_number=2;
 string build_date="2026-03-17";
 string name;
 string mate;
@@ -324,6 +324,8 @@ string[] known_docs = {
 "m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
 "120mm_mortar", "ballista", "crossbow",
 "hayvork", "trector_plow",
+"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon",
+"flamethrower", "chainsaw",
 "health_potion", "ultra_health_potion", "frag_grenade",
 "energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"
 };
@@ -437,7 +439,15 @@ if (quickbar[i] != "" and is_weapon(quickbar[i]))
 string label = "Slot " + (i+1) + ": " + string_replace(quickbar[i], "_", " ", true);
 int ammo = ammo_check(quickbar[i]);
 if (ammo >= 0)
+{
+int qgi = find_gun(quickbar[i]);
+if (qgi >= 0 and gun_ammos[qgi].ammo_display == "charge")
+label += " (" + get_ammo_percentage(ammo, gun_ammos[qgi].mag_capacity) + "% charge)";
+else if (qgi >= 0 and gun_ammos[qgi].ammo_display == "fuel")
+label += " (" + get_ammo_percentage(ammo, gun_ammos[qgi].mag_capacity) + "% fuel)";
+else
 label += " (" + ammo + " loaded)";
+}
 f.add_list_item(f_list, label);
 count++;
 }
@@ -500,11 +510,72 @@ speak("Stamina fully restored. " + get_stamina_string());
 }
 }
 
+// Set fire rate, walk speed, and melee flag for the given weapon.
+// Called once on weapon draw / server weapon_set, not every frame.
+void apply_weapon_stats(string wname)
+{
+melee=false;
+firetime=500;
+walktime=200;
+// Melee
+if (wname=="machete") { firetime=1000; walktime=170; melee=true; }
+else if (wname=="combatknife") { firetime=500; walktime=170; melee=true; }
+else if (wname=="katana") { firetime=800; walktime=170; melee=true; }
+else if (wname=="baseball_bat") { firetime=600; walktime=170; melee=true; }
+else if (wname=="hayvork") { firetime=900; walktime=185; melee=true; }
+else if (wname=="trector_plow") { firetime=1100; walktime=400; melee=true; }
+// Pistols
+else if (wname=="glock17") { firetime=800; walktime=180; }
+else if (wname=="beretta92fs_pistol") { firetime=600; walktime=180; }
+else if (wname=="desert_eagle") { firetime=900; walktime=180; }
+else if (wname=="taurus_model66_revolver") { firetime=790; walktime=180; }
+else if (wname=="magnum_revolver") { firetime=800; walktime=180; }
+// SMGs
+else if (wname=="p90_mp") { firetime=90; walktime=190; }
+else if (wname=="mp5") { firetime=100; walktime=190; }
+else if (wname=="uzi") { firetime=75; walktime=190; }
+else if (wname=="mp7") { firetime=85; walktime=190; }
+// Assault rifles
+else if (wname=="hk_g36") { firetime=150; walktime=220; }
+else if (wname=="AK47") { firetime=150; walktime=220; }
+else if (wname=="tar_21_assault_rifle") { firetime=180; walktime=220; }
+else if (wname=="famas_f1_assault_rifle") { firetime=750; walktime=210; }
+else if (wname=="m4a1_carbine") { firetime=140; walktime=210; }
+// Battle rifles
+else if (wname=="scar_h_battle_rifle") { firetime=300; walktime=300; }
+else if (wname=="fn_fal_battle_rifle") { firetime=280; walktime=300; }
+else if (wname=="m1garantBattleRifle") { firetime=1200; walktime=400; }
+// LMGs
+else if (wname=="rpk_lmg") { firetime=120; walktime=350; }
+else if (wname=="m249_saw") { firetime=100; walktime=500; }
+// Shotguns
+else if (wname=="ks123shotgun") { firetime=850; walktime=230; }
+else if (wname=="benelli_m4_shotgun") { firetime=1500; walktime=230; }
+else if (wname=="spas_12_shotgun") { firetime=1000; walktime=250; }
+// Snipers
+else if (wname=="sg08_sniper_rifle") { firetime=3000; walktime=1000; }
+else if (wname=="awp_sniper_rifle") { firetime=3500; walktime=1200; }
+else if (wname=="dragunov_svd") { firetime=1500; walktime=600; }
+// Special
+else if (wname=="120mm_mortar") { firetime=4000; walktime=5000; }
+else if (wname=="crossbow") { firetime=2000; walktime=250; }
+// Laser weapons
+else if (wname=="laser_pistol") { firetime=700; walktime=180; }
+else if (wname=="laser_smg") { firetime=80; walktime=190; }
+else if (wname=="laser_rifle") { firetime=160; walktime=220; }
+else if (wname=="laser_sniper") { firetime=2500; walktime=800; }
+else if (wname=="laser_cannon") { firetime=90; walktime=450; }
+// Flamethrower and Chainsaw
+else if (wname=="flamethrower") { firetime=50; walktime=300; }
+else if (wname=="chainsaw") { firetime=100; walktime=250; }
+}
+
 void draw_weapon(string wname)
 {
 if (drawtimer.elapsed<=1500) return;
 drawtimer.restart();
 weapons[w]=wname;
+apply_weapon_stats(wname);
 speak(string_replace(wname, "_", " ", true));
 send_reliable(1, "draw  "+wname, 0);
 }
@@ -536,6 +607,7 @@ void game(int first)
 plane.stop();
 give_starting_loadout();
 weapons[w]=quickbar[0];
+apply_weapon_stats(weapons[w]);
 send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);
 send_reliable(1, "draw  "+weapons[w], 0);
 send_reliable(0, "send_comp "+comp, 0);
@@ -687,6 +759,12 @@ firetimer.restart();
 p.play_stationary(weapons[w]+"empty.ogg",false);
 can_fire=false;
 burst_firing = false;
+int empty_gi=find_gun(weapons[w]);
+if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="charge")
+speak("Energy cell depleted. Press R to reload.");
+else if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="fuel")
+speak("Fuel canister empty. Press R to reload.");
+else
 speak("Magazine empty. Press R to reload.");
 }
 }
@@ -1145,23 +1223,6 @@ sd.add("cameraspeed",cameraspeed);
 sd.add("mastervol",mastervol);
 sd.save();
 }
-/*
-double convert_to_pan(double m1, double m2)
-{
-return (m1*100/m2)-50;
-}
-double convert_to_pan(double length,double index, double range1, double range2)
-{
-double range=range2-range1;
-double percent=0;
-if (length-1>0 and index>0)
-percent=index/(length-1);
-else
-percent=0;
-double value=range1+range*percent;
-return value;
-}
-*/
 void send_reliable(uint peer, string mess, uint channel)
 {
 mess=string_encrypt(mess, "_';'_clickclick!");
@@ -1210,14 +1271,7 @@ spawn_source(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to
 }
 else if(parsed[0]=="sc")
 {
-if(can_stop==true)
-{
-can_stop=false;
-}
-else if(can_stop==false)
-{
-can_stop=true;
-}
+can_stop=!can_stop;
 }
 else if(parsed[0]=="remove_src" and parsed.length()>1)
 {
@@ -1322,6 +1376,7 @@ ammo_give(parsed[1], string_to_number(parsed[2]));
 else if(parsed[0]=="weapon_set" and parsed.length()>1)
 {
 weapons[w]=parsed[1];
+apply_weapon_stats(parsed[1]);
 speak(parsed[1]);
 send_reliable(1, "draw "+parsed[1], 0);
 }
@@ -1521,10 +1576,6 @@ if(soundmap==mapname)
 distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z, facing,false);
 }
 }
-if (e.channel==3)
-{
-string[] parsed=string_split(get_event_message()," ",true);
-}
 if (e.channel==1)
 {
 p.play_stationary("chat.ogg", false);
@@ -1653,14 +1704,12 @@ if(falldistance < 10)
 {
 p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
 send_reliable(1, "land", 0);
-falling=false;
 }
 else
 {
 p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"fall.ogg", false);
 p.play_stationary("playerhit"+random(1, 6)+".ogg", false);
 send_reliable(1, "hardland "+falldistance, 0);
-falling=false;
 }
 return;
 }
@@ -1684,70 +1733,12 @@ p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 mr.x=round(me.x,0);
 mr.y=round(me.y,0);
-// --- Weapon fire rates and walk speeds ---
-// Melee
-if (weapons[w]=="machete") { firetime=1000; walktime=170; }
-if (weapons[w]=="combatknife") { firetime=500; walktime=170; }
-if (weapons[w]=="katana") { firetime=800; walktime=170; }
-if (weapons[w]=="baseball_bat") { firetime=600; walktime=170; }
-if (weapons[w]=="hayvork") { firetime=900; walktime=185; }
-if (weapons[w]=="trector_plow") { firetime=1100; walktime=400; }
-// Pistols
-if (weapons[w]=="glock17") { firetime=800; walktime=180; }
-if (weapons[w]=="beretta92fs_pistol") { firetime=600; walktime=180; }
-if (weapons[w]=="desert_eagle") { firetime=900; walktime=180; }
-if (weapons[w]=="taurus_model66_revolver") { firetime=790; walktime=180; }
-if (weapons[w]=="magnum_revolver") { firetime=800; walktime=180; }
-// SMGs
-if (weapons[w]=="p90_mp") { firetime=90; walktime=190; }
-if (weapons[w]=="mp5") { firetime=100; walktime=190; }
-if (weapons[w]=="uzi") { firetime=75; walktime=190; }
-if (weapons[w]=="mp7") { firetime=85; walktime=190; }
-// Assault rifles
-if (weapons[w]=="hk_g36") { firetime=150; walktime=220; }
-if (weapons[w]=="AK47") { firetime=150; walktime=220; }
-if (weapons[w]=="tar_21_assault_rifle") { firetime=180; walktime=220; }
-if (weapons[w]=="famas_f1_assault_rifle") { firetime=750; walktime=210; }
-if (weapons[w]=="m4a1_carbine") { firetime=140; walktime=210; }
-// Battle rifles
-if (weapons[w]=="scar_h_battle_rifle") { firetime=300; walktime=300; }
-if (weapons[w]=="fn_fal_battle_rifle") { firetime=280; walktime=300; }
-if (weapons[w]=="m1garantBattleRifle") { firetime=1200; walktime=400; }
-// LMGs
-if (weapons[w]=="rpk_lmg") { firetime=120; walktime=350; }
-if (weapons[w]=="m249_saw") { firetime=100; walktime=500; }
-// Shotguns
-if (weapons[w]=="ks123shotgun") { firetime=850; walktime=230; }
-if (weapons[w]=="benelli_m4_shotgun") { firetime=1500; walktime=230; }
-if (weapons[w]=="spas_12_shotgun") { firetime=1000; walktime=250; }
-// Snipers
-if (weapons[w]=="sg08_sniper_rifle") { firetime=3000; walktime=1000; }
-if (weapons[w]=="awp_sniper_rifle") { firetime=3500; walktime=1200; }
-if (weapons[w]=="dragunov_svd") { firetime=1500; walktime=600; }
-// Special
-if (weapons[w]=="120mm_mortar") { firetime=4000; walktime=5000; }
-if (weapons[w]=="crossbow") { firetime=2000; walktime=250; }
-// Laser weapons
-if (weapons[w]=="laser_pistol") { firetime=700; walktime=180; }
-if (weapons[w]=="laser_smg") { firetime=80; walktime=190; }
-if (weapons[w]=="laser_rifle") { firetime=160; walktime=220; }
-if (weapons[w]=="laser_sniper") { firetime=2500; walktime=800; }
-if (weapons[w]=="laser_cannon") { firetime=90; walktime=450; }
-// Flamethrower and Chainsaw
-if (weapons[w]=="flamethrower") { firetime=50; walktime=300; }
-if (weapons[w]=="chainsaw") { firetime=100; walktime=250; }
 movetime=walktime;
 // Stamina affects movement speed when low.
 if (stamina < 20) movetime = walktime + 100;
 fallloop();
 fallcheck();
 fallingloop();
-if(weapons[w]=="machete" or weapons[w]=="combatknife" or weapons[w]=="trector_plow" or weapons[w]=="hayvork" or weapons[w]=="katana" or weapons[w]=="baseball_bat")
-{
-melee=true;
-}
-else
-melee=false;
 }
 string get_location()
 {
@@ -2162,19 +2153,3 @@ nextbufferitem();
 }
 }
 
-bool int_to_bool(int num)
-{
-if(num==1)
-{
-return true;
-}
-return false;
-}
-int bool_to_int(bool b)
-{
-if(b==true)
-{
-return 1;
-}
-return 0;
-}

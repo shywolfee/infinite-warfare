@@ -1,3 +1,19 @@
+New in 0.457, build 11 (2026-03-20)
+Added vehicle system:
+  Vehicles spawn randomly on the map (5-10 per map) in 8 types: Jeep, Humvee, Pickup Truck, APC, Buggy, Sedan, Tank, and Van.
+  Each vehicle has health, optional armor, a maximum passenger count, and a unique speed.
+  Press O within 5 tiles to open or close the vehicle door. Press V to enter or exit the vehicle.
+  In a vehicle, UP/DOWN arrows increase or decrease speed (5 speed levels). Shift+DOWN gradually decelerates.
+  LEFT/RIGHT arrows turn 90 degrees. Shift+LEFT/RIGHT turns 1 degree for fine steering.
+  Alt+LEFT/RIGHT switches between driver and passenger seats. Only the driver controls movement.
+  Press Space to roll the window down or up at your seat. Only the driver seat and up to 2 passenger seats have windows.
+  You can only fire weapons with the window down, and melee weapons cannot be used from vehicles at all.
+  Press H in a vehicle to see vehicle health, armor (if applicable), speed level, seat, and window status before your own health and stamina.
+  Stamina restores a small amount every 15 seconds while seated in a vehicle.
+  Vehicles take damage when crashing into walls. When destroyed, all passengers are ejected and take 1/4 health damage.
+  Armor absorbs incoming damage fully but also reduces vehicle health by 1/4 of the damage taken.
+  Nearby vehicles are announced as you walk around the map (within 10 tiles).
+
 New in 0.456, build 10 (2026-03-20)
 Added 5 new utility items:
   Adrenaline Syringe: consumable that applies an Adrenaline Rush buff for 30 seconds, doubling your movement speed. Visible as an active effect with the H key.

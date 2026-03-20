@@ -21,6 +21,7 @@
 #include "includes/accounts.nvgt"
 #include "includes/menu.nvgt"
 #include "includes/lobby.nvgt"
+#include "includes/vehicle.nvgt"
 string webdir;
 string gamename="Infinite Warfare";
 string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
@@ -56,8 +57,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.456;
-int build_number=10;
+double version=0.457;
+int build_number=11;
 string build_date="2026-03-20";
 string name;
 string mate;
@@ -1033,6 +1034,8 @@ void game(int first)
 plane.stop();
 clear_waypoint();
 translocator_cells=0;
+reset_vehicles();
+init_vehicle_types();
 give_starting_loadout();
 weapons[w]=quickbar[0];
 apply_weapon_stats(weapons[w]);
@@ -1160,8 +1163,23 @@ burst_rounds_remaining = 0;
 }
 if(can_move==true and !is_reloading(weapons[w]))
 {
+// Vehicle fire restrictions: no melee, must have window down.
+if (in_vehicle and !vehicle_can_fire())
+{
+if (key_pressed(KEY_LCONTROL) or key_pressed(KEY_RCONTROL))
+{
+if (melee)
+speak("You can't use melee weapons from a vehicle.");
+else
+speak("Roll your window down first.");
+}
+}
+if (in_vehicle and melee and (key_pressed(KEY_LCONTROL) or key_pressed(KEY_RCONTROL)))
+{
+speak("You can't use melee weapons from a vehicle.");
+}
 bool fire_now = false;
-if (firetimer.elapsed>=firetime)
+if (firetimer.elapsed>=firetime and (!in_vehicle or (vehicle_can_fire() and !melee)))
 {
 if (cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(KEY_LCONTROL) or (key_down(KEY_RCONTROL) and rctrl==1)))
 fire_now = true;
@@ -1370,7 +1388,24 @@ speak("Your inventory is empty.");
 }
 if(key_pressed(KEY_O) and can_move==true)
 {
+if (in_vehicle)
+vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
+else
+{
+// Check for nearby vehicle door first; otherwise check chest.
+int nv = find_nearest_vehicle(int(mr.x), int(mr.y), int(me.z), 5);
+if (nv >= 0)
+vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
+else
 send_reliable(0, "check_chest", 0);
+}
+}
+if(key_pressed(KEY_V) and can_move==true)
+{
+if (in_vehicle)
+vehicle_exit(name);
+else
+vehicle_enter(name, int(mr.x), int(mr.y), int(me.z));
 }
 if (kCOMMA.pressing)
 {
@@ -1405,7 +1440,11 @@ if(key_pressed(KEY_C))
 {
 speak(mr.x+", "+mr.y+", "+me.z);
 }
-if(key_pressed(KEY_SPACE) and jumping==false and falling==false and can_move==true)
+if(key_pressed(KEY_SPACE) and in_vehicle and can_move==true)
+{
+vehicle_toggle_window();
+}
+else if(key_pressed(KEY_SPACE) and jumping==false and falling==false and can_move==true and !in_vehicle)
 {
 p.play_stationary("jump.ogg", false);
 send_reliable(0, "jump", 0);
@@ -1530,12 +1569,42 @@ facing=turnright(facing, 1);
 }
 if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
 {
+if (in_vehicle)
+{
+// Vehicle controls: arrows control vehicle, not player movement.
+if (key_pressed(KEY_UP))
+vehicle_speed_up();
+else if (key_pressed(KEY_DOWN))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+vehicle_decelerate_gradual();
+else
+vehicle_speed_down();
+}
+if (key_pressed(KEY_LEFT))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+vehicle_turn_fine(-1);
+else
+vehicle_turn(-1);
+}
+else if (key_pressed(KEY_RIGHT))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+vehicle_turn_fine(1);
+else
+vehicle_turn(1);
+}
+}
+else
+{
+// Normal on-foot movement.
 if(key_down(KEY_PRIOR) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Up);
 }
-else if(key_down(KEY_NEXT) and walktimer.elapsed>movetime) 
+else if(key_down(KEY_NEXT) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Down);
@@ -1565,8 +1634,15 @@ move(Right);
 if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
 }
+}
 if(can_move==true)
 {
+// Alt+Left/Right: switch vehicle seats.
+if(MENU_is_down() and in_vehicle)
+{
+if(key_pressed(KEY_LEFT)) vehicle_switch_seat(name, -1);
+if(key_pressed(KEY_RIGHT)) vehicle_switch_seat(name, 1);
+}
 // Alt+number: bind current inventory item to that quickbar slot.
 if(MENU_is_down())
 {
@@ -1753,7 +1829,11 @@ if(parsed[5]!=name and mapname==map)
 p.play_3d(get_tile_at(x, y, z)+"step"+random(1, 5)+".ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
-else if(parsed[0]=="mapdata") load_map(string_replace(get_event_message(), "mapdata ", "", true));
+else if(parsed[0]=="mapdata")
+{
+load_map(string_replace(get_event_message(), "mapdata ", "", true));
+spawn_vehicles_on_map();
+}
 else if(parsed[0]=="wallremove" and parsed.length()>3)
 {
 for (uint i=0; i<walls.length(); i++)
@@ -1797,6 +1877,30 @@ int y=string_to_number(parsed[2]);
 int z=string_to_number(parsed[3]);
 string map=parsed[4];
 spawn_ladder(x,y,z,z+10,map,"wallwood");
+}
+else if(parsed[0]=="veh_damage" and parsed.length()>2)
+{
+int vi=string_to_number(parsed[1]);
+int dmg=string_to_number(parsed[2]);
+if (vi>=0 and vi<int(map_vehicles.length()))
+{
+bool destroyed=vehicle_take_damage(vi, dmg);
+if (player_vehicle_index==vi)
+{
+speak("Vehicle hit! " + map_vehicles[vi].health + " health remaining.");
+if (destroyed) vehicle_on_destroy(vi);
+}
+}
+}
+else if(parsed[0]=="veh_destroyed" and parsed.length()>1)
+{
+int vi=string_to_number(parsed[1]);
+if (vi>=0 and vi<int(map_vehicles.length()) and !map_vehicles[vi].destroyed)
+{
+map_vehicles[vi].destroyed=true;
+map_vehicles[vi].health=0;
+if (player_vehicle_index==vi) vehicle_on_destroy(vi);
+}
 }
 else if(parsed[0]=="ping" and pinging==true)
 {
@@ -1976,7 +2080,10 @@ speak(full_msg);
 if (pending_health_report and string_contains(full_msg, "health", 1) >= 0)
 {
 pending_health_report = false;
-speak(get_stamina_string() + " " + get_effects_string());
+string extra = "";
+if (in_vehicle) extra = get_vehicle_status() + " ";
+extra += get_stamina_string() + " " + get_effects_string();
+speak(extra);
 }
 }
 }
@@ -2149,6 +2256,7 @@ ammocheatloop();
 reload_loop_all();
 sourcecheckloop();
 stamina_loop();
+vehicle_loop();
 int heal_tick = effects_loop();
 if (heal_tick > 0)
 send_reliable(0, "heal " + heal_tick, 0);

@@ -19,7 +19,6 @@ string[] killmsgs;
 timer spawn_chesttimer;
 string changes;
 double minversion=0.12;
-string current_map="";
 const int port=1316;
 string adminlist="";
 network n;
@@ -56,13 +55,6 @@ if(file_exists("motd.svr"))
 {
 f.open("motd.svr", "rb");
 motd=f.read();
-f.close();
-}
-if(file_exists("currentmap.txt"))
-{
-file f;
-f.open("currentmap.txt", "rb");
-current_map=f.read();
 f.close();
 }
 if(file_exists("authmode.svr"))
@@ -135,7 +127,6 @@ file_delete("updating.txt");
 wait(500);
 exit();
 }
-if(current_map=="random") current_map=select_random_map();
 if(e.type==event_disconnect)
 {
 int index=get_player_index(e.peer_id);
@@ -160,21 +151,7 @@ string[] parsed=string_split(get_event_message(), " ",true);
 int index=get_player_index(e.peer_id);
 if (index>-1)
 {
-if(parsed[0]=="/currentmap" and players[index].dev)
-{
-if(parsed.length()>1)
-{
-current_map=parsed[1];
-file f;
-f.open("currentmap.txt", "wb");
-f.write(current_map);
-f.close();
-if(parsed[1]=="random") mapupdate(select_random_map());
-else mapupdate(current_map);
-}
-else send_reliable(players[index].peer_id, "the current map is "+current_map, 0);
-}
-else if(parsed[0]=="/bunkers")
+if(parsed[0]=="/bunkers")
 {
 send_reliable(players[index].peer_id, "bunker A is at :35: 250: -5", 2);
 send_reliable(players[index].peer_id, "bunker B is at: 305: 250: -5", 2);
@@ -553,7 +530,7 @@ send_reliable(e.peer_id, "z 0", 0);
 else if(parsed[1]=="battlegrounds")
 {
 file mf;
-mf.open("map/"+current_map+".map", "rb");
+mf.open("map/main.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
 send_reliable(e.peer_id, "x "+random(0, 400), 0);
@@ -1778,22 +1755,6 @@ return "";
 r=string_decrypt(r, "_';'_clickclick!");
 return r;
 }
-void mapupdate(string map)
-{
-file f;
-f.open("map/"+map+".map", "rb");
-string mdata=f.read();
-f.close();
-for(uint i=0; i<players.length(); i++)
-{
-if(players[i].map!=map) players[i].map=map;
-if(players[i].map==map)
-{
-send_reliable(players[i].peer_id, "mapdata "+mdata+"\r\n", 0);
-send_reliable(players[i].peer_id, "setcoords 0 0 0", 0);
-}
-}
-}
 void login(string user, uint peer_id, double version,string comp)
 {
 file f;
@@ -1820,13 +1781,6 @@ send_reliable(peer_id, "banned", 0);
 }
 f.close();
 }
-f.open("map/"+current_map+".map", "rb");
-send_reliable(peer_id, "mapdata "+f.read(), 0);
-f.close();
-send_reliable(peer_id, "facing 0", 0);
-send_reliable(peer_id, "x "+random(0, 400), 0);
-send_reliable(peer_id, "y "+random(0, 499), 0);
-send_reliable(peer_id, "z 0", 0);
 send_reliable(peer_id, "loggedin123", 0);
 }
 int get_player_index(uint id)

@@ -224,21 +224,6 @@ string[] delinear(string a)
 {
 return string_split(a, "\r\n", false);
 }
-string select_random_map()
-{
-string[] maps=find_files("map/*.map");
-string[] finalmaps;
-for(uint i=0; i<maps.length(); i++)
-{
-file f;
-f.open("map/"+maps[i], "rb");
-if(string_contains(f.read(), "inselection", 1)>-1)
-{
-finalmaps.insert_last(maps[i]);
-}
-}
-return string_replace(finalmaps[random(0, finalmaps.length()-1)], ".map", "", true);
-}
 string get_map_data(string map, string data)
 {
 if(!file_exists("map/"+map+".map"))

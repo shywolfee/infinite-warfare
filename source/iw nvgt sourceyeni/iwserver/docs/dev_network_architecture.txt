@@ -11,9 +11,9 @@ Channel 5: Positional audio and sound playback.
 
 Connection flow:
 1. Client connects and sends connect_me with username, version, and computer ID.
-2. Server validates version, checks bans, sends map data, coordinates, and loggedin123.
+2. Server validates version, checks bans, and sends loggedin123.
 3. Client enters lobby. Sends enter_lobby, then enter_mode when selecting a game mode.
-4. Server sends mode-specific map data. Client calls game() and sends spawn_player.
+4. Server sends mode-specific map data and spawn coordinates. Client calls game() and sends spawn_player.
 
 Player state: Managed in the players array on the server. Each player tracks position, map, inventory, health, kills, timers, and flags.
 

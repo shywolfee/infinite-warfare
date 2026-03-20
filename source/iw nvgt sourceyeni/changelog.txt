@@ -1,3 +1,13 @@
+New in 0.460, build 14 (2026-03-20)
+Removed the currentmap system. Each game mode now loads its own map directly:
+  Battlegrounds loads the Archipelago map (main.map). Habitat Alpha loads habitat_alpha.map.
+  Map data is no longer sent during login; it is sent when the player selects a mode in the lobby.
+  The /currentmap dev command, currentmap.txt, the mapupdate function, and select_random_map have all been removed.
+
+New in 0.459, build 13 (2026-03-20)
+Fixed Battlegrounds spawning players on the wrong map. It was loading battleroyale.map instead of the Archipelago map.
+Fixed players falling through the map when entering a mode. The lobby was not waiting for spawn coordinates from the server before starting the game, so players kept stale login coordinates and could end up with no collision data.
+
 New in 0.458, build 12 (2026-03-20)
 Fixed a compile error in the waypoint marker and vehicle proximity announcement caused by using a nonexistent arc_tangent2 function. Replaced with the existing calculate_x_y_angle function.
 

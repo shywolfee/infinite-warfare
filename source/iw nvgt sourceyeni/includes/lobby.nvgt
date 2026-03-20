@@ -52,6 +52,9 @@ mainmenu();
 void lobby_wait_for_map()
 {
 bool got_map=false;
+bool got_x=false;
+bool got_y=false;
+bool got_z=false;
 timer mwait;
 while(mwait.elapsed < 3000)
 {
@@ -83,18 +86,21 @@ else if(parsed[0]=="x")
 {
 me.x=string_to_number(parsed[1]);
 mr.x=me.x;
+got_x=true;
 }
 else if(parsed[0]=="y")
 {
 me.y=string_to_number(parsed[1]);
 mr.y=me.y;
+got_y=true;
 }
 else if(parsed[0]=="z")
 {
 me.z=string_to_number(parsed[1]);
+got_z=true;
 }
 }
-if(got_map) break;
+if(got_map and got_x and got_y and got_z) break;
 }
 }
 

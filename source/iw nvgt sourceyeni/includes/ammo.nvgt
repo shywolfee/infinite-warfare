@@ -232,6 +232,11 @@ void apply_blinded()
 apply_effect("Blinded", "debuff", 15000, 0, 0);
 }
 
+void apply_adrenaline_rush()
+{
+apply_effect("Adrenaline Rush", "buff", 30000, 0, 0);
+}
+
 bool has_effect(string name)
 {
 for (uint i = 0; i < active_effects.length(); i++)
@@ -829,6 +834,13 @@ give("energetic_potion_red", 5);
 give("energetic_potion_blue", 3);
 give("energetic_potion_green", 2);
 give("energetic_potion_rainbow", 1);
+give("translocator", 1);
+give("translocator_cell", 10);
+give("adrenaline_syringe", 3);
+give("repair_kit", 3);
+give("waypoint_marker", 5);
+give("binoculars", 1);
+give("fortified_ration", 5);
 
 speak("All weapons, ammunition, and items given.");
 }

@@ -12,7 +12,7 @@ string get_item_category(string item)
 {
 if (is_weapon(item)) return "Weapons";
 if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
-if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1) return "Consumables";
+if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="repair_kit" or item=="waypoint_marker" or item=="fortified_ration") return "Consumables";
 return "Equipment";
 }
 

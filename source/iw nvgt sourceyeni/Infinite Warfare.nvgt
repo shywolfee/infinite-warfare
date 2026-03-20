@@ -56,8 +56,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.455;
-int build_number=9;
+double version=0.456;
+int build_number=10;
 string build_date="2026-03-20";
 string name;
 string mate;
@@ -606,6 +606,34 @@ else if (item == "translocator_cell")
 use_translocator_cell();
 return;
 }
+else if (item == "adrenaline_syringe")
+{
+apply_adrenaline_rush();
+give("adrenaline_syringe", -1);
+speak("Adrenaline rush! Movement speed doubled for 30 seconds.");
+return;
+}
+else if (item == "repair_kit")
+{
+use_repair_kit();
+return;
+}
+else if (item == "waypoint_marker")
+{
+use_waypoint_marker();
+return;
+}
+else if (item == "binoculars")
+{
+use_binoculars();
+return;
+}
+else if (item == "fortified_ration")
+{
+restore_stamina(random(35, 50));
+give("fortified_ration", -1);
+speak("Ration consumed. " + get_stamina_string());
+}
 }
 
 // ---------------------------------------------------------------------------
@@ -789,6 +817,125 @@ translocator_cells+=amount;
 speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%).");
 }
 
+// ---------------------------------------------------------------------------
+// Repair Kit — restores a partial ammo item to full.
+// ---------------------------------------------------------------------------
+void use_repair_kit()
+{
+if (partial_items.length() == 0)
+{
+speak("You have no partial ammo items to repair.");
+return;
+}
+audio_form f;
+f.create_window("Repair Kit", false, true);
+int f_list = f.create_list("Select a partial item to restore", 0, false);
+for (uint i = 0; i < partial_items.length(); i++)
+{
+string base_name = string_replace(partial_items[i].base_item, "_", " ", true);
+int pct = get_ammo_percentage(partial_items[i].remaining, partial_items[i].max_capacity);
+f.add_list_item(f_list, base_name + " (" + pct + "%)");
+}
+int f_repair = f.create_button("&Repair", true);
+int f_close = f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected == true)
+netloop();
+if (f.is_pressed(f_repair))
+{
+int sel = f.get_list_position(f_list);
+if (sel >= 0 and sel < int(partial_items.length()))
+{
+string base = partial_items[sel].base_item;
+remove_partial(sel);
+give(base, 1);
+give("repair_kit", -1);
+speak("Repaired. You now have a full " + string_replace(base, "_", " ", true) + ".");
+}
+break;
+}
+else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Waypoint Marker — save a position, then track back to it.
+// ---------------------------------------------------------------------------
+bool waypoint_set = false;
+int waypoint_x = 0;
+int waypoint_y = 0;
+int waypoint_z = 0;
+
+void use_waypoint_marker()
+{
+if (!waypoint_set)
+{
+waypoint_x = int(mr.x);
+waypoint_y = int(mr.y);
+waypoint_z = int(me.z);
+waypoint_set = true;
+give("waypoint_marker", -1);
+speak("Waypoint placed at " + waypoint_x + ", " + waypoint_y + ", " + waypoint_z + ".");
+}
+else
+{
+double dx = double(waypoint_x) - mr.x;
+double dy = double(waypoint_y) - mr.y;
+double dz = double(waypoint_z) - me.z;
+double dist = square_root(dx * dx + dy * dy + dz * dz);
+// Calculate bearing to waypoint.
+double angle = arc_tangent2(dx, dy) * 180.0 / 3.1415926535897932;
+if (angle < 0) angle += 360;
+int snap = int(getdir(angle));
+string dir_name = dir_to_string(snap);
+speak("Waypoint is " + int(dist) + " tiles to the " + dir_name + ". At " + waypoint_x + ", " + waypoint_y + ", " + waypoint_z + ".");
+}
+}
+
+void clear_waypoint()
+{
+waypoint_set = false;
+}
+
+// ---------------------------------------------------------------------------
+// Binoculars — reusable scouting tool, shows POIs and zone info.
+// ---------------------------------------------------------------------------
+void use_binoculars()
+{
+string zone = get_zone_at(mr.x, mr.y, me.z);
+string info = "Position: " + int(mr.x) + ", " + int(mr.y) + ", " + int(me.z) + ". ";
+if (zone != "")
+info += "Zone: " + zone + ". ";
+else
+info += "Zone: uncharted. ";
+if (pois.length() == 0)
+{
+info += "No points of interest on this map.";
+speak(info);
+return;
+}
+int[] sorted = get_sorted_poi_indices();
+int show = 5;
+if (int(sorted.length()) < show) show = int(sorted.length());
+info += show + " nearest points: ";
+for (int i = 0; i < show; i++)
+{
+int idx = sorted[i];
+double dist = get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
+info += string_replace(pois[idx].name, "_", " ", true) + " " + int(dist) + " tiles";
+if (i < show - 1) info += ", ";
+else info += ".";
+}
+speak(info);
+}
+
 // Set fire rate, walk speed, and melee flag for the given weapon.
 // Called once on weapon draw / server weapon_set, not every frame.
 void apply_weapon_stats(string wname)
@@ -876,14 +1023,16 @@ else
 if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
-// Energetic potions and bomb vests are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell")
+// Energetic potions, bomb vests, and utility items are client-only; others go to server.
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "repair_kit" and item != "waypoint_marker" and item != "binoculars")
 send_reliable(0, "use "+item, 0);
 }
 }
 void game(int first)
 {
 plane.stop();
+clear_waypoint();
+translocator_cells=0;
 give_starting_loadout();
 weapons[w]=quickbar[0];
 apply_weapon_stats(weapons[w]);
@@ -1212,7 +1361,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell")
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "repair_kit" and sel_item != "waypoint_marker" and sel_item != "binoculars")
 send_reliable(0, "use " + sel_item, 0);
 }
 }
@@ -2008,8 +2157,10 @@ distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 mr.x=round(me.x,0);
 mr.y=round(me.y,0);
 movetime=walktime;
+// Adrenaline Rush halves movement time.
+if (has_effect("Adrenaline Rush")) movetime = walktime / 2;
 // Stamina affects movement speed when low.
-if (stamina < 20) movetime = walktime + 100;
+if (stamina < 20) movetime = movetime + 100;
 fallloop();
 fallcheck();
 fallingloop();

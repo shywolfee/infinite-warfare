@@ -892,8 +892,7 @@ double dy = double(waypoint_y) - mr.y;
 double dz = double(waypoint_z) - me.z;
 double dist = square_root(dx * dx + dy * dy + dz * dz);
 // Calculate bearing to waypoint.
-double angle = arc_tangent2(dx, dy) * 180.0 / 3.1415926535897932;
-if (angle < 0) angle += 360;
+double angle = calculate_x_y_angle(mr.x, mr.y, double(waypoint_x), double(waypoint_y), 0);
 int snap = int(getdir(angle));
 string dir_name = dir_to_string(snap);
 speak("Waypoint is " + int(dist) + " tiles to the " + dir_name + ". At " + waypoint_x + ", " + waypoint_y + ", " + waypoint_z + ".");

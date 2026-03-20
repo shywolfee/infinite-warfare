@@ -722,8 +722,7 @@ double dy = double(map_vehicles[i].y - py);
 double dist = square_root(dx * dx + dy * dy);
 if (dist <= 10)
 {
-double angle = arc_tangent2(dx, dy) * 180.0 / 3.1415926535897932;
-if (angle < 0) angle += 360;
+double angle = calculate_x_y_angle(double(px), double(py), double(map_vehicles[i].x), double(map_vehicles[i].y), 0);
 string dir_name = dir_to_string(int(getdir(angle)));
 if (dist < 1)
 speak(map_vehicles[i].get_name() + " here.");

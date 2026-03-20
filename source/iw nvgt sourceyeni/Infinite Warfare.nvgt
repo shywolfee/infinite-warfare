@@ -56,9 +56,9 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.454;
-int build_number=8;
-string build_date="2026-03-17";
+double version=0.455;
+int build_number=9;
+string build_date="2026-03-20";
 string name;
 string mate;
 double facing=0;
@@ -596,6 +596,197 @@ restore_stamina(random(75, 100));
 give("energetic_potion_rainbow", -1);
 speak("Stamina fully restored. " + get_stamina_string());
 }
+else if (item == "translocator")
+{
+show_translocator_interface();
+return;
+}
+else if (item == "translocator_cell")
+{
+use_translocator_cell();
+return;
+}
+}
+
+// ---------------------------------------------------------------------------
+// Translocator system — battery level in cells, teleport to POIs.
+// ---------------------------------------------------------------------------
+int translocator_cells=0;
+int translocator_max_cells=10;
+
+int get_translocator_percentage()
+{
+if (translocator_max_cells==0) return 0;
+return (translocator_cells*100)/translocator_max_cells;
+}
+
+// Returns the number of cells required to translocate to a POI at given distance.
+int cells_for_distance(double dist)
+{
+int tiles=int(dist);
+if (tiles<1) tiles=1;
+int needed=tiles/50;
+if (tiles%50>0) needed++;
+return needed;
+}
+
+// Sort POIs by distance from player and return sorted indices.
+int[] get_sorted_poi_indices()
+{
+int[] indices;
+double[] distances;
+for (uint i=0; i<pois.length(); i++)
+{
+indices.insert_last(int(i));
+distances.insert_last(get_poi_distance(pois[i].x, pois[i].y, pois[i].z));
+}
+// Simple insertion sort by distance.
+for (uint i=1; i<indices.length(); i++)
+{
+int ki=indices[i];
+double kd=distances[i];
+int j=int(i)-1;
+while (j>=0 and distances[j]>kd)
+{
+indices[j+1]=indices[j];
+distances[j+1]=distances[j];
+j--;
+}
+indices[j+1]=ki;
+distances[j+1]=kd;
+}
+return indices;
+}
+
+void show_poi_list()
+{
+if (pois.length()==0)
+{
+speak("No points of interest on this map.");
+return;
+}
+int[] sorted=get_sorted_poi_indices();
+audio_form f;
+f.create_window("Points of Interest", false, true);
+int f_list=f.create_list("Points of interest", 0, false);
+for (uint i=0; i<sorted.length(); i++)
+{
+int idx=sorted[i];
+double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
+string label=string_replace(pois[idx].name, "_", " ", true)+" ("+int(dist)+" tiles)";
+f.add_list_item(f_list, label);
+}
+int f_close=f.create_button("&Close", true, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_close))
+break;
+}
+}
+
+void show_translocator_interface()
+{
+if (pois.length()==0)
+{
+speak("No points of interest to translocate to.");
+return;
+}
+int[] sorted=get_sorted_poi_indices();
+audio_form f;
+f.create_window("Translocator", false, true);
+// Battery level display.
+string battery_text="Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%)";
+f.create_input_box("Status", battery_text, "", 0, false, true, false);
+int f_list=f.create_list("Points of interest", 0, false);
+for (uint i=0; i<sorted.length(); i++)
+{
+int idx=sorted[i];
+double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
+int needed=cells_for_distance(dist);
+string label=string_replace(pois[idx].name, "_", " ", true)+" - "+int(dist)+" tiles ("+needed+" cells)";
+f.add_list_item(f_list, label);
+}
+int f_go=f.create_button("&Translocate", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_go))
+{
+int sel=f.get_list_position(f_list);
+if (sel>=0 and sel<int(sorted.length()))
+{
+int idx=sorted[sel];
+double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
+int needed=cells_for_distance(dist);
+if (needed>translocator_cells)
+{
+speak("Not enough cells. Need "+needed+", have "+translocator_cells+".");
+continue;
+}
+translocator_cells-=needed;
+speak("Powering up translocator.");
+// Five second power up sequence.
+for (int t=5; t>=1; t--)
+{
+speak(t+".");
+wait(1000);
+}
+me.x=pois[idx].x;
+me.y=pois[idx].y;
+me.z=pois[idx].z;
+mr.x=round(me.x, 0);
+mr.y=round(me.y, 0);
+send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
+checkzone();
+speak("Translocated to "+string_replace(pois[idx].name, "_", " ", true)+".");
+break;
+}
+}
+else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+}
+
+void use_translocator_cell()
+{
+if (get_item_count("translocator")<=0)
+{
+speak("You don't have a translocator to insert cells into.");
+return;
+}
+int available=get_item_count("translocator_cell");
+if (available<=0)
+{
+speak("You don't have any translocator cells.");
+return;
+}
+int space=translocator_max_cells-translocator_cells;
+if (space<=0)
+{
+speak("Translocator is fully charged.");
+return;
+}
+string input_str=v.input("How many cells to insert? (have "+available+", space for "+space+")", "", true);
+if (input_str=="") return;
+int amount=string_to_number(input_str);
+if (amount<=0) return;
+if (amount>available) amount=available;
+if (amount>space) amount=space;
+give("translocator_cell", -amount);
+translocator_cells+=amount;
+speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%).");
 }
 
 // Set fire rate, walk speed, and melee flag for the given weapon.
@@ -686,7 +877,7 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Energetic potions and bomb vests are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest")
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell")
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -785,11 +976,13 @@ p.play_stationary("invmove.ogg", false);
 }
 if (key_pressed(KEY_J))
 {
-cycle_category(0);
-p.play_stationary("invmove.ogg", false);
+show_poi_list();
 }
 if (key_pressed(KEY_K))
 {
+if (shift_is_down())
+cycle_category(0);
+else
 cycle_category(1);
 p.play_stationary("invmove.ogg", false);
 }
@@ -1019,7 +1212,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest")
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell")
 send_reliable(0, "use " + sel_item, 0);
 }
 }

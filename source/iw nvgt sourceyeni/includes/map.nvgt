@@ -9,6 +9,29 @@ oldzone=get_zone_at(mr.x,mr.y,me.z);
 }
 string[] map;
 string[] zones;
+// Point of Interest (POI) system.
+class poi
+{
+int x;
+int y;
+int z;
+string name;
+poi(int px, int py, int pz, string pname)
+{
+x=px;
+y=py;
+z=pz;
+name=pname;
+}
+}
+poi@[] pois;
+double get_poi_distance(int px, int py, int pz)
+{
+double dx=double(px)-mr.x;
+double dy=double(py)-mr.y;
+double dz=double(pz)-me.z;
+return square_root(dx*dx+dy*dy+dz*dz);
+}
 string get_tile_at(double x, double y, double z)
 {
 string final;
@@ -82,6 +105,7 @@ p.destroy_all();
 destroy_all_sources();
 map.resize(0);
 zones.resize(0);
+pois.resize(0);
 string[] ldata=delinear(mdata);
 for(uint i=0; i<ldata.length(); i++)
 {
@@ -132,6 +156,15 @@ int minz=string_to_number(parsed[5]);
 int maxz=string_to_number(parsed[6]);
 int id=string_to_number(parsed[8]);
 spawn_source(lx, rx, miny, maxy, minz, maxz, parsed[7],1, false, id);
+}
+else if(parsed[0]=="poi" and parsed.length()>3)
+{
+int px=string_to_number(parsed[1]);
+int py=string_to_number(parsed[2]);
+int pz=string_to_number(parsed[3]);
+string pname="";
+if(parsed.length()>4) pname=parsed[4];
+pois.insert_last(poi(px, py, pz, pname));
 }
 }
 }

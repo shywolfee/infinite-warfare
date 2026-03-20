@@ -278,6 +278,7 @@ void dev_suite()
 audio_form f;
 f.create_window("Developer Suite", false, true);
 int f_giveall=f.create_button("Give &all items");
+int f_spawnveh=f.create_button("&Spawn vehicle");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_giveall);
 while(true)
@@ -291,7 +292,50 @@ if (f.is_pressed(f_giveall))
 give_all();
 speak("All items given.");
 }
+else if (f.is_pressed(f_spawnveh))
+{
+dev_spawn_vehicle();
+}
 else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+}
+void dev_spawn_vehicle()
+{
+if (vehicle_types.length() == 0) init_vehicle_types();
+audio_form f;
+f.create_window("Spawn Vehicle", false, true);
+int f_list = f.create_list("Select a vehicle type", 0, false);
+for (uint i = 0; i < vehicle_types.length(); i++)
+{
+f.add_list_item(f_list, vehicle_types[i].name);
+}
+int f_spawn = f.create_button("S&pawn", true);
+int f_cancel = f.create_button("&Cancel", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_spawn))
+{
+int sel = f.get_list_position(f_list);
+if (sel >= 0 and sel < int(vehicle_types.length()))
+{
+double rad = facing * 3.1415926535897932 / 180.0;
+int vx = int(round(mr.x + sine(rad) * 2, 0));
+int vy = int(round(mr.y + cosine(rad) * 2, 0));
+int vz = int(me.z);
+map_vehicles.insert_last(vehicle(sel, vx, vy, vz));
+speak(vehicle_types[sel].name + " spawned.");
+}
+break;
+}
+else if (f.is_pressed(f_cancel))
 {
 break;
 }

@@ -57,9 +57,9 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.458;
-int build_number=12;
-string build_date="2026-03-20";
+double version=0.47;
+int build_number=16;
+string build_date="2026-03-21";
 string name;
 string mate;
 double facing=0;
@@ -1046,7 +1046,7 @@ drawtimer.restart();
 weapons[w]=wname;
 apply_weapon_stats(wname);
 speak(string_replace(wname, "_", " ", true));
-send_reliable(1, "draw  "+wname, 0);
+send_reliable(1, "draw "+wname, 0);
 }
 void use_quickbar_slot(int slot)
 {
@@ -1076,13 +1076,16 @@ void game(int first)
 plane.stop();
 clear_waypoint();
 translocator_cells=0;
-reset_vehicles();
+if (map_vehicles.length() == 0)
+{
 init_vehicle_types();
+spawn_vehicles_on_map();
+}
 give_starting_loadout();
 weapons[w]=quickbar[0];
 apply_weapon_stats(weapons[w]);
 send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);
-send_reliable(1, "draw  "+weapons[w], 0);
+send_reliable(1, "draw "+weapons[w], 0);
 send_reliable(0, "send_comp "+comp, 0);
 send_reliable(0, "send_mate "+mate, 0);
 send_reliable(0, "admin", 0);
@@ -1507,6 +1510,8 @@ cycle_inv(1);
 p.play_stationary("inv"+random(1, 7)+".ogg", false);
 }
 bool qp=key_pressed(KEY_Q);
+if(!in_vehicle)
+{
 if(shift_is_down() and kQ.pressing)
 {
 turntimer.restart();
@@ -1523,6 +1528,7 @@ speak(dir_to_string(getdir(facing)));
 p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 mouse_update();
+}
 }
 bool xp=key_pressed(KEY_X);
 if(shift_is_down() and kX.pressing and turn>0)
@@ -1571,6 +1577,8 @@ speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
 bool ep=key_pressed(KEY_E);
+if(!in_vehicle)
+{
 if(shift_is_down() and kE.pressing)
 {
 turntimer.restart();
@@ -1588,6 +1596,7 @@ p.play_stationary("turn.ogg", false);
 send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
+}
 if(key_pressed(KEY_F))
 {
 string vert_info="";
@@ -1598,7 +1607,7 @@ else if(turn<90) vert_info=", aiming "+turn+" degrees vertical";
 else vert_info=", aiming "+turn+" degrees vertical";
 speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees"+vert_info+".");
 }
-if(MENU_is_down())
+if(MENU_is_down() and !in_vehicle)
 {
 if(key_down(KEY_LEFT))
 {

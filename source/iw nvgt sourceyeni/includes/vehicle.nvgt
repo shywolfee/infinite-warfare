@@ -480,6 +480,7 @@ v.facing = snapright(v.facing, int(getdir(v.facing)));
 facing = v.facing; // sync player facing
 speak(dir_to_string(int(getdir(v.facing))));
 send_reliable(0, "veh_turn " + player_vehicle_index + " " + v.facing, 0);
+send_reliable(0, "turn " + facing, 0);
 }
 
 // Turn vehicle 1 degree (Shift+LEFT/RIGHT in vehicle).
@@ -499,6 +500,7 @@ v.facing = turnright(v.facing, 1);
 facing = v.facing;
 speak(int(v.facing) + " degrees.");
 send_reliable(0, "veh_turn " + player_vehicle_index + " " + v.facing, 0);
+send_reliable(0, "turn " + facing, 0);
 }
 
 // Apply damage to a vehicle. Returns true if destroyed.

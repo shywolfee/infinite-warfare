@@ -1,3 +1,10 @@
+New in 0.47, build 16 (2026-03-21)
+Fixed vehicles not spawning on the map. The lobby map loading did not call spawn_vehicles_on_map, so no vehicles appeared for any player unless spawned via the Developer Suite.
+Fixed player turning (Q/E and mouse) still working while inside a vehicle. Horizontal turning is now blocked in vehicles; only the vehicle's own turning controls (LEFT/RIGHT arrows) change direction.
+Fixed vehicle turning not updating player tracking data. Turning the vehicle now syncs the driver's facing to the server, so tracking info reflects the vehicle's direction instead of the player's old facing.
+Fixed weapon draw sounds not playing correctly for other players. A double space in the draw network command caused the server to play the wrong sound file.
+Fixed menu click and edge sounds not playing. Removed a persistent=false parameter and unnecessary file_exists checks from the dynamic menu sound playback that prevented sounds from being heard.
+
 New in 0.461, build 15 (2026-03-20)
 Added Spawn Vehicle option to the Developer Suite (Shift+D). Lists all 8 vehicle types; selecting one spawns it 2 tiles in front of you.
 

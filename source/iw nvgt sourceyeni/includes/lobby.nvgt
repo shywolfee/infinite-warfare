@@ -80,6 +80,7 @@ string[] parsed=string_split(msg, " ", false);
 if(parsed[0]=="mapdata")
 {
 load_map(string_replace(msg, "mapdata ", "", false));
+spawn_vehicles_on_map();
 got_map=true;
 }
 else if(parsed[0]=="x")

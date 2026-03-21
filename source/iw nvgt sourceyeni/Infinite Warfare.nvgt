@@ -58,7 +58,7 @@ timer pingtimer;
 bool x=false;
 bool connected;
 double version=0.47;
-int build_number=16;
+int build_number=17;
 string build_date="2026-03-21";
 string name;
 string mate;
@@ -2318,8 +2318,8 @@ mr.y=round(me.y,0);
 movetime=walktime;
 // Adrenaline Rush halves movement time.
 if (has_effect("Adrenaline Rush")) movetime = walktime / 2;
-// Stamina affects movement speed when low.
-if (stamina < 20) movetime = movetime + 100;
+// Stamina affects movement speed gradually when low.
+if (stamina < 40) movetime = movetime + (40 - stamina) * 3;
 fallloop();
 fallcheck();
 fallingloop();

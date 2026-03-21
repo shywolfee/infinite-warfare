@@ -1,3 +1,8 @@
+New in 0.47, build 17 (2026-03-21)
+Fixed stamina draining too fast when walking with heavy weapons. Reduced heavy movement stamina drain from 2 to 1 per step.
+Fixed stamina regeneration being too slow to notice. Increased natural regen from 3 to 5 stamina every 5 seconds.
+Fixed movement speed penalty being a sudden cliff. The old system added a flat 100ms penalty below 20 stamina; the new system gradually scales the penalty as stamina drops below 40, so the slowdown feels smooth instead of abrupt.
+
 New in 0.47, build 16 (2026-03-21)
 Fixed vehicles not spawning on the map. The lobby map loading did not call spawn_vehicles_on_map, so no vehicles appeared for any player unless spawned via the Developer Suite.
 Fixed player turning (Q/E and mouse) still working while inside a vehicle. Horizontal turning is now blocked in vehicles; only the vehicle's own turning controls (LEFT/RIGHT arrows) change direction.

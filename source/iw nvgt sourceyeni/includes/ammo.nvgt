@@ -157,7 +157,7 @@ degrade_stamina(8);
 void stamina_on_heavy_move(int walktime_val)
 {
 if (walktime_val >= 300)
-degrade_stamina(2);
+degrade_stamina(1);
 }
 
 void stamina_loop()
@@ -165,7 +165,7 @@ void stamina_loop()
 if (stamina_regen_timer.elapsed >= 5000 and stamina < max_stamina)
 {
 stamina_regen_timer.restart();
-restore_stamina(3);
+restore_stamina(5);
 }
 }
 

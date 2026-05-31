@@ -180,14 +180,14 @@ return;
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Players
-// Requests the live in-game player list from the server.
+// Fetch structured player data from the server.
+// Returns an array of "name - status" strings parsed from lobby_plist.
 // ---------------------------------------------------------------------------
-void players_tab()
+string[] fetch_player_list()
 {
-speak("Fetching player list, please wait.");
-send_reliable(0, "lobby_players", 0);
-string info="";
+string[] result;
+send_reliable(0, "lobby_playerlist", 0);
+string data="";
 timer pt;
 while (pt.elapsed<3000)
 {
@@ -204,25 +204,53 @@ p.destroy_all();
 sources.resize(0);
 can_move=true;
 mainmenu();
-return;
+return result;
 }
 if (e.type==event_receive)
 {
 string msg=get_event_message();
-if (string_contains(msg, "lobby_info ", 1)==0)
+if (string_contains(msg, "lobby_plist ", 1)==0)
 {
-info=string_replace(msg, "lobby_info ", "", false);
+data=string_replace(msg, "lobby_plist ", "", false);
 break;
 }
 }
 }
-if (info=="")
-info="Could not retrieve the player list. The server may not have responded.";
+if (data=="")
+return result;
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<3) continue;
+string label=parts[0];
+if(string_contains(parts[1], "d", 1)>-1)
+label+=" (dev)";
+if(string_contains(parts[1], "a", 1)>-1)
+label+=" (admin)";
+label+=" - "+parts[2];
+result.insert_last(label);
+}
+return result;
+}
+// ---------------------------------------------------------------------------
+// Display a player list in a standard audio-form list.
+// Used by Players tab and F1 player list for consistency.
+// ---------------------------------------------------------------------------
+void show_player_list_form(string title, string[] players)
+{
 audio_form f;
-f.create_window("Players", false, true);
-f.create_input_box("Player list", info, "", 0, false, true, false);
+f.create_window(title, false, true);
+int f_list=f.create_list("Players", 0, false);
+if (players.length()==0)
+f.add_list_item(f_list, "No players are currently online.");
+else
+{
+for(uint i=0; i<players.length(); i++)
+f.add_list_item(f_list, players[i]);
+}
 int f_close=f.create_button("&Close", true, true);
-f.focus(0);
+f.focus(f_list);
 while(true)
 {
 wait(5);
@@ -231,6 +259,16 @@ lobby_form_netcheck();
 if (f.is_pressed(f_close))
 return;
 }
+}
+// ---------------------------------------------------------------------------
+// Tab: Players
+// Requests the structured player list from the server.
+// ---------------------------------------------------------------------------
+void players_tab()
+{
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Players", plist);
 }
 
 // ---------------------------------------------------------------------------
@@ -258,81 +296,13 @@ return;
 
 // ---------------------------------------------------------------------------
 // F1 Player List
-// Requests structured player data from the server and displays it in a form
-// showing each player's name, dev/admin status, and current location.
+// Uses the shared fetch and display functions for consistency.
 // ---------------------------------------------------------------------------
 void lobby_player_list()
 {
 speak("Fetching player list, please wait.");
-send_reliable(0, "lobby_playerlist", 0);
-string data="";
-timer pt;
-while (pt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if (e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-connected=false;
-prevconnected=false;
-pinging=false;
-distpool.destroy_all();
-p.destroy_all();
-sources.resize(0);
-can_move=true;
-mainmenu();
-return;
-}
-if (e.type==event_receive)
-{
-string msg=get_event_message();
-if (string_contains(msg, "lobby_plist ", 1)==0)
-{
-data=string_replace(msg, "lobby_plist ", "", false);
-break;
-}
-}
-}
-audio_form f;
-f.create_window("Players Online", false, true);
-if (data=="")
-{
-f.create_input_box("Info", "No players are currently online.", "", 0, false, true, false);
-}
-else
-{
-string[] entries=string_split(data, ",", false);
-int count=0;
-for(uint i=0; i<entries.length(); i++)
-{
-string[] parts=string_split(entries[i], "|", false);
-if(parts.length()<3) continue;
-string pname=parts[0];
-string flags=parts[1];
-string status=parts[2];
-string label=pname;
-if(string_contains(flags, "d", 1)>-1)
-label+=" (dev)";
-if(string_contains(flags, "a", 1)>-1)
-label+=" (admin)";
-label+=" - "+status;
-f.create_input_box("Player "+(count+1), label, "", 0, false, true, false);
-count++;
-}
-if(count==0)
-f.create_input_box("Info", "No players are currently online.", "", 0, false, true, false);
-}
-int f_close=f.create_button("&Close", true, true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-lobby_form_netcheck();
-if (f.is_pressed(f_close))
-return;
-}
+string[] plist=fetch_player_list();
+show_player_list_form("Players Online", plist);
 }
 
 // ---------------------------------------------------------------------------

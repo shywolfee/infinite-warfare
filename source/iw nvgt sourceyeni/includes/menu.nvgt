@@ -166,17 +166,10 @@ break;
 mainmenu();
 }
 // ---------------------------------------------------------------------------
-// Changelog viewer — audio_form with read-only text field and close button.
+// Changelog viewer — standard audio form with read-only text field.
 // ---------------------------------------------------------------------------
-void changelogmenu()
+void show_changelog_form_text(string cl)
 {
-file cf;
-string cl="Changelog not found.";
-if (cf.open("changelog.txt","rb"))
-{
-cl=cf.read();
-cf.close();
-}
 audio_form f;
 f.create_window("Changelog", false, true);
 f.create_input_box("Changes", cl, "", 0, false, true, false);
@@ -189,6 +182,21 @@ f.monitor();
 if (f.is_pressed(f_close))
 break;
 }
+}
+void show_changelog_form()
+{
+file cf;
+string cl="Changelog not found.";
+if (cf.open("changelog.txt","rb"))
+{
+cl=cf.read();
+cf.close();
+}
+show_changelog_form_text(cl);
+}
+void changelogmenu()
+{
+show_changelog_form();
 mainmenu();
 }
 // ---------------------------------------------------------------------------
@@ -589,14 +597,7 @@ return;
 }
 else if (f.is_pressed(f_changes))
 {
-file cf;
-string cl="Changelog not found.";
-if (cf.open("changelog.txt","rb"))
-{
-cl=cf.read();
-cf.close();
-}
-dlg(cl);
+show_changelog_form();
 }
 else if (f.is_pressed(f_rules))
 {
@@ -734,18 +735,25 @@ m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
 // ---------------------------------------------------------------------------
-// Options menu — game settings (duo mate, right control, camera speed, volume).
-// Account-related options have been moved to the Account menu.
+// Options menu — tabbed layout: Gameplay, Controls, Audio.
+// Account-related options are in the Account Management menu.
 // ---------------------------------------------------------------------------
 void optionsmenu()
 {
 audio_form f;
 f.create_window("Options", false, true);
+int tab=f.create_tab_panel("Options categories");
+f.add_tab(tab, "Gameplay");
+f.add_tab(tab, "Controls");
+f.add_tab(tab, "Audio");
 int f_mate=f.create_input_box("Duo mate", mate, "", 0, false, false, false);
 int f_setmate=f.create_button("Set &duo mate");
+f.set_tab(tab, "Controls");
 int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
 int f_camspeed=f.create_input_box("Camera speed (1 to 200, default 50)", ""+cameraspeed, "", 0, false, false, false);
+f.set_tab(tab, "Audio");
 int f_vol=f.create_input_box("Master volume (-60 to 0, default 0)", ""+mastervol, "", 0, false, false, false);
+f.set_tab(tab, "");
 int f_save=f.create_button("&Save and go back", true);
 int f_cancel=f.create_button("Cancel", false, true);
 f.focus(f_mate);

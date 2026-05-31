@@ -57,9 +57,9 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.47;
-int build_number=17;
-string build_date="2026-03-21";
+double version=0.48;
+int build_number=18;
+string build_date="2026-05-31";
 string name;
 string mate;
 double facing=0;
@@ -2187,7 +2187,14 @@ sph_timer.restart();
 }
 if (e.channel==2)
 {
-add_buffer_item("misc",get_event_message());
+string ch2msg=get_event_message();
+if (string_contains(ch2msg, "this are the new changes :", 1)==0)
+{
+string changes_text=string_replace(ch2msg, "this are the new changes :", "", false);
+show_changelog_form_text(changes_text);
+}
+else
+add_buffer_item("misc",ch2msg);
 }
 }
 }
@@ -2418,109 +2425,45 @@ return;
 }
 void playertrackmenu(string[] players)
 {
-get_characters();
-string cl;
-speak("Tracking list, Please select a player with the up and down arrow keys, and press enter to track the selected player.");
-int counter=0;
+audio_form f;
+f.create_window("Tracking", false, true);
+int f_list=f.create_list("Select a player to track", 0, false);
+f.add_list_item(f_list, "Stop tracking");
+for(uint i=1; i<players.length(); i++)
+f.add_list_item(f_list, players[i]);
+int f_track=f.create_button("&Track", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_list);
 while(true)
 {
-cl=get_characters();
 wait(5);
+f.monitor();
 netloop();
 fallloop();
-if(counter > players.length())
+if (f.is_pressed(f_track))
 {
-counter=players.length()-1;
-}
-if(cl!="" and cl.length()==1)
-{
-int f=0;
-int oc=counter;
-for(uint i=counter; i<players.length(); i++)
-{
-if(i==counter)
-{
-continue;
-}
-if(players[i][0]==cl)
-{
-counter=i;
-speak(players[counter]);
-cl="";
-f=1;
-break;
-}
-}
-if(f==0)
-{
-counter=0;
-for(uint i=counter; i<players.length(); i++)
-{
-if(players[i][0]==cl)
-{
-counter=i;
-speak(players[counter]);
-cl="";
-f=1;
-break;
-}
-}
-}
-if(f==0)
-{
-speak("No player could be found.");
-}
-}
-if(key_pressed(KEY_UP))
-{
-if(players.length()==1)
-{
-speak(players[0]);
-counter=0;
-}
-else if(counter > 0)
-{
-counter--;
-speak(players[counter]);
-}
-}
-if(key_pressed(KEY_DOWN))
-{
-if(players.length()==1)
-{
-speak(players[0]);
-counter=0;
-}
-else if(counter < players.length()-1)
-{
-counter++;
-speak(players[counter]);
-}
-}
-if(key_pressed(KEY_RETURN) and counter <= players.length()-1)
-{
-if(counter>0)
-{
-p.play_stationary("trackingnew"+".ogg", false);
-speak("You are now tracking "+players[counter]);
-tracking=players[counter];
-return;
-}
-else
+int sel=f.get_current_index(f_list);
+if(sel==0)
 {
 speak("stopped tracking");
 tracking="";
 return;
 }
+else if(sel>0 and sel<int(players.length()))
+{
+p.play_stationary("trackingnew.ogg", false);
+speak("You are now tracking "+players[sel]);
+tracking=players[sel];
+return;
 }
-if(key_pressed(KEY_ESCAPE))
+}
+if (f.is_pressed(f_cancel))
 {
 speak("canceled");
 tracking="";
 return;
 }
 }
-return;
 }
 void planeloop()
 {

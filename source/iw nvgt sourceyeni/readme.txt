@@ -1,5 +1,5 @@
 Infinite Warfare
-Version: 0.1
+Version: 0.48
 created by: Firegaming
 Readme written by: Jesse Janssen
 Coded by: Max Vrenken

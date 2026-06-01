@@ -151,6 +151,37 @@ return;
 // ---------------------------------------------------------------------------
 void account_tab()
 {
+speak("Loading account info, please wait.");
+send_reliable(0, "lobby_credits", 0);
+string credits_str="0";
+timer ct;
+while(ct.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+mainmenu();
+return;
+}
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "lobby_credits ", 1)==0)
+{
+credits_str=string_replace(msg, "lobby_credits ", "", false);
+break;
+}
+}
+}
 audio_form f;
 f.create_window("Account Info", false, true);
 f.create_input_box("Username", name, "", 0, false, true, false);
@@ -166,6 +197,7 @@ status="registered account";
 if (em!="")
 f.create_input_box("Email", em, "", 0, false, true, false);
 f.create_input_box("Status", status, "", 0, false, true, false);
+f.create_input_box("Credits", credits_str, "", 0, false, true, false);
 f.create_input_box("Duo mate", (mate!="" ? mate : "not set"), "", 0, false, true, false);
 int f_close=f.create_button("&Close", true, true);
 f.focus(0);

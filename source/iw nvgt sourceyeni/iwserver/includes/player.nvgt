@@ -61,7 +61,12 @@ bool ultra_health_potion=false;
 timer ultra_health_potiontimer;
 bool kills2=false;
 bool kills1=false;
+bool kills3=false;
 int kills=0;
+int credits=0;
+int bunkers_owned=0;
+bool has_hypercomp=false;
+bool bunker_monitor=false;
 string mate="";
 timer torpedotimer;
 timer fraggrenadetimer;
@@ -115,9 +120,19 @@ send_reliable(players[i].peer_id, "give frag_grenade 5", 0);
 if(players[i].kills==5 and players[i].kills2==false)
 {
 players[i].kills2=true;
-send_reliable(players[i].peer_id, "You've reached 5 kills! You receive an ultra health potion.", 2);
+players[i].credits+=40;
+send_reliable(players[i].peer_id, "You've reached 5 kills! You receive an ultra health potion and 40 bonus credits! Total credits: "+players[i].credits, 2);
 send_reliable(players[i].peer_id, "give ultra_health_potion 1", 0);
 send_reliable(players[i].peer_id, "play_s killachievement.ogg", 0);
+save_player_credits(players[i].name, players[i].credits);
+}
+if(players[i].kills==10 and players[i].kills3==false)
+{
+players[i].kills3=true;
+players[i].credits+=75;
+send_reliable(players[i].peer_id, "You've reached 10 kills! 75 bonus credits! Total credits: "+players[i].credits, 2);
+send_reliable(players[i].peer_id, "play_s killachievement.ogg", 0);
+save_player_credits(players[i].name, players[i].credits);
 }
 if(players[i].sendtriptimer.elapsed>1500)
 {
@@ -214,6 +229,10 @@ int p=get_player_index_from(killer);
 if(p>-1)
 {
 players[p].kills+=1;
+int kill_credits=random(10,20);
+players[p].credits+=kill_credits;
+send_reliable(players[p].peer_id, "+" + kill_credits + " credits for the kill! Total: " + players[p].credits, 2);
+save_player_credits(players[p].name, players[p].credits);
 }
 }
 
@@ -236,9 +255,27 @@ players[i].death=true;
 }
 }
 }
+void save_player_credits(string pname, int amount)
+{
+string path="accounts/"+string_to_lower_case(pname)+".dat";
+if(!file_exists(path)) return;
+savedata acct(path, ACCOUNT_SECRET);
+acct.load();
+acct.add("credits", double(amount));
+acct.save();
+}
+int load_player_credits(string pname)
+{
+string path="accounts/"+string_to_lower_case(pname)+".dat";
+if(!file_exists(path)) return 0;
+savedata acct(path, ACCOUNT_SECRET);
+acct.load();
+return int(acct.readn("credits"));
+}
 void spawn_player(int x, int y, int z, string map, string name,int pi)
 {
 player p1(x,y,z,map,name,pi);
+p1.credits=load_player_credits(name);
 players.insert_last(p1);
 send_reliable(0, "online "+x+" "+y+" "+z+" "+name+" "+map, 0);
 }

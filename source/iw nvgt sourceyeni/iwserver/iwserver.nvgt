@@ -70,6 +70,7 @@ spawn_bunker(35,250,-5,"main","","bunker A");
 spawn_bunker(305,250,-5,"main","","bunker B");
 spawn_bunker(300,10,-5,"main","","bunker C");
 spawn_bunker(300,490,-5,"main","","bunker D");
+init_bunker_alarms();
 spawn_ballista(45,250,0,"main");
 spawn_ballista(295,250,0,"main");
 spawn_ballista(300,20,0,"main");
@@ -97,6 +98,8 @@ exit();
 void netloop()
 {
 bunkerloop();
+bunker_alarm_loop();
+bunker_monitor_loop();
 floodloop();
 planebombloop();
 ladderloop();
@@ -1382,7 +1385,7 @@ send_reliable(players[index].peer_id, "you have to stand in water to let this wu
 }
 for(int i=0; i<bunkers.length(); i++)
 {
-if(parsed[1]=="bunker_key") 
+if(parsed[1]=="bunker_key")
 {
 if(players[index].x==bunkers[i].x and players[index].y==bunkers[i].y and players[index].z==bunkers[i].z and players[index].name!=bunkers[i].owner)
 {
@@ -1390,6 +1393,19 @@ send_reliable(players[index].peer_id, "give bunker_key -1", 0);
 bunkers[i].owner=players[index].name;
 send_reliable(0, "play_s notify.ogg", 0);
 send_reliable(0, bunkers[i].name+", has been captured by, "+players[index].name, 2);
+int owned=0;
+for(uint b=0; b<bunkers.length(); b++)
+{
+if(bunkers[b].owner==players[index].name) owned++;
+}
+players[index].bunkers_owned=owned;
+if(owned>=2 and !players[index].has_hypercomp)
+{
+players[index].has_hypercomp=true;
+send_reliable(players[index].peer_id, "give hypercomp 1", 0);
+send_reliable(players[index].peer_id, "play_s killachievement.ogg", 0);
+send_reliable(players[index].peer_id, "You've claimed your second bunker! You receive the HyperComp, a structure management device. Use it from your inventory.", 2);
+}
 }
 }
 }
@@ -1581,6 +1597,106 @@ s+=calculate_x_y_string(calculate_x_y_angle(players[index].x, players[index].y, 
 if (s=="")
 s="Nothing near you";
 send_reliable(players[index].peer_id, s, 2);
+}
+}
+else if(parsed[0]=="lobby_credits")
+{
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1)
+{
+string cpath="accounts/"+string_to_lower_case(lobby_clients[li].name)+".dat";
+int creds=0;
+if(file_exists(cpath))
+{
+savedata acct(cpath, ACCOUNT_SECRET);
+acct.load();
+creds=int(acct.readn("credits"));
+}
+send_reliable(e.peer_id, "lobby_credits "+creds, 0);
+}
+}
+else if(parsed[0]=="use_c4")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+spawn_c4(players[index].x,players[index].y,players[index].z,players[index].map,players[index].name);
+send_reliable(players[index].peer_id, "give c4 -1", 0);
+play("semtexplace",players[index].x,players[index].y,players[index].z,players[index].map);
+send_reliable(players[index].peer_id, "C4 placed. "+count_player_c4(players[index].name)+" charges active.", 2);
+}
+}
+else if(parsed[0]=="hypercomp" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].has_hypercomp)
+{
+if(parsed[1]=="bunker_status")
+{
+string s="";
+for(uint b=0; b<bunkers.length(); b++)
+{
+if(bunkers[b].owner==players[index].name)
+{
+s+=bunkers[b].name+": ";
+bool found_player=false;
+for(uint p=0; p<players.length(); p++)
+{
+if(p==uint(index)) continue;
+if(players[p].map==bunkers[b].map and players[p].death==false and get_3d_distance(players[p].x,players[p].y,players[p].z,bunkers[b].x,bunkers[b].y,bunkers[b].z)<=30)
+{
+int dist=get_2d_distance(players[index].x,players[index].y,players[p].x,players[p].y);
+s+=players[p].name+" ("+dist+" meters from you), ";
+found_player=true;
+}
+}
+if(!found_player) s+="no intruders detected. ";
+else s=string_replace(s, ", "+bunkers[b].name, ". "+bunkers[b].name, false);
+}
+}
+if(s=="") s="You don't own any bunkers.";
+send_reliable(players[index].peer_id, s, 2);
+}
+else if(parsed[1]=="c4_count")
+{
+int c=count_player_c4(players[index].name);
+send_reliable(players[index].peer_id, "hypercomp_c4 "+c, 0);
+}
+else if(parsed[1]=="detonate_c4" and parsed.length()>2)
+{
+int count=string_to_number(parsed[2]);
+int available=count_player_c4(players[index].name);
+if(count<1) count=1;
+if(count>available) count=available;
+if(available>0)
+{
+detonate_c4(players[index].name, count);
+send_reliable(players[index].peer_id, count+" C4 charges detonated.", 2);
+}
+else
+send_reliable(players[index].peer_id, "No C4 charges placed.", 2);
+}
+else if(parsed[1]=="toggle_monitor")
+{
+players[index].bunker_monitor=!players[index].bunker_monitor;
+if(players[index].bunker_monitor)
+send_reliable(players[index].peer_id, "Bunker monitor mode activated. You will be alerted when players enter your bunkers.", 2);
+else
+send_reliable(players[index].peer_id, "Bunker monitor mode deactivated.", 2);
+}
+else if(parsed[1]=="toggle_alarm" and parsed.length()>2)
+{
+int bi=string_to_number(parsed[2]);
+if(bi>=0 and bi<int(bunkers.length()) and bunkers[bi].owner==players[index].name)
+{
+bunker_alarm_active[bi]=!bunker_alarm_active[bi];
+bunker_alarm_timers[bi].restart();
+if(bunker_alarm_active[bi])
+send_reliable(players[index].peer_id, "Alarm activated in "+bunkers[bi].name+".", 2);
+else
+send_reliable(players[index].peer_id, "Alarm deactivated in "+bunkers[bi].name+".", 2);
+}
+}
 }
 }
 else if(parsed[0]=="turn2" and parsed.length()>1)

@@ -396,3 +396,99 @@ void spawn_planebomb(int x,int y, int z, string map,string owner)
 planebomb bomb1(x,y,z,map,owner);
 planebombs.insert_last(bomb1);
 }
+c4charge@[] c4charges(0);
+class c4charge
+{
+int x;
+int y;
+int z;
+string map;
+string owner;
+c4charge(int cx,int cy,int cz,string cmap,string cowner)
+{
+x=cx;
+y=cy;
+z=cz;
+map=cmap;
+owner=cowner;
+}
+}
+void spawn_c4(int x, int y, int z, string map, string owner)
+{
+c4charge c(x,y,z,map,owner);
+c4charges.insert_last(c);
+}
+int count_player_c4(string owner)
+{
+int count=0;
+for(uint i=0; i<c4charges.length(); i++)
+{
+if(c4charges[i].owner==owner) count++;
+}
+return count;
+}
+void detonate_c4(string owner, int count)
+{
+int detonated=0;
+for(int i=int(c4charges.length())-1; i>=0; i--)
+{
+if(detonated>=count) break;
+if(c4charges[i].owner!=owner) continue;
+play("semtexexplode",c4charges[i].x,c4charges[i].y,c4charges[i].z,c4charges[i].map);
+send_reliable(0,"distsound semtexdist.ogg "+c4charges[i].x+" "+c4charges[i].y+" "+c4charges[i].z+" "+c4charges[i].map,0);
+for(uint p=0; p<players.length(); p++)
+{
+if(get_3d_distance(c4charges[i].x,c4charges[i].y,c4charges[i].z,players[p].x,players[p].y,players[p].z)<=25 and players[p].map==c4charges[i].map and players[p].death==false and players[p].in_plane==false)
+{
+players[p].hitby=c4charges[i].owner+"'s C4";
+players[p].health-=random(6000,9000);
+play("semtexhit",players[p].x,players[p].y,players[p].z,players[p].map);
+int ki=get_player_index_from(c4charges[i].owner);
+if(ki>-1) send_reliable(players[ki].peer_id, "play_s weaponping.ogg", 0);
+}
+}
+c4charges.remove_at(i);
+detonated++;
+}
+}
+bool[] bunker_alarm_active;
+timer[] bunker_alarm_timers;
+void init_bunker_alarms()
+{
+bunker_alarm_active.resize(bunkers.length());
+bunker_alarm_timers.resize(bunkers.length());
+for(uint i=0; i<bunkers.length(); i++)
+bunker_alarm_active[i]=false;
+}
+void bunker_alarm_loop()
+{
+for(uint i=0; i<bunkers.length(); i++)
+{
+if(bunker_alarm_active[i] and bunker_alarm_timers[i].elapsed>=2000)
+{
+bunker_alarm_timers[i].restart();
+play("bunkerbombwarn",bunkers[i].x,bunkers[i].y,bunkers[i].z,bunkers[i].map);
+}
+}
+}
+timer bunker_monitor_timer;
+void bunker_monitor_loop()
+{
+if(bunker_monitor_timer.elapsed<3000) return;
+bunker_monitor_timer.restart();
+for(uint i=0; i<bunkers.length(); i++)
+{
+if(bunkers[i].owner=="") continue;
+int owner_idx=get_player_index_from(bunkers[i].owner);
+if(owner_idx<0 or !players[owner_idx].bunker_monitor) continue;
+for(uint p=0; p<players.length(); p++)
+{
+if(players[p].name==bunkers[i].owner or players[p].death) continue;
+if(players[p].map==bunkers[i].map and get_3d_distance(players[p].x,players[p].y,players[p].z,bunkers[i].x,bunkers[i].y,bunkers[i].z)<=20)
+{
+send_reliable(players[owner_idx].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[owner_idx].peer_id, "HyperComp alert: "+players[p].name+" detected near "+bunkers[i].name+"!", 2);
+}
+}
+}
+}

@@ -1638,7 +1638,7 @@ for(uint b=0; b<bunkers.length(); b++)
 {
 if(bunkers[b].owner==players[index].name)
 {
-s+=bunkers[b].name+": ";
+s+=bunkers[b].name+" at "+bunkers[b].x+", "+bunkers[b].y+", "+bunkers[b].z+": ";
 bool found_player=false;
 for(uint p=0; p<players.length(); p++)
 {
@@ -1676,13 +1676,37 @@ send_reliable(players[index].peer_id, count+" C4 charges detonated.", 2);
 else
 send_reliable(players[index].peer_id, "No C4 charges placed.", 2);
 }
-else if(parsed[1]=="toggle_monitor")
+else if(parsed[1]=="query_bunkers")
 {
-players[index].bunker_monitor=!players[index].bunker_monitor;
-if(players[index].bunker_monitor)
-send_reliable(players[index].peer_id, "Bunker monitor mode activated. You will be alerted when players enter your bunkers.", 2);
+init_player_bunker_arrays(index);
+string s="hypercomp_bunkers ";
+bool first=true;
+for(uint b=0; b<bunkers.length(); b++)
+{
+if(bunkers[b].owner==players[index].name)
+{
+if(!first) s+=",";
+string mon_str=(players[index].bunker_monitor[b] ? "1" : "0");
+string alm_str=(bunker_alarm_active[b] ? "1" : "0");
+s+=""+b+"|"+bunkers[b].name+"|"+bunkers[b].x+"|"+bunkers[b].y+"|"+bunkers[b].z+"|"+mon_str+"|"+alm_str;
+first=false;
+}
+}
+if(first) s+="none";
+send_reliable(players[index].peer_id, s, 0);
+}
+else if(parsed[1]=="toggle_monitor" and parsed.length()>2)
+{
+init_player_bunker_arrays(index);
+int bi=string_to_number(parsed[2]);
+if(bi>=0 and bi<int(bunkers.length()) and bunkers[bi].owner==players[index].name)
+{
+players[index].bunker_monitor[bi]=!players[index].bunker_monitor[bi];
+if(players[index].bunker_monitor[bi])
+send_reliable(players[index].peer_id, "Monitor activated for "+bunkers[bi].name+".", 2);
 else
-send_reliable(players[index].peer_id, "Bunker monitor mode deactivated.", 2);
+send_reliable(players[index].peer_id, "Monitor deactivated for "+bunkers[bi].name+".", 2);
+}
 }
 else if(parsed[1]=="toggle_alarm" and parsed.length()>2)
 {

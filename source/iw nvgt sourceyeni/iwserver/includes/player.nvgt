@@ -66,7 +66,7 @@ int kills=0;
 int credits=0;
 int bunkers_owned=0;
 bool has_hypercomp=false;
-bool bunker_monitor=false;
+bool[] bunker_monitor;
 string mate="";
 timer torpedotimer;
 timer fraggrenadetimer;
@@ -226,7 +226,7 @@ killer=players[e].name;
 }
 }
 int p=get_player_index_from(killer);
-if(p>-1)
+if(p>-1 and p!=int(i))
 {
 players[p].kills+=1;
 int kill_credits=random(10,20);

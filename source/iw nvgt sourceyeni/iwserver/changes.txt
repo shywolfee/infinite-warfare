@@ -2,9 +2,13 @@
 Added credits currency. Saved to player accounts. Awarded on kills and at milestones (5 kills, 10 kills).
 Added lobby_credits command for clients to query their balance.
 Added C4 explosive system with remote detonation via HyperComp.
-Added HyperComp commands: bunker_status, c4_count, detonate_c4, toggle_monitor, toggle_alarm.
+Added HyperComp commands: bunker_status, c4_count, detonate_c4, toggle_monitor, toggle_alarm, query_bunkers.
 Added bunker alarm system. Added bunker monitor loop for intruder detection alerts.
 HyperComp auto-awarded when a player captures their second bunker.
+Bunker status now includes coordinates for each claimed bunker.
+Monitor mode and alarms are now per-bunker with toggle_monitor and toggle_alarm accepting a bunker index.
+Added query_bunkers command returning structured per-bunker data (index, name, coordinates, monitor/alarm status).
+Fixed self-kill credit exploit: players no longer earn credits or kill count from dying to their own explosives.
 
 0.48
 The /changes command response is now displayed in a standard audio form on the client instead of raw spoken text.

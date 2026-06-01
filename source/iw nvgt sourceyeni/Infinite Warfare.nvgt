@@ -58,7 +58,7 @@ timer pingtimer;
 bool x=false;
 bool connected;
 double version=0.491;
-int build_number=20;
+int build_number=21;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -689,6 +689,29 @@ hypercomp_menu();
 return;
 }
 }
+string[] hypercomp_fetch_bunkers()
+{
+string[] result;
+send_reliable(0, "hypercomp query_bunkers", 0);
+timer ct;
+while(ct.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "hypercomp_bunkers ", 1)==0)
+{
+string data=string_replace(msg, "hypercomp_bunkers ", "", false);
+if(data!="none")
+result=string_split(data, ",", false);
+break;
+}
+}
+}
+return result;
+}
 void hypercomp_menu()
 {
 audio_form f;
@@ -710,7 +733,7 @@ send_reliable(0, "hypercomp bunker_status", 0);
 }
 else if(f.is_pressed(f_monitor))
 {
-send_reliable(0, "hypercomp toggle_monitor", 0);
+hypercomp_monitor_menu();
 }
 else if(f.is_pressed(f_c4))
 {
@@ -796,16 +819,71 @@ if(f.is_pressed(f_close))
 return;
 }
 }
+void hypercomp_monitor_menu()
+{
+speak("Fetching bunker data, please wait.");
+string[] bdata=hypercomp_fetch_bunkers();
+if(bdata.length()==0)
+{
+speak("You don't own any bunkers.");
+return;
+}
+audio_form f;
+f.create_window("Bunker Monitor", false, true);
+int f_list=f.create_list("Select a bunker to toggle monitor mode", 0, false);
+string[] bunker_ids;
+for(uint i=0; i<bdata.length(); i++)
+{
+string[] parts=string_split(bdata[i], "|", false);
+if(parts.length()<7) continue;
+string bname=parts[1];
+string mon_status=(parts[5]=="1" ? "ON" : "OFF");
+f.add_list_item(f_list, bname+" at "+parts[2]+", "+parts[3]+", "+parts[4]+" - Monitor: "+mon_status);
+bunker_ids.insert_last(parts[0]);
+}
+int f_toggle=f.create_button("&Toggle monitor");
+int f_close=f.create_button("&Close", true, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_toggle))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(bunker_ids.length()))
+{
+send_reliable(0, "hypercomp toggle_monitor "+bunker_ids[sel], 0);
+return;
+}
+}
+if(f.is_pressed(f_close))
+return;
+}
+}
 void hypercomp_alarm_menu()
 {
-send_reliable(0, "hypercomp bunker_status", 0);
+speak("Fetching bunker data, please wait.");
+string[] bdata=hypercomp_fetch_bunkers();
+if(bdata.length()==0)
+{
+speak("You don't own any bunkers.");
+return;
+}
 audio_form f;
 f.create_window("Bunker Alarm", false, true);
 int f_list=f.create_list("Select a bunker to toggle its alarm", 0, false);
-f.add_list_item(f_list, "Bunker A (index 0)");
-f.add_list_item(f_list, "Bunker B (index 1)");
-f.add_list_item(f_list, "Bunker C (index 2)");
-f.add_list_item(f_list, "Bunker D (index 3)");
+string[] bunker_ids;
+for(uint i=0; i<bdata.length(); i++)
+{
+string[] parts=string_split(bdata[i], "|", false);
+if(parts.length()<7) continue;
+string bname=parts[1];
+string alm_status=(parts[6]=="1" ? "ON" : "OFF");
+f.add_list_item(f_list, bname+" at "+parts[2]+", "+parts[3]+", "+parts[4]+" - Alarm: "+alm_status);
+bunker_ids.insert_last(parts[0]);
+}
 int f_toggle=f.create_button("&Toggle alarm");
 int f_close=f.create_button("&Close", true, true);
 f.focus(f_list);
@@ -817,8 +895,11 @@ if(connected==true) netloop();
 if(f.is_pressed(f_toggle))
 {
 int sel=f.get_list_position(f_list);
-if(sel>=0 and sel<4)
-send_reliable(0, "hypercomp toggle_alarm "+sel, 0);
+if(sel>=0 and sel<int(bunker_ids.length()))
+{
+send_reliable(0, "hypercomp toggle_alarm "+bunker_ids[sel], 0);
+return;
+}
 }
 if(f.is_pressed(f_close))
 return;

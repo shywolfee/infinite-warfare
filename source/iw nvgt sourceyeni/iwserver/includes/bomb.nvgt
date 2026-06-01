@@ -480,7 +480,9 @@ for(uint i=0; i<bunkers.length(); i++)
 {
 if(bunkers[i].owner=="") continue;
 int owner_idx=get_player_index_from(bunkers[i].owner);
-if(owner_idx<0 or !players[owner_idx].bunker_monitor) continue;
+if(owner_idx<0) continue;
+if(players[owner_idx].bunker_monitor.length()<=i) continue;
+if(!players[owner_idx].bunker_monitor[i]) continue;
 for(uint p=0; p<players.length(); p++)
 {
 if(players[p].name==bunkers[i].owner or players[p].death) continue;
@@ -490,5 +492,14 @@ send_reliable(players[owner_idx].peer_id, "play_s notify.ogg", 0);
 send_reliable(players[owner_idx].peer_id, "HyperComp alert: "+players[p].name+" detected near "+bunkers[i].name+"!", 2);
 }
 }
+}
+}
+void init_player_bunker_arrays(int player_idx)
+{
+if(players[player_idx].bunker_monitor.length()<bunkers.length())
+{
+players[player_idx].bunker_monitor.resize(bunkers.length());
+for(uint i=0; i<bunkers.length(); i++)
+players[player_idx].bunker_monitor[i]=false;
 }
 }

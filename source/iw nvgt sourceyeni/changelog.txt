@@ -1,3 +1,6 @@
+New in 0.4.9.6.3.2, build 31 (2026-06-01)
+Fixed WPN file parser corrupting all weapon values. The string_mid function in NVGT is 1-indexed but the parser treated it as 0-indexed, causing every parsed value to include a leading equals sign and lose its last character. Replaced with string_replace for reliable key=value extraction on both client and server.
+
 New in 0.4.9.6.3.1, build 30 (2026-06-01)
 Fixed compile error in server weapon loader caused by passing a boolean to string_contains instead of an integer for the case sensitivity parameter.
 

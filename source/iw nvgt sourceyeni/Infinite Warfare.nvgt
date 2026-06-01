@@ -61,8 +61,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49631;
-int build_number=30;
+double version=0.49632;
+int build_number=31;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -141,7 +141,7 @@ for (uint j=0; j<lines.length(); j++)
 int eq_pos=string_contains(lines[j], "=", 1);
 if (eq_pos<0) continue;
 string k=string_left(lines[j], eq_pos);
-string val=string_mid(lines[j], eq_pos+1, lines[j].length()-(eq_pos+1));
+string val=string_replace(lines[j], k+"=", "", false);
 props.set(k, val);
 }
 // Build wpn_stats entry

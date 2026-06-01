@@ -32,8 +32,8 @@ for(uint l=0; l<lines.length(); l++)
 {
 int eq=string_contains(lines[l], "=", 1);
 if(eq<0) continue;
-string key=string_replace(lines[l], lines[l].substr(eq, lines[l].length()-eq), "", false);
-string val=string_replace(lines[l], lines[l].substr(0, eq+1), "", false);
+string key=string_left(lines[l], eq);
+string val=string_replace(lines[l], key+"=", "", false);
 if(key=="speedtime") s.speedtime=string_to_number(val);
 else if(key=="range") s.range=string_to_number(val);
 else if(key=="min_damage") s.mindammage=string_to_number(val);

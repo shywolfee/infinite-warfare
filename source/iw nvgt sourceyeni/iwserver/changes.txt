@@ -1,3 +1,8 @@
+0.4.9.4
+Added builder commands: builder_read, builder_append, builder_delete_line, builder_edit_line, builder_write_map, builder_delete_map.
+All builder commands require dev status. All write operations automatically reload the map and re-send to connected players.
+Added reload_map function to re-parse map files and push updated data to players on the affected map.
+
 0.4.9.2
 Added weapon attachment system with attach and detach commands.
 Replaced per-weapon suppressor booleans with generic suppressed_weapons array on player class.

@@ -284,3 +284,24 @@ for(uint i=0; i<maps.length(); i++)
 maps[i].loop();
 }
 }
+void reload_map(string mname)
+{
+string path="map/"+mname+".map";
+if(!file_exists(path)) return;
+int mi=get_map_index(mname);
+if(mi>=0)
+{
+maps.remove_at(mi);
+}
+mapdata temp(mname);
+maps.insert_last(temp);
+file mf;
+mf.open(path, "rb");
+string mdata=mf.read();
+mf.close();
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].map==temp.name)
+send_reliable(players[i].peer_id, "mapdata "+mdata, 0);
+}
+}

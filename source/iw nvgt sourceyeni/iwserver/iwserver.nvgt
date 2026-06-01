@@ -1790,6 +1790,136 @@ if(index>-1)
 players.remove_at(index);
 }
 }
+else if(parsed[0]=="builder_read" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev==true)
+{
+string mname=parsed[1];
+string path="map/"+mname+".map";
+if(file_exists(path))
+{
+file mf;
+mf.open(path, "rb");
+string data=mf.read();
+mf.close();
+send_reliable(players[index].peer_id, "builder_data "+data, 0);
+}
+else
+send_reliable(players[index].peer_id, "Map file not found.", 2);
+}
+}
+else if(parsed[0]=="builder_append" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev==true)
+{
+string mname=parsed[1];
+string line=string_replace(get_event_message(), "builder_append "+mname+" ", "", false);
+string path="map/"+mname+".map";
+if(file_exists(path))
+{
+file mf;
+mf.open(path, "rb");
+string data=mf.read();
+mf.close();
+data+="\r\n"+line;
+file wf;
+wf.open(path, "wb");
+wf.write(data);
+wf.close();
+reload_map(mname);
+send_reliable(players[index].peer_id, "Line added and map reloaded.", 2);
+}
+}
+}
+else if(parsed[0]=="builder_delete_line" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev==true)
+{
+string mname=parsed[1];
+int line_idx=string_to_number(parsed[2]);
+string path="map/"+mname+".map";
+if(file_exists(path))
+{
+file mf;
+mf.open(path, "rb");
+string[] lines=delinear(mf.read());
+mf.close();
+if(line_idx>=0 and line_idx<int(lines.length()))
+{
+lines.remove_at(line_idx);
+file wf;
+wf.open(path, "wb");
+wf.write(linear(lines));
+wf.close();
+reload_map(mname);
+send_reliable(players[index].peer_id, "Line deleted and map reloaded.", 2);
+}
+}
+}
+}
+else if(parsed[0]=="builder_edit_line" and parsed.length()>3)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev==true)
+{
+string mname=parsed[1];
+int line_idx=string_to_number(parsed[2]);
+string new_line=string_replace(get_event_message(), "builder_edit_line "+mname+" "+parsed[2]+" ", "", false);
+string path="map/"+mname+".map";
+if(file_exists(path))
+{
+file mf;
+mf.open(path, "rb");
+string[] lines=delinear(mf.read());
+mf.close();
+if(line_idx>=0 and line_idx<int(lines.length()))
+{
+lines[line_idx]=new_line;
+file wf;
+wf.open(path, "wb");
+wf.write(linear(lines));
+wf.close();
+reload_map(mname);
+send_reliable(players[index].peer_id, "Line edited and map reloaded.", 2);
+}
+}
+}
+}
+else if(parsed[0]=="builder_write_map" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev==true)
+{
+string mname=parsed[1];
+string data=string_replace(get_event_message(), "builder_write_map "+mname+" ", "", false);
+string path="map/"+mname+".map";
+file wf;
+wf.open(path, "wb");
+wf.write(data);
+wf.close();
+reload_map(mname);
+send_reliable(players[index].peer_id, "Map saved and reloaded.", 2);
+}
+}
+else if(parsed[0]=="builder_delete_map" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev==true)
+{
+string mname=parsed[1];
+string path="map/"+mname+".map";
+if(file_exists(path))
+{
+file_delete(path);
+int mi=get_map_index(mname);
+if(mi>=0) maps.remove_at(mi);
+send_reliable(players[index].peer_id, "Map deleted.", 2);
+}
+}
+}
 else if(parsed[0]=="move_to" and parsed.length() > 3)
 {
 int index=get_player_index(e.peer_id);

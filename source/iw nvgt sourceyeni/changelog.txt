@@ -1,3 +1,12 @@
+New in 0.4.9.4, build 24 (2026-06-01)
+Added Builder menu (Shift+B, dev builds only). A map editing tool that lets developers modify map files without editing them manually.
+  Add element: pick from all map element types (tile, zone, ambient sound source, point of interest, item spawn, map name, max coordinates). Tiles show a selectable list with a Preview Sound button to audition each tile's step sound. All elements prompt for coordinates and required parameters via forms.
+  Edit line: shows all lines in the current map file. Select a line to open it in an editable form with Save and Cancel buttons.
+  Delete line: shows all lines in the current map file. Select a line and press Delete to remove it.
+  Edit map: opens the entire map file contents in a multiline editable text field with Save and Cancel.
+  Delete map: deletes the current map file from the server.
+  All builder operations automatically reload the map on the server and re-send updated map data to all players on that map, syncing changes without a server restart.
+
 New in 0.4.9.3, build 23 (2026-06-01)
 Fixed compile error in weapon info panel caused by incorrect audio_form method signatures. create_input_box and create_button were called with wrong parameter types (int instead of string/bool). Corrected to match NVGT's actual API signatures.
 

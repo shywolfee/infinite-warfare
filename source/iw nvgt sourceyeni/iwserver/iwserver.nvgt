@@ -1170,54 +1170,6 @@ open_corpse(string_replace(parsed[1], "corpse_", "", true), index);
 //players[index].give(parsed[1],-1);
 send_reliable(players[index].peer_id, "give parsed[1] -1", 0);
 }
-if(parsed[1]=="hk_g36_suppressor" and players[index].hk_g_supressor==true)
-{
-play("supressoroff", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you remove the suppressor off the hk_g36.", 2);
-players[index].hk_g_supressor=false;
-}
-else if(parsed[1]=="hk_g36_suppressor" and players[index].hk_g_supressor==false)
-{
-play("supressoron", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you twist the suppressor on to the hk_g36.", 2);
-players[index].hk_g_supressor=true;
-}
-if(parsed[1]=="magnum_revolver_suppressor" and players[index].magnum_revolver_supressor==true)
-{
-play("supressoroff", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you remove the suppressor off the magnum_revolver.", 2);
-players[index].magnum_revolver_supressor=false;
-}
-else if(parsed[1]=="magnum_revolver_suppressor" and players[index].magnum_revolver_supressor==false)
-{
-play("supressoron", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you twist the suppressor on to the magnum_revolver.", 2);
-players[index].magnum_revolver_supressor=true;
-}
-if(parsed[1]=="taurus_model66_revolver_suppressor" and players[index].taurus_supressor==true)
-{
-play("supressoroff", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you remove the suppressor off the taurus_model66_revolver.", 2);
-players[index].taurus_supressor=false;
-}
-else if(parsed[1]=="taurus_model66_revolver_suppressor" and players[index].taurus_supressor==false)
-{
-play("supressoron", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you twist the suppressor on to the taurus_model66_revolver.", 2);
-players[index].taurus_supressor=true;
-}
-if(parsed[1]=="beretta92fs_pistol_suppressor" and players[index].beretta_supressor==true)
-{
-play("supressoroff", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you remove the suppressor off the beretta92fs_pistol.", 2);
-players[index].beretta_supressor=false;
-}
-else if(parsed[1]=="beretta92fs_pistol_suppressor" and players[index].beretta_supressor==false)
-{
-play("supressoron", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
-send_reliable(players[index].peer_id, "you twist the suppressor on to the beretta92fs_pistol.", 2);
-players[index].beretta_supressor=true;
-}
 if(parsed[1]=="life_injection")
 {
 int index2=get_player_index_from(players[index].mate);
@@ -1765,6 +1717,47 @@ if(heal_amount>0 and heal_amount<=2000)
 players[index].health+=heal_amount;
 }
 }
+else if(parsed[0]=="attach" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+string attachment=parsed[1];
+string wname=parsed[2];
+if(string_contains(attachment, "suppressor", 1)>-1)
+{
+bool already=false;
+for(uint s=0; s<players[index].suppressed_weapons.length(); s++)
+{
+if(players[index].suppressed_weapons[s]==wname){already=true;break;}
+}
+if(!already)
+players[index].suppressed_weapons.insert_last(wname);
+play("supressoron", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
+}
+}
+}
+else if(parsed[0]=="detach" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+string attachment=parsed[1];
+string wname=parsed[2];
+if(string_contains(attachment, "suppressor", 1)>-1)
+{
+for(uint s=0; s<players[index].suppressed_weapons.length(); s++)
+{
+if(players[index].suppressed_weapons[s]==wname)
+{
+players[index].suppressed_weapons.remove_at(s);
+break;
+}
+}
+play("supressoroff", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
+}
+}
+}
 else if(parsed[0]=="fire" and parsed.length()>1)
 {
 int index=get_player_index(e.peer_id);
@@ -1772,18 +1765,21 @@ if(index>-1)
 {
 string wname=parsed[1];
 spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map);
-if(players[index].hk_g_supressor==true and wname=="hk_g36" or players[index].magnum_revolver_supressor==true and wname=="magnum_revolver" or players[index].taurus_supressor==true and wname=="taurus_model66_revolver" or players[index].beretta_supressor==true and wname=="beretta92fs_pistol" or players[index].magnum_revolver_supressor==true and wname=="magnum_revolver")
+bool suppressed=false;
+for(uint s=0; s<players[index].suppressed_weapons.length(); s++)
+{
+if(players[index].suppressed_weapons[s]==wname){suppressed=true;break;}
+}
+if(suppressed)
 {
 play(wname+"supressedfire"+random(1, 3), players[index].x, players[index].y, players[index].z, players[index].map, index);
-}
-else 
-play(wname+"fire"+random(1, 3), players[index].x, players[index].y, players[index].z, players[index].map, index);
-if(players[index].hk_g_supressor==true and wname=="hk_g36" or players[index].magnum_revolver_supressor==true and wname=="magnum_revolver" or players[index].taurus_supressor==true and wname=="taurus_model66_revolver" or players[index].beretta_supressor==true and wname=="beretta92fs_pistol" or players[index].magnum_revolver_supressor==true and wname=="magnum_revolver")
-{
 send_reliable(0, "distsound "+wname+"supresseddist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
 }
 else
-send_reliable(0, "distsound "+wname+"dist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5); 
+{
+play(wname+"fire"+random(1, 3), players[index].x, players[index].y, players[index].z, players[index].map, index);
+send_reliable(0, "distsound "+wname+"dist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
+} 
 }
 }
 else if(parsed[0]=="player_remove")

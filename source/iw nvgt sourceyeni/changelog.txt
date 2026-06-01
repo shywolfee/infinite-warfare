@@ -1,3 +1,21 @@
+New in 0.4.9.2, build 22 (2026-06-01)
+Added weapon attachment system. Weapons can now have attachments that modify their stats. Using an attachment item from your inventory attaches it to your currently drawn weapon if compatible.
+  Weapons with attachments display a prefix when drawn or browsed in inventory (e.g., "silenced glock 17").
+  Attachments occupy a slot on the weapon (e.g., muzzle). Only one attachment per slot.
+  Removable attachments can be detached and returned to your inventory via the weapon info panel.
+Refactored the suppressor system to use realistic, weapon-class-specific items:
+  Pistol Suppressor: compatible with Glock 17, Beretta 92FS, and Desert Eagle.
+  SMG Suppressor: compatible with MP5, UZI, MP7, and P90.
+  Rifle Suppressor: compatible with HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, and FN FAL.
+  Sniper Suppressor: compatible with SG-08, AWP, and Dragunov SVD.
+  Suppressors slightly increase fire delay as a trade-off for stealth. All are removable.
+  Revolvers, shotguns, LMGs, and special weapons can no longer be suppressed (realistic).
+Press Shift+Enter on a weapon in your inventory to open the weapon info panel. Shows:
+  Up-to-date weapon statistics (fire rate, movement speed) with attachment modifiers applied.
+  Ammo type, feed device, and capacity for ranged weapons.
+  List of attached items with their stat effects and slot.
+  Remove button for detaching removable attachments.
+
 New in 0.4.9.1, build 21 (2026-06-01)
 Added credits currency system. Earn 10 to 20 credits per kill, 40 bonus credits at 5 kills, and 75 bonus credits at 10 kills. Credits are saved to your account and can be viewed in the lobby Account Info tab.
 Added the HyperComp item. Automatically awarded after capturing your second bunker. Use it from your inventory to open the structure management interface.

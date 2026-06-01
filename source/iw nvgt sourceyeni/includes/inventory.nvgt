@@ -13,6 +13,7 @@ string get_item_category(string item)
 if (is_weapon(item)) return "Weapons";
 if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
 if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="repair_kit" or item=="waypoint_marker" or item=="fortified_ration") return "Consumables";
+if (is_attachment_item(item)) return "Equipment";
 return "Equipment";
 }
 
@@ -115,7 +116,11 @@ else
 {
 int a;
 inv.get(key, a);
-string display_name = string_replace(key, "_", " ", true);
+string display_name;
+if (is_weapon(key))
+display_name = get_weapon_display_name(key);
+else
+display_name = string_replace(key, "_", " ", true);
 if (is_ammo_container(key))
 speak(display_name + " (" + a + "). " + (invpos+1) + " of " + filtered.length());
 else if(a==1)

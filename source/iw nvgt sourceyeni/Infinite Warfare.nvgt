@@ -9,6 +9,7 @@
 #include "includes/ammo.nvgt"
 #include"includes/buffer.nvgt"
 #include"includes/dlg.nvgt"
+#include "includes/attachments.nvgt"
 #include"includes/inventory.nvgt"
 #include "includes/dlgplayer.nvgt"
 #include "includes/m_pro.nvgt"
@@ -57,8 +58,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.491;
-int build_number=21;
+double version=0.492;
+int build_number=22;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -200,6 +201,15 @@ register_fire_modes("laser_rifle", modes_semi_burst_auto);
 register_fire_modes("laser_cannon", modes_auto_only);
 // Flamethrower
 register_fire_modes("flamethrower", modes_auto_only);
+// --- Attachment registrations ---
+string[] compat_pistol_sup = {"glock17", "beretta92fs_pistol", "desert_eagle"};
+register_attachment("pistol_suppressor", "Pistol Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_pistol_sup);
+string[] compat_smg_sup = {"mp5", "uzi", "mp7", "p90_mp"};
+register_attachment("smg_suppressor", "SMG Suppressor", "silenced", "muzzle", true, 1.05, 1.0, compat_smg_sup);
+string[] compat_rifle_sup = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle"};
+register_attachment("rifle_suppressor", "Rifle Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_rifle_sup);
+string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"};
+register_attachment("sniper_suppressor", "Sniper Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
 // Starting loadout is given per-spawn in game() via give_starting_loadout().
 create_buffer("all");
 create_buffer("chats");
@@ -568,7 +578,7 @@ for (int i = 0; i < 10; i++)
 {
 if (quickbar[i] != "" and is_weapon(quickbar[i]))
 {
-string label = "Slot " + (i+1) + ": " + string_replace(quickbar[i], "_", " ", true);
+string label = "Slot " + (i+1) + ": " + get_weapon_display_name(quickbar[i]);
 int ammo = ammo_check(quickbar[i]);
 if (ammo >= 0)
 {
@@ -687,6 +697,165 @@ else if (item == "hypercomp")
 {
 hypercomp_menu();
 return;
+}
+else if (is_attachment_item(item))
+{
+use_attachment_item(item);
+return;
+}
+}
+void use_attachment_item(string item)
+{
+string current_weapon=weapons[w];
+if(current_weapon=="" or current_weapon=="empty")
+{
+speak("Draw a weapon first.");
+return;
+}
+if(!can_attach_to(item, current_weapon))
+{
+speak("This attachment is not compatible with the "+get_weapon_display_name(current_weapon)+".");
+return;
+}
+int def_idx=find_attachment_def(item);
+if(def_idx<0) return;
+if(weapon_has_attachment_in_slot(current_weapon, attachment_defs[def_idx].slot))
+{
+speak("This weapon already has an attachment in the "+attachment_defs[def_idx].slot+" slot.");
+return;
+}
+if(attach_to_weapon(item, current_weapon))
+{
+give(item, -1);
+apply_weapon_stats(current_weapon);
+speak(attachment_defs[def_idx].display_name+" attached to "+get_weapon_display_name(current_weapon)+".");
+send_reliable(0, "attach "+item+" "+current_weapon, 0);
+}
+}
+void show_weapon_info(string wname)
+{
+audio_form f;
+f.create_window(get_weapon_display_name(wname), false, true);
+int gi=find_gun(wname);
+int base_firetime=500;
+int base_walktime=200;
+bool is_melee_weapon=false;
+if(wname=="machete"){base_firetime=1000;base_walktime=170;is_melee_weapon=true;}
+else if(wname=="combatknife"){base_firetime=500;base_walktime=170;is_melee_weapon=true;}
+else if(wname=="katana"){base_firetime=800;base_walktime=170;is_melee_weapon=true;}
+else if(wname=="baseball_bat"){base_firetime=600;base_walktime=170;is_melee_weapon=true;}
+else if(wname=="hayvork"){base_firetime=900;base_walktime=185;is_melee_weapon=true;}
+else if(wname=="trector_plow"){base_firetime=1100;base_walktime=400;is_melee_weapon=true;}
+else if(wname=="glock17"){base_firetime=800;base_walktime=180;}
+else if(wname=="beretta92fs_pistol"){base_firetime=600;base_walktime=180;}
+else if(wname=="desert_eagle"){base_firetime=900;base_walktime=180;}
+else if(wname=="taurus_model66_revolver"){base_firetime=790;base_walktime=180;}
+else if(wname=="magnum_revolver"){base_firetime=800;base_walktime=180;}
+else if(wname=="p90_mp"){base_firetime=90;base_walktime=190;}
+else if(wname=="mp5"){base_firetime=100;base_walktime=190;}
+else if(wname=="uzi"){base_firetime=75;base_walktime=190;}
+else if(wname=="mp7"){base_firetime=85;base_walktime=190;}
+else if(wname=="hk_g36"){base_firetime=150;base_walktime=220;}
+else if(wname=="AK47"){base_firetime=150;base_walktime=220;}
+else if(wname=="tar_21_assault_rifle"){base_firetime=180;base_walktime=220;}
+else if(wname=="famas_f1_assault_rifle"){base_firetime=750;base_walktime=210;}
+else if(wname=="m4a1_carbine"){base_firetime=140;base_walktime=210;}
+else if(wname=="scar_h_battle_rifle"){base_firetime=300;base_walktime=300;}
+else if(wname=="fn_fal_battle_rifle"){base_firetime=280;base_walktime=300;}
+else if(wname=="m1garantBattleRifle"){base_firetime=1200;base_walktime=400;}
+else if(wname=="rpk_lmg"){base_firetime=120;base_walktime=350;}
+else if(wname=="m249_saw"){base_firetime=100;base_walktime=500;}
+else if(wname=="ks123shotgun"){base_firetime=850;base_walktime=230;}
+else if(wname=="benelli_m4_shotgun"){base_firetime=1500;base_walktime=230;}
+else if(wname=="spas_12_shotgun"){base_firetime=1000;base_walktime=250;}
+else if(wname=="sg08_sniper_rifle"){base_firetime=3000;base_walktime=1000;}
+else if(wname=="awp_sniper_rifle"){base_firetime=3500;base_walktime=1200;}
+else if(wname=="dragunov_svd"){base_firetime=1500;base_walktime=600;}
+else if(wname=="120mm_mortar"){base_firetime=4000;base_walktime=5000;}
+else if(wname=="crossbow"){base_firetime=2000;base_walktime=250;}
+else if(wname=="laser_pistol"){base_firetime=700;base_walktime=180;}
+else if(wname=="laser_smg"){base_firetime=80;base_walktime=190;}
+else if(wname=="laser_rifle"){base_firetime=160;base_walktime=220;}
+else if(wname=="laser_sniper"){base_firetime=2500;base_walktime=800;}
+else if(wname=="laser_cannon"){base_firetime=90;base_walktime=450;}
+else if(wname=="flamethrower"){base_firetime=50;base_walktime=300;}
+else if(wname=="chainsaw"){base_firetime=100;base_walktime=250;}
+float ft_mult=get_attachment_firetime_mult(wname);
+float wt_mult=get_attachment_walktime_mult(wname);
+int final_firetime=int(base_firetime*ft_mult);
+int final_walktime=int(base_walktime*wt_mult);
+if(is_melee_weapon)
+f.create_input_box("Type", 0, "Melee", true);
+else if(gi>=0)
+{
+f.create_input_box("Type", 0, "Ranged", true);
+f.create_input_box("Ammo type", 0, gun_ammos[gi].ammo_type, true);
+f.create_input_box("Feed device", 0, gun_ammos[gi].feed_device, true);
+f.create_input_box("Capacity", 0, ""+gun_ammos[gi].mag_capacity, true);
+}
+f.create_input_box("Fire rate", 0, ""+final_firetime+" ms"+(ft_mult!=1.0?" (base "+base_firetime+" ms)":""), true);
+f.create_input_box("Movement speed", 0, ""+final_walktime+" ms"+(wt_mult!=1.0?" (base "+base_walktime+" ms)":""), true);
+string[] attached=get_weapon_attachments(wname);
+if(attached.length()>0)
+{
+int att_list=f.create_list("Attachments", 0, false);
+for(uint i=0; i<attached.length(); i++)
+{
+int def_idx=find_attachment_def(attached[i]);
+if(def_idx>=0)
+{
+string label=attachment_defs[def_idx].display_name+" ("+attachment_defs[def_idx].slot+")";
+if(ft_mult!=1.0 or wt_mult!=1.0)
+{
+label+=" -";
+if(attachment_defs[def_idx].firetime_mult!=1.0)
+label+=" fire rate x"+attachment_defs[def_idx].firetime_mult;
+if(attachment_defs[def_idx].walktime_mult!=1.0)
+label+=" move speed x"+attachment_defs[def_idx].walktime_mult;
+}
+if(!attachment_defs[def_idx].removable) label+=" [permanent]";
+f.add_list_item(att_list, label);
+}
+}
+int remove_btn=f.create_button("Remove selected attachment", 0, false);
+int close_btn=f.create_button("Close", 0, true);
+f.focus(att_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(close_btn)) return;
+if(f.is_pressed(remove_btn))
+{
+int sel=f.get_list_position(att_list);
+if(sel>=0 and sel<int(attached.length()))
+{
+int def_idx=find_attachment_def(attached[sel]);
+if(def_idx>=0 and !attachment_defs[def_idx].removable)
+{
+speak("This attachment cannot be removed.");
+}
+else if(detach_from_weapon(attached[sel], wname))
+{
+give(attached[sel], 1);
+apply_weapon_stats(wname);
+send_reliable(0, "detach "+attached[sel]+" "+wname, 0);
+speak(attachment_defs[def_idx].display_name+" removed. Returned to inventory.");
+return;
+}
+}
+}
+}
+}
+else
+{
+int close_btn=f.create_button("Close", 0, true);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(close_btn)) return;
+}
 }
 }
 string[] hypercomp_fetch_bunkers()
@@ -1263,6 +1432,8 @@ else if (wname=="laser_cannon") { firetime=90; walktime=450; }
 // Flamethrower and Chainsaw
 else if (wname=="flamethrower") { firetime=50; walktime=300; }
 else if (wname=="chainsaw") { firetime=100; walktime=250; }
+firetime=int(firetime*get_attachment_firetime_mult(wname));
+walktime=int(walktime*get_attachment_walktime_mult(wname));
 }
 
 void draw_weapon(string wname)
@@ -1271,7 +1442,7 @@ if (drawtimer.elapsed<=1500) return;
 drawtimer.restart();
 weapons[w]=wname;
 apply_weapon_stats(wname);
-speak(string_replace(wname, "_", " ", true));
+speak(get_weapon_display_name(wname));
 send_reliable(1, "draw "+wname, 0);
 }
 void use_quickbar_slot(int slot)
@@ -1292,8 +1463,8 @@ else
 if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
-// Energetic potions, bomb vests, and utility items are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "repair_kit" and item != "waypoint_marker" and item != "binoculars")
+// Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "repair_kit" and item != "waypoint_marker" and item != "binoculars" and !is_attachment_item(item))
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -1628,6 +1799,17 @@ if (MENU_is_down() and key_pressed(KEY_C))
 {
 command_menu();
 }
+// Shift+Enter: show weapon info for the currently selected inventory weapon.
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_RETURN))
+{
+string sel_item = get_selected_item();
+if (sel_item != "" and is_weapon(sel_item))
+show_weapon_info(sel_item);
+else if (sel_item != "")
+speak("Not a weapon.");
+else
+speak("No item selected.");
+}
 // Alt+Enter: show help for the currently selected inventory item.
 if (MENU_is_down() and key_pressed(KEY_RETURN))
 {
@@ -1650,7 +1832,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "repair_kit" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp")
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "repair_kit" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp" and !is_attachment_item(sel_item))
 send_reliable(0, "use " + sel_item, 0);
 }
 }
@@ -2193,7 +2375,7 @@ else if(parsed[0]=="weapon_set" and parsed.length()>1)
 {
 weapons[w]=parsed[1];
 apply_weapon_stats(parsed[1]);
-speak(parsed[1]);
+speak(get_weapon_display_name(parsed[1]));
 send_reliable(1, "draw "+parsed[1], 0);
 }
 else if(parsed[0]=="setcoords")

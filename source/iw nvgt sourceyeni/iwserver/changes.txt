@@ -1,3 +1,9 @@
+0.4.9.2
+Added weapon attachment system with attach and detach commands.
+Replaced per-weapon suppressor booleans with generic suppressed_weapons array on player class.
+Suppressor sound logic now checks the suppressed_weapons array instead of individual flags.
+Removed revolver and obsolete weapon-specific suppressor toggle code from use handler.
+
 0.4.9.1
 Added credits currency. Saved to player accounts. Awarded on kills and at milestones (5 kills, 10 kills).
 Added lobby_credits command for clients to query their balance.

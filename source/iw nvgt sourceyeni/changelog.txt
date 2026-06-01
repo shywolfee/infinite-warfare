@@ -1,3 +1,11 @@
+New in 0.4.9.6.1, build 27 (2026-06-01)
+Bug fixes and quality-of-life improvements.
+Fixed staff not being notified when support tickets are replied to or closed. Admins and developers logged into the server (both in-game and in the lobby) now receive a notification sound and message for all ticket replies and closures, not just new ticket submissions.
+Fixed players not being notified when their support ticket is replied to or closed. Players logged into the game now receive a notification when staff reply to or close one of their tickets, including the close reason if provided.
+Fixed claimed bunkers not properly clearing when players die. When a player dies, all bunkers they owned are now released and other players are notified. The dead player's bunker count and HyperComp status are also reset.
+Fixed weapon info panel fields (Type, Ammo type, Feed device, Capacity, Fire rate, Movement speed) being incorrectly flagged as password fields instead of read-only. The fields were using the password parameter instead of the read-only parameter, causing them to mask their text.
+Changed the builder menu to always ask for coordinates first when adding any element (Tile, Zone, Sound Source, Point of Interest, Item Spawn). Previously some elements asked for their name or parameters before coordinates. Coordinates are now the first prompt for all element types.
+
 New in 0.4.9.6, build 26 (2026-06-01)
 Added support ticket system. Players can submit support tickets and communicate with staff directly from the game.
   Press Alt+S to open the Support menu during gameplay. The menu contains:

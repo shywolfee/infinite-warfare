@@ -248,6 +248,16 @@ send_reliable(players[i].peer_id, "death", 0);
 play("death",players[i].x, players[i].y, players[i].z, players[i].map, i);
 spawn_corpse(players[i].x, players[i].y, players[i].z, players[i].map, players[i].inv, players[i].ammo);
 spawn_bodyfall(players[i].x, players[i].y, players[i].z, players[i].map, 3000);
+for(uint b=0; b<bunkers.length(); b++)
+{
+if(bunkers[b].owner==players[i].name)
+{
+bunkers[b].owner="";
+send_reliable(0, bunkers[b].name+" has been released. Its owner, "+players[i].name+", has fallen.", 2);
+}
+}
+players[i].bunkers_owned=0;
+players[i].has_hypercomp=false;
 players[i].death=true;
 }
 }

@@ -862,6 +862,36 @@ t.add("reply_"+rc, author+": "+reply_text);
 t.add("reply_count", double(rc+1));
 t.save();
 send_reliable(e.peer_id, "ticket_replied", 0);
+string t_owner=t.read("owner");
+string t_subject=t.read("subject");
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].peer_id==e.peer_id) continue;
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to ticket #"+tid+": "+t_subject, 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to your ticket #"+tid+": "+t_subject, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].peer_id==int(e.peer_id)) continue;
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to ticket #"+tid+": "+t_subject, 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to your ticket #"+tid+": "+t_subject, 2);
+}
+}
 }
 }
 }
@@ -879,10 +909,46 @@ if(file_exists(path))
 {
 savedata t(path, TICKET_SECRET);
 t.load();
+string t_owner=t.read("owner");
+string t_subject=t.read("subject");
 t.add("status", "closed");
 t.add("close_reason", reason);
 t.save();
 send_reliable(e.peer_id, "ticket_closed", 0);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].peer_id==e.peer_id) continue;
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "Ticket #"+tid+" ("+t_subject+") was closed by "+closer+".", 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+if(reason!="none")
+send_reliable(players[i].peer_id, "Your ticket #"+tid+" ("+t_subject+") was closed by "+closer+". Reason: "+reason, 2);
+else
+send_reliable(players[i].peer_id, "Your ticket #"+tid+" ("+t_subject+") has been closed.", 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].peer_id==int(e.peer_id)) continue;
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "Ticket #"+tid+" ("+t_subject+") was closed by "+closer+".", 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+if(reason!="none")
+send_reliable_id(lobby_clients[i].peer_id, "Your ticket #"+tid+" ("+t_subject+") was closed by "+closer+". Reason: "+reason, 2);
+else
+send_reliable_id(lobby_clients[i].peer_id, "Your ticket #"+tid+" ("+t_subject+") has been closed.", 2);
+}
+}
 }
 }
 }
@@ -962,6 +1028,34 @@ t.add("reply_"+rc, author+": "+reply_text);
 t.add("reply_count", double(rc+1));
 t.save();
 send_reliable(e.peer_id, "ticket_replied", 0);
+string t_owner=t.read("owner");
+string t_subject=t.read("subject");
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to ticket #"+tid+": "+t_subject, 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to your ticket #"+tid+": "+t_subject, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to ticket #"+tid+": "+t_subject, 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to your ticket #"+tid+": "+t_subject, 2);
+}
+}
 }
 }
 }
@@ -990,10 +1084,38 @@ if(file_exists(path))
 {
 savedata t(path, TICKET_SECRET);
 t.load();
+string t_owner=t.read("owner");
+string t_subject=t.read("subject");
 t.add("status", "closed");
 t.add("close_reason", reason);
 t.save();
 send_reliable(e.peer_id, "ticket_closed", 0);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "Ticket #"+tid+" ("+t_subject+") was closed by "+closer+".", 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "Your ticket #"+tid+" ("+t_subject+") was closed by "+closer+". Reason: "+reason, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "Ticket #"+tid+" ("+t_subject+") was closed by "+closer+".", 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(t_owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "Your ticket #"+tid+" ("+t_subject+") was closed by "+closer+". Reason: "+reason, 2);
+}
+}
 }
 }
 }

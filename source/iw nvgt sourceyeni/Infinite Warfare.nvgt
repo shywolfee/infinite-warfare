@@ -59,8 +59,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.496;
-int build_number=26;
+double version=0.4961;
+int build_number=27;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -509,14 +509,16 @@ int sel=f.get_list_position(f_list);
 string line="";
 if(sel==0)
 {
-string tile=builder_pick_tile();
-if(tile=="") return;
 string coords=builder_coord_form("Tile Coordinates", true, false, "");
 if(coords=="") return;
+string tile=builder_pick_tile();
+if(tile=="") return;
 line="tile:"+coords+":"+tile;
 }
 else if(sel==1)
 {
+string coords=builder_coord_form("Zone Coordinates", true, false, "");
+if(coords=="") return;
 audio_form zf;
 zf.create_window("Zone Name", false, true);
 zf.create_input_box("Zone name");
@@ -532,12 +534,12 @@ if(zf.is_pressed(zcancel)) return;
 if(zf.is_pressed(zok)){zname=zf.get_text(0);break;}
 }
 if(zname=="") return;
-string coords=builder_coord_form("Zone Coordinates", true, false, "");
-if(coords=="") return;
 line="zone:"+coords+":"+zname;
 }
 else if(sel==2)
 {
+string coords=builder_coord_form("Source Coordinates", true, false, "");
+if(coords=="") return;
 audio_form sf;
 sf.create_window("Sound Source", false, true);
 sf.create_input_box("Sound file (e.g. ocean1.ogg)");
@@ -555,12 +557,12 @@ if(sf.is_pressed(scancel)) return;
 if(sf.is_pressed(sok)){sfile=sf.get_text(0);svol=sf.get_text(1);break;}
 }
 if(sfile=="") return;
-string coords=builder_coord_form("Source Coordinates", true, false, "");
-if(coords=="") return;
 line="src:"+coords+":"+sfile+":"+svol;
 }
 else if(sel==3)
 {
+string coords=builder_coord_form("POI Coordinates", false, false, "");
+if(coords=="") return;
 audio_form pf;
 pf.create_window("Point of Interest", false, true);
 pf.create_input_box("POI name");
@@ -576,12 +578,12 @@ if(pf.is_pressed(pcancel)) return;
 if(pf.is_pressed(pok)){pname=pf.get_text(0);break;}
 }
 if(pname=="") return;
-string coords=builder_coord_form("POI Coordinates", false, false, "");
-if(coords=="") return;
 line="poi:"+coords+":"+pname;
 }
 else if(sel==4)
 {
+string coords=builder_coord_form("Item Spawn Coordinates", true, false, "");
+if(coords=="") return;
 audio_form isf;
 isf.create_window("Item Spawn", false, true);
 isf.create_input_box("Respawn time (ms)");
@@ -601,8 +603,6 @@ if(isf.is_pressed(iscancel)) return;
 if(isf.is_pressed(isok)){istime=isf.get_text(0);ismax=isf.get_text(1);isitems=isf.get_text(2);break;}
 }
 if(istime=="" or ismax=="" or isitems=="") return;
-string coords=builder_coord_form("Item Spawn Coordinates", true, false, "");
-if(coords=="") return;
 string items_colon=string_replace(isitems, ",", ":", true);
 line="ispawn:"+coords+":"+istime+":"+ismax+":"+items_colon;
 }
@@ -1517,16 +1517,16 @@ float wt_mult=get_attachment_walktime_mult(wname);
 int final_firetime=int(base_firetime*ft_mult);
 int final_walktime=int(base_walktime*wt_mult);
 if(is_melee_weapon)
-f.create_input_box("Type", "Melee", "", 0, true);
+f.create_input_box("Type", "Melee", "", 0, false, true, false);
 else if(gi>=0)
 {
-f.create_input_box("Type", "Ranged", "", 0, true);
-f.create_input_box("Ammo type", gun_ammos[gi].ammo_type, "", 0, true);
-f.create_input_box("Feed device", gun_ammos[gi].feed_device, "", 0, true);
-f.create_input_box("Capacity", ""+gun_ammos[gi].mag_capacity, "", 0, true);
+f.create_input_box("Type", "Ranged", "", 0, false, true, false);
+f.create_input_box("Ammo type", gun_ammos[gi].ammo_type, "", 0, false, true, false);
+f.create_input_box("Feed device", gun_ammos[gi].feed_device, "", 0, false, true, false);
+f.create_input_box("Capacity", ""+gun_ammos[gi].mag_capacity, "", 0, false, true, false);
 }
-f.create_input_box("Fire rate", ""+final_firetime+" ms"+(ft_mult!=1.0?" (base "+base_firetime+" ms)":""), "", 0, true);
-f.create_input_box("Movement speed", ""+final_walktime+" ms"+(wt_mult!=1.0?" (base "+base_walktime+" ms)":""), "", 0, true);
+f.create_input_box("Fire rate", ""+final_firetime+" ms"+(ft_mult!=1.0?" (base "+base_firetime+" ms)":""), "", 0, false, true, false);
+f.create_input_box("Movement speed", ""+final_walktime+" ms"+(wt_mult!=1.0?" (base "+base_walktime+" ms)":""), "", 0, false, true, false);
 string[] attached=get_weapon_attachments(wname);
 if(attached.length()>0)
 {

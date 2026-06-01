@@ -1,3 +1,6 @@
+New in 0.4.9.3, build 23 (2026-06-01)
+Fixed compile error in weapon info panel caused by incorrect audio_form method signatures. create_input_box and create_button were called with wrong parameter types (int instead of string/bool). Corrected to match NVGT's actual API signatures.
+
 New in 0.4.9.2, build 22 (2026-06-01)
 Added weapon attachment system. Weapons can now have attachments that modify their stats. Using an attachment item from your inventory attaches it to your currently drawn weapon if compatible.
   Weapons with attachments display a prefix when drawn or browsed in inventory (e.g., "silenced glock 17").

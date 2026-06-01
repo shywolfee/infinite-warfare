@@ -61,8 +61,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4963;
-int build_number=29;
+double version=0.49631;
+int build_number=30;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -120,7 +120,7 @@ void load_all_weapons()
 string wpn_dir="iwserver/content/weapons";
 if (!directory_exists(wpn_dir))
 wpn_dir="content/weapons";
-string[]@ files=find_files(wpn_dir+"/*.wpn");
+string[] files=find_files(wpn_dir+"/*.wpn");
 for (uint i=0; i<files.length(); i++)
 {
 string fname=files[i];

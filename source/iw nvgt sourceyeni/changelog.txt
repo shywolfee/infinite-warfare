@@ -1,3 +1,6 @@
+New in 0.4.9.6.3.1, build 30 (2026-06-01)
+Fixed compile error in server weapon loader caused by passing a boolean to string_contains instead of an integer for the case sensitivity parameter.
+
 New in 0.4.9.6.3, build 29 (2026-06-01)
 Weapon statistics are now managed through .WPN data files instead of being hardcoded. All weapon properties (fire rate, walk speed, damage, range, spread, ammo type, magazine capacity, fire modes, and more) are defined in individual .WPN files located in iwserver/content/weapons/. Both the client and server read these files at startup. To modify a weapon's stats, edit its .WPN file instead of changing code.
 Map files are now organized by game mode. Maps have moved from iwserver/map/ to iwserver/content/maps/, sorted into subdirectories by mode: content/maps/battlegrounds/ for the Archipelago map, content/maps/habitat_alpha/ for the Habitat Alpha map, and content/maps/battleroyale/ for the Battle Royale map. The builder, map system, and mode loading all use the new directory structure.

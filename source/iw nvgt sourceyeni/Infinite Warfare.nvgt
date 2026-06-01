@@ -59,8 +59,10 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.4961;
-int build_number=27;
+string received_changelog="";
+bool changelog_ready=false;
+double version=0.4962;
+int build_number=28;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -827,7 +829,7 @@ break;
 if(found_file==""){speak("Map file not found.");return;}
 audio_form f;
 f.create_window("Edit Map: "+mapname, false, true);
-f.create_input_box("Map data", mdata, "", 0, false, true, false);
+f.create_input_box("Map data", mdata, "", 0, false, false, true);
 int save_btn=f.create_button("&Save", true);
 int cancel_btn=f.create_button("Cancel", false, true);
 f.focus(0);
@@ -976,51 +978,84 @@ break;
 // Documentation / Help system.
 // Reads .txt files from iwserver/docs/.
 // ---------------------------------------------------------------------------
-string[] get_help_entries(bool include_dev=false)
+string[] help_categories;
+string[][] help_category_entries;
+void build_help_data(bool include_dev=false)
 {
-string[] entries;
+help_categories.resize(0);
+help_category_entries.resize(0);
 string docs_dir = "iwserver/docs";
 if (!directory_exists(docs_dir))
 docs_dir = "docs";
-// Scan known doc files
-string[] known_docs = {
-"getting_started", "controls", "turning_and_aiming", "fire_modes", "stamina", "equipment", "buffs_debuffs",
-"modes", "battlegrounds_map", "habitat_alpha_map", "archipelago_map",
-"commands", "duo_system", "bunkers", "inventory_system", "ammo_system", "rewards",
-"machete", "combatknife", "katana", "baseball_bat",
-"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle",
-"p90_mp", "mp5", "uzi", "mp7",
-"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine",
-"scar_h_battle_rifle", "fn_fal_battle_rifle",
-"rpk_lmg", "m249_saw",
-"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun",
-"m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
-"120mm_mortar", "ballista", "crossbow",
-"hayvork", "trector_plow",
-"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon",
-"flamethrower", "chainsaw",
-"health_potion", "ultra_health_potion", "frag_grenade",
-"energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"
+string[] cat_names = {
+"Gameplay Fundamentals",
+"Game Modes and Maps",
+"Game Systems",
+"Melee Weapons",
+"Pistols",
+"SMGs",
+"Assault Rifles",
+"Battle Rifles",
+"LMGs",
+"Shotguns",
+"Snipers",
+"Special Ordnance",
+"Laser Weapons",
+"Heavy Weapons",
+"Consumables",
+"Potions",
+"Vehicles and Equipment"
 };
-for (uint i = 0; i < known_docs.length(); i++)
+string[][] cat_docs = {
+{"getting_started", "controls", "turning_and_aiming", "fire_modes", "stamina", "commands"},
+{"modes", "battlegrounds_map", "habitat_alpha_map", "archipelago_map"},
+{"inventory_system", "ammo_system", "equipment", "buffs_debuffs", "duo_system", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "hypercomp"},
+{"machete", "combatknife", "katana", "baseball_bat"},
+{"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle"},
+{"p90_mp", "mp5", "uzi", "mp7"},
+{"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine"},
+{"scar_h_battle_rifle", "fn_fal_battle_rifle", "m1garantBattleRifle"},
+{"rpk_lmg", "m249_saw"},
+{"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun"},
+{"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"},
+{"120mm_mortar", "ballista", "crossbow", "frag_grenade"},
+{"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon"},
+{"flamethrower", "chainsaw", "hayvork", "trector_plow"},
+{"health_potion", "ultra_health_potion", "fortified_ration", "adrenaline_syringe", "repair_kit"},
+{"energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"},
+{"vehicles", "translocator", "waypoint_marker", "binoculars", "c4"}
+};
+for (uint c = 0; c < cat_names.length(); c++)
 {
-string path = docs_dir + "/" + known_docs[i] + ".txt";
+string[] valid;
+for (uint i = 0; i < cat_docs[c].length(); i++)
+{
+string path = docs_dir + "/" + cat_docs[c][i] + ".txt";
 if (file_exists(path))
-entries.insert_last(known_docs[i]);
+valid.insert_last(cat_docs[c][i]);
+}
+if (valid.length() > 0)
+{
+help_categories.insert_last(cat_names[c]);
+help_category_entries.insert_last(valid);
+}
 }
 if (include_dev)
 {
-string[] dev_docs = {
-"dev_commands", "dev_admin_system", "dev_network_architecture", "dev_map_format"
-};
+string[] dev_docs = {"dev_commands", "dev_admin_system", "dev_network_architecture", "dev_map_format"};
+string[] valid;
 for (uint i = 0; i < dev_docs.length(); i++)
 {
 string path = docs_dir + "/" + dev_docs[i] + ".txt";
 if (file_exists(path))
-entries.insert_last(dev_docs[i]);
+valid.insert_last(dev_docs[i]);
+}
+if (valid.length() > 0)
+{
+help_categories.insert_last("Developer Reference");
+help_category_entries.insert_last(valid);
 }
 }
-return entries;
 }
 
 string read_help_file(string entry_name)
@@ -1060,40 +1095,44 @@ break;
 
 void show_help_list()
 {
-string[] entries = get_help_entries(SCRIPT_COMPILED==false);
-if (entries.length() == 0)
+build_help_data(SCRIPT_COMPILED==false);
+if (help_categories.length() == 0)
 {
 speak("No help entries found.");
 return;
 }
 audio_form f;
 f.create_window("Help Topics", false, true);
-int f_list = f.create_list("Select a topic", 0, false);
-for (uint i = 0; i < entries.length(); i++)
-{
-f.add_list_item(f_list, string_replace(entries[i], "_", " ", true));
-}
+int f_cats = f.create_list("Category", 0, false);
+for (uint i = 0; i < help_categories.length(); i++)
+f.add_list_item(f_cats, help_categories[i]);
+int f_topics = f.create_list("Topics", 0, false);
 int f_open = f.create_button("&Open", true);
 int f_close = f.create_button("&Close", false, true);
-f.focus(f_list);
+int last_cat = -1;
+f.focus(f_cats);
 while(true)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
+int cur_cat = f.get_list_position(f_cats);
+if (cur_cat != last_cat and cur_cat >= 0 and cur_cat < int(help_categories.length()))
+{
+last_cat = cur_cat;
+f.clear_list(f_topics);
+for (uint i = 0; i < help_category_entries[cur_cat].length(); i++)
+f.add_list_item(f_topics, string_replace(help_category_entries[cur_cat][i], "_", " ", true));
+}
 if (f.is_pressed(f_open))
 {
-int sel = f.get_list_position(f_list);
-if (sel >= 0 and sel < int(entries.length()))
-{
-show_help_entry(entries[sel]);
-}
+int sel = f.get_list_position(f_topics);
+if (cur_cat >= 0 and cur_cat < int(help_categories.length()) and sel >= 0 and sel < int(help_category_entries[cur_cat].length()))
+show_help_entry(help_category_entries[cur_cat][sel]);
 }
 else if (f.is_pressed(f_close))
-{
 break;
-}
 }
 }
 
@@ -3291,6 +3330,11 @@ else if(parsed[4]!=name)
 p.play_stationary("offline.ogg", false);
 add_buffer_item("misc",parsed[4]+" just went offline");
 }
+}
+else if(parsed[0]=="changes_data")
+{
+received_changelog=string_replace(full_msg, "changes_data ", "", false);
+changelog_ready=true;
 }
 else if(parsed[0]=="movestop")
 {

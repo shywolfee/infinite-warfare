@@ -67,6 +67,20 @@ af.open("authmode.svr", "rb");
 auth_mode=(af.read()=="1");
 af.close();
 }
+if(file_exists("../changelog.txt"))
+{
+file cf;
+cf.open("../changelog.txt", "rb");
+changes=cf.read();
+cf.close();
+}
+else if(file_exists("changelog.txt"))
+{
+file cf;
+cf.open("changelog.txt", "rb");
+changes=cf.read();
+cf.close();
+}
 if(!directory_exists(tickets_dir))
 directory_create(tickets_dir);
 if(file_exists(tickets_dir+"/next_id.txt"))
@@ -638,6 +652,10 @@ send_reliable(e.peer_id, result, 0);
 else if(parsed[0]=="check_authmode")
 {
 send_reliable(e.peer_id, "authmode_status "+(auth_mode ? "1" : "0"), 0);
+}
+else if(parsed[0]=="request_changes")
+{
+send_reliable(e.peer_id, "changes_data "+changes, 0);
 }
 else if(parsed[0]=="request_password_reset" and parsed.length()>1)
 {
@@ -1567,7 +1585,13 @@ send_reliable(players[index].peer_id, "give duo_plane -1", 0);
 else
 send_reliable(players[index].peer_id, "Your duo already has a plane, so you can't place another one.", 0);
 }
-else if(parsed[1]=="health_potion" and players[index].health<=10001 and players[index].health_potiontimer.elapsed>20000)
+else if(parsed[1]=="health_potion")
+{
+if(players[index].health>10001)
+send_reliable(players[index].peer_id, "Your health is already full.", 2);
+else if(players[index].health_potiontimer.elapsed<=20000)
+send_reliable(players[index].peer_id, "You must wait before using another health potion.", 2);
+else
 {
 players[index].usehealth_potion=true;
 players[index].usehealth_potiontimer.restart();
@@ -1577,6 +1601,7 @@ players[index].health+=random(1500,3000);
 play("health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
 }
+}
 if(string_contains(parsed[1], "corpse_", 1)>-1)
 {
 open_corpse(string_replace(parsed[1], "corpse_", "", true), index);
@@ -1585,10 +1610,24 @@ send_reliable(players[index].peer_id, "give parsed[1] -1", 0);
 }
 if(parsed[1]=="life_injection")
 {
+if(players[index].mate=="")
+{
+send_reliable(players[index].peer_id, "You don't have a duo mate set.", 2);
+}
+else
+{
 int index2=get_player_index_from(players[index].mate);
 if(index2>-1)
 {
-if(get_3d_distance(players[index].x,players[index].y,players[index].z,players[index2].x,players[index2].y,players[index2].z)<=4 and players[index].map==players[index2].map and players[index2].death==true)  
+if(players[index2].death!=true)
+{
+send_reliable(players[index].peer_id, "Your duo mate is not dead.", 2);
+}
+else if(players[index].map!=players[index2].map or get_3d_distance(players[index].x,players[index].y,players[index].z,players[index2].x,players[index2].y,players[index2].z)>4)
+{
+send_reliable(players[index].peer_id, "You are too far away from your duo mate.", 2);
+}
+else
 {
 send_reliable(players[index].peer_id, "give life_injection -1", 0);
 players[index2].health=5000;
@@ -1597,6 +1636,11 @@ players[index].life_injectiontimer.restart();
 play("life_injection", players[index].x, players[index].y, players[index].z, players[index].map, index);
 players[index2].death==false;
 send_reliable(players[index].peer_id, "movestop", 0);
+}
+}
+else
+{
+send_reliable(players[index].peer_id, "Your duo mate was not found on the server.", 2);
 }
 }
 }
@@ -1622,12 +1666,17 @@ play("bagopen", players[index].x, players[index].y, players[index].z, players[in
 send_unreliable(players[index].peer_id, "ammogive benelli_m4_shotgun 15", 0);
 send_unreliable(players[index].peer_id, "ammogive 357magnum_revolver 30", 0);
 }
-if(parsed[1]=="fake_item" and players[index].fake_itemtimer.elapsed>2000)
+if(parsed[1]=="fake_item")
+{
+if(players[index].fake_itemtimer.elapsed>2000)
 {
 players[index].fake_itemtimer.restart();
 spawn_item(players[index].x,players[index].y,players[index].z,players[index].map,"fake.item",players[index].name);
 send_reliable(players[index].peer_id, "give fake_item -1", 0);
 play("fakeitemplace",players[index].x,players[index].y,players[index].z,players[index].map);
+}
+else
+send_reliable(players[index].peer_id, "You must wait before placing another fake item.", 2);
 }
 if(parsed[1]=="box")
 {
@@ -1641,11 +1690,16 @@ send_unreliable(players[index].peer_id, "ammogive magnum_revolver 100", 0);
 send_unreliable(players[index].peer_id, "ammogive AK47 80", 0);
 send_unreliable(players[index].peer_id, "ammogive sg08_sniper_rifle 30", 0);
 }
-if(parsed[1]=="frag_grenade" and players[index].fraggrenadetimer.elapsed>5000)
+if(parsed[1]=="frag_grenade")
+{
+if(players[index].fraggrenadetimer.elapsed>5000)
 {
 spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name);
 send_reliable(players[index].peer_id, "give frag_grenade -1", 0);
 players[index].fraggrenadetimer.restart();
+}
+else
+send_reliable(players[index].peer_id, "You must wait before throwing another grenade.", 2);
 }
 else if(parsed[1]=="bucket")
 {
@@ -1686,11 +1740,16 @@ if(parsed[1]=="trector_plow")
 {
 send_unreliable(players[index].peer_id, "weapon_set trector_plow", 0);
 }
-if(parsed[1]=="smoke_bomb" and players[index].smokebombtimer.elapsed>60000)
+if(parsed[1]=="smoke_bomb")
+{
+if(players[index].smokebombtimer.elapsed>60000)
 {
 players[index].smokebombtimer.restart();
 spawn_smokebomb(players[index].x,players[index].y,players[index].z,players[index].map,players[index].name);
 send_reliable(players[index].peer_id, "give smoke_bomb -1", 0);
+}
+else
+send_reliable(players[index].peer_id, "You must wait before using another smoke bomb.", 2);
 }
 if(parsed[1]=="p90_mp")
 {
@@ -1705,16 +1764,22 @@ send_unreliable(players[index].peer_id, "give semtex_pack -1", 0);
 }
 if(parsed[1]=="semtex_controller")
 {
+bool semtex_found=false;
 for (uint i=0; i<samtexs.length(); i++)
 {
 if(samtexs[i].owner==players[index].name)
 {
 play("semtexactivate",players[index].x,players[index].y,players[index].z,players[index].map);
 explode();
+semtex_found=true;
 }
 }
+if(!semtex_found)
+send_reliable(players[index].peer_id, "You have no semtex charges placed.", 2);
 }
-if(parsed[1]=="semtex" and samtexs.length()<15)
+if(parsed[1]=="semtex")
+{
+if(samtexs.length()<15)
 {
 send_reliable(players[index].peer_id, "give semtex -1", 0);
 spawn_samtex(players[index].x,players[index].y,players[index].z,players[index].map,players[index].name);
@@ -1723,9 +1788,15 @@ send_reliable(players[index].peer_id, "movestop", 0);
 players[index].semtex=true;
 players[index].semtextimer.restart();
 }
+else
+send_reliable(players[index].peer_id, "Too many explosives placed.", 2);
+}
+if(parsed[1]=="bunker_bomb")
+{
+bool bomb_found=false;
 for(int i=0; i<bunkers.length(); i++)
 {
-if(parsed[1]=="bunker_bomb" and players[index].x==bunkers[i].x and players[index].y==bunkers[i].y and players[index].z==bunkers[i].z)
+if(players[index].x==bunkers[i].x and players[index].y==bunkers[i].y and players[index].z==bunkers[i].z)
 {
 send_reliable(players[index].peer_id, "give bunker_bomb -1", 0);
 spawn_bunkerbomb(players[index].x,players[index].y,players[index].z,players[index].map,players[index].name);
@@ -1733,7 +1804,12 @@ play("bunkerbombplace",players[index].x,players[index].y,players[index].z,player
 send_reliable(players[index].peer_id, "movestop", 0);
 players[index].bunkerbomb=true;
 players[index].bunkerbombtimer.restart();
+bomb_found=true;
+break;
 }
+}
+if(!bomb_found)
+send_reliable(players[index].peer_id, "You must be at a bunker control panel to place a bunker bomb.", 2);
 }
 if(parsed[1]=="torpedo") 
 {
@@ -1752,7 +1828,17 @@ for(int i=0; i<bunkers.length(); i++)
 {
 if(parsed[1]=="bunker_key")
 {
-if(players[index].x==bunkers[i].x and players[index].y==bunkers[i].y and players[index].z==bunkers[i].z and players[index].name!=bunkers[i].owner)
+if(players[index].x==bunkers[i].x and players[index].y==bunkers[i].y and players[index].z==bunkers[i].z)
+{
+if(players[index].name==bunkers[i].owner)
+{
+send_reliable(players[index].peer_id, "You already own this bunker.", 2);
+}
+else if(bunkers[i].owner!="")
+{
+send_reliable(players[index].peer_id, "This bunker is already claimed by someone else.", 2);
+}
+else
 {
 send_reliable(players[index].peer_id, "give bunker_key -1", 0);
 bunkers[i].owner=players[index].name;
@@ -1774,16 +1860,25 @@ send_reliable(players[index].peer_id, "You've claimed your second bunker! You re
 }
 }
 }
+}
+if(parsed[1]=="rock")
+{
+bool rock_found=false;
 for(int i=0; i<ballistas.length(); i++)
 {
-if(parsed[1]=="rock" and players[index].x==ballistas[i].x and players[index].y==ballistas[i].y and players[index].z==ballistas[i].z and players[index].map==ballistas[i].map)
+if(players[index].x==ballistas[i].x and players[index].y==ballistas[i].y and players[index].z==ballistas[i].z and players[index].map==ballistas[i].map)
 {
 send_reliable(players[index].peer_id, "give rock -1", 0);
 players[index].ballista=true;
 players[index].ballistatimer.restart();
 play("ballistareload", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
+rock_found=true;
+break;
 }
+}
+if(!rock_found)
+send_reliable(players[index].peer_id, "You must be at a ballista to load rocks.", 2);
 }
 if(parsed[1]=="bomb_vest")
 {
@@ -1798,6 +1893,14 @@ send_reliable(players[index].peer_id, "give bomb_vest -1", 0);
 else
 send_reliable(players[index].peer_id, "you are already wearing a bomb_vest.", 0);
 }
+string[] usable_items={"duo_plane","health_potion","life_injection","ultra_health_potion","bag","fake_item","box","frag_grenade","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
+bool is_usable=false;
+for(uint ui=0; ui<usable_items.length(); ui++)
+{
+if(parsed[1]==usable_items[ui]){is_usable=true;break;}
+}
+if(!is_usable and string_contains(parsed[1], "corpse_", 1)<0)
+send_reliable(players[index].peer_id, "This item cannot be used directly.", 2);
 }
 }
 else if(parsed[0]=="move_to_a" and parsed.length() > 3)

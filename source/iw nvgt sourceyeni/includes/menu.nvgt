@@ -185,8 +185,25 @@ break;
 }
 void show_changelog_form()
 {
+if (connected==true)
+{
+changelog_ready=false;
+received_changelog="";
+send_reliable(0, "request_changes", 0);
+timer cl_timeout;
+while(cl_timeout.elapsed<5000 and changelog_ready==false)
+{
+wait(5);
+netloop();
+}
+if (changelog_ready and received_changelog!="")
+{
+show_changelog_form_text(received_changelog);
+return;
+}
+}
 file cf;
-string cl="Changelog not found.";
+string cl="Changelog not found. Connect to the server to view the latest changes.";
 if (cf.open("changelog.txt","rb"))
 {
 cl=cf.read();

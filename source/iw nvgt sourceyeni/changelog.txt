@@ -1,3 +1,16 @@
+New in 0.4.9.6.2, build 28 (2026-06-01)
+Cleanup, bug fixes, and documentation overhaul.
+Merged the two separate changelog files (changelog.txt and iwserver/changes.txt) into a single unified changelog.
+Fixed /changes command not displaying any changes. The server was never loading the changelog file into memory.
+Fixed "View changes" in the escape menu and main menu reading from a local file instead of the server. Changelog viewing now fetches the latest version from the server when connected, with a fallback to the local file when offline.
+Fixed "Edit map" in the builder showing the map data as read-only, which caused the server to crash silently when trying to save.
+Reorganized the help system into categories. Help topics are now grouped into Gameplay Fundamentals, Game Modes and Maps, Game Systems, weapon classes (Melee, Pistols, SMGs, Assault Rifles, Battle Rifles, LMGs, Shotguns, Snipers, Special Ordnance, Laser, Heavy), Consumables, Potions, Vehicles and Equipment, and Developer Reference. The help menu now shows a category list and a topic list side by side.
+Added 13 new help files: Credits, Holsters, Attachments, Support Tickets, HyperComp, Vehicles, Translocator, Waypoint Marker, Binoculars, Adrenaline Syringe, Repair Kit, Fortified Ration, and C4.
+Updated the controls help file with vehicle controls, equipment and holster keys, weapon info panel, builder, and points of interest.
+Rewrote the readme with current game information, full controls reference, weapon list, equipment and item descriptions, and all game systems.
+Added bunker claim feedback. Trying to claim a bunker you already own tells you so. Trying to claim a bunker someone else has tells you it is already claimed without revealing the owner.
+Added error reporting for silently failing item uses. Items that cannot be used due to missing requirements (no ammo, no duo mate, wrong location, cooldown active, etc.) now tell the player why instead of doing nothing. Items with no coded use now display a message saying they cannot be used directly.
+
 New in 0.4.9.6.1, build 27 (2026-06-01)
 Bug fixes and quality-of-life improvements.
 Fixed staff not being notified when support tickets are replied to or closed. Admins and developers logged into the server (both in-game and in the lobby) now receive a notification sound and message for all ticket replies and closures, not just new ticket submissions.

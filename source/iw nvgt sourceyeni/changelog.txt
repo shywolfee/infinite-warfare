@@ -1,3 +1,7 @@
+New in 0.49, build 19 (2026-06-01)
+Fixed compile error in options menu caused by using nonexistent audio_form tab methods (add_tab, set_tab). Options categories are now implemented as a sub-menu leading to separate Gameplay, Controls, and Audio forms.
+Fixed compile error in player tracking menu caused by using nonexistent get_current_index method. Replaced with the correct get_list_position method.
+
 New in 0.48, build 18 (2026-05-31)
 Converted the options menu to use categorical tabs. Options are now sorted into Gameplay, Audio, and Controls tabs to reduce clutter.
 All account options (registration, password reset, authorization) are placed in a dedicated Account Management sub-menu, keeping the main menu clean.

@@ -57,9 +57,9 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.48;
-int build_number=18;
-string build_date="2026-05-31";
+double version=0.49;
+int build_number=19;
+string build_date="2026-06-01";
 string name;
 string mate;
 double facing=0;
@@ -2442,7 +2442,7 @@ netloop();
 fallloop();
 if (f.is_pressed(f_track))
 {
-int sel=f.get_current_index(f_list);
+int sel=f.get_list_position(f_list);
 if(sel==0)
 {
 speak("stopped tracking");

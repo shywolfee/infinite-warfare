@@ -735,25 +735,15 @@ m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
 // ---------------------------------------------------------------------------
-// Options menu — tabbed layout: Gameplay, Controls, Audio.
+// Options menu — categorical sub-menus: Gameplay, Controls, Audio.
 // Account-related options are in the Account Management menu.
 // ---------------------------------------------------------------------------
-void optionsmenu()
+void options_gameplay()
 {
 audio_form f;
-f.create_window("Options", false, true);
-int tab=f.create_tab_panel("Options categories");
-f.add_tab(tab, "Gameplay");
-f.add_tab(tab, "Controls");
-f.add_tab(tab, "Audio");
+f.create_window("Options: Gameplay", false, true);
 int f_mate=f.create_input_box("Duo mate", mate, "", 0, false, false, false);
 int f_setmate=f.create_button("Set &duo mate");
-f.set_tab(tab, "Controls");
-int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
-int f_camspeed=f.create_input_box("Camera speed (1 to 200, default 50)", ""+cameraspeed, "", 0, false, false, false);
-f.set_tab(tab, "Audio");
-int f_vol=f.create_input_box("Master volume (-60 to 0, default 0)", ""+mastervol, "", 0, false, false, false);
-f.set_tab(tab, "");
 int f_save=f.create_button("&Save and go back", true);
 int f_cancel=f.create_button("Cancel", false, true);
 f.focus(f_mate);
@@ -777,6 +767,31 @@ dlg("Duo mate name must not be empty or contain spaces.");
 }
 else if (f.is_pressed(f_save))
 {
+writeprefs();
+speak("Options saved.");
+break;
+}
+else if (f.is_pressed(f_cancel))
+break;
+}
+}
+void options_controls()
+{
+audio_form f;
+f.create_window("Options: Controls", false, true);
+int f_rctrl=f.create_checkbox("Enable right control detection", rctrl==1);
+int f_camspeed=f.create_input_box("Camera speed (1 to 200, default 50)", ""+cameraspeed, "", 0, false, false, false);
+int f_save=f.create_button("&Save and go back", true);
+int f_cancel=f.create_button("Cancel", false, true);
+f.focus(f_rctrl);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_save))
+{
 rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
 int newcam=string_to_number(f.get_text(f_camspeed));
 if(newcam<1) newcam=1;
@@ -788,6 +803,30 @@ kup.setting_2=cameraspeed;
 kdown.setting_2=cameraspeed;
 kpgdn.setting_2=cameraspeed;
 kpgup.setting_2=cameraspeed;
+writeprefs();
+speak("Options saved.");
+break;
+}
+else if (f.is_pressed(f_cancel))
+break;
+}
+}
+void options_audio()
+{
+audio_form f;
+f.create_window("Options: Audio", false, true);
+int f_vol=f.create_input_box("Master volume (-60 to 0, default 0)", ""+mastervol, "", 0, false, false, false);
+int f_save=f.create_button("&Save and go back", true);
+int f_cancel=f.create_button("Cancel", false, true);
+f.focus(f_vol);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_save))
+{
 int newvol=string_to_number(f.get_text(f_vol));
 if(newvol<-60) newvol=-60;
 if(newvol>0) newvol=0;
@@ -798,11 +837,29 @@ speak("Options saved.");
 break;
 }
 else if (f.is_pressed(f_cancel))
-{
 break;
 }
 }
+void optionsmenu()
+{
+setupmenu();
+m.add_item_tts("Gameplay options.","gameplay");
+m.add_item_tts("Controls options.","controls");
+m.add_item_tts("Audio options.","audio");
+m.add_item_tts("Go back.","back");
+int mres=m.run("Options",true);
+if (m.get_item_name(mres)=="gameplay")
+options_gameplay();
+else if (m.get_item_name(mres)=="controls")
+options_controls();
+else if (m.get_item_name(mres)=="audio")
+options_audio();
+else
+{
 mainmenu();
+return;
+}
+optionsmenu();
 }
 // ---------------------------------------------------------------------------
 // Administrator Panel (only available when running from source)

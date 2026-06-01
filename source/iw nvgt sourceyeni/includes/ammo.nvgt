@@ -327,7 +327,168 @@ if (equip_body != "")
 result += string_replace(equip_body, "_", " ", true);
 else
 result += "empty";
+result += ". Holster 1: ";
+if (equip_holster1 != "")
+{
+result += get_holster_slot_label(1);
+}
+else
+result += "empty";
+result += ". Holster 2: ";
+if (equip_holster2 != "")
+{
+result += get_holster_slot_label(2);
+}
+else
+result += "empty";
 return result;
+}
+
+// ---------------------------------------------------------------------------
+// Holster system.
+// ---------------------------------------------------------------------------
+class holster_def
+{
+string id;
+string display_name;
+string[] compatible_weapons;
+bool has_ammo_storage;
+int ammo_capacity;
+string ammo_reserve_item;
+holster_def(string _id, string _dn, string[]@ _cw, bool _has_ammo, int _ac, string _ari)
+{
+id=_id;
+display_name=_dn;
+compatible_weapons=_cw;
+has_ammo_storage=_has_ammo;
+ammo_capacity=_ac;
+ammo_reserve_item=_ari;
+}
+}
+holster_def@[] holster_defs(0);
+
+string equip_holster1="";
+string equip_holster2="";
+string holster1_weapon="";
+string holster2_weapon="";
+int holster1_weapon_ammo=0;
+int holster2_weapon_ammo=0;
+int holster1_belt_ammo=0;
+int holster2_belt_ammo=0;
+
+void register_holster(string id, string display_name, string[]@ compatible, bool has_ammo, int ammo_cap, string ammo_item)
+{
+holster_def d(id, display_name, compatible, has_ammo, ammo_cap, ammo_item);
+holster_defs.insert_last(d);
+}
+
+int find_holster_def(string id)
+{
+for(uint i=0; i<holster_defs.length(); i++)
+{
+if(holster_defs[i].id==id) return i;
+}
+return -1;
+}
+
+bool is_holster_item(string item)
+{
+return find_holster_def(item)>=0;
+}
+
+bool holster_supports_weapon(string holster_id, string weapon)
+{
+int idx=find_holster_def(holster_id);
+if(idx<0) return false;
+for(uint i=0; i<holster_defs[idx].compatible_weapons.length(); i++)
+{
+if(holster_defs[idx].compatible_weapons[i]==weapon) return true;
+}
+return false;
+}
+
+string get_holster_slot_label(int slot)
+{
+string hid=(slot==1)?equip_holster1:equip_holster2;
+string hw=(slot==1)?holster1_weapon:holster2_weapon;
+int ha=(slot==1)?holster1_weapon_ammo:holster2_weapon_ammo;
+int ba=(slot==1)?holster1_belt_ammo:holster2_belt_ammo;
+if(hid=="") return "empty";
+int idx=find_holster_def(hid);
+string label=(idx>=0)?holster_defs[idx].display_name:string_replace(hid,"_"," ",true);
+if(hw!="")
+{
+label+=" ["+get_weapon_display_name(hw);
+if(ha>=0) label+=" ("+ha+" loaded)";
+label+="]";
+}
+else
+label+=" [empty]";
+if(idx>=0 and holster_defs[idx].has_ammo_storage and ba>0)
+label+=" ("+ba+" rounds in belt)";
+return label;
+}
+
+void unequip_holster(int slot)
+{
+string hid=(slot==1)?equip_holster1:equip_holster2;
+if(hid=="")
+{
+speak("Nothing equipped in holster "+slot+".");
+return;
+}
+string hw=(slot==1)?holster1_weapon:holster2_weapon;
+int ha=(slot==1)?holster1_weapon_ammo:holster2_weapon_ammo;
+int ba=(slot==1)?holster1_belt_ammo:holster2_belt_ammo;
+if(hw!="")
+{
+give(hw, 1);
+int gi=find_gun(hw);
+if(gi>=0) gun_ammos[gi].mag_loaded=ha;
+speak(get_weapon_display_name(hw)+" unholstered.");
+}
+int idx=find_holster_def(hid);
+if(idx>=0 and holster_defs[idx].has_ammo_storage and ba>0)
+{
+give(holster_defs[idx].ammo_reserve_item, ba);
+speak(ba+" rounds returned from belt.");
+}
+give(hid, 1);
+int didx=find_holster_def(hid);
+string dn=(didx>=0)?holster_defs[didx].display_name:string_replace(hid,"_"," ",true);
+speak(dn+" removed from holster "+slot+".");
+if(slot==1){equip_holster1="";holster1_weapon="";holster1_weapon_ammo=0;holster1_belt_ammo=0;}
+else{equip_holster2="";holster2_weapon="";holster2_weapon_ammo=0;holster2_belt_ammo=0;}
+}
+
+bool try_store_ammo_in_belt(string ammo_item)
+{
+for(int s=1; s<=2; s++)
+{
+string hid=(s==1)?equip_holster1:equip_holster2;
+if(hid=="") continue;
+int idx=find_holster_def(hid);
+if(idx<0) continue;
+if(!holster_defs[idx].has_ammo_storage) continue;
+if(holster_defs[idx].ammo_reserve_item!=ammo_item) continue;
+int ba=(s==1)?holster1_belt_ammo:holster2_belt_ammo;
+int cap=holster_defs[idx].ammo_capacity;
+if(ba>=cap)
+{
+speak("Belt is full.");
+return false;
+}
+int space=cap-ba;
+int have=get_item_count(ammo_item);
+if(have<=0){speak("No ammunition to store.");return false;}
+int store=(have<space)?have:space;
+give(ammo_item, -store);
+if(s==1) holster1_belt_ammo+=store;
+else holster2_belt_ammo+=store;
+speak(store+" rounds stored in belt. "+((s==1)?holster1_belt_ammo:holster2_belt_ammo)+" of "+cap+" total.");
+return true;
+}
+return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -785,6 +946,14 @@ for (int i=5; i<10; i++) quickbar[i] = "";
 reset_stamina();
 clear_all_effects();
 equip_body = "";
+equip_holster1="";
+equip_holster2="";
+holster1_weapon="";
+holster2_weapon="";
+holster1_weapon_ammo=0;
+holster2_weapon_ammo=0;
+holster1_belt_ammo=0;
+holster2_belt_ammo=0;
 }
 
 // Developer cheat: give every weapon, all ammo, and all items.
@@ -842,5 +1011,9 @@ give("waypoint_marker", 5);
 give("binoculars", 1);
 give("fortified_ration", 5);
 
+for(uint i=0; i<holster_defs.length(); i++)
+{
+if(get_item_count(holster_defs[i].id)<=0) give(holster_defs[i].id, 1);
+}
 speak("All weapons, ammunition, and items given.");
 }

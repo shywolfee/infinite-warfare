@@ -1,3 +1,22 @@
+New in 0.4.9.5, build 25 (2026-06-01)
+Added holster system. Equip up to two holsters in the new Holster 1 and Holster 2 equipment slots. Different holster types are designed for different weapon classes:
+  Pistol Holster: holds Glock 17, Beretta 92FS, or Desert Eagle.
+  .357 Gun Belt: holds the Taurus Model 66 revolver. Stores up to 24 rounds of .357 Magnum ammunition in the belt.
+  .44 Gun Belt: holds the Magnum Revolver. Stores up to 24 rounds of .44 Magnum ammunition in the belt.
+  SMG Sling: holds MP5, UZI, MP7, or P90.
+  Rifle Strap: holds HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, or FN FAL.
+  Sniper Carry Case: holds SG-08, AWP, or Dragunov SVD.
+  Shotgun Bandoleer: holds Benelli M4, KS-123, or SPAS-12. Stores up to 16 shells of 12-gauge buckshot.
+  Knife Sheath: holds the combat knife.
+  Sword Scabbard: holds the machete or katana.
+  Bat Holster: holds the baseball bat.
+Press Shift+Backspace to holster your currently drawn weapon into a compatible equipped holster. If multiple holsters can hold the weapon, you choose which one.
+Press Shift+Backspace again with no weapon drawn to draw a holstered weapon. If both holsters hold weapons, a menu shows each holster name, weapon name, and loaded ammunition count in parentheses.
+Gun belts and the shotgun bandoleer can store ammunition. Use an ammo belt or shell box item from your inventory while a compatible belt is equipped to load rounds into the belt. When drawing a weapon from a gun belt with stored ammo, the weapon is automatically reloaded to capacity from the belt.
+Stored ammunition is displayed in the holster's equipment menu listing and inventory display.
+Press Alt+E to open the equipment menu from gameplay.
+Press Alt+Backspace to unequip a holster. If the holster contains a weapon, it is returned to your inventory. If the belt contains ammunition, it is returned as well.
+
 New in 0.4.9.4, build 24 (2026-06-01)
 Added Builder menu (Shift+B, dev builds only). A map editing tool that lets developers modify map files without editing them manually.
   Add element: pick from all map element types (tile, zone, ambient sound source, point of interest, item spawn, map name, max coordinates). Tiles show a selectable list with a Preview Sound button to audition each tile's step sound. All elements prompt for coordinates and required parameters via forms.

@@ -681,6 +681,8 @@ body_label += string_replace(equip_body, "_", " ", true);
 else
 body_label += "empty";
 f.add_list_item(f_list, body_label);
+f.add_list_item(f_list, "Holster 1: "+get_holster_slot_label(1));
+f.add_list_item(f_list, "Holster 2: "+get_holster_slot_label(2));
 int f_remove = f.create_button("&Remove selected");
 int f_close = f.create_button("&Close", true, true);
 f.focus(f_list);
@@ -696,13 +698,18 @@ int sel = f.get_list_position(f_list);
 if (sel == 0)
 {
 unequip_item("body");
-// Refresh the label.
-string new_label = "Body: ";
-if (equip_body != "")
-new_label += string_replace(equip_body, "_", " ", true);
-else
-new_label += "empty";
-// Rebuild since audio_form doesn't have item update.
+equipment_menu();
+return;
+}
+else if (sel == 1)
+{
+unequip_holster(1);
+equipment_menu();
+return;
+}
+else if (sel == 2)
+{
+unequip_holster(2);
 equipment_menu();
 return;
 }

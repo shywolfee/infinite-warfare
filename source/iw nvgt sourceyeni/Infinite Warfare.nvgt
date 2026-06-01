@@ -58,8 +58,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.494;
-int build_number=24;
+double version=0.495;
+int build_number=25;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -210,6 +210,27 @@ string[] compat_rifle_sup = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1
 register_attachment("rifle_suppressor", "Rifle Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_rifle_sup);
 string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"};
 register_attachment("sniper_suppressor", "Sniper Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
+// --- Holster registrations ---
+string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle"};
+register_holster("pistol_holster", "Pistol Holster", h_pistol, false, 0, "");
+string[] h_357 = {"taurus_model66_revolver"};
+register_holster("gun_belt_357", ".357 Gun Belt", h_357, true, 24, ".357_magnum_ammo_belt");
+string[] h_44 = {"magnum_revolver"};
+register_holster("gun_belt_44", ".44 Gun Belt", h_44, true, 24, ".44_magnum_ammo_belt");
+string[] h_smg = {"mp5", "uzi", "mp7", "p90_mp"};
+register_holster("smg_sling", "SMG Sling", h_smg, false, 0, "");
+string[] h_rifle = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle"};
+register_holster("rifle_strap", "Rifle Strap", h_rifle, false, 0, "");
+string[] h_sniper = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"};
+register_holster("sniper_carry_case", "Sniper Carry Case", h_sniper, false, 0, "");
+string[] h_shotgun = {"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun"};
+register_holster("shotgun_bandoleer", "Shotgun Bandoleer", h_shotgun, true, 16, "12_gauge_shell_box");
+string[] h_knife = {"combatknife"};
+register_holster("knife_sheath", "Knife Sheath", h_knife, false, 0, "");
+string[] h_sword = {"machete", "katana"};
+register_holster("sword_scabbard", "Sword Scabbard", h_sword, false, 0, "");
+string[] h_bat = {"baseball_bat"};
+register_holster("bat_holster", "Bat Holster", h_bat, false, 0, "");
 // Starting loadout is given per-spawn in game() via give_starting_loadout().
 create_buffer("all");
 create_buffer("chats");
@@ -1224,6 +1245,15 @@ else if (is_attachment_item(item))
 use_attachment_item(item);
 return;
 }
+else if (is_holster_item(item))
+{
+equip_holster_item(item);
+return;
+}
+else if (is_ammo_container(item) or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "shell_box", 1)>-1)
+{
+if(try_store_ammo_in_belt(item)) return;
+}
 }
 void use_attachment_item(string item)
 {
@@ -1252,6 +1282,186 @@ apply_weapon_stats(current_weapon);
 speak(attachment_defs[def_idx].display_name+" attached to "+get_weapon_display_name(current_weapon)+".");
 send_reliable(0, "attach "+item+" "+current_weapon, 0);
 }
+}
+void equip_holster_item(string item)
+{
+if(equip_holster1!="" and equip_holster2!="")
+{
+speak("Both holster slots are full. Remove one first.");
+return;
+}
+int slot=0;
+if(equip_holster1=="" and equip_holster2=="")
+{
+slot=1;
+}
+else if(equip_holster1=="")
+slot=1;
+else
+slot=2;
+if(equip_holster1!="" and equip_holster2=="")
+{
+audio_form sf;
+sf.create_window("Select Holster Slot", false, true);
+int sl=sf.create_list("Slot", 0, false);
+sf.add_list_item(sl, "Holster 1: "+get_holster_slot_label(1));
+sf.add_list_item(sl, "Holster 2: empty");
+int ok=sf.create_button("OK", true);
+int cancel=sf.create_button("Cancel", false, true);
+sf.focus(sl);
+while(true)
+{
+wait(5);
+sf.monitor();
+if(sf.is_pressed(cancel)) return;
+if(sf.is_pressed(ok))
+{
+int s=sf.get_list_position(sl);
+if(s==0){speak("Holster 1 is already occupied.");continue;}
+slot=2;
+break;
+}
+}
+}
+give(item, -1);
+if(slot==1) equip_holster1=item;
+else equip_holster2=item;
+int idx=find_holster_def(item);
+string dn=(idx>=0)?holster_defs[idx].display_name:string_replace(item,"_"," ",true);
+speak(dn+" equipped in holster "+slot+".");
+}
+void holster_current_weapon()
+{
+string wname=weapons[w];
+if(wname=="" or wname=="empty")
+{
+draw_from_holster();
+return;
+}
+int[] valid_slots;
+for(int s=1; s<=2; s++)
+{
+string hid=(s==1)?equip_holster1:equip_holster2;
+if(hid=="") continue;
+string hw=(s==1)?holster1_weapon:holster2_weapon;
+if(hw!="") continue;
+if(holster_supports_weapon(hid, wname))
+valid_slots.insert_last(s);
+}
+if(valid_slots.length()==0)
+{
+speak("No empty compatible holster equipped.");
+return;
+}
+int slot=valid_slots[0];
+if(valid_slots.length()>1)
+{
+audio_form sf;
+sf.create_window("Select Holster", false, true);
+int sl=sf.create_list("Holster", 0, false);
+for(uint i=0; i<valid_slots.length(); i++)
+{
+string hid=(valid_slots[i]==1)?equip_holster1:equip_holster2;
+int idx=find_holster_def(hid);
+string dn=(idx>=0)?holster_defs[idx].display_name:hid;
+sf.add_list_item(sl, "Holster "+valid_slots[i]+": "+dn);
+}
+int ok=sf.create_button("OK", true);
+int cancel=sf.create_button("Cancel", false, true);
+sf.focus(sl);
+while(true)
+{
+wait(5);
+sf.monitor();
+if(sf.is_pressed(cancel)) return;
+if(sf.is_pressed(ok))
+{
+int s=sf.get_list_position(sl);
+if(s>=0 and s<int(valid_slots.length()))
+{slot=valid_slots[s];break;}
+}
+}
+}
+int ammo=ammo_check(wname);
+if(ammo<0) ammo=0;
+if(slot==1){holster1_weapon=wname;holster1_weapon_ammo=ammo;}
+else{holster2_weapon=wname;holster2_weapon_ammo=ammo;}
+give(wname, -1);
+weapons[w]="empty";
+melee=false;
+firetime=500;
+walktime=200;
+string hid=(slot==1)?equip_holster1:equip_holster2;
+int idx=find_holster_def(hid);
+string dn=(idx>=0)?holster_defs[idx].display_name:hid;
+speak(get_weapon_display_name(wname)+" holstered in "+dn+".");
+}
+void draw_from_holster()
+{
+bool h1_has=(holster1_weapon!="");
+bool h2_has=(holster2_weapon!="");
+if(!h1_has and !h2_has)
+{
+speak("No weapons holstered.");
+return;
+}
+int slot=0;
+if(h1_has and !h2_has) slot=1;
+else if(!h1_has and h2_has) slot=2;
+else
+{
+audio_form sf;
+sf.create_window("Draw Weapon", false, true);
+int sl=sf.create_list("Holstered weapons", 0, false);
+string h1_label=holster1_weapon;
+int idx1=find_holster_def(equip_holster1);
+string dn1=(idx1>=0)?holster_defs[idx1].display_name:equip_holster1;
+string label1=dn1+": "+get_weapon_display_name(holster1_weapon)+" ("+holster1_weapon_ammo+" loaded)";
+sf.add_list_item(sl, label1);
+int idx2=find_holster_def(equip_holster2);
+string dn2=(idx2>=0)?holster_defs[idx2].display_name:equip_holster2;
+string label2=dn2+": "+get_weapon_display_name(holster2_weapon)+" ("+holster2_weapon_ammo+" loaded)";
+sf.add_list_item(sl, label2);
+int ok=sf.create_button("OK", true);
+int cancel=sf.create_button("Cancel", false, true);
+sf.focus(sl);
+while(true)
+{
+wait(5);
+sf.monitor();
+if(sf.is_pressed(cancel)) return;
+if(sf.is_pressed(ok))
+{
+int s=sf.get_list_position(sl);
+if(s==0) slot=1;
+else slot=2;
+break;
+}
+}
+}
+string wname=(slot==1)?holster1_weapon:holster2_weapon;
+int ammo=(slot==1)?holster1_weapon_ammo:holster2_weapon_ammo;
+int belt_ammo=(slot==1)?holster1_belt_ammo:holster2_belt_ammo;
+string hid=(slot==1)?equip_holster1:equip_holster2;
+give(wname, 1);
+int gi=find_gun(wname);
+if(gi>=0) gun_ammos[gi].mag_loaded=ammo;
+int idx=find_holster_def(hid);
+if(idx>=0 and holster_defs[idx].has_ammo_storage and belt_ammo>0 and gi>=0)
+{
+int need=gun_ammos[gi].mag_capacity-gun_ammos[gi].mag_loaded;
+if(need>0)
+{
+int reload_amt=(belt_ammo<need)?belt_ammo:need;
+gun_ammos[gi].mag_loaded+=reload_amt;
+if(slot==1) holster1_belt_ammo-=reload_amt;
+else holster2_belt_ammo-=reload_amt;
+speak(reload_amt+" rounds auto-loaded from belt.");
+}
+}
+if(slot==1){holster1_weapon="";holster1_weapon_ammo=0;}
+else{holster2_weapon="";holster2_weapon_ammo=0;}
+draw_weapon(wname);
 }
 void show_weapon_info(string wname)
 {
@@ -1985,7 +2195,7 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "repair_kit" and item != "waypoint_marker" and item != "binoculars" and !is_attachment_item(item))
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "repair_kit" and item != "waypoint_marker" and item != "binoculars" and !is_attachment_item(item) and !is_holster_item(item))
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -2335,6 +2545,53 @@ speak("Not a weapon.");
 else
 speak("No item selected.");
 }
+// Shift+Backspace: holster or draw weapon.
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_BACK))
+{
+holster_current_weapon();
+}
+// Alt+E: open equipment menu.
+if (MENU_is_down() and key_pressed(KEY_E))
+{
+equipment_menu();
+}
+// Alt+Backspace: unequip holsters.
+if (MENU_is_down() and key_pressed(KEY_BACK))
+{
+if(equip_holster1!="" or equip_holster2!="")
+{
+if(equip_holster1!="" and equip_holster2!="")
+{
+audio_form uf;
+uf.create_window("Unequip Holster", false, true);
+int ul=uf.create_list("Which holster?", 0, false);
+uf.add_list_item(ul, "Holster 1: "+get_holster_slot_label(1));
+uf.add_list_item(ul, "Holster 2: "+get_holster_slot_label(2));
+uf.add_list_item(ul, "Both");
+int uok=uf.create_button("OK", true);
+int ucancel=uf.create_button("Cancel", false, true);
+uf.focus(ul);
+while(true)
+{
+wait(5);
+uf.monitor();
+if(uf.is_pressed(ucancel)) break;
+if(uf.is_pressed(uok))
+{
+int s=uf.get_list_position(ul);
+if(s==0) unequip_holster(1);
+else if(s==1) unequip_holster(2);
+else if(s==2){unequip_holster(1);unequip_holster(2);}
+break;
+}
+}
+}
+else if(equip_holster1!="") unequip_holster(1);
+else unequip_holster(2);
+}
+else
+speak("No holsters equipped.");
+}
 // Alt+Enter: show help for the currently selected inventory item.
 if (MENU_is_down() and key_pressed(KEY_RETURN))
 {
@@ -2357,7 +2614,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "repair_kit" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp" and !is_attachment_item(sel_item))
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "repair_kit" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp" and !is_attachment_item(sel_item) and !is_holster_item(sel_item))
 send_reliable(0, "use " + sel_item, 0);
 }
 }

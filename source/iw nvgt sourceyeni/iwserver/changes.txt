@@ -1,3 +1,10 @@
+0.4.9.6
+Added support ticket system. Tickets are stored in tickets/ directory as encrypted .dat files.
+New server commands: ticket_check_role, ticket_create, ticket_list_my, ticket_list_all, ticket_get, ticket_reply, ticket_close.
+Admin panel commands: ticket_admin_list_all, ticket_admin_get, ticket_admin_reply, ticket_admin_close.
+When a ticket is created, all online admins and developers (both in-game and in lobby) are notified.
+Ticket IDs are auto-incremented and persisted in tickets/next_id.txt.
+
 0.4.9.4
 Added builder commands: builder_read, builder_append, builder_delete_line, builder_edit_line, builder_write_map, builder_delete_map.
 All builder commands require dev status. All write operations automatically reload the map and re-send to connected players.

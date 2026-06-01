@@ -935,6 +935,7 @@ int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin
 int f_save_auth=f.create_button("&Save authorization mode");
 int f_viewunauth=f.create_button("&View unauthenticated players");
 int f_viewresets=f.create_button("View password &reset requests");
+int f_tickets=f.create_button("Manage support &tickets");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_authmode);
 while(true)
@@ -1072,6 +1073,10 @@ rf.monitor();
 if(rf.is_pressed(rf_close))
 break;
 }
+}
+else if (f.is_pressed(f_tickets))
+{
+admin_support_tickets(an, comp);
 }
 else if (f.is_pressed(f_close))
 {

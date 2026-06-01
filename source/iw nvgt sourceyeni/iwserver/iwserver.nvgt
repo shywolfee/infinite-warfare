@@ -27,6 +27,9 @@ timer uptimer;
 string motd;
 bool auth_mode=false;
 const string ACCOUNT_SECRET = "IW_aCc0unt_K3y_xK9mP2vL7nQ4wR8t!";
+int next_ticket_id=1;
+const string TICKET_SECRET = "IW_T1ck3t_sYs_K3y_pQ9rW2xL7nM4!";
+string tickets_dir="tickets";
 void main()
 {
 show_window("Infinite Warfare server!, version "+ minversion);
@@ -63,6 +66,15 @@ file af;
 af.open("authmode.svr", "rb");
 auth_mode=(af.read()=="1");
 af.close();
+}
+if(!directory_exists(tickets_dir))
+directory_create(tickets_dir);
+if(file_exists(tickets_dir+"/next_id.txt"))
+{
+file nf;
+nf.open(tickets_dir+"/next_id.txt", "rb");
+next_ticket_id=string_to_number(nf.read());
+nf.close();
 }
 n.setup_server(port, 20, 500);
 init_mapsystem();
@@ -705,6 +717,285 @@ first3=false;
 }
 }
 send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="ticket_check_role")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+if(players[index].dev or players[index].admin)
+send_reliable(e.peer_id, "ticket_role_staff", 0);
+else
+send_reliable(e.peer_id, "ticket_role_player", 0);
+}
+else
+send_reliable(e.peer_id, "ticket_role_player", 0);
+}
+else if(parsed[0]=="ticket_create")
+{
+string payload=string_replace(get_event_message(), "ticket_create ", "", false);
+string[] tparts=string_split(payload, "|", false);
+if(tparts.length()>=3)
+{
+string t_owner=tparts[0];
+string t_subject=tparts[1];
+string t_body=tparts[2];
+string tid=""+next_ticket_id;
+savedata t(tickets_dir+"/"+tid+".dat", TICKET_SECRET);
+t.add("id", tid);
+t.add("owner", t_owner);
+t.add("subject", t_subject);
+t.add("body", t_body);
+t.add("status", "open");
+t.add("close_reason", "none");
+t.add("reply_count", 0.0);
+t.save();
+next_ticket_id++;
+file nf;
+nf.open(tickets_dir+"/next_id.txt", "wb");
+nf.write(""+next_ticket_id);
+nf.close();
+send_reliable(e.peer_id, "ticket_created "+tid, 0);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "New support ticket #"+tid+" from "+t_owner+": "+t_subject, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "New support ticket #"+tid+" from "+t_owner+": "+t_subject, 2);
+}
+}
+}
+}
+else if(parsed[0]=="ticket_list_my")
+{
+string payload=string_replace(get_event_message(), "ticket_list_my ", "", false);
+string[] tparts=string_split(payload, "|", false);
+if(tparts.length()>=2)
+{
+string t_owner=tparts[0];
+string t_filter=tparts[1];
+string result="ticket_mylist ";
+string[] files=find_files(tickets_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata t(tickets_dir+"/"+files[i], TICKET_SECRET);
+t.load();
+if(string_to_lower_case(t.read("owner"))!=string_to_lower_case(t_owner)) continue;
+if(t.read("status")!=t_filter) continue;
+if(!first) result+=",";
+result+=t.read("id")+"~"+t.read("subject")+"~"+t.read("status");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="ticket_list_all")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and (players[index].dev or players[index].admin))
+{
+string result="ticket_alllist ";
+string[] files=find_files(tickets_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata t(tickets_dir+"/"+files[i], TICKET_SECRET);
+t.load();
+if(t.read("status")!="open") continue;
+if(!first) result+=",";
+result+=t.read("id")+"~"+t.read("owner")+"~"+t.read("subject")+"~"+t.read("status");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="ticket_get")
+{
+if(parsed.length()>1)
+{
+string tid=parsed[1];
+string path=tickets_dir+"/"+tid+".dat";
+if(file_exists(path))
+{
+savedata t(path, TICKET_SECRET);
+t.load();
+string result="ticket_data "+t.read("id")+"~"+t.read("owner")+"~"+t.read("subject")+"~"+t.read("status")+"~"+t.read("close_reason")+"~"+t.read("body");
+int rc=int(t.readn("reply_count"));
+for(int r=0; r<rc; r++)
+result+="~"+t.read("reply_"+r);
+send_reliable(e.peer_id, result, 0);
+}
+else
+send_reliable(e.peer_id, "ticket_data not_found", 0);
+}
+}
+else if(parsed[0]=="ticket_reply")
+{
+string payload=string_replace(get_event_message(), "ticket_reply ", "", false);
+string[] tparts=string_split(payload, "|", false);
+if(tparts.length()>=3)
+{
+string tid=tparts[0];
+string author=tparts[1];
+string reply_text=tparts[2];
+string path=tickets_dir+"/"+tid+".dat";
+if(file_exists(path))
+{
+savedata t(path, TICKET_SECRET);
+t.load();
+int rc=int(t.readn("reply_count"));
+t.add("reply_"+rc, author+": "+reply_text);
+t.add("reply_count", double(rc+1));
+t.save();
+send_reliable(e.peer_id, "ticket_replied", 0);
+}
+}
+}
+else if(parsed[0]=="ticket_close")
+{
+string payload=string_replace(get_event_message(), "ticket_close ", "", false);
+string[] tparts=string_split(payload, "|", false);
+if(tparts.length()>=3)
+{
+string tid=tparts[0];
+string closer=tparts[1];
+string reason=tparts[2];
+string path=tickets_dir+"/"+tid+".dat";
+if(file_exists(path))
+{
+savedata t(path, TICKET_SECRET);
+t.load();
+t.add("status", "closed");
+t.add("close_reason", reason);
+t.save();
+send_reliable(e.peer_id, "ticket_closed", 0);
+}
+}
+}
+else if(parsed[0]=="ticket_admin_list_all" and parsed.length()>1)
+{
+string acomp=parsed[1];
+bool is_adm=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dv=(parsed.length()>2 and parsed[2]=="dev");
+if(is_adm or is_dv)
+{
+string result="ticket_admin_alllist ";
+string[] files=find_files(tickets_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata t(tickets_dir+"/"+files[i], TICKET_SECRET);
+t.load();
+if(t.read("status")!="open") continue;
+if(!first) result+=",";
+result+=t.read("id")+"~"+t.read("owner")+"~"+t.read("subject")+"~"+t.read("status");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="ticket_admin_get" and parsed.length()>2)
+{
+string acomp=parsed[1];
+string tid=parsed[2];
+bool is_adm=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dv=(parsed.length()>3 and parsed[3]=="dev");
+if(is_adm or is_dv)
+{
+string path=tickets_dir+"/"+tid+".dat";
+if(file_exists(path))
+{
+savedata t(path, TICKET_SECRET);
+t.load();
+string result="ticket_admin_data "+t.read("id")+"~"+t.read("owner")+"~"+t.read("subject")+"~"+t.read("status")+"~"+t.read("close_reason")+"~"+t.read("body");
+int rc=int(t.readn("reply_count"));
+for(int r=0; r<rc; r++)
+result+="~"+t.read("reply_"+r);
+send_reliable(e.peer_id, result, 0);
+}
+else
+send_reliable(e.peer_id, "ticket_admin_data not_found", 0);
+}
+}
+else if(parsed[0]=="ticket_admin_reply" and parsed.length()>2)
+{
+string acomp=parsed[1];
+bool is_adm=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dv=false;
+string rest=string_replace(get_event_message(), "ticket_admin_reply "+acomp+" ", "", false);
+if(string_contains(rest, "dev ", 1)==0)
+{
+is_dv=true;
+rest=string_replace(rest, "dev ", "", false);
+}
+if(is_adm or is_dv)
+{
+string[] tparts=string_split(rest, "|", false);
+if(tparts.length()>=3)
+{
+string tid=tparts[0];
+string author=tparts[1];
+string reply_text=tparts[2];
+string path=tickets_dir+"/"+tid+".dat";
+if(file_exists(path))
+{
+savedata t(path, TICKET_SECRET);
+t.load();
+int rc=int(t.readn("reply_count"));
+t.add("reply_"+rc, author+": "+reply_text);
+t.add("reply_count", double(rc+1));
+t.save();
+send_reliable(e.peer_id, "ticket_replied", 0);
+}
+}
+}
+}
+else if(parsed[0]=="ticket_admin_close" and parsed.length()>2)
+{
+string acomp=parsed[1];
+bool is_adm=(string_contains(adminlist, acomp, 1)>-1);
+bool is_dv=false;
+string rest=string_replace(get_event_message(), "ticket_admin_close "+acomp+" ", "", false);
+if(string_contains(rest, "dev ", 1)==0)
+{
+is_dv=true;
+rest=string_replace(rest, "dev ", "", false);
+}
+if(is_adm or is_dv)
+{
+string[] tparts=string_split(rest, "|", false);
+if(tparts.length()>=3)
+{
+string tid=tparts[0];
+string closer=tparts[1];
+string reason=tparts[2];
+string path=tickets_dir+"/"+tid+".dat";
+if(file_exists(path))
+{
+savedata t(path, TICKET_SECRET);
+t.load();
+t.add("status", "closed");
+t.add("close_reason", reason);
+t.save();
+send_reliable(e.peer_id, "ticket_closed", 0);
+}
+}
 }
 }
 else if(parsed[0]=="welcome")

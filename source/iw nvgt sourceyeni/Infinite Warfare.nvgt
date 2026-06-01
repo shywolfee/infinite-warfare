@@ -23,6 +23,7 @@
 #include "includes/menu.nvgt"
 #include "includes/lobby.nvgt"
 #include "includes/vehicle.nvgt"
+#include "includes/support.nvgt"
 string webdir;
 string gamename="Infinite Warfare";
 string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
@@ -58,8 +59,8 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-double version=0.495;
-int build_number=25;
+double version=0.496;
+int build_number=26;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -2549,6 +2550,11 @@ speak("No item selected.");
 if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_BACK))
 {
 holster_current_weapon();
+}
+// Alt+S: open support menu.
+if (MENU_is_down() and key_pressed(KEY_S))
+{
+support_menu();
 }
 // Alt+E: open equipment menu.
 if (MENU_is_down() and key_pressed(KEY_E))

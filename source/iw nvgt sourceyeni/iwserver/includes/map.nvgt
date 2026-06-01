@@ -1,3 +1,13 @@
+string find_map_path(string mapname)
+{
+string[] mode_dirs={"battlegrounds", "habitat_alpha", "battleroyale"};
+for(uint i=0; i<mode_dirs.length(); i++)
+{
+string path="content/maps/"+mode_dirs[i]+"/"+mapname+".map";
+if(file_exists(path)) return path;
+}
+return "";
+}
 mapdata@[] maps(0);
 class mapdata
 {
@@ -33,7 +43,8 @@ return outval;
 void internal_load(string loadname)
 {
 file f;
-f.open("map/"+loadname+".map", "rb");
+string fpath=find_map_path(loadname);
+f.open(fpath, "rb");
 rawdata=f.read();
 string[] map=delinear(rawdata);
 f.close();
@@ -226,12 +237,13 @@ return string_split(a, "\r\n", false);
 }
 string get_map_data(string map, string data)
 {
-if(!file_exists("map/"+map+".map"))
+string mpath=find_map_path(map);
+if(mpath=="")
 {
 return "";
 }
 file f;
-f.open("map/"+map+".map", "rb");
+f.open(mpath, "rb");
 string[] mdata=string_split(f.read(), "\r\n", true);
 for(uint i=0; i<mdata.length(); i++)
 {
@@ -258,12 +270,17 @@ return maps[index].tile_exists(x, y, z);
 void init_mapsystem()
 {
 maps.resize(0);
-string[] mapfiles=find_files("map/*.map");
+string[] mode_dirs={"battlegrounds", "habitat_alpha", "battleroyale"};
+for(uint d=0; d<mode_dirs.length(); d++)
+{
+string dir="content/maps/"+mode_dirs[d];
+string[] mapfiles=find_files(dir+"/*.map");
 for(uint i=0; i<mapfiles.length(); i++)
 {
 string workingname=string_replace(mapfiles[i], ".map", "", true);
 mapdata temp(workingname);
 maps.insert_last(temp);
+}
 }
 }
 int get_map_index(string name)
@@ -286,8 +303,8 @@ maps[i].loop();
 }
 void reload_map(string mname)
 {
-string path="map/"+mname+".map";
-if(!file_exists(path)) return;
+string path=find_map_path(mname);
+if(path=="") return;
 int mi=get_map_index(mname);
 if(mi>=0)
 {

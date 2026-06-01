@@ -61,8 +61,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4962;
-int build_number=28;
+double version=0.4963;
+int build_number=29;
 string build_date="2026-06-01";
 string name;
 string mate;
@@ -106,6 +106,90 @@ key_hold kE(KEY_E,300,40);
 key_hold kS(KEY_S,300,40);
 key_hold kX(KEY_X,300,40);
 
+class wpn_stats
+{
+string id;
+int firetime;
+int walktime;
+bool melee;
+}
+wpn_stats@[] wpn_cache(0);
+
+void load_all_weapons()
+{
+string wpn_dir="iwserver/content/weapons";
+if (!directory_exists(wpn_dir))
+wpn_dir="content/weapons";
+string[]@ files=find_files(wpn_dir+"/*.wpn");
+for (uint i=0; i<files.length(); i++)
+{
+string fname=files[i];
+// Extract weapon id from filename (remove .wpn extension)
+string wid=string_left(fname, fname.length()-4);
+// Read the file
+file f;
+f.open(wpn_dir+"/"+fname, "rb");
+string content=f.read();
+f.close();
+// Normalize line endings: replace \r\n with \n, then split on \n
+content=string_replace(content, "\r\n", "\n", true);
+string[] lines=string_split(content, "\n", true);
+// Parse key=value pairs into a dictionary
+dictionary props;
+for (uint j=0; j<lines.length(); j++)
+{
+int eq_pos=string_contains(lines[j], "=", 1);
+if (eq_pos<0) continue;
+string k=string_left(lines[j], eq_pos);
+string val=string_mid(lines[j], eq_pos+1, lines[j].length()-(eq_pos+1));
+props.set(k, val);
+}
+// Build wpn_stats entry
+wpn_stats ws;
+ws.id=wid;
+string tmp;
+if (props.get("firetime", tmp)) ws.firetime=string_to_number(tmp);
+else ws.firetime=500;
+if (props.get("walktime", tmp)) ws.walktime=string_to_number(tmp);
+else ws.walktime=200;
+string melee_str;
+if (props.get("melee", melee_str) and melee_str=="true") ws.melee=true;
+else ws.melee=false;
+wpn_cache.insert_last(ws);
+// Register gun for non-melee weapons that have ammo fields
+string ammo_type, feed_device, capacity_str, reserve_item, reserve_label, is_mag_str, starting_reserve_str, reload_ms_str;
+if (!ws.melee and props.get("ammo_type", ammo_type) and props.get("feed_device", feed_device) and props.get("capacity", capacity_str) and props.get("reserve_item", reserve_item) and props.get("reserve_label", reserve_label) and props.get("is_magazine", is_mag_str) and props.get("starting_reserve", starting_reserve_str) and props.get("reload_ms", reload_ms_str))
+{
+int capacity=string_to_number(capacity_str);
+bool is_magazine=(is_mag_str=="true");
+int starting_reserve=string_to_number(starting_reserve_str);
+int reload_ms=string_to_number(reload_ms_str);
+register_gun(wid, ammo_type, feed_device, capacity, reserve_item, reserve_label, is_magazine, starting_reserve, reload_ms);
+// Set ammo display if not default "rounds"
+string ammo_display;
+if (props.get("ammo_display", ammo_display) and ammo_display!="rounds")
+set_ammo_display(wid, ammo_display);
+}
+// Register fire modes
+string fire_modes_str;
+if (props.get("fire_modes", fire_modes_str))
+{
+string[] mode_parts=string_split(fire_modes_str, ",", true);
+if (mode_parts.length()>1)
+{
+int[] modes(mode_parts.length());
+for (uint m=0; m<mode_parts.length(); m++)
+{
+if (mode_parts[m]=="semi") modes[m]=FIREMODE_SEMI;
+else if (mode_parts[m]=="burst") modes[m]=FIREMODE_BURST;
+else if (mode_parts[m]=="auto") modes[m]=FIREMODE_AUTO;
+}
+register_fire_modes(wid, modes);
+}
+}
+}
+}
+
 void main()
 {
 sound_global_hrtf=true;
@@ -114,96 +198,8 @@ p.behind_pitch_decrease=6;
 distpool.pan_step=0.2;
 distpool.volume_step=0.1;
 weapons.insert_last("empty");
-// Beta: players start with everything.  Ammo reserves are inventory items.
-// register_gun(name, ammo_type, feed_device, capacity,
-//              reserve_item, reserve_label, is_magazine, starting_qty, reload_ms)
-// --- Pistols (magazine-fed) ---
-register_gun("glock17",                "9x19mm Parabellum",     "17-round magazine",       17, "9x19mm_17_round_magazine",  "magazine",     true,  10, 2000);
-register_gun("beretta92fs_pistol",     "9x19mm Parabellum",     "15-round magazine",       15, "9x19mm_15_round_magazine",  "magazine",     true,  10, 2000);
-// --- Revolvers (individual rounds from ammo belt) ---
-register_gun("taurus_model66_revolver",".357 Magnum",           "6-round cylinder",         6, ".357_magnum_ammo_belt",     "ammo belt",    false, 72, 3500);
-register_gun("magnum_revolver",        ".44 Magnum",            "6-round cylinder",         6, ".44_magnum_ammo_belt",      "ammo belt",    false, 72, 3500);
-// --- Sub-machine guns (magazine-fed) ---
-register_gun("p90_mp",                 "FN 5.7x28mm",           "50-round magazine",       50, "5.7x28mm_50_round_magazine","magazine",     true,   6, 2000);
-// --- Assault rifles (magazine-fed, STANAG shared across 5.56mm rifles) ---
-register_gun("hk_g36",                 "5.56x45mm NATO",        "30-round magazine",       30, "5.56mm_stanag_magazine",    "magazine",     true,   8, 2500);
-register_gun("AK47",                   "7.62x39mm",             "30-round magazine",       30, "7.62x39mm_30_round_magazine","magazine",    true,   8, 2500);
-register_gun("tar_21_assault_rifle",   "5.56x45mm NATO",        "30-round magazine",       30, "5.56mm_stanag_magazine",    "magazine",     true,   8, 2500);
-register_gun("famas_f1_assault_rifle", "5.56x45mm NATO",        "25-round magazine",       25, "5.56mm_25_round_magazine",  "magazine",     true,   8, 2500);
-// --- Shotguns (individual shells from shell box) ---
-register_gun("benelli_m4_shotgun",     "12-gauge buckshot",     "8-round tube magazine",    8, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
-register_gun("ks123shotgun",           "12-gauge buckshot",     "5-round tube magazine",    5, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
-// --- Battle rifle / sniper (magazine or clip fed) ---
-register_gun("m1garantBattleRifle",    ".30-06 Springfield",    "8-round en-bloc clip",     8, ".30-06_en_bloc_clip",       "clip",         true,   8, 2000);
-register_gun("sg08_sniper_rifle",      ".308 Winchester",       "10-round magazine",       10, ".308_10_round_magazine",    "magazine",     true,   5, 3000);
-// --- Heavy ordnance (individual shells) ---
-register_gun("120mm_mortar",           "120mm HE mortar shell", "single-load barrel",       1, "120mm_mortar_shell",        "mortar shell", false,  5, 8000);
-// --- Pistols (continued) ---
-register_gun("desert_eagle",           ".50 Action Express",    "7-round magazine",          7, ".50ae_7_round_magazine",    "magazine",     true,   8, 2000);
-// --- SMGs (continued) ---
-register_gun("mp5",                    "9x19mm Parabellum",     "30-round magazine",        30, "9x19mm_30_round_magazine",  "magazine",     true,   8, 2000);
-register_gun("uzi",                    "9x19mm Parabellum",     "32-round magazine",        32, "9x19mm_32_round_magazine",  "magazine",     true,   8, 2000);
-register_gun("mp7",                    "4.6x30mm HK",           "40-round magazine",        40, "4.6x30mm_40_round_magazine","magazine",     true,   7, 2000);
-// --- Assault rifles (continued) ---
-register_gun("m4a1_carbine",           "5.56x45mm NATO",        "30-round magazine",        30, "5.56mm_stanag_magazine",    "magazine",     true,   8, 2500);
-// --- Battle rifles (SCAR-H and FN FAL share 7.62x51mm 20-round magazines) ---
-register_gun("scar_h_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "7.62x51mm_20_round_magazine","magazine",    true,   6, 2500);
-register_gun("fn_fal_battle_rifle",    "7.62x51mm NATO",        "20-round magazine",        20, "7.62x51mm_20_round_magazine","magazine",    true,   6, 2500);
-// --- LMGs ---
-register_gun("rpk_lmg",               "7.62x39mm",             "75-round drum magazine",   75, "7.62x39mm_75_round_drum",   "drum magazine",true,   3, 4000);
-register_gun("m249_saw",              "5.56x45mm NATO",        "200-round belt box",      200, "5.56mm_200_round_belt_box", "belt box",     true,   2, 6000);
-// --- Shotguns (continued) ---
-register_gun("spas_12_shotgun",        "12-gauge buckshot",     "8-round tube magazine",     8, "12_gauge_shell_box",        "shell box",    false, 40, 5000);
-// --- Snipers ---
-register_gun("awp_sniper_rifle",       ".338 Lapua Magnum",     "5-round magazine",          5, ".338_lapua_5_round_magazine","magazine",    true,   4, 3500);
-register_gun("dragunov_svd",           "7.62x54mm R",           "10-round magazine",        10, "7.62x54mm_10_round_magazine","magazine",    true,   5, 3000);
-// --- Crossbow ---
-register_gun("crossbow",              "crossbow bolt",         "single bolt",               1, "bolt_quiver",               "bolt quiver",  false, 20, 4000);
-// --- Laser weapons (energy cell, percentage charge display) ---
-register_gun("laser_pistol",          "focused energy beam",   "energy cell",              40, "laser_energy_cell",         "energy cell",  true,  8, 2000);
-register_gun("laser_smg",             "rapid energy pulse",    "energy cell",              60, "laser_energy_cell",         "energy cell",  true,  6, 1800);
-register_gun("laser_rifle",           "concentrated beam",     "energy cell",              80, "laser_energy_cell",         "energy cell",  true,  5, 2500);
-register_gun("laser_sniper",          "high-energy beam",      "energy cell",             120, "laser_energy_cell",         "energy cell",  true,  3, 3500);
-register_gun("laser_cannon",          "devastating beam",      "heavy energy cell",       200, "laser_energy_cell",         "energy cell",  true,  2, 5000);
-// --- Flamethrower and Chainsaw (fuel canister, percentage fuel display) ---
-register_gun("flamethrower",          "pressurized flame",     "fuel canister",           100, "fuel_canister",             "fuel canister", true, 4, 3000);
-register_gun("chainsaw",              "gas-powered chain",     "fuel canister",            80, "fuel_canister",             "fuel canister", true, 4, 2500);
-// Set percentage-based ammo display for energy and fuel weapons.
-set_ammo_display("laser_pistol", "charge");
-set_ammo_display("laser_smg", "charge");
-set_ammo_display("laser_rifle", "charge");
-set_ammo_display("laser_sniper", "charge");
-set_ammo_display("laser_cannon", "charge");
-set_ammo_display("flamethrower", "fuel");
-set_ammo_display("chainsaw", "fuel");
-// --- Fire mode registrations ---
-// Weapons with only one mode don't need registration (default semi).
-// SMGs: semi/auto or semi/burst/auto
-int[] modes_semi_auto = {FIREMODE_SEMI, FIREMODE_AUTO};
-int[] modes_semi_burst_auto = {FIREMODE_SEMI, FIREMODE_BURST, FIREMODE_AUTO};
-int[] modes_auto_only = {FIREMODE_AUTO};
-register_fire_modes("mp5", modes_semi_burst_auto);
-register_fire_modes("uzi", modes_semi_auto);
-register_fire_modes("mp7", modes_semi_burst_auto);
-register_fire_modes("p90_mp", modes_semi_auto);
-// Assault rifles: semi/burst/auto
-register_fire_modes("hk_g36", modes_semi_burst_auto);
-register_fire_modes("AK47", modes_semi_burst_auto);
-register_fire_modes("tar_21_assault_rifle", modes_semi_burst_auto);
-register_fire_modes("famas_f1_assault_rifle", modes_semi_burst_auto);
-register_fire_modes("m4a1_carbine", modes_semi_burst_auto);
-// Battle rifles: semi/auto
-register_fire_modes("scar_h_battle_rifle", modes_semi_auto);
-register_fire_modes("fn_fal_battle_rifle", modes_semi_auto);
-// LMGs: auto only
-register_fire_modes("rpk_lmg", modes_auto_only);
-register_fire_modes("m249_saw", modes_auto_only);
-// Laser weapons
-register_fire_modes("laser_smg", modes_semi_auto);
-register_fire_modes("laser_rifle", modes_semi_burst_auto);
-register_fire_modes("laser_cannon", modes_auto_only);
-// Flamethrower
-register_fire_modes("flamethrower", modes_auto_only);
+// Weapon stats loaded from .wpn files
+load_all_weapons();
 // --- Attachment registrations ---
 string[] compat_pistol_sup = {"glock17", "beretta92fs_pistol", "desert_eagle"};
 register_attachment("pistol_suppressor", "Pistol Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_pistol_sup);
@@ -2152,57 +2148,16 @@ void apply_weapon_stats(string wname)
 melee=false;
 firetime=500;
 walktime=200;
-// Melee
-if (wname=="machete") { firetime=1000; walktime=170; melee=true; }
-else if (wname=="combatknife") { firetime=500; walktime=170; melee=true; }
-else if (wname=="katana") { firetime=800; walktime=170; melee=true; }
-else if (wname=="baseball_bat") { firetime=600; walktime=170; melee=true; }
-else if (wname=="hayvork") { firetime=900; walktime=185; melee=true; }
-else if (wname=="trector_plow") { firetime=1100; walktime=400; melee=true; }
-// Pistols
-else if (wname=="glock17") { firetime=800; walktime=180; }
-else if (wname=="beretta92fs_pistol") { firetime=600; walktime=180; }
-else if (wname=="desert_eagle") { firetime=900; walktime=180; }
-else if (wname=="taurus_model66_revolver") { firetime=790; walktime=180; }
-else if (wname=="magnum_revolver") { firetime=800; walktime=180; }
-// SMGs
-else if (wname=="p90_mp") { firetime=90; walktime=190; }
-else if (wname=="mp5") { firetime=100; walktime=190; }
-else if (wname=="uzi") { firetime=75; walktime=190; }
-else if (wname=="mp7") { firetime=85; walktime=190; }
-// Assault rifles
-else if (wname=="hk_g36") { firetime=150; walktime=220; }
-else if (wname=="AK47") { firetime=150; walktime=220; }
-else if (wname=="tar_21_assault_rifle") { firetime=180; walktime=220; }
-else if (wname=="famas_f1_assault_rifle") { firetime=750; walktime=210; }
-else if (wname=="m4a1_carbine") { firetime=140; walktime=210; }
-// Battle rifles
-else if (wname=="scar_h_battle_rifle") { firetime=300; walktime=300; }
-else if (wname=="fn_fal_battle_rifle") { firetime=280; walktime=300; }
-else if (wname=="m1garantBattleRifle") { firetime=1200; walktime=400; }
-// LMGs
-else if (wname=="rpk_lmg") { firetime=120; walktime=350; }
-else if (wname=="m249_saw") { firetime=100; walktime=500; }
-// Shotguns
-else if (wname=="ks123shotgun") { firetime=850; walktime=230; }
-else if (wname=="benelli_m4_shotgun") { firetime=1500; walktime=230; }
-else if (wname=="spas_12_shotgun") { firetime=1000; walktime=250; }
-// Snipers
-else if (wname=="sg08_sniper_rifle") { firetime=3000; walktime=1000; }
-else if (wname=="awp_sniper_rifle") { firetime=3500; walktime=1200; }
-else if (wname=="dragunov_svd") { firetime=1500; walktime=600; }
-// Special
-else if (wname=="120mm_mortar") { firetime=4000; walktime=5000; }
-else if (wname=="crossbow") { firetime=2000; walktime=250; }
-// Laser weapons
-else if (wname=="laser_pistol") { firetime=700; walktime=180; }
-else if (wname=="laser_smg") { firetime=80; walktime=190; }
-else if (wname=="laser_rifle") { firetime=160; walktime=220; }
-else if (wname=="laser_sniper") { firetime=2500; walktime=800; }
-else if (wname=="laser_cannon") { firetime=90; walktime=450; }
-// Flamethrower and Chainsaw
-else if (wname=="flamethrower") { firetime=50; walktime=300; }
-else if (wname=="chainsaw") { firetime=100; walktime=250; }
+for (uint i=0; i<wpn_cache.length(); i++)
+{
+if (wpn_cache[i].id==wname)
+{
+firetime=wpn_cache[i].firetime;
+walktime=wpn_cache[i].walktime;
+melee=wpn_cache[i].melee;
+break;
+}
+}
 firetime=int(firetime*get_attachment_firetime_mult(wname));
 walktime=int(walktime*get_attachment_walktime_mult(wname));
 }

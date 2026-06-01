@@ -91,6 +91,7 @@ next_ticket_id=string_to_number(nf.read());
 nf.close();
 }
 n.setup_server(port, 20, 500);
+load_wpn_stats();
 init_mapsystem();
 spawn_bunker(35,250,-5,"main","","bunker A");
 spawn_bunker(305,250,-5,"main","","bunker B");
@@ -549,7 +550,7 @@ send_reliable(0, lobby_clients[li].name+" has entered "+parsed[1], 2);
 if(parsed[1]=="habitat_alpha")
 {
 file mf;
-mf.open("map/habitat_alpha.map", "rb");
+mf.open("content/maps/habitat_alpha/habitat_alpha.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
 send_reliable(e.peer_id, "x "+random(0, 600), 0);
@@ -559,7 +560,7 @@ send_reliable(e.peer_id, "z 0", 0);
 else if(parsed[1]=="battlegrounds")
 {
 file mf;
-mf.open("map/main.map", "rb");
+mf.open("content/maps/battlegrounds/main.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
 send_reliable(e.peer_id, "x "+random(0, 400), 0);
@@ -2312,8 +2313,8 @@ int index=get_player_index(e.peer_id);
 if(index>-1 and players[index].dev==true)
 {
 string mname=parsed[1];
-string path="map/"+mname+".map";
-if(file_exists(path))
+string path=find_map_path(mname);
+if(path!="")
 {
 file mf;
 mf.open(path, "rb");
@@ -2332,8 +2333,8 @@ if(index>-1 and players[index].dev==true)
 {
 string mname=parsed[1];
 string line=string_replace(get_event_message(), "builder_append "+mname+" ", "", false);
-string path="map/"+mname+".map";
-if(file_exists(path))
+string path=find_map_path(mname);
+if(path!="")
 {
 file mf;
 mf.open(path, "rb");
@@ -2356,8 +2357,8 @@ if(index>-1 and players[index].dev==true)
 {
 string mname=parsed[1];
 int line_idx=string_to_number(parsed[2]);
-string path="map/"+mname+".map";
-if(file_exists(path))
+string path=find_map_path(mname);
+if(path!="")
 {
 file mf;
 mf.open(path, "rb");
@@ -2384,8 +2385,8 @@ if(index>-1 and players[index].dev==true)
 string mname=parsed[1];
 int line_idx=string_to_number(parsed[2]);
 string new_line=string_replace(get_event_message(), "builder_edit_line "+mname+" "+parsed[2]+" ", "", false);
-string path="map/"+mname+".map";
-if(file_exists(path))
+string path=find_map_path(mname);
+if(path!="")
 {
 file mf;
 mf.open(path, "rb");
@@ -2411,7 +2412,8 @@ if(index>-1 and players[index].dev==true)
 {
 string mname=parsed[1];
 string data=string_replace(get_event_message(), "builder_write_map "+mname+" ", "", false);
-string path="map/"+mname+".map";
+string path=find_map_path(mname);
+if(path=="") path="content/maps/battlegrounds/"+mname+".map";
 file wf;
 wf.open(path, "wb");
 wf.write(data);
@@ -2426,8 +2428,8 @@ int index=get_player_index(e.peer_id);
 if(index>-1 and players[index].dev==true)
 {
 string mname=parsed[1];
-string path="map/"+mname+".map";
-if(file_exists(path))
+string path=find_map_path(mname);
+if(path!="")
 {
 file_delete(path);
 int mi=get_map_index(mname);

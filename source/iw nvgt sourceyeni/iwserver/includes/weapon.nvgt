@@ -1,3 +1,56 @@
+class wpn_server_stats
+{
+string id;
+int speedtime;
+int range;
+int mindammage;
+int maxdammage;
+int spread;
+}
+wpn_server_stats@[] wpn_stats_cache(0);
+void load_wpn_stats()
+{
+wpn_stats_cache.resize(0);
+string[] files=find_files("content/weapons/*.wpn");
+for(uint i=0; i<files.length(); i++)
+{
+string wpn_id=string_replace(files[i], ".wpn", "", true);
+file f;
+f.open("content/weapons/"+files[i], "rb");
+string content=f.read();
+f.close();
+content=string_replace(content, "\r\n", "\n", true);
+string[] lines=string_split(content, "\n", true);
+wpn_server_stats s;
+s.id=wpn_id;
+s.speedtime=5;
+s.range=10;
+s.mindammage=50;
+s.maxdammage=1000;
+s.spread=0;
+for(uint l=0; l<lines.length(); l++)
+{
+int eq=string_contains(lines[l], "=", true);
+if(eq<0) continue;
+string key=string_replace(lines[l], lines[l].substr(eq, lines[l].length()-eq), "", false);
+string val=string_replace(lines[l], lines[l].substr(0, eq+1), "", false);
+if(key=="speedtime") s.speedtime=string_to_number(val);
+else if(key=="range") s.range=string_to_number(val);
+else if(key=="min_damage") s.mindammage=string_to_number(val);
+else if(key=="max_damage") s.maxdammage=string_to_number(val);
+else if(key=="spread") s.spread=string_to_number(val);
+}
+wpn_stats_cache.insert_last(s);
+}
+}
+int find_wpn_stats(string type)
+{
+for(uint i=0; i<wpn_stats_cache.length(); i++)
+{
+if(wpn_stats_cache[i].id==type) return i;
+}
+return -1;
+}
 weapon@[] weapons(0);
 class weapon
 {
@@ -26,278 +79,19 @@ dir=wdir;
 type=wtype;
 cn=wcn;
 map=wmap;
-if(type=="beretta92fs_pistol")
-{
-speedtime=5;
-range=40;
-mindammage=1050;
-maxdammage=2500;
-spread=1;
-}
-else if(type=="m1garantBattleRifle")
-{
-speedtime=5;
-range=90;
-mindammage=2500;
-maxdammage=4000;
-spread=4;
-}
-else if(type=="AK47")
-{
-speedtime=5;
-range=40;
-mindammage=100;
-maxdammage=1400;
-spread=3;
-}
-else if(type=="120mm_mortar")
-{
-speedtime=50;
-range=100;
-mindammage=3000;
-maxdammage=4000;
-spread=5;
-}
-else if(type=="tar_21_assault_rifle")
-{
-speedtime=5;
-range=45;
-mindammage=800;
-maxdammage=1400;
-spread=3;
-}
-else if(type=="ks123shotgun")
-{
-speedtime=5;
-range=15;
-mindammage=2000;
-maxdammage=4000;
-spread=3;
-}
-else if(type=="taurus_model66_revolver")
-{
-speedtime=5;
-range=60;
-mindammage=1500;
-maxdammage=3000;
-spread=3;
-}
-else if(type=="p90_mp")
-{
-speedtime=5;
-range=15;
-mindammage=750;
-maxdammage=800;
-spread=2;
-}
-else if(type=="famas_f1_assault_rifle")
-{
-speedtime=5;
-range=50;
-mindammage=2000;
-maxdammage=3000;
-spread=3;
-}
-else if(type=="trector_plow")
-{
-speedtime=5;
-range=12;
-mindammage=3000;
-maxdammage=7000;
-spread=2;
-}
-else if(type=="hayvork")
-{
 speedtime=5;
 range=10;
-mindammage=2000;
-maxdammage=3000;
-spread=2;
-}
-
-else if(type=="hk_g36")
-{
-speedtime=5;
-range=35;
-mindammage=250;
-maxdammage=1450;
-spread=2;
-}
-else if(type=="benelli_m4_shotgun")
-{
-speedtime=5;
-range=20;
-mindammage=3000;
-maxdammage=5000;
-spread=3;
-}
-else if(type=="sg08_sniper_rifle")
-{
-speedtime=5;
-range=130;
-mindammage=6000;
-maxdammage=9000;
-spread=3;
-}
-else if(type=="glock17")
-{
-speedtime=5;
-range=56;
-mindammage=2500;
-maxdammage=3500;
-spread=2;
-}
-else if(type=="magnum_revolver")
-{
-speedtime=5;
-range=60;
-mindammage=2500;
-maxdammage=3500;
-spread=2;
-}
-else if(type=="machete")
-{
-speedtime=5;
-range=5;
-mindammage=4500;
-maxdammage=5500;
-spread=3;
-}
-else if(type=="ballista")
-{
-speedtime=5;
-range=120;
-mindammage=6000;
-maxdammage=8000;
-spread=4;
-}
-else if(type=="combatknife")
-{
-speedtime=5;
-range=2;
-mindammage=7000;
-maxdammage=9000;
-spread=2;
-}
-else if(type=="desert_eagle")
-{
-speedtime=5;
-range=50;
-mindammage=3000;
-maxdammage=4500;
-spread=2;
-}
-else if(type=="mp5")
-{
-speedtime=5;
-range=25;
-mindammage=600;
+mindammage=50;
 maxdammage=1000;
-spread=2;
-}
-else if(type=="uzi")
+spread=0;
+int si=find_wpn_stats(type);
+if(si>=0)
 {
-speedtime=5;
-range=20;
-mindammage=500;
-maxdammage=900;
-spread=2;
-}
-else if(type=="m4a1_carbine")
-{
-speedtime=5;
-range=45;
-mindammage=900;
-maxdammage=1600;
-spread=3;
-}
-else if(type=="scar_h_battle_rifle")
-{
-speedtime=5;
-range=70;
-mindammage=2000;
-maxdammage=3500;
-spread=3;
-}
-else if(type=="rpk_lmg")
-{
-speedtime=5;
-range=45;
-mindammage=800;
-maxdammage=1500;
-spread=3;
-}
-else if(type=="m249_saw")
-{
-speedtime=5;
-range=40;
-mindammage=600;
-maxdammage=1200;
-spread=3;
-}
-else if(type=="awp_sniper_rifle")
-{
-speedtime=5;
-range=150;
-mindammage=8000;
-maxdammage=12000;
-spread=3;
-}
-else if(type=="dragunov_svd")
-{
-speedtime=5;
-range=100;
-mindammage=4000;
-maxdammage=6000;
-spread=3;
-}
-else if(type=="spas_12_shotgun")
-{
-speedtime=5;
-range=18;
-mindammage=2500;
-maxdammage=4500;
-spread=3;
-}
-else if(type=="mp7")
-{
-speedtime=5;
-range=22;
-mindammage=550;
-maxdammage=850;
-spread=2;
-}
-else if(type=="fn_fal_battle_rifle")
-{
-speedtime=5;
-range=65;
-mindammage=1800;
-maxdammage=3000;
-spread=3;
-}
-else if(type=="crossbow")
-{
-speedtime=5;
-range=80;
-mindammage=5000;
-maxdammage=7000;
-spread=3;
-}
-else if(type=="katana")
-{
-speedtime=5;
-range=7;
-mindammage=5500;
-maxdammage=7000;
-spread=2;
-}
-else if(type=="baseball_bat")
-{
-speedtime=5;
-range=4;
-mindammage=3000;
-maxdammage=4000;
-spread=2;
+speedtime=wpn_stats_cache[si].speedtime;
+range=wpn_stats_cache[si].range;
+mindammage=wpn_stats_cache[si].mindammage;
+maxdammage=wpn_stats_cache[si].maxdammage;
+spread=wpn_stats_cache[si].spread;
 }
 }
 }

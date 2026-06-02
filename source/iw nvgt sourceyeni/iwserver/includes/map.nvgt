@@ -305,12 +305,12 @@ void reload_map(string mname)
 {
 string path=find_map_path(mname);
 if(path=="") return;
-int mi=get_map_index(mname);
+mapdata temp(mname);
+int mi=get_map_index(temp.name);
 if(mi>=0)
 {
 maps.remove_at(mi);
 }
-mapdata temp(mname);
 maps.insert_last(temp);
 file mf;
 mf.open(path, "rb");

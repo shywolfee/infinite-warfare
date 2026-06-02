@@ -1,3 +1,9 @@
+New in 0.4.9.7.2, build 34 (2026-06-02)
+Redesigned the feedback system. The /feedback command now creates individual feedback files stored in iwserver/administration/feedback/ instead of appending to a single text file. Each feedback entry is saved with an ID and author name.
+Added /feedbacks command (dev only). Opens a list of all submitted feedback. Selecting an entry opens it in a read-only form showing the author and message. Accessible from the command menu (Alt+C).
+Moved support tickets from iwserver/tickets/ to iwserver/administration/tickets/. The administration directory now organizes both feedback and support ticket data.
+Fixed edit map in the builder silently crashing the server. The reload_map function looked up the map by file base name (e.g. "main") but the map index stores display names (e.g. "Archipelago"). The old map entry was never found or removed, causing duplicate map data to accumulate. reload_map now loads the new map data first to get the display name, then uses that to find and replace the old entry.
+
 New in 0.4.9.7.1, build 33 (2026-06-02)
 Fixed compile errors in the keybinding system. Removed references to key constants that do not exist in NVGT (KEY_CAPITAL, KEY_NUMPAD0 through KEY_NUMPAD9, KEY_ADD, KEY_SUBTRACT, KEY_MULTIPLY, KEY_DIVIDE, KEY_DECIMAL). Renamed variables that collided with NVGT reserved keywords (out, any).
 

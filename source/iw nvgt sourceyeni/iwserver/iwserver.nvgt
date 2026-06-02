@@ -29,7 +29,10 @@ bool auth_mode=false;
 const string ACCOUNT_SECRET = "IW_aCc0unt_K3y_xK9mP2vL7nQ4wR8t!";
 int next_ticket_id=1;
 const string TICKET_SECRET = "IW_T1ck3t_sYs_K3y_pQ9rW2xL7nM4!";
-string tickets_dir="tickets";
+string tickets_dir="administration/tickets";
+int next_feedback_id=1;
+const string FEEDBACK_SECRET = "IW_fB4ck_sYs_K3y_mT7nR2xP9qW4!";
+string feedback_dir="administration/feedback";
 void main()
 {
 show_window("Infinite Warfare server!, version "+ minversion);
@@ -81,6 +84,8 @@ cf.open("changelog.txt", "rb");
 changes=cf.read();
 cf.close();
 }
+if(!directory_exists("administration"))
+directory_create("administration");
 if(!directory_exists(tickets_dir))
 directory_create(tickets_dir);
 if(file_exists(tickets_dir+"/next_id.txt"))
@@ -88,6 +93,15 @@ if(file_exists(tickets_dir+"/next_id.txt"))
 file nf;
 nf.open(tickets_dir+"/next_id.txt", "rb");
 next_ticket_id=string_to_number(nf.read());
+nf.close();
+}
+if(!directory_exists(feedback_dir))
+directory_create(feedback_dir);
+if(file_exists(feedback_dir+"/next_id.txt"))
+{
+file nf;
+nf.open(feedback_dir+"/next_id.txt", "rb");
+next_feedback_id=string_to_number(nf.read());
 nf.close();
 }
 n.setup_server(port, 20, 500);
@@ -314,38 +328,24 @@ else
 send_reliable(players[index].peer_id,"sorry, you can't do this." , 2);
 }
 }
-if(parsed[0]=="/getfeedback")
-{
-int index=get_player_index(e.peer_id);
-if(index>-1)
-{
-if(players[index].dev)
-{
-file pr;
-pr.open("feedback.txt","rb");
-string message=pr.read();
-pr.close();
-send_reliable(players[index].peer_id,message , 2);
-}
-else
-  send_reliable(players[index].peer_id, "Only devs can view feedback.", 2);
-}
-}
 if(parsed[0]=="/feedback")
 {
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
 string message=string_replace(get_event_message(),"/feedback ", "", true);
-file pr;
-pr.open("feedback.txt","rb");
-string oldtext=pr.read();
-pr.close();
-pr.open("feedback.txt","wb");
-pr.write(oldtext+"\n");
-pr.write(players[index].name+ ": "+ message);
-pr.close();
-send_reliable(players[index].peer_id, "feedback sent successfully!", 2);
+string fid=""+next_feedback_id;
+savedata fb(feedback_dir+"/"+fid+".dat", FEEDBACK_SECRET);
+fb.add("id", fid);
+fb.add("author", players[index].name);
+fb.add("message", message);
+fb.save();
+next_feedback_id++;
+file nf;
+nf.open(feedback_dir+"/next_id.txt", "wb");
+nf.write(""+next_feedback_id);
+nf.close();
+send_reliable(players[index].peer_id, "Feedback #"+fid+" submitted successfully!", 2);
 }
 }
 else if(parsed[0]=="/ban" and parsed.length()>1)
@@ -736,6 +736,46 @@ first3=false;
 }
 }
 send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="feedbacks_list")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev)
+{
+string result="feedbacks_data ";
+string[] files=find_files(feedback_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata fb(feedback_dir+"/"+files[i], FEEDBACK_SECRET);
+fb.load();
+if(!first) result+=",";
+result+=fb.read("id")+"~"+fb.read("author");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+else if(index>-1)
+send_reliable(players[index].peer_id, "Only devs can view feedback.", 2);
+}
+else if(parsed[0]=="feedback_get" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].dev)
+{
+string fid=parsed[1];
+string path=feedback_dir+"/"+fid+".dat";
+if(file_exists(path))
+{
+savedata fb(path, FEEDBACK_SECRET);
+fb.load();
+send_reliable(e.peer_id, "feedback_item "+fb.read("id")+"~"+fb.read("author")+"~"+fb.read("message"), 0);
+}
+else
+send_reliable(e.peer_id, "feedback_item not_found", 0);
 }
 }
 else if(parsed[0]=="ticket_check_role")

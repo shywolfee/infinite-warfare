@@ -113,7 +113,6 @@ _kb_reg_key("period", KEY_PERIOD, "Period");
 _kb_reg_key("slash", KEY_SLASH, "Slash");
 _kb_reg_key("right_control", KEY_RCONTROL, "Right Control");
 _kb_reg_key("space", KEY_SPACE, "Space");
-_kb_reg_key("caps_lock", KEY_CAPITAL, "Caps Lock");
 _kb_reg_key("f1", KEY_F1, "F1");
 _kb_reg_key("f2", KEY_F2, "F2");
 _kb_reg_key("f3", KEY_F3, "F3");
@@ -136,22 +135,6 @@ _kb_reg_key("down", KEY_DOWN, "Down Arrow");
 _kb_reg_key("page_down", KEY_NEXT, "Page Down");
 _kb_reg_key("insert", KEY_INSERT, "Insert");
 _kb_reg_key("delete", KEY_DELETE, "Delete");
-_kb_reg_key("numpad_0", KEY_NUMPAD0, "Numpad 0");
-_kb_reg_key("numpad_1", KEY_NUMPAD1, "Numpad 1");
-_kb_reg_key("numpad_2", KEY_NUMPAD2, "Numpad 2");
-_kb_reg_key("numpad_3", KEY_NUMPAD3, "Numpad 3");
-_kb_reg_key("numpad_4", KEY_NUMPAD4, "Numpad 4");
-_kb_reg_key("numpad_5", KEY_NUMPAD5, "Numpad 5");
-_kb_reg_key("numpad_6", KEY_NUMPAD6, "Numpad 6");
-_kb_reg_key("numpad_7", KEY_NUMPAD7, "Numpad 7");
-_kb_reg_key("numpad_8", KEY_NUMPAD8, "Numpad 8");
-_kb_reg_key("numpad_9", KEY_NUMPAD9, "Numpad 9");
-_kb_reg_key("numpad_add", KEY_ADD, "Numpad Plus");
-_kb_reg_key("numpad_subtract", KEY_SUBTRACT, "Numpad Minus");
-_kb_reg_key("numpad_multiply", KEY_MULTIPLY, "Numpad Star");
-_kb_reg_key("numpad_divide", KEY_DIVIDE, "Numpad Slash");
-_kb_reg_key("numpad_decimal", KEY_DECIMAL, "Numpad Dot");
-_kb_reg_key("numpad_enter", KEY_NUMPADENTER, "Numpad Enter");
 _kb_reg_action("move_forward", "Move forward", KEY_UP);
 _kb_reg_action("move_backward", "Move backward", KEY_DOWN);
 _kb_reg_action("move_left", "Move left", KEY_LEFT);
@@ -233,15 +216,15 @@ void kb_save()
 {
 file f;
 f.open("keyconfig.json","wb");
-string out="{\n";
+string json_str="{\n";
 for (uint i=0; i<_kb_act_names.length(); i++)
 {
-out+="  \""+_kb_act_names[i]+"\": \""+kb_key_to_name(_kb_act_binds[i])+"\"";
-if (i<_kb_act_names.length()-1) out+=",";
-out+="\n";
+json_str+="  \""+_kb_act_names[i]+"\": \""+kb_key_to_name(_kb_act_binds[i])+"\"";
+if (i<_kb_act_names.length()-1) json_str+=",";
+json_str+="\n";
 }
-out+="}\n";
-f.write(out);
+json_str+="}\n";
+f.write(json_str);
 f.close();
 }
 
@@ -257,12 +240,12 @@ int kb_wait_for_key()
 while(true)
 {
 wait(5);
-bool any=false;
+bool any_held=false;
 for (int k=1; k<=211; k++)
 {
-if (key_down(k)){any=true; break;}
+if (key_down(k)){any_held=true; break;}
 }
-if (!any) break;
+if (!any_held) break;
 }
 while(true)
 {

@@ -2,6 +2,7 @@
 #include "bgt_compat.nvgt"
 #include"includes/constants.nvgt"
 #include "includes/key_hold.nvgt"
+#include "includes/keybinds.nvgt"
 #include "includes/virtualizer.nvgt"
 #include"includes/building.nvgt"
 #include"includes/updater.nvgt"
@@ -61,9 +62,9 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49632;
-int build_number=31;
-string build_date="2026-06-01";
+double version=0.497;
+int build_number=32;
+string build_date="2026-06-02";
 string name;
 string mate;
 double facing=0;
@@ -240,6 +241,8 @@ accounts_dir="iwserver/accounts";
 if (!directory_exists(accounts_dir))
 directory_create(accounts_dir);
 readprefs();
+kb_init();
+kb_update_holds();
 set_sound_storage("sounds.dat");
 set_sound_decryption_key("roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69",true);
 if(file_exists("net.txt"))
@@ -2278,15 +2281,15 @@ camera.x=mr.x;
 camera.y=mr.y;
 camera.z=me.z;
 }
-if(key_pressed(KEY_HOME) and get_sound_master_volume()<0)
+if(key_pressed(kb("volume_up")) and get_sound_master_volume()<0)
 {
 set_sound_master_volume(get_sound_master_volume()+5);
 }
-if(key_pressed(KEY_END) and get_sound_master_volume()>-60)
+if(key_pressed(kb("volume_down")) and get_sound_master_volume()>-60)
 {
 set_sound_master_volume(get_sound_master_volume()-5);
 }
-if (key_pressed(KEY_TAB) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
+if (key_pressed(kb("next_item")) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 if (shift_is_down())
 cycle_inv(0);
@@ -2294,11 +2297,11 @@ else
 cycle_inv(1);
 p.play_stationary("invmove.ogg", false);
 }
-if (key_pressed(KEY_J))
+if (key_pressed(kb("points_of_interest")))
 {
 show_poi_list();
 }
-if (key_pressed(KEY_K))
+if (key_pressed(kb("next_category")))
 {
 if (shift_is_down())
 cycle_category(0);
@@ -2306,11 +2309,11 @@ else
 cycle_category(1);
 p.play_stationary("invmove.ogg", false);
 }
-if (key_pressed(KEY_M))
+if (key_pressed(kb("nearby_items")))
 {
 send_reliable(0,"whatnear",0);
 }
-if (key_pressed(KEY_P))
+if (key_pressed(kb("nearby_players")))
 {
 send_reliable(0,"nearplayers",0);
 }
@@ -2318,13 +2321,13 @@ send_reliable(0,"nearplayers",0);
 can_fire = can_hold_fire(weapons[w]);
 // Start a new burst on press in burst mode.
 int cur_fm = get_fire_mode(weapons[w]);
-if (cur_fm == FIREMODE_BURST and (key_pressed(KEY_LCONTROL) or (key_pressed(KEY_RCONTROL) and rctrl==1)))
+if (cur_fm == FIREMODE_BURST and (key_pressed(kb("fire")) or (key_pressed(KEY_RCONTROL) and rctrl==1)))
 {
 burst_rounds_remaining = 3;
 burst_firing = true;
 }
-// Reset burst state when control is released.
-if (key_up(KEY_LCONTROL) and (key_up(KEY_RCONTROL) or rctrl==0))
+// Reset burst state when fire key is released.
+if (key_up(kb("fire")) and (key_up(KEY_RCONTROL) or rctrl==0))
 {
 burst_firing = false;
 burst_rounds_remaining = 0;
@@ -2334,7 +2337,7 @@ if(can_move==true and !is_reloading(weapons[w]))
 // Vehicle fire restrictions: no melee, must have window down.
 if (in_vehicle and !vehicle_can_fire())
 {
-if (key_pressed(KEY_LCONTROL) or key_pressed(KEY_RCONTROL))
+if (key_pressed(kb("fire")) or key_pressed(KEY_RCONTROL))
 {
 if (melee)
 speak("You can't use melee weapons from a vehicle.");
@@ -2342,16 +2345,16 @@ else
 speak("Roll your window down first.");
 }
 }
-if (in_vehicle and melee and (key_pressed(KEY_LCONTROL) or key_pressed(KEY_RCONTROL)))
+if (in_vehicle and melee and (key_pressed(kb("fire")) or key_pressed(KEY_RCONTROL)))
 {
 speak("You can't use melee weapons from a vehicle.");
 }
 bool fire_now = false;
 if (firetimer.elapsed>=firetime and (!in_vehicle or (vehicle_can_fire() and !melee)))
 {
-if (cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(KEY_LCONTROL) or (key_down(KEY_RCONTROL) and rctrl==1)))
+if (cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(kb("fire")) or (key_down(KEY_RCONTROL) and rctrl==1)))
 fire_now = true;
-else if ((key_down(KEY_LCONTROL) and can_fire) or (key_down(KEY_RCONTROL) and rctrl==1 and can_fire) or key_pressed(KEY_LCONTROL) or (key_pressed(KEY_RCONTROL) and rctrl==1))
+else if ((key_down(kb("fire")) and can_fire) or (key_down(KEY_RCONTROL) and rctrl==1 and can_fire) or key_pressed(kb("fire")) or (key_pressed(KEY_RCONTROL) and rctrl==1))
 fire_now = true;
 }
 if (fire_now)
@@ -2385,14 +2388,14 @@ speak("Magazine empty. Press R to reload.");
 }
 }
 }
-if(key_pressed(KEY_A))
+if(key_pressed(kb("ammo_check")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 cycle_fire_mode(weapons[w]);
 else
 announce_ammo(weapons[w]);
 }
-if(key_pressed(KEY_R))
+if(key_pressed(kb("reload")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 unload_mag(weapons[w]);
@@ -2438,13 +2441,13 @@ start_reload_partial(weapons[w], pidx);
 else
 start_reload(weapons[w]);
 }
-if (key_pressed(KEY_SLASH))
+if (key_pressed(kb("chat")))
 {
 string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }
-if (key_pressed(KEY_H))
+if (key_pressed(kb("health")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 show_help_list();
@@ -2454,7 +2457,7 @@ send_reliable(0,"health",0);
 pending_health_report=true;
 }
 }
-if (key_pressed(KEY_I) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+if (key_pressed(kb("quickbar_view")) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
 {
 show_quickbar_weapons();
 }
@@ -2466,7 +2469,7 @@ if (key_pressed(KEY_B) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and SC
 {
 builder_menu();
 }
-else if (key_pressed(KEY_B) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+else if (key_pressed(kb("zone")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 if (get_zone_at(mr.x,mr.y,me.z)!="")
 {
@@ -2478,31 +2481,31 @@ else
 speak("Current zone: unknown area of "+mapname);
 }
 }
-if (key_pressed(KEY_F1))
+if (key_pressed(kb("player_list")))
 {
 send_reliable(0,"whoonline",0);
 }
-if(key_pressed(KEY_F3) and pinging==false)
+if(key_pressed(kb("ping")) and pinging==false)
 {
 send_reliable(1, "ping", 0);
 p.play_stationary("pingstart.ogg", false);
 pingtimer.restart();
 pinging=true;
 }
-if(key_pressed(KEY_F2))
+if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
 // Grave accent removed; escape menu replaces it.
-if(key_pressed(KEY_W) and tracking!="")
+if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
 }
-if(key_pressed(KEY_T))
+if(key_pressed(kb("track_player")))
 {
 send_reliable(1, "playermenu", 0);
 }
-if (key_pressed(KEY_LBRACKET))
+if (key_pressed(kb("buffer_left")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 {
@@ -2513,7 +2516,7 @@ else
 bufferleft();
 }
 }
-if (key_pressed(KEY_RBRACKET))
+if (key_pressed(kb("buffer_right")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 {
@@ -2603,7 +2606,7 @@ speak("No item selected.");
 }
 if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
-if((key_pressed(KEY_RETURN) or mouse_pressed(2)) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true)
+if((key_pressed(kb("use_item")) or mouse_pressed(2)) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true)
 {
 usetimer.restart();
 string sel_item = get_selected_item();
@@ -2621,7 +2624,7 @@ send_reliable(0, "use " + sel_item, 0);
 else
 speak("Your inventory is empty.");
 }
-if(key_pressed(KEY_O) and can_move==true)
+if(key_pressed(kb("vehicle_door")) and can_move==true)
 {
 if (in_vehicle)
 vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
@@ -2635,7 +2638,7 @@ else
 send_reliable(0, "check_chest", 0);
 }
 }
-if(key_pressed(KEY_V) and can_move==true)
+if(key_pressed(kb("vehicle_enter")) and can_move==true)
 {
 if (in_vehicle)
 vehicle_exit(name);
@@ -2662,7 +2665,7 @@ if (key_pressed(KEY_PERIOD))
 bottombufferitem();
 }
 }
-if(key_pressed(KEY_ESCAPE) and x==false)
+if(key_pressed(kb("menu")) and x==false)
 {
 escape_menu();
 }
@@ -2671,15 +2674,15 @@ if(xtimer.elapsed>10 and x==true)
 x=false;
 exitgame();
 }
-if(key_pressed(KEY_C))
+if(key_pressed(kb("coordinates")))
 {
 speak(mr.x+", "+mr.y+", "+me.z);
 }
-if(key_pressed(KEY_SPACE) and in_vehicle and can_move==true)
+if(key_pressed(kb("jump")) and in_vehicle and can_move==true)
 {
 vehicle_toggle_window();
 }
-else if(key_pressed(KEY_SPACE) and jumping==false and falling==false and can_move==true and !in_vehicle)
+else if(key_pressed(kb("jump")) and jumping==false and falling==false and can_move==true and !in_vehicle)
 {
 p.play_stationary("jump.ogg", false);
 send_reliable(0, "jump", 0);
@@ -2699,7 +2702,7 @@ if(mousez>0)
 cycle_inv(1);
 p.play_stationary("inv"+random(1, 7)+".ogg", false);
 }
-bool qp=key_pressed(KEY_Q);
+bool qp=key_pressed(kb("turn_left"));
 if(!in_vehicle)
 {
 if(shift_is_down() and kQ.pressing)
@@ -2720,7 +2723,7 @@ send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
 }
-bool xp=key_pressed(KEY_X);
+bool xp=key_pressed(kb("aim_down"));
 if(shift_is_down() and kX.pressing and turn>0)
 {
 turn-=1;
@@ -2743,7 +2746,7 @@ s="straight down";
 speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
-bool sp=key_pressed(KEY_S);
+bool sp=key_pressed(kb("aim_up"));
 if(shift_is_down() and kS.pressing and turn<180)
 {
 turn+=1;
@@ -2766,7 +2769,7 @@ s="straight up";
 speak("facing "+s);
 send_reliable(0, "turn2 "+turn, 0);
 }
-bool ep=key_pressed(KEY_E);
+bool ep=key_pressed(kb("turn_right"));
 if(!in_vehicle)
 {
 if(shift_is_down() and kE.pressing)
@@ -2787,7 +2790,7 @@ send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
 }
-if(key_pressed(KEY_F))
+if(key_pressed(kb("facing")))
 {
 string vert_info="";
 if(turn==90) vert_info=", aiming straight forward";
@@ -2799,11 +2802,11 @@ speak("You are facing "+dir_to_string(getdir(facing))+" at "+facing+" degrees"+v
 }
 if(MENU_is_down() and !in_vehicle)
 {
-if(key_down(KEY_LEFT))
+if(key_down(kb("move_left")))
 {
 facing=turnleft(facing, 1);
 }
-if(key_down(KEY_RIGHT))
+if(key_down(kb("move_right")))
 {
 facing=turnright(facing, 1);
 }
@@ -2813,23 +2816,23 @@ if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
 if (in_vehicle)
 {
 // Vehicle controls: arrows control vehicle, not player movement.
-if (key_pressed(KEY_UP))
+if (key_pressed(kb("move_forward")))
 vehicle_speed_up();
-else if (key_pressed(KEY_DOWN))
+else if (key_pressed(kb("move_backward")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 vehicle_decelerate_gradual();
 else
 vehicle_speed_down();
 }
-if (key_pressed(KEY_LEFT))
+if (key_pressed(kb("move_left")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 vehicle_turn_fine(-1);
 else
 vehicle_turn(-1);
 }
-else if (key_pressed(KEY_RIGHT))
+else if (key_pressed(kb("move_right")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 vehicle_turn_fine(1);
@@ -2840,35 +2843,35 @@ vehicle_turn(1);
 else
 {
 // Normal on-foot movement.
-if(key_down(KEY_PRIOR) and walktimer.elapsed>movetime)
+if(key_down(kb("move_up")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Up);
 }
-else if(key_down(KEY_NEXT) and walktimer.elapsed>movetime)
+else if(key_down(kb("move_down")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Down);
 }
-if(key_down(KEY_UP) and walktimer.elapsed>movetime)
+if(key_down(kb("move_forward")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Forward);
 if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
-else if(key_down(KEY_DOWN) and walktimer.elapsed>movetime)
+else if(key_down(kb("move_backward")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Backward);
 if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
-else if(key_down(KEY_LEFT) and walktimer.elapsed>movetime)
+else if(key_down(kb("move_left")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Left);
 if (walktime >= 300) stamina_on_heavy_move(walktime);
 }
-else if(key_down(KEY_RIGHT) and walktimer.elapsed>movetime)
+else if(key_down(kb("move_right")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
 move(Right);
@@ -2881,8 +2884,8 @@ if(can_move==true)
 // Alt+Left/Right: switch vehicle seats.
 if(MENU_is_down() and in_vehicle)
 {
-if(key_pressed(KEY_LEFT)) vehicle_switch_seat(name, -1);
-if(key_pressed(KEY_RIGHT)) vehicle_switch_seat(name, 1);
+if(key_pressed(kb("move_left"))) vehicle_switch_seat(name, -1);
+if(key_pressed(kb("move_right"))) vehicle_switch_seat(name, 1);
 }
 // Alt+number: bind current inventory item to that quickbar slot.
 if(MENU_is_down())
@@ -3598,11 +3601,11 @@ speak("You have been killed. Press enter to return to the lobby.");
 }
 if(can_respawn==true)
 {
-if(key_pressed(KEY_LEFT) or key_pressed(KEY_RIGHT) or key_pressed(KEY_UP) or key_pressed(KEY_DOWN))
+if(key_pressed(kb("move_left")) or key_pressed(kb("move_right")) or key_pressed(kb("move_forward")) or key_pressed(kb("move_backward")))
 {
 speak("Press enter to return to the lobby.");
 }
-if(key_pressed(KEY_RETURN) or dietimer.elapsed>=45000)
+if(key_pressed(kb("use_item")) or dietimer.elapsed>=45000)
 {
 send_reliable(0, "player_remove", 0);
 mapname="main";
@@ -3671,26 +3674,26 @@ while(true)
 {
 mainloop();
 netloop();
-if (key_pressed(KEY_F1))
+if (key_pressed(kb("player_list")))
 {
 send_reliable(0,"whoonline",0);
 }
-if(key_pressed(KEY_F3) and pinging==false)
+if(key_pressed(kb("ping")) and pinging==false)
 {
 send_reliable(1, "ping", 0);
 p.play_stationary("pingstart.ogg", false);
 pingtimer.restart();
 pinging=true;
 }
-if(key_pressed(KEY_F2))
+if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
-if(key_pressed(KEY_W) and tracking!="")
+if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
 }
-if(key_pressed(KEY_ESCAPE) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
+if(key_pressed(kb("menu")) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
 {
 go_out=false;
 send_reliable(0, "plane_stop", 0);
@@ -3699,29 +3702,29 @@ plane.stop();
 resume_all_sources();
 break;
 }
-if (key_pressed(KEY_H) and key_up(KEY_LSHIFT))
+if (key_pressed(kb("health")) and key_up(KEY_LSHIFT))
 {
 send_reliable(0,"health",0);
 }
-if(key_pressed(KEY_DOWN) and me.z>=1)
+if(key_pressed(kb("move_backward")) and me.z>=1)
 {
 send_reliable(0, "go_down", 0);
-} 
-if(key_pressed(KEY_UP) and me.z<=74)
+}
+if(key_pressed(kb("move_forward")) and me.z<=74)
 {
 send_reliable(0, "go_up", 0);
 }
-if (key_pressed(KEY_SLASH))
+if (key_pressed(kb("chat")))
 {
 string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }
-if(key_pressed(KEY_T))
+if(key_pressed(kb("track_player")))
 {
 send_reliable(1, "playermenu", 0);
 }
-if(key_pressed(KEY_LEFT) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+if(key_pressed(kb("move_left")) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
 turntimer.restart();
 facing=snapleft(facing, getdir(facing));
@@ -3729,7 +3732,7 @@ speak(dir_to_string(getdir(facing)));
 send_reliable(0, "plane_turn "+facing, 0);
 mouse_update();
 }
-if(key_pressed(KEY_RIGHT) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
+if(key_pressed(kb("move_right")) or mousex>0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
 turntimer.restart();
 facing=snapright(facing, getdir(facing));
@@ -3737,12 +3740,12 @@ speak(dir_to_string(getdir(facing)));
 send_reliable(0, "plane_turn "+facing, 0);
 mouse_update();
 }
-if(key_pressed(KEY_SPACE) and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank") 
+if(key_pressed(kb("jump")) and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank")
 {
 send_reliable(0, "plane_rem", 0);
 p.play_stationary("duoplanerem.ogg",false);
 }
-if (key_pressed(KEY_LBRACKET))
+if (key_pressed(kb("buffer_left")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 {
@@ -3753,7 +3756,7 @@ else
 bufferleft();
 }
 }
-if (key_pressed(KEY_RBRACKET))
+if (key_pressed(kb("buffer_right")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 {
@@ -3784,46 +3787,46 @@ while(true)
 {
 mainloop();
 netloop();
-if (key_pressed(KEY_F1))
+if (key_pressed(kb("player_list")))
 {
 send_reliable(0,"whoonline",0);
 }
-if(key_pressed(KEY_F3) and pinging==false)
+if(key_pressed(kb("ping")) and pinging==false)
 {
 send_reliable(1, "ping", 0);
 p.play_stationary("pingstart.ogg", false);
 pingtimer.restart();
 pinging=true;
 }
-if (key_pressed(KEY_H) and key_up(KEY_LSHIFT))
+if (key_pressed(kb("health")) and key_up(KEY_LSHIFT))
 {
 send_reliable(0,"health",0);
 }
-if(key_pressed(KEY_F2))
+if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
-if(key_pressed(KEY_W) and tracking!="")
+if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
 }
-if (key_pressed(KEY_SLASH))
+if (key_pressed(kb("chat")))
 {
 string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }
-if(key_pressed(KEY_T))
+if(key_pressed(kb("track_player")))
 {
 send_reliable(1, "playermenu", 0);
 }
-if(key_pressed(KEY_RETURN) and bombloaded==false and go_reload==false)
+if(key_pressed(kb("use_item")) and bombloaded==false and go_reload==false)
 {
 go_reload=true;
 bombloadtimer.restart();
 p.play_stationary("planebombreload.ogg",false);
 }
-if(key_pressed(KEY_ESCAPE) and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
+if(key_pressed(kb("menu")) and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
 {
 go_out=false;
 send_reliable(0, "plane_stop", 0);
@@ -3832,7 +3835,7 @@ plane.stop();
 resume_all_sources();
 break;
 }
-if(key_pressed(KEY_SPACE) and bombloaded==true)
+if(key_pressed(kb("jump")) and bombloaded==true)
 {
 send_reliable(0, "spawn_planebomb", 0);
 bombloaded=false;
@@ -3842,7 +3845,7 @@ if(bombloadtimer.elapsed>=3375 and bombloaded==false and go_reload==true)
 bombloaded=true;
 go_reload=false;
 }
-if (key_pressed(KEY_LBRACKET))
+if (key_pressed(kb("buffer_left")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 {
@@ -3853,7 +3856,7 @@ else
 bufferleft();
 }
 }
-if (key_pressed(KEY_RBRACKET))
+if (key_pressed(kb("buffer_right")))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 {

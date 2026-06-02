@@ -380,7 +380,7 @@ while(!selected)
 wait(5);
 f.monitor();
 lobby_form_netcheck();
-if (key_pressed(KEY_F1))
+if (key_pressed(kb("player_list")))
 {
 lobby_player_list();
 selected=true;

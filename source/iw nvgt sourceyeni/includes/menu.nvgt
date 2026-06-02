@@ -869,6 +869,7 @@ void optionsmenu()
 setupmenu();
 m.add_item_tts("Gameplay options.","gameplay");
 m.add_item_tts("Controls options.","controls");
+m.add_item_tts("Key bindings.","keybinds");
 m.add_item_tts("Audio options.","audio");
 m.add_item_tts("Go back.","back");
 int mres=m.run("Options",true);
@@ -876,6 +877,8 @@ if (m.get_item_name(mres)=="gameplay")
 options_gameplay();
 else if (m.get_item_name(mres)=="controls")
 options_controls();
+else if (m.get_item_name(mres)=="keybinds")
+options_keybinds();
 else if (m.get_item_name(mres)=="audio")
 options_audio();
 else

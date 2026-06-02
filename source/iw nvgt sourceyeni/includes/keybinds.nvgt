@@ -1,0 +1,361 @@
+string[] _kb_key_names;
+int[] _kb_key_codes;
+string[] _kb_key_labels;
+string[] _kb_act_names;
+string[] _kb_act_labels;
+int[] _kb_act_defaults;
+int[] _kb_act_binds;
+
+void _kb_reg_key(string name, int code, string label)
+{
+_kb_key_names.insert_last(name);
+_kb_key_codes.insert_last(code);
+_kb_key_labels.insert_last(label);
+}
+
+void _kb_reg_action(string name, string label, int default_key)
+{
+_kb_act_names.insert_last(name);
+_kb_act_labels.insert_last(label);
+_kb_act_defaults.insert_last(default_key);
+_kb_act_binds.insert_last(default_key);
+}
+
+int kb(string action)
+{
+for (uint i=0; i<_kb_act_names.length(); i++)
+{
+if (_kb_act_names[i]==action) return _kb_act_binds[i];
+}
+return -1;
+}
+
+string kb_key_to_name(int code)
+{
+for (uint i=0; i<_kb_key_codes.length(); i++)
+{
+if (_kb_key_codes[i]==code) return _kb_key_names[i];
+}
+return "unknown";
+}
+
+int kb_name_to_key(string name)
+{
+for (uint i=0; i<_kb_key_names.length(); i++)
+{
+if (_kb_key_names[i]==name) return _kb_key_codes[i];
+}
+return -1;
+}
+
+string kb_key_label(int code)
+{
+for (uint i=0; i<_kb_key_codes.length(); i++)
+{
+if (_kb_key_codes[i]==code) return _kb_key_labels[i];
+}
+return "Unknown";
+}
+
+void kb_init()
+{
+_kb_reg_key("escape", KEY_ESCAPE, "Escape");
+_kb_reg_key("1", KEY_1, "1");
+_kb_reg_key("2", KEY_2, "2");
+_kb_reg_key("3", KEY_3, "3");
+_kb_reg_key("4", KEY_4, "4");
+_kb_reg_key("5", KEY_5, "5");
+_kb_reg_key("6", KEY_6, "6");
+_kb_reg_key("7", KEY_7, "7");
+_kb_reg_key("8", KEY_8, "8");
+_kb_reg_key("9", KEY_9, "9");
+_kb_reg_key("0", KEY_0, "0");
+_kb_reg_key("minus", KEY_MINUS, "Minus");
+_kb_reg_key("equals", KEY_EQUALS, "Equals");
+_kb_reg_key("backspace", KEY_BACK, "Backspace");
+_kb_reg_key("tab", KEY_TAB, "Tab");
+_kb_reg_key("q", KEY_Q, "Q");
+_kb_reg_key("w", KEY_W, "W");
+_kb_reg_key("e", KEY_E, "E");
+_kb_reg_key("r", KEY_R, "R");
+_kb_reg_key("t", KEY_T, "T");
+_kb_reg_key("y", KEY_Y, "Y");
+_kb_reg_key("u", KEY_U, "U");
+_kb_reg_key("i", KEY_I, "I");
+_kb_reg_key("o", KEY_O, "O");
+_kb_reg_key("p", KEY_P, "P");
+_kb_reg_key("left_bracket", KEY_LBRACKET, "Left Bracket");
+_kb_reg_key("right_bracket", KEY_RBRACKET, "Right Bracket");
+_kb_reg_key("enter", KEY_RETURN, "Enter");
+_kb_reg_key("left_control", KEY_LCONTROL, "Left Control");
+_kb_reg_key("a", KEY_A, "A");
+_kb_reg_key("s", KEY_S, "S");
+_kb_reg_key("d", KEY_D, "D");
+_kb_reg_key("f", KEY_F, "F");
+_kb_reg_key("g", KEY_G, "G");
+_kb_reg_key("h", KEY_H, "H");
+_kb_reg_key("j", KEY_J, "J");
+_kb_reg_key("k", KEY_K, "K");
+_kb_reg_key("l", KEY_L, "L");
+_kb_reg_key("semicolon", KEY_SEMICOLON, "Semicolon");
+_kb_reg_key("apostrophe", KEY_APOSTROPHE, "Apostrophe");
+_kb_reg_key("grave", KEY_GRAVE, "Grave Accent");
+_kb_reg_key("backslash", KEY_BACKSLASH, "Backslash");
+_kb_reg_key("z", KEY_Z, "Z");
+_kb_reg_key("x", KEY_X, "X");
+_kb_reg_key("c", KEY_C, "C");
+_kb_reg_key("v", KEY_V, "V");
+_kb_reg_key("b", KEY_B, "B");
+_kb_reg_key("n", KEY_N, "N");
+_kb_reg_key("m", KEY_M, "M");
+_kb_reg_key("comma", KEY_COMMA, "Comma");
+_kb_reg_key("period", KEY_PERIOD, "Period");
+_kb_reg_key("slash", KEY_SLASH, "Slash");
+_kb_reg_key("right_control", KEY_RCONTROL, "Right Control");
+_kb_reg_key("space", KEY_SPACE, "Space");
+_kb_reg_key("caps_lock", KEY_CAPITAL, "Caps Lock");
+_kb_reg_key("f1", KEY_F1, "F1");
+_kb_reg_key("f2", KEY_F2, "F2");
+_kb_reg_key("f3", KEY_F3, "F3");
+_kb_reg_key("f4", KEY_F4, "F4");
+_kb_reg_key("f5", KEY_F5, "F5");
+_kb_reg_key("f6", KEY_F6, "F6");
+_kb_reg_key("f7", KEY_F7, "F7");
+_kb_reg_key("f8", KEY_F8, "F8");
+_kb_reg_key("f9", KEY_F9, "F9");
+_kb_reg_key("f10", KEY_F10, "F10");
+_kb_reg_key("f11", KEY_F11, "F11");
+_kb_reg_key("f12", KEY_F12, "F12");
+_kb_reg_key("home", KEY_HOME, "Home");
+_kb_reg_key("up", KEY_UP, "Up Arrow");
+_kb_reg_key("page_up", KEY_PRIOR, "Page Up");
+_kb_reg_key("left", KEY_LEFT, "Left Arrow");
+_kb_reg_key("right", KEY_RIGHT, "Right Arrow");
+_kb_reg_key("end", KEY_END, "End");
+_kb_reg_key("down", KEY_DOWN, "Down Arrow");
+_kb_reg_key("page_down", KEY_NEXT, "Page Down");
+_kb_reg_key("insert", KEY_INSERT, "Insert");
+_kb_reg_key("delete", KEY_DELETE, "Delete");
+_kb_reg_key("numpad_0", KEY_NUMPAD0, "Numpad 0");
+_kb_reg_key("numpad_1", KEY_NUMPAD1, "Numpad 1");
+_kb_reg_key("numpad_2", KEY_NUMPAD2, "Numpad 2");
+_kb_reg_key("numpad_3", KEY_NUMPAD3, "Numpad 3");
+_kb_reg_key("numpad_4", KEY_NUMPAD4, "Numpad 4");
+_kb_reg_key("numpad_5", KEY_NUMPAD5, "Numpad 5");
+_kb_reg_key("numpad_6", KEY_NUMPAD6, "Numpad 6");
+_kb_reg_key("numpad_7", KEY_NUMPAD7, "Numpad 7");
+_kb_reg_key("numpad_8", KEY_NUMPAD8, "Numpad 8");
+_kb_reg_key("numpad_9", KEY_NUMPAD9, "Numpad 9");
+_kb_reg_key("numpad_add", KEY_ADD, "Numpad Plus");
+_kb_reg_key("numpad_subtract", KEY_SUBTRACT, "Numpad Minus");
+_kb_reg_key("numpad_multiply", KEY_MULTIPLY, "Numpad Star");
+_kb_reg_key("numpad_divide", KEY_DIVIDE, "Numpad Slash");
+_kb_reg_key("numpad_decimal", KEY_DECIMAL, "Numpad Dot");
+_kb_reg_key("numpad_enter", KEY_NUMPADENTER, "Numpad Enter");
+_kb_reg_action("move_forward", "Move forward", KEY_UP);
+_kb_reg_action("move_backward", "Move backward", KEY_DOWN);
+_kb_reg_action("move_left", "Move left", KEY_LEFT);
+_kb_reg_action("move_right", "Move right", KEY_RIGHT);
+_kb_reg_action("move_up", "Move up", KEY_PRIOR);
+_kb_reg_action("move_down", "Move down", KEY_NEXT);
+_kb_reg_action("jump", "Jump", KEY_SPACE);
+_kb_reg_action("fire", "Fire weapon", KEY_LCONTROL);
+_kb_reg_action("reload", "Reload", KEY_R);
+_kb_reg_action("ammo_check", "Check ammo", KEY_A);
+_kb_reg_action("use_item", "Use item", KEY_RETURN);
+_kb_reg_action("chat", "Chat", KEY_SLASH);
+_kb_reg_action("health", "Health", KEY_H);
+_kb_reg_action("facing", "Facing direction", KEY_F);
+_kb_reg_action("coordinates", "Coordinates", KEY_C);
+_kb_reg_action("zone", "Current zone", KEY_B);
+_kb_reg_action("turn_left", "Turn left", KEY_Q);
+_kb_reg_action("turn_right", "Turn right", KEY_E);
+_kb_reg_action("aim_up", "Aim up", KEY_S);
+_kb_reg_action("aim_down", "Aim down", KEY_X);
+_kb_reg_action("next_item", "Next item", KEY_TAB);
+_kb_reg_action("next_category", "Next category", KEY_K);
+_kb_reg_action("nearby_items", "Nearby items", KEY_M);
+_kb_reg_action("nearby_players", "Nearby players", KEY_P);
+_kb_reg_action("track_player", "Track player", KEY_T);
+_kb_reg_action("track_info", "Track info", KEY_W);
+_kb_reg_action("points_of_interest", "Points of interest", KEY_J);
+_kb_reg_action("player_list", "Player list", KEY_F1);
+_kb_reg_action("motd", "Message of the Day", KEY_F2);
+_kb_reg_action("ping", "Ping server", KEY_F3);
+_kb_reg_action("vehicle_enter", "Enter or exit vehicle", KEY_V);
+_kb_reg_action("vehicle_door", "Vehicle door or chest", KEY_O);
+_kb_reg_action("menu", "Game menu", KEY_ESCAPE);
+_kb_reg_action("quickbar_view", "View quickbar", KEY_I);
+_kb_reg_action("buffer_left", "Buffer left", KEY_LBRACKET);
+_kb_reg_action("buffer_right", "Buffer right", KEY_RBRACKET);
+_kb_reg_action("volume_up", "Volume up", KEY_HOME);
+_kb_reg_action("volume_down", "Volume down", KEY_END);
+if (file_exists("keyconfig.json"))
+kb_load();
+else
+kb_save();
+}
+
+void kb_load()
+{
+file f;
+f.open("keyconfig.json","rb");
+string content=f.read();
+f.close();
+content=string_replace(content,"\r\n","\n",true);
+content=string_replace(content,"\r","\n",true);
+string[] lines=string_split(content,"\n",true);
+for (uint i=0; i<lines.length(); i++)
+{
+string line=lines[i];
+line=string_replace(line,"\"","",true);
+line=string_replace(line,",","",true);
+line=string_replace(line," ","",true);
+line=string_replace(line,"\t","",true);
+int cp=string_contains(line,":",1);
+if (cp<0) continue;
+string act=string_left(line,cp);
+string kn=string_mid(line,cp+2,line.length()-cp-1);
+int code=kb_name_to_key(kn);
+if (code<0) continue;
+for (uint j=0; j<_kb_act_names.length(); j++)
+{
+if (_kb_act_names[j]==act)
+{
+_kb_act_binds[j]=code;
+break;
+}
+}
+}
+}
+
+void kb_save()
+{
+file f;
+f.open("keyconfig.json","wb");
+string out="{\n";
+for (uint i=0; i<_kb_act_names.length(); i++)
+{
+out+="  \""+_kb_act_names[i]+"\": \""+kb_key_to_name(_kb_act_binds[i])+"\"";
+if (i<_kb_act_names.length()-1) out+=",";
+out+="\n";
+}
+out+="}\n";
+f.write(out);
+f.close();
+}
+
+void kb_reset()
+{
+for (uint i=0; i<_kb_act_names.length(); i++)
+_kb_act_binds[i]=_kb_act_defaults[i];
+kb_save();
+}
+
+int kb_wait_for_key()
+{
+while(true)
+{
+wait(5);
+bool any=false;
+for (int k=1; k<=211; k++)
+{
+if (key_down(k)){any=true; break;}
+}
+if (!any) break;
+}
+while(true)
+{
+wait(5);
+for (int k=1; k<=211; k++)
+{
+if (key_pressed(k))
+{
+if (k==KEY_LSHIFT or k==KEY_RSHIFT or k==KEY_LMENU or k==KEY_RMENU) continue;
+return k;
+}
+}
+}
+return -1;
+}
+
+void kb_update_holds()
+{
+kleft.key_code=kb("move_left");
+kright.key_code=kb("move_right");
+kup.key_code=kb("move_forward");
+kdown.key_code=kb("move_backward");
+kpgdn.key_code=kb("move_down");
+kpgup.key_code=kb("move_up");
+kQ.key_code=kb("turn_left");
+kE.key_code=kb("turn_right");
+kS.key_code=kb("aim_up");
+kX.key_code=kb("aim_down");
+}
+
+void options_keybinds()
+{
+while(true)
+{
+audio_form f;
+f.create_window("Key Bindings",false,true);
+int f_list=f.create_list("Actions. Press Enter to rebind the selected action.",0,false);
+for (uint i=0; i<_kb_act_names.length(); i++)
+f.add_list_item(f_list,_kb_act_labels[i]+": "+kb_key_label(_kb_act_binds[i]));
+int f_rebind=f.create_button("&Rebind selected",true);
+int f_reset=f.create_button("R&eset all to defaults",false);
+int f_back=f.create_button("Go &back",false,true);
+f.focus(f_list);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+if (connected==true) netloop();
+if (f.is_pressed(f_back)) return;
+if (f.is_pressed(f_reset))
+{
+kb_reset();
+kb_update_holds();
+speak("All key bindings reset to defaults.");
+refresh=true;
+}
+if (f.is_pressed(f_rebind))
+{
+int sel=f.get_list_position(f_list);
+if (sel>=0 and uint(sel)<_kb_act_names.length())
+{
+speak("Press the new key for "+_kb_act_labels[sel]+". Press Escape to cancel.");
+int new_key=kb_wait_for_key();
+if (new_key==KEY_ESCAPE and _kb_act_binds[sel]!=KEY_ESCAPE)
+{
+speak("Cancelled.");
+}
+else
+{
+int conflict=-1;
+for (uint j=0; j<_kb_act_names.length(); j++)
+{
+if (int(j)!=sel and _kb_act_binds[j]==new_key)
+{
+conflict=j;
+break;
+}
+}
+if (conflict>=0)
+{
+int old_key=_kb_act_binds[sel];
+_kb_act_binds[conflict]=old_key;
+speak(_kb_act_labels[conflict]+" moved to "+kb_key_label(old_key)+".");
+}
+_kb_act_binds[sel]=new_key;
+kb_save();
+kb_update_holds();
+speak(_kb_act_labels[sel]+" bound to "+kb_key_label(new_key)+".");
+}
+refresh=true;
+}
+}
+}
+}
+}

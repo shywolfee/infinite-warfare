@@ -62,8 +62,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4973;
-int build_number=35;
+double version=0.4974;
+int build_number=36;
 string build_date="2026-06-05";
 string name;
 string mate;
@@ -98,7 +98,6 @@ int tracker_target_x=0;
 int tracker_target_y=0;
 int tracker_target_z=0;
 string[] tracker_cat_names={"Players", "Points of Interest", "Items", "Vehicles"};
-sound tracker_beacon;
 int sph_tries=1;
 timer sph_timer;
 sound_pool distpool;
@@ -2252,64 +2251,101 @@ speak(info);
 // ---------------------------------------------------------------------------
 // Tracker system — unified tracking of players, POIs, items, and vehicles.
 // ---------------------------------------------------------------------------
-string[] tracker_get_category_items(int cat)
+string[] tracker_list_labels;
+int[] tracker_list_x;
+int[] tracker_list_y;
+int[] tracker_list_z;
+
+void tracker_rebuild_list()
 {
-string[] result;
-if (cat==0)
+tracker_list_labels.resize(0);
+tracker_list_x.resize(0);
+tracker_list_y.resize(0);
+tracker_list_z.resize(0);
+if (tracker_category==1)
 {
-send_reliable(1, "playermenu", 0);
+int[] sorted=get_sorted_poi_indices();
+for (uint i=0; i<sorted.length(); i++)
+{
+int idx=sorted[i];
+double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
+tracker_list_labels.insert_last(string_replace(pois[idx].name, "_", " ", true)+" ("+int(dist)+" tiles)");
+tracker_list_x.insert_last(pois[idx].x);
+tracker_list_y.insert_last(pois[idx].y);
+tracker_list_z.insert_last(pois[idx].z);
 }
-else if (cat==1)
-{
-for (uint i=0; i<pois.length(); i++)
-result.insert_last(string_replace(pois[i].name, "_", " ", true));
 }
-else if (cat==2)
-{
-send_reliable(0, "whatnear", 0);
-}
-else if (cat==3)
+else if (tracker_category==3)
 {
 if (vehicle_types.length()==0) init_vehicle_types();
+int[] vindices;
+double[] vdists;
 for (uint i=0; i<map_vehicles.length(); i++)
 {
 if (map_vehicles[i].destroyed) continue;
 double dx=double(map_vehicles[i].x)-mr.x;
 double dy=double(map_vehicles[i].y)-mr.y;
 double dist=square_root(dx*dx+dy*dy);
-result.insert_last(map_vehicles[i].get_name()+" ("+int(dist)+" tiles)");
+vindices.insert_last(int(i));
+vdists.insert_last(dist);
+}
+for (uint i=1; i<vindices.length(); i++)
+{
+int ki=vindices[i];
+double kd=vdists[i];
+int j=int(i)-1;
+while (j>=0 and vdists[j]>kd)
+{
+vindices[j+1]=vindices[j];
+vdists[j+1]=vdists[j];
+j--;
+}
+vindices[j+1]=ki;
+vdists[j+1]=kd;
+}
+for (uint i=0; i<vindices.length(); i++)
+{
+int vi=vindices[i];
+tracker_list_labels.insert_last(map_vehicles[vi].get_name()+" ("+int(vdists[i])+" tiles)");
+tracker_list_x.insert_last(map_vehicles[vi].x);
+tracker_list_y.insert_last(map_vehicles[vi].y);
+tracker_list_z.insert_last(map_vehicles[vi].z);
 }
 }
-return result;
 }
 
 void tracker_announce_category()
 {
-speak(tracker_cat_names[tracker_category]);
 tracker_index=0;
+tracker_rebuild_list();
+if (tracker_category==0)
+speak(tracker_cat_names[0]+". Press Backspace to open player tracking.");
+else if (tracker_category==2)
+speak(tracker_cat_names[2]+". Press Backspace to scan for nearby items.");
+else
+speak(tracker_cat_names[tracker_category]+", "+tracker_list_labels.length()+" found.");
 }
 
 void tracker_announce_item()
 {
 if (tracker_category==0)
 {
-speak("Players are tracked via the server. Press Backspace to request player tracking.");
+speak("Press Backspace to open player tracking.");
 return;
 }
 else if (tracker_category==2)
 {
-speak("Items are tracked via the server. Press Backspace to request nearby items.");
+speak("Press Backspace to scan for nearby items.");
 return;
 }
-string[] items=tracker_get_category_items(tracker_category);
-if (items.length()==0)
+if (tracker_list_labels.length()==0)
 {
-speak("No items in this category.");
+speak("Nothing found in this category.");
 return;
 }
-if (tracker_index<0) tracker_index=int(items.length())-1;
-if (tracker_index>=int(items.length())) tracker_index=0;
-speak(items[tracker_index]);
+if (tracker_index<0) tracker_index=int(tracker_list_labels.length())-1;
+if (tracker_index>=int(tracker_list_labels.length())) tracker_index=0;
+speak((tracker_index+1)+" of "+tracker_list_labels.length()+": "+tracker_list_labels[tracker_index]);
 }
 
 void tracker_begin_tracking()
@@ -2324,48 +2360,19 @@ else if (tracker_category==2)
 send_reliable(0, "whatnear", 0);
 return;
 }
-else if (tracker_category==1)
+if (tracker_list_labels.length()==0)
 {
-if (pois.length()==0)
-{
-speak("No points of interest.");
+speak("Nothing to track.");
 return;
 }
 int idx=tracker_index;
-if (idx<0 or idx>=int(pois.length())) idx=0;
-tracker_target=string_replace(pois[idx].name, "_", " ", true);
-tracker_target_x=pois[idx].x;
-tracker_target_y=pois[idx].y;
-tracker_target_z=pois[idx].z;
+if (idx<0 or idx>=int(tracker_list_labels.length())) idx=0;
+tracker_target=tracker_list_labels[idx];
+tracker_target_x=tracker_list_x[idx];
+tracker_target_y=tracker_list_y[idx];
+tracker_target_z=tracker_list_z[idx];
 p.play_stationary("trackingnew.ogg", false);
 speak("Now tracking "+tracker_target+".");
-}
-else if (tracker_category==3)
-{
-int vi=-1;
-int count=0;
-for (uint i=0; i<map_vehicles.length(); i++)
-{
-if (map_vehicles[i].destroyed) continue;
-if (count==tracker_index)
-{
-vi=int(i);
-break;
-}
-count++;
-}
-if (vi<0)
-{
-speak("No vehicle to track.");
-return;
-}
-tracker_target=map_vehicles[vi].get_name();
-tracker_target_x=map_vehicles[vi].x;
-tracker_target_y=map_vehicles[vi].y;
-tracker_target_z=map_vehicles[vi].z;
-p.play_stationary("trackingnew.ogg", false);
-speak("Now tracking "+tracker_target+".");
-}
 }
 
 void tracker_cancel()
@@ -2377,7 +2384,6 @@ return;
 }
 tracker_target="";
 tracking="";
-if (tracker_beacon.active) tracker_beacon.stop();
 speak("Tracking cancelled.");
 }
 

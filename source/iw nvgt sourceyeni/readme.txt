@@ -1,5 +1,5 @@
 Infinite Warfare
-Version: 0.4.9.7.3
+Version: 0.4.9.7.4
 Created by: Firegaming
 Coded by: Max Vrenken
 Sound design by: Jonan Smid (Djonan-music-official on YouTube)

@@ -1,3 +1,12 @@
+New in 0.4.9.7.4, build 36 (2026-06-05)
+Bug fixes for the tracker system introduced in build 35.
+Fixed vehicles in the tracker showing all vehicles on the map regardless of distance. Vehicles are now sorted by distance from the player, nearest first.
+Fixed points of interest in the tracker not being sorted by distance. POIs are now sorted nearest first, matching the existing POI list (J key).
+Fixed being unable to scroll through items in POI and Vehicle tracker categories. Minus and Equals now cycle through the sorted list with position feedback (e.g. "3 of 12: Humvee (45 tiles)").
+Fixed tracker cancel (Shift+Backspace) potentially crashing due to checking an uninitialized sound object. Removed the broken beacon reference.
+Fixed Player and Item tracker categories giving no feedback when scrolling. They now clearly explain that Backspace opens server-side tracking for those categories.
+The tracker list for each category is now rebuilt each time you switch categories with Shift+Minus or Shift+Equals, ensuring distances are current.
+
 New in 0.4.9.7.3, build 35 (2026-06-05)
 Redesigned the tracking system into a unified tracker with four categories: Players, Points of Interest, Items, and Vehicles. Use Shift+Minus and Shift+Equals to navigate between categories. Use Minus and Equals to move between items in the selected category. Press Backspace to begin tracking the selected item, which plays a tracking beacon at the item's location. Press Shift+Backspace to cancel tracking. Press N to view the location of the currently tracked item. The old T (track player), M (nearby items), and W (track info) bindings have been removed in favor of this new system.
 Changed the T key to switch weapon firing modes (previously Shift+A). Shift+A no longer cycles fire modes.

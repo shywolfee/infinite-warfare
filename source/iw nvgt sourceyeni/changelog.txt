@@ -1,3 +1,11 @@
+New in 0.4.9.7.3, build 35 (2026-06-05)
+Redesigned the tracking system into a unified tracker with four categories: Players, Points of Interest, Items, and Vehicles. Use Shift+Minus and Shift+Equals to navigate between categories. Use Minus and Equals to move between items in the selected category. Press Backspace to begin tracking the selected item, which plays a tracking beacon at the item's location. Press Shift+Backspace to cancel tracking. Press N to view the location of the currently tracked item. The old T (track player), M (nearby items), and W (track info) bindings have been removed in favor of this new system.
+Changed the T key to switch weapon firing modes (previously Shift+A). Shift+A no longer cycles fire modes.
+Moved holster controls from Backspace to Grave Accent. Press Shift+Grave Accent to holster or draw a weapon (previously Shift+Backspace). Press Alt+Grave Accent to unequip holsters (previously Alt+Backspace). This frees Backspace for the new tracking system.
+Removed the Grave Accent give-all-items shortcut. Give All is now only accessible from the Developer Suite menu (Shift+D).
+Removed the M key (nearby items) keybinding. Item tracking is now handled through the unified tracker system.
+The P key (nearby players) remains unchanged.
+
 New in 0.4.9.7.2, build 34 (2026-06-02)
 Redesigned the feedback system. The /feedback command now creates individual feedback files stored in iwserver/administration/feedback/ instead of appending to a single text file. Each feedback entry is saved with an ID and author name.
 Added /feedbacks command (dev only). Opens a list of all submitted feedback. Selecting an entry opens it in a read-only form showing the author and message. Accessible from the command menu (Alt+C).

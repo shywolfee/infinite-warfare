@@ -1,5 +1,5 @@
 Infinite Warfare
-Version: 0.4.9.6.2
+Version: 0.4.9.7.3
 Created by: Firegaming
 Coded by: Max Vrenken
 Sound design by: Jonan Smid (Djonan-music-official on YouTube)
@@ -21,16 +21,17 @@ Vertical aiming: S to aim up, X to aim down. Shift+S/Shift+X for 1-degree aiming
 Fire: Left Control or Right Control (if enabled in options).
 Use item: Enter on the selected inventory item.
 Reload: R to reload. Shift+R to unload.
-Ammo check: A for ammo status. Shift+A to cycle fire modes.
+Ammo check: A for ammo status.
+Fire mode: T to switch weapon firing modes (semi, burst, auto).
 Info: F for facing, C for coordinates, B for zone, H for health/stamina/effects.
 Chat: / to type a message or command. Alt+C for command menu.
 Online players: F1. MOTD: F2. Ping: F3.
-Tracking: T to open player tracking, W for track info.
-Nearby: M for nearby items, P for nearby players, J for points of interest.
+Tracker: Shift+Minus/Shift+Equals to navigate categories (Players, Points of Interest, Items, Vehicles). Minus/Equals to move between items. Backspace to track. Shift+Backspace to cancel tracking. N to view tracked location.
+Nearby: P for nearby players, J for points of interest.
 Inventory: Tab/Shift+Tab to cycle items. K/Shift+K to cycle categories.
 Quickbar: Number keys 1-0 to use slots. Alt+number to bind. Shift+I to view quickbar.
-Equipment: Alt+E for equipment menu. Alt+Backspace to unequip holster.
-Holster: Shift+Backspace to holster or draw a weapon.
+Equipment: Alt+E for equipment menu. Alt+Grave Accent to unequip holster.
+Holster: Shift+Grave Accent to holster or draw a weapon.
 Weapon info: Shift+Enter on a weapon for stats and attachments.
 Vehicles: O to open door, V to enter/exit, arrows to drive, Space for window.
 Support: Alt+S for support ticket menu.

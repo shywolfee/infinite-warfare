@@ -62,9 +62,9 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4972;
-int build_number=34;
-string build_date="2026-06-02";
+double version=0.4973;
+int build_number=35;
+string build_date="2026-06-05";
 string name;
 string mate;
 double facing=0;
@@ -91,6 +91,14 @@ int jumpup=0;
 int jumplandz;
 timer usetimer;
 string tracking="";
+int tracker_category=0;
+int tracker_index=0;
+string tracker_target="";
+int tracker_target_x=0;
+int tracker_target_y=0;
+int tracker_target_z=0;
+string[] tracker_cat_names={"Players", "Points of Interest", "Items", "Vehicles"};
+sound tracker_beacon;
 int sph_tries=1;
 timer sph_timer;
 sound_pool distpool;
@@ -2241,6 +2249,158 @@ else info += ".";
 speak(info);
 }
 
+// ---------------------------------------------------------------------------
+// Tracker system — unified tracking of players, POIs, items, and vehicles.
+// ---------------------------------------------------------------------------
+string[] tracker_get_category_items(int cat)
+{
+string[] result;
+if (cat==0)
+{
+send_reliable(1, "playermenu", 0);
+}
+else if (cat==1)
+{
+for (uint i=0; i<pois.length(); i++)
+result.insert_last(string_replace(pois[i].name, "_", " ", true));
+}
+else if (cat==2)
+{
+send_reliable(0, "whatnear", 0);
+}
+else if (cat==3)
+{
+if (vehicle_types.length()==0) init_vehicle_types();
+for (uint i=0; i<map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dx=double(map_vehicles[i].x)-mr.x;
+double dy=double(map_vehicles[i].y)-mr.y;
+double dist=square_root(dx*dx+dy*dy);
+result.insert_last(map_vehicles[i].get_name()+" ("+int(dist)+" tiles)");
+}
+}
+return result;
+}
+
+void tracker_announce_category()
+{
+speak(tracker_cat_names[tracker_category]);
+tracker_index=0;
+}
+
+void tracker_announce_item()
+{
+if (tracker_category==0)
+{
+speak("Players are tracked via the server. Press Backspace to request player tracking.");
+return;
+}
+else if (tracker_category==2)
+{
+speak("Items are tracked via the server. Press Backspace to request nearby items.");
+return;
+}
+string[] items=tracker_get_category_items(tracker_category);
+if (items.length()==0)
+{
+speak("No items in this category.");
+return;
+}
+if (tracker_index<0) tracker_index=int(items.length())-1;
+if (tracker_index>=int(items.length())) tracker_index=0;
+speak(items[tracker_index]);
+}
+
+void tracker_begin_tracking()
+{
+if (tracker_category==0)
+{
+send_reliable(1, "playermenu", 0);
+return;
+}
+else if (tracker_category==2)
+{
+send_reliable(0, "whatnear", 0);
+return;
+}
+else if (tracker_category==1)
+{
+if (pois.length()==0)
+{
+speak("No points of interest.");
+return;
+}
+int idx=tracker_index;
+if (idx<0 or idx>=int(pois.length())) idx=0;
+tracker_target=string_replace(pois[idx].name, "_", " ", true);
+tracker_target_x=pois[idx].x;
+tracker_target_y=pois[idx].y;
+tracker_target_z=pois[idx].z;
+p.play_stationary("trackingnew.ogg", false);
+speak("Now tracking "+tracker_target+".");
+}
+else if (tracker_category==3)
+{
+int vi=-1;
+int count=0;
+for (uint i=0; i<map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+if (count==tracker_index)
+{
+vi=int(i);
+break;
+}
+count++;
+}
+if (vi<0)
+{
+speak("No vehicle to track.");
+return;
+}
+tracker_target=map_vehicles[vi].get_name();
+tracker_target_x=map_vehicles[vi].x;
+tracker_target_y=map_vehicles[vi].y;
+tracker_target_z=map_vehicles[vi].z;
+p.play_stationary("trackingnew.ogg", false);
+speak("Now tracking "+tracker_target+".");
+}
+}
+
+void tracker_cancel()
+{
+if (tracker_target=="" and tracking=="")
+{
+speak("Not tracking anything.");
+return;
+}
+tracker_target="";
+tracking="";
+if (tracker_beacon.active) tracker_beacon.stop();
+speak("Tracking cancelled.");
+}
+
+void tracker_view_location()
+{
+if (tracking!="")
+{
+send_reliable(1, "trackinfo "+tracking, 0);
+return;
+}
+if (tracker_target=="")
+{
+speak("Not tracking anything.");
+return;
+}
+double dx=double(tracker_target_x)-mr.x;
+double dy=double(tracker_target_y)-mr.y;
+double dist=square_root(dx*dx+dy*dy);
+double angle=calculate_x_y_angle(mr.x, mr.y, double(tracker_target_x), double(tracker_target_y), 0);
+string dir_name=dir_to_string(int(getdir(angle)));
+speak(tracker_target+": "+int(dist)+" tiles "+dir_name+", at "+tracker_target_x+", "+tracker_target_y+", "+tracker_target_z+".");
+}
+
 // Set fire rate, walk speed, and melee flag for the given weapon.
 // Called once on weapon draw / server weapon_set, not every frame.
 void apply_weapon_stats(string wname)
@@ -2406,10 +2566,6 @@ else
 cycle_category(1);
 p.play_stationary("invmove.ogg", false);
 }
-if (key_pressed(kb("nearby_items")))
-{
-send_reliable(0,"whatnear",0);
-}
 if (key_pressed(kb("nearby_players")))
 {
 send_reliable(0,"nearplayers",0);
@@ -2487,10 +2643,11 @@ speak("Magazine empty. Press R to reload.");
 }
 if(key_pressed(kb("ammo_check")))
 {
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
-cycle_fire_mode(weapons[w]);
-else
 announce_ammo(weapons[w]);
+}
+if(key_pressed(kb("fire_mode")))
+{
+cycle_fire_mode(weapons[w]);
 }
 if(key_pressed(kb("reload")))
 {
@@ -2593,14 +2750,40 @@ if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
-// Grave accent removed; escape menu replaces it.
-if(key_pressed(kb("track_info")) and tracking!="")
+// Tracker system: Shift+Minus/Equals for categories, Minus/Equals for items.
+if (key_pressed(kb("tracker_prev_cat")) and shift_is_down())
 {
-send_reliable(1, "trackinfo "+tracking, 0);
+tracker_category--;
+if (tracker_category<0) tracker_category=3;
+tracker_announce_category();
 }
-if(key_pressed(kb("track_player")))
+else if (key_pressed(kb("tracker_next_cat")) and shift_is_down())
 {
-send_reliable(1, "playermenu", 0);
+tracker_category++;
+if (tracker_category>3) tracker_category=0;
+tracker_announce_category();
+}
+else if (key_pressed(kb("tracker_prev_cat")) and !shift_is_down())
+{
+tracker_index--;
+tracker_announce_item();
+}
+else if (key_pressed(kb("tracker_next_cat")) and !shift_is_down())
+{
+tracker_index++;
+tracker_announce_item();
+}
+if (key_pressed(kb("tracker_track")) and !shift_is_down() and !MENU_is_down())
+{
+tracker_begin_tracking();
+}
+if (key_pressed(kb("tracker_track")) and shift_is_down() and !MENU_is_down())
+{
+tracker_cancel();
+}
+if (key_pressed(kb("tracker_view")))
+{
+tracker_view_location();
 }
 if (key_pressed(kb("buffer_left")))
 {
@@ -2640,8 +2823,8 @@ speak("Not a weapon.");
 else
 speak("No item selected.");
 }
-// Shift+Backspace: holster or draw weapon.
-if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_BACK))
+// Shift+Grave: holster or draw weapon.
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_GRAVE))
 {
 holster_current_weapon();
 }
@@ -2655,8 +2838,8 @@ if (MENU_is_down() and key_pressed(KEY_E))
 {
 equipment_menu();
 }
-// Alt+Backspace: unequip holsters.
-if (MENU_is_down() and key_pressed(KEY_BACK))
+// Alt+Grave: unequip holsters.
+if (MENU_is_down() and key_pressed(KEY_GRAVE))
 {
 if(equip_holster1!="" or equip_holster2!="")
 {
@@ -3011,11 +3194,6 @@ if(key_pressed(KEY_7)) use_quickbar_slot(6);
 if(key_pressed(KEY_8)) use_quickbar_slot(7);
 if(key_pressed(KEY_9)) use_quickbar_slot(8);
 if(key_pressed(KEY_0)) use_quickbar_slot(9);
-}
-// Grave accent: give all (only when running from source) — legacy shortcut.
-if(key_pressed(KEY_GRAVE) and SCRIPT_COMPILED==false)
-{
-give_all();
 }
 }
 }
@@ -3786,11 +3964,11 @@ if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
-if(key_pressed(kb("track_info")) and tracking!="")
+if (key_pressed(kb("tracker_view")))
 {
-send_reliable(1, "trackinfo "+tracking, 0);
+tracker_view_location();
 }
-if(key_pressed(kb("menu")) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
+if(key_pressed(kb("menu")) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true)
 {
 go_out=false;
 send_reliable(0, "plane_stop", 0);
@@ -3816,10 +3994,6 @@ if (key_pressed(kb("chat")))
 string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
-}
-if(key_pressed(kb("track_player")))
-{
-send_reliable(1, "playermenu", 0);
 }
 if(key_pressed(kb("move_left")) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
@@ -3903,19 +4077,15 @@ if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
-if(key_pressed(kb("track_info")) and tracking!="")
+if (key_pressed(kb("tracker_view")))
 {
-send_reliable(1, "trackinfo "+tracking, 0);
+tracker_view_location();
 }
 if (key_pressed(kb("chat")))
 {
 string chat=v.input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
-}
-if(key_pressed(kb("track_player")))
-{
-send_reliable(1, "playermenu", 0);
 }
 if(key_pressed(kb("use_item")) and bombloaded==false and go_reload==false)
 {

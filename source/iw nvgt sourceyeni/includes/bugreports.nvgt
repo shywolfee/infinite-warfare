@@ -1,0 +1,438 @@
+void bug_submit()
+{
+audio_form f;
+f.create_window("Submit a Bug Report", false, true);
+int f_title=f.create_input_box("Title", "", "", 0, false, false, false);
+int f_body=f.create_input_box("Description", "", "", 0, false, false, true);
+int f_submit=f.create_button("&Submit", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_title);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_submit))
+{
+string title=f.get_text(f_title);
+string body=f.get_text(f_body);
+if(title=="")
+{
+dlg("Please enter a title for your bug report.");
+continue;
+}
+if(body=="")
+{
+dlg("Please enter a description of the bug.");
+continue;
+}
+title=string_replace(title, "|", "/", true);
+title=string_replace(title, "~", "-", true);
+title=string_replace(title, "\n", " ", true);
+body=string_replace(body, "|", "/", true);
+body=string_replace(body, "~", "-", true);
+body=string_replace(body, "\n", "<<NL>>", true);
+send_reliable(0, "bug_create "+name+"|"+title+"|"+body, 0);
+string result="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "bug_created", 1)==0)
+{
+result=msg;
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(result!="")
+dlg("Your bug report has been submitted. The dev team has been notified.");
+else
+dlg("Failed to submit your bug report. The server may not have responded.");
+return;
+}
+else if(f.is_pressed(f_cancel))
+return;
+}
+}
+
+void bugs_menu()
+{
+send_reliable(0, "bug_check_role", 0);
+bool is_staff=false;
+timer rt;
+while(rt.elapsed<2000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="bug_role_staff")
+{
+is_staff=true;
+break;
+}
+else if(msg=="bug_role_player")
+break;
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(is_staff)
+bugs_menu_staff();
+else
+bugs_menu_player();
+}
+
+void bugs_menu_player()
+{
+speak("Loading your bug reports, please wait.");
+send_reliable(0, "bug_list_my "+name, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "bug_mylist ", 1)==0)
+{
+data=string_replace(msg, "bug_mylist ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+audio_form f;
+f.create_window("My Bug Reports", false, true);
+int f_list=f.create_list("Bug reports", 0, false);
+string[] bug_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No bug reports found.");
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<3) continue;
+bug_ids.insert_last(parts[0]);
+string flag_display=(parts[2]=="" or parts[2]=="none") ? "unflagged" : parts[2];
+f.add_list_item(f_list, "#"+parts[0]+": "+parts[1]+" ["+flag_display+"]");
+}
+}
+int f_view=f.create_button("&View selected");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(bug_ids.length()))
+{
+bug_view_player(bug_ids[sel]);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+
+void bug_view_player(string bug_id)
+{
+speak("Loading bug report, please wait.");
+send_reliable(0, "bug_get "+bug_id, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "bug_data ", 1)==0)
+{
+data=string_replace(msg, "bug_data ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(data=="" or data=="not_found")
+{
+dlg("Bug report not found.");
+bugs_menu_player();
+return;
+}
+string[] parts=string_split(data, "~", false);
+if(parts.length()<6)
+{
+dlg("Invalid bug report data.");
+bugs_menu_player();
+return;
+}
+string b_id=parts[0];
+string b_owner=parts[1];
+string b_title=parts[2];
+string b_flag=parts[3];
+string b_comment=string_replace(parts[4], "<<NL>>", "\n", true);
+string b_body=string_replace(parts[5], "<<NL>>", "\n", true);
+audio_form f;
+f.create_window("Bug Report #"+b_id+": "+b_title, false, true);
+f.create_input_box("Title", b_title, "", 0, false, true, false);
+f.create_input_box("Description", b_body, "", 0, false, true, true);
+string flag_display=(b_flag=="" or b_flag=="none") ? "Unflagged" : b_flag;
+f.create_input_box("Status", flag_display, "", 0, false, true, false);
+if(b_comment!="" and b_comment!="none")
+f.create_input_box("Staff comment", b_comment, "", 0, false, true, true);
+int f_back=f.create_button("Go &back", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_back))
+{
+bugs_menu_player();
+return;
+}
+}
+}
+
+void bugs_menu_staff()
+{
+speak("Loading all bug reports, please wait.");
+send_reliable(0, "bug_list_all", 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "bug_alllist ", 1)==0)
+{
+data=string_replace(msg, "bug_alllist ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+audio_form f;
+f.create_window("All Bug Reports", false, true);
+int f_list=f.create_list("Bug reports", 0, false);
+string[] bug_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No bug reports found.");
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<4) continue;
+bug_ids.insert_last(parts[0]);
+string flag_display=(parts[3]=="" or parts[3]=="none") ? "unflagged" : parts[3];
+f.add_list_item(f_list, "#"+parts[0]+" by "+parts[1]+": "+parts[2]+" ["+flag_display+"]");
+}
+}
+int f_view=f.create_button("&View selected");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(bug_ids.length()))
+{
+bug_view_staff(bug_ids[sel]);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+
+void bug_view_staff(string bug_id)
+{
+speak("Loading bug report, please wait.");
+send_reliable(0, "bug_get "+bug_id, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "bug_data ", 1)==0)
+{
+data=string_replace(msg, "bug_data ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(data=="" or data=="not_found")
+{
+dlg("Bug report not found.");
+bugs_menu_staff();
+return;
+}
+string[] parts=string_split(data, "~", false);
+if(parts.length()<6)
+{
+dlg("Invalid bug report data.");
+bugs_menu_staff();
+return;
+}
+string b_id=parts[0];
+string b_owner=parts[1];
+string b_title=parts[2];
+string b_flag=parts[3];
+string b_comment=string_replace(parts[4], "<<NL>>", "\n", true);
+string b_body=string_replace(parts[5], "<<NL>>", "\n", true);
+audio_form f;
+f.create_window("Bug Report #"+b_id+": "+b_title, false, true);
+f.create_input_box("Submitted by", b_owner, "", 0, false, true, false);
+f.create_input_box("Title", b_title, "", 0, false, true, false);
+f.create_input_box("Description", b_body, "", 0, false, true, true);
+string flag_display=(b_flag=="" or b_flag=="none") ? "Unflagged" : b_flag;
+f.create_input_box("Current flag", flag_display, "", 0, false, true, false);
+if(b_comment!="" and b_comment!="none")
+f.create_input_box("Current comment", b_comment, "", 0, false, true, true);
+int f_flag=f.create_button("&Flag this report");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_flag))
+{
+bug_flag_menu(bug_id);
+return;
+}
+else if(f.is_pressed(f_back))
+{
+bugs_menu_staff();
+return;
+}
+}
+}
+
+void bug_flag_menu(string bug_id)
+{
+audio_form f;
+f.create_window("Flag Bug Report #"+bug_id, false, true);
+int f_list=f.create_list("Select a flag", 0, false);
+f.add_list_item(f_list, "Pending - Report has been seen and is being worked on");
+f.add_list_item(f_list, "Erroneous - Report is not legitimate or is spam");
+f.add_list_item(f_list, "Known - Dev team already knows about this bug");
+f.add_list_item(f_list, "Closed - Bug has been fixed or resolved");
+int f_comment=f.create_input_box("Comment (required)", "", "", 0, false, false, true);
+int f_apply=f.create_button("&Apply flag", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_apply))
+{
+int sel=f.get_list_position(f_list);
+string comment=f.get_text(f_comment);
+if(comment=="")
+{
+dlg("You must attach a comment when flagging a report.");
+continue;
+}
+string flag_value="";
+if(sel==0) flag_value="Pending";
+else if(sel==1) flag_value="Erroneous";
+else if(sel==2) flag_value="Known";
+else if(sel==3) flag_value="Closed";
+else
+{
+dlg("Please select a flag.");
+continue;
+}
+comment=string_replace(comment, "|", "/", true);
+comment=string_replace(comment, "~", "-", true);
+comment=string_replace(comment, "\n", "<<NL>>", true);
+send_reliable(0, "bug_flag "+bug_id+"|"+flag_value+"|"+comment, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="bug_flagged") break;
+}
+if(e.type==event_disconnect) break;
+}
+dlg("Bug report flagged as "+flag_value+".");
+bugs_menu_staff();
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+bug_view_staff(bug_id);
+return;
+}
+}
+}

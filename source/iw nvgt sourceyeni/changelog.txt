@@ -1,3 +1,8 @@
+New in 0.4.9.7.5, build 37 (2026-06-08)
+Fixed jumping not working after dying or exiting a game. The jumping, falling, and in_vehicle flags were never reset when leaving a match, so if a player died mid-jump or mid-fall these flags stayed true and blocked all future jumps. These flags are now reset in exitgame(), the death return-to-lobby path, and at the start of each new game.
+Added /bug command for submitting bug reports. Players enter a title and description. When submitted, all online admins and devs are notified with a sound and message.
+Added /bugs command. Players see their own bug reports with the current flag status. Selecting a report shows its title, description, the flag (Pending, Erroneous, Known, or Closed), and any staff comment. Admins and devs see all bug reports from all players and can flag them with one of four statuses plus a required comment. Changing a flag replaces the previous one.
+
 New in 0.4.9.7.4, build 36 (2026-06-08)
 Added a preliminary notice dialogue that appears on first launch before the rules screen. The notice explains the game's development history, alpha status, and test server limitations. Players must check a certification box acknowledging they have read the notice before proceeding.
 Unauthenticated accounts are now automatically prompted to enter their authorization code when attempting to connect, instead of being told to navigate to Account Management manually.

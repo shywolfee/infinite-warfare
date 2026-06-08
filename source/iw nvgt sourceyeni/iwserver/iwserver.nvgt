@@ -33,6 +33,9 @@ string tickets_dir="administration/tickets";
 int next_feedback_id=1;
 const string FEEDBACK_SECRET = "IW_fB4ck_sYs_K3y_mT7nR2xP9qW4!";
 string feedback_dir="administration/feedback";
+int next_bug_id=1;
+const string BUG_SECRET = "IW_bUg_rPt_K3y_zX5vN8mQ2wL9!";
+string bug_dir="administration/bugs";
 void main()
 {
 show_window("Infinite Warfare server!, version "+ minversion);
@@ -102,6 +105,15 @@ if(file_exists(feedback_dir+"/next_id.txt"))
 file nf;
 nf.open(feedback_dir+"/next_id.txt", "rb");
 next_feedback_id=string_to_number(nf.read());
+nf.close();
+}
+if(!directory_exists(bug_dir))
+directory_create(bug_dir);
+if(file_exists(bug_dir+"/next_id.txt"))
+{
+file nf;
+nf.open(bug_dir+"/next_id.txt", "rb");
+next_bug_id=string_to_number(nf.read());
 nf.close();
 }
 n.setup_server(port, 20, 500);
@@ -776,6 +788,142 @@ send_reliable(e.peer_id, "feedback_item "+fb.read("id")+"~"+fb.read("author")+"~
 }
 else
 send_reliable(e.peer_id, "feedback_item not_found", 0);
+}
+}
+else if(parsed[0]=="bug_check_role")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+if(players[index].dev or players[index].admin)
+send_reliable(e.peer_id, "bug_role_staff", 0);
+else
+send_reliable(e.peer_id, "bug_role_player", 0);
+}
+else
+send_reliable(e.peer_id, "bug_role_player", 0);
+}
+else if(parsed[0]=="bug_create")
+{
+string payload=string_replace(get_event_message(), "bug_create ", "", false);
+string[] bparts=string_split(payload, "|", false);
+if(bparts.length()>=3)
+{
+string b_owner=bparts[0];
+string b_title=bparts[1];
+string b_body=bparts[2];
+string bid=""+next_bug_id;
+savedata b(bug_dir+"/"+bid+".dat", BUG_SECRET);
+b.add("id", bid);
+b.add("owner", b_owner);
+b.add("title", b_title);
+b.add("body", b_body);
+b.add("flag", "none");
+b.add("comment", "none");
+b.save();
+next_bug_id++;
+file nf;
+nf.open(bug_dir+"/next_id.txt", "wb");
+nf.write(""+next_bug_id);
+nf.close();
+send_reliable(e.peer_id, "bug_created "+bid, 0);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "New bug report #"+bid+" from "+b_owner+": "+b_title, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "New bug report #"+bid+" from "+b_owner+": "+b_title, 2);
+}
+}
+}
+}
+else if(parsed[0]=="bug_list_my")
+{
+string b_owner=string_replace(get_event_message(), "bug_list_my ", "", false);
+string result="bug_mylist ";
+string[] files=find_files(bug_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata b(bug_dir+"/"+files[i], BUG_SECRET);
+b.load();
+if(string_to_lower_case(b.read("owner"))!=string_to_lower_case(b_owner)) continue;
+if(!first) result+=",";
+result+=b.read("id")+"~"+b.read("title")+"~"+b.read("flag");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+else if(parsed[0]=="bug_list_all")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and (players[index].dev or players[index].admin))
+{
+string result="bug_alllist ";
+string[] files=find_files(bug_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata b(bug_dir+"/"+files[i], BUG_SECRET);
+b.load();
+if(!first) result+=",";
+result+=b.read("id")+"~"+b.read("owner")+"~"+b.read("title")+"~"+b.read("flag");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="bug_get")
+{
+if(parsed.length()>1)
+{
+string bid=parsed[1];
+string path=bug_dir+"/"+bid+".dat";
+if(file_exists(path))
+{
+savedata b(path, BUG_SECRET);
+b.load();
+send_reliable(e.peer_id, "bug_data "+b.read("id")+"~"+b.read("owner")+"~"+b.read("title")+"~"+b.read("flag")+"~"+b.read("comment")+"~"+b.read("body"), 0);
+}
+else
+send_reliable(e.peer_id, "bug_data not_found", 0);
+}
+}
+else if(parsed[0]=="bug_flag")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1 and (players[index].dev or players[index].admin))
+{
+string payload=string_replace(get_event_message(), "bug_flag ", "", false);
+string[] bparts=string_split(payload, "|", false);
+if(bparts.length()>=3)
+{
+string bid=bparts[0];
+string flag_value=bparts[1];
+string comment=bparts[2];
+string path=bug_dir+"/"+bid+".dat";
+if(file_exists(path))
+{
+savedata b(path, BUG_SECRET);
+b.load();
+b.add("flag", flag_value);
+b.add("comment", comment);
+b.save();
+send_reliable(e.peer_id, "bug_flagged", 0);
+}
+}
 }
 }
 else if(parsed[0]=="ticket_check_role")

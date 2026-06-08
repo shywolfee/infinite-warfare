@@ -25,6 +25,7 @@
 #include "includes/lobby.nvgt"
 #include "includes/vehicle.nvgt"
 #include "includes/support.nvgt"
+#include "includes/bugreports.nvgt"
 string webdir;
 string gamename="Infinite Warfare";
 string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
@@ -62,8 +63,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4974;
-int build_number=36;
+double version=0.4975;
+int build_number=37;
 string build_date="2026-06-08";
 string name;
 string mate;
@@ -1022,6 +1023,8 @@ f.add_list_item(f_list, "/bunkers - Show bunker locations");
 f.add_list_item(f_list, "/duomate [name] - Check a player's duo mate");
 f.add_list_item(f_list, "/d [message] - Send a duo chat message");
 f.add_list_item(f_list, "/pm [name] [message] - Private message a player");
+f.add_list_item(f_list, "/bug - Submit a bug report");
+f.add_list_item(f_list, "/bugs - View bug reports");
 f.add_list_item(f_list, "/feedback [message] - Submit feedback");
 f.add_list_item(f_list, "/changes - View the changelog");
 f.add_list_item(f_list, "/start_admin - Activate admin (if authorized)");
@@ -1060,6 +1063,16 @@ if (dash>-1) cmd=string_mid(cmd, 0, dash);
 if (cmd=="/feedbacks")
 {
 feedbacks_menu();
+break;
+}
+if (cmd=="/bug")
+{
+bug_submit();
+break;
+}
+if (cmd=="/bugs")
+{
+bugs_menu();
 break;
 }
 // If command has parameters (brackets), prompt the user for input
@@ -2319,6 +2332,10 @@ void game(int first)
 plane.stop();
 clear_waypoint();
 translocator_cells=0;
+jumping=false;
+falling=false;
+can_move=true;
+in_vehicle=false;
 if (map_vehicles.length() == 0)
 {
 init_vehicle_types();
@@ -3522,6 +3539,9 @@ distpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
+jumping=false;
+falling=false;
+in_vehicle=false;
 lobby();
 }
 bool is_sound_number(string t)
@@ -3732,6 +3752,9 @@ distpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
+jumping=false;
+falling=false;
+in_vehicle=false;
 lobby();
 return;
 }

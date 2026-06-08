@@ -35,10 +35,15 @@ return;
 mainmenu();
 return;
 }
-// Block unauthenticated accounts from connecting.
+// Block unauthenticated accounts — offer to open the authorization screen.
 if(!is_account_authenticated(name))
 {
-dlg("Your account has not been authenticated yet. Please go to Account Management and enter the authorization code provided by an administrator before connecting.");
+int auth_choice = yesno("Your account has not been authenticated yet. Would you like to enter your authorization code now?");
+if (auth_choice == 1)
+{
+account_authorize_menu();
+return;
+}
 mainmenu();
 return;
 }

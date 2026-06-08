@@ -62,8 +62,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4973;
-int build_number=35;
+double version=0.4974;
+int build_number=36;
 string build_date="2026-06-08";
 string name;
 string mate;
@@ -263,12 +263,32 @@ mainmenu();
 }
 // ---------------------------------------------------------------------------
 // First-run welcome — shown the very first time the game is launched.
-// Explains that this is a beta and that authorization may be required.
-// Shows the rules and requires agreement before proceeding.
+// Displays the preliminary notice, then shows the rules and requires
+// agreement before proceeding.
 // ---------------------------------------------------------------------------
 void first_run_welcome()
 {
-dlg("Welcome to Infinite Warfare! This is a beta version of the game. You will need to register an account to play. If authorization mode is enabled on the server, an administrator will need to approve your account before you can connect.");
+string notice_text = "Notice: The present iteration of this game has been developed with the assistance of agentic artificial-intelligence (Claude code, utilizing the 4.6 opus model). Additionally, this game utilizes unauthorized source code from Redspot: Blood and peril, by Sam Tupy. Credit goes to Sam Tupy for his original ideas, and to Max Vrenken and Djonan Smid of firegaming for the original Infinite Warfair codebase. This game is in an extensive alpha stage. Many features lack sounds or are effectively unfinished. The current server is a test build designed to stress test new features and mechanics. Your data and progress will not persist upon final release of the game. I provide no guarantees of constant server uptime or stability. The game can and will be taken down for maintenance with little or no notice. There are guaranteed bugs and glitches. The goal of this test period is to iron them out. If you wish to play the game despite this, please check the following box to certify that you have read and understood this notice.";
+audio_form f;
+f.create_window("Preliminary Notice", false, true);
+f.create_input_box("Notice", notice_text, "", 0, false, true, false);
+int f_certify = f.create_checkbox("I certify that I have read the preliminary notice in it's entirety.", false);
+int f_continue = f.create_button("&Continue", true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_continue))
+{
+if (!f.is_checked(f_certify))
+{
+dlg("You must certify that you have read the preliminary notice to continue.");
+continue;
+}
+break;
+}
+}
 // Load and show rules.
 file rf;
 string rules_text = "";
@@ -279,19 +299,19 @@ rf.close();
 }
 else
 rules_text = "Rules file not found. Please check the game folder.";
-audio_form f;
-f.create_window("Welcome - Please Read the Rules", false, true);
-f.create_input_box("Rules", rules_text, "", 0, false, true, false);
-int f_agree = f.create_checkbox("I agree to the rules", false);
-int f_continue = f.create_button("&Continue", true);
-f.focus(0);
+audio_form f2;
+f2.create_window("Please Read the Rules", false, true);
+f2.create_input_box("Rules", rules_text, "", 0, false, true, false);
+int f2_agree = f2.create_checkbox("I agree to the rules", false);
+int f2_continue = f2.create_button("&Continue", true);
+f2.focus(0);
 while(true)
 {
 wait(5);
-f.monitor();
-if (f.is_pressed(f_continue))
+f2.monitor();
+if (f2.is_pressed(f2_continue))
 {
-if (!f.is_checked(f_agree))
+if (!f2.is_checked(f2_agree))
 {
 dlg("You must agree to the rules to continue.");
 continue;

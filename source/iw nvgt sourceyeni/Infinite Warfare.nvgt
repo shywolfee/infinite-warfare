@@ -63,9 +63,9 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4975;
-int build_number=37;
-string build_date="2026-06-08";
+double version=0.498;
+int build_number=38;
+string build_date="2026-06-09";
 string name;
 string mate;
 double facing=0;
@@ -1329,34 +1329,45 @@ break;
 void on_item_used(string item)
 {
 if (item == "health_potion")
+{
+p.play_stationary("potion_drink.ogg", false);
 apply_residual_healing();
+}
 else if (item == "ultra_health_potion")
+{
+p.play_stationary("potion_drink.ogg", false);
 apply_ultra_residual_healing();
+}
 else if (item == "bomb_vest")
 {
+p.play_stationary("equip.ogg", false);
 equip_item("bomb_vest", "body");
 speak("Bomb vest equipped.");
 }
 else if (item == "energetic_potion_red")
 {
+p.play_stationary("potion_drink.ogg", false);
 restore_stamina(random(15, 25));
 give("energetic_potion_red", -1);
 speak("Stamina restored. " + get_stamina_string());
 }
 else if (item == "energetic_potion_blue")
 {
+p.play_stationary("potion_drink.ogg", false);
 restore_stamina(random(25, 40));
 give("energetic_potion_blue", -1);
 speak("Stamina restored. " + get_stamina_string());
 }
 else if (item == "energetic_potion_green")
 {
+p.play_stationary("potion_drink.ogg", false);
 restore_stamina(random(40, 60));
 give("energetic_potion_green", -1);
 speak("Stamina restored. " + get_stamina_string());
 }
 else if (item == "energetic_potion_rainbow")
 {
+p.play_stationary("potion_drink.ogg", false);
 restore_stamina(random(75, 100));
 give("energetic_potion_rainbow", -1);
 speak("Stamina fully restored. " + get_stamina_string());
@@ -1373,6 +1384,7 @@ return;
 }
 else if (item == "adrenaline_syringe")
 {
+p.play_stationary("adrenaline_inject.ogg", false);
 apply_adrenaline_rush();
 give("adrenaline_syringe", -1);
 speak("Adrenaline rush! Movement speed doubled for 30 seconds.");
@@ -1395,12 +1407,14 @@ return;
 }
 else if (item == "fortified_ration")
 {
+p.play_stationary("eat.ogg", false);
 restore_stamina(random(35, 50));
 give("fortified_ration", -1);
 speak("Ration consumed. " + get_stamina_string());
 }
 else if (item == "c4")
 {
+p.play_stationary("c4_place.ogg", false);
 send_reliable(0, "use_c4", 0);
 return;
 }
@@ -1448,6 +1462,7 @@ if(attach_to_weapon(item, current_weapon))
 {
 give(item, -1);
 apply_weapon_stats(current_weapon);
+p.play_stationary("attach.ogg", false);
 speak(attachment_defs[def_idx].display_name+" attached to "+get_weapon_display_name(current_weapon)+".");
 send_reliable(0, "attach "+item+" "+current_weapon, 0);
 }
@@ -1497,6 +1512,7 @@ if(slot==1) equip_holster1=item;
 else equip_holster2=item;
 int idx=find_holster_def(item);
 string dn=(idx>=0)?holster_defs[idx].display_name:string_replace(item,"_"," ",true);
+p.play_stationary("equip.ogg", false);
 speak(dn+" equipped in holster "+slot+".");
 }
 void holster_current_weapon()
@@ -1563,6 +1579,7 @@ walktime=200;
 string hid=(slot==1)?equip_holster1:equip_holster2;
 int idx=find_holster_def(hid);
 string dn=(idx>=0)?holster_defs[idx].display_name:hid;
+p.play_stationary("holster.ogg", false);
 speak(get_weapon_display_name(wname)+" holstered in "+dn+".");
 }
 void draw_from_holster()
@@ -1630,6 +1647,7 @@ speak(reload_amt+" rounds auto-loaded from belt.");
 }
 if(slot==1){holster1_weapon="";holster1_weapon_ammo=0;}
 else{holster2_weapon="";holster2_weapon_ammo=0;}
+p.play_stationary("unholster.ogg", false);
 draw_weapon(wname);
 }
 void show_weapon_info(string wname)
@@ -2101,6 +2119,7 @@ speak("Not enough cells. Need "+needed+", have "+translocator_cells+".");
 continue;
 }
 translocator_cells-=needed;
+p.play_stationary("translocate.ogg", false);
 speak("Powering up translocator.");
 // Five second power up sequence.
 for (int t=5; t>=1; t--)
@@ -2153,6 +2172,7 @@ if (amount>available) amount=available;
 if (amount>space) amount=space;
 give("translocator_cell", -amount);
 translocator_cells+=amount;
+p.play_stationary("translocate.ogg", false);
 speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%).");
 }
 
@@ -2193,6 +2213,7 @@ string base = partial_items[sel].base_item;
 remove_partial(sel);
 give(base, 1);
 give("repair_kit", -1);
+p.play_stationary("repair.ogg", false);
 speak("Repaired. You now have a full " + string_replace(base, "_", " ", true) + ".");
 }
 break;
@@ -2221,6 +2242,7 @@ waypoint_y = int(mr.y);
 waypoint_z = int(me.z);
 waypoint_set = true;
 give("waypoint_marker", -1);
+p.play_stationary("waypoint.ogg", false);
 speak("Waypoint placed at " + waypoint_x + ", " + waypoint_y + ", " + waypoint_z + ".");
 }
 else
@@ -2247,6 +2269,7 @@ waypoint_set = false;
 // ---------------------------------------------------------------------------
 void use_binoculars()
 {
+p.play_stationary("binoculars.ogg", false);
 string zone = get_zone_at(mr.x, mr.y, me.z);
 string info = "Position: " + int(mr.x) + ", " + int(mr.y) + ", " + int(me.z) + ". ";
 if (zone != "")
@@ -2301,6 +2324,7 @@ if (drawtimer.elapsed<=1500) return;
 drawtimer.restart();
 weapons[w]=wname;
 apply_weapon_stats(wname);
+p.play_stationary("weapon_draw.ogg", false);
 speak(get_weapon_display_name(wname));
 send_reliable(1, "draw "+wname, 0);
 }
@@ -3147,6 +3171,7 @@ reset_ammo();
 }
 else if(parsed[0]=="revive")
 {
+p.play_stationary("revive.ogg", false);
 send_reliable(0, "player_remove", 0);
 game(2);
 }
@@ -3247,6 +3272,8 @@ int y=string_to_number(parsed[2]);
 int z=string_to_number(parsed[3]);
 string map=parsed[4];
 spawn_wall(x,y,z,z+10,map,"wallwood");
+if(mapname==map)
+p.play_3d("wall_build.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 else if(parsed[0]=="ladder_spawned" and parsed.length()>4)
  {
@@ -3255,6 +3282,8 @@ int y=string_to_number(parsed[2]);
 int z=string_to_number(parsed[3]);
 string map=parsed[4];
 spawn_ladder(x,y,z,z+10,map,"wallwood");
+if(mapname==map)
+p.play_3d("wall_build.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 else if(parsed[0]=="veh_damage" and parsed.length()>2)
 {
@@ -3265,6 +3294,7 @@ if (vi>=0 and vi<int(map_vehicles.length()))
 bool destroyed=vehicle_take_damage(vi, dmg);
 if (player_vehicle_index==vi)
 {
+p.play_stationary("vehicle_hit.ogg", false);
 speak("Vehicle hit! " + map_vehicles[vi].health + " health remaining.");
 if (destroyed) vehicle_on_destroy(vi);
 }
@@ -3294,6 +3324,7 @@ else if(parsed[0]=="weapon_set" and parsed.length()>1)
 {
 weapons[w]=parsed[1];
 apply_weapon_stats(parsed[1]);
+p.play_stationary("weapon_draw.ogg", false);
 speak(get_weapon_display_name(parsed[1]));
 send_reliable(1, "draw "+parsed[1], 0);
 }
@@ -3326,6 +3357,8 @@ p.play_stationary(parsed[1],false);
 else if (parsed[0]=="give" and parsed.length()>2)
 {
 give(parsed[1],string_to_number(parsed[2]));
+if(string_to_number(parsed[2])>0)
+p.play_stationary("item_pickup.ogg", false);
 }
 else if(parsed[0]=="updating")
 {
@@ -3720,6 +3753,7 @@ void death()
 {
 turn=90;
 plane.stop();
+p.play_stationary("death.ogg", false);
 timer dietimer;
 timer respawntimer;
 bool can_respawn=false;

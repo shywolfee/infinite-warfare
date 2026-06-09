@@ -125,6 +125,7 @@ lobby_form_netcheck();
 if (f.is_pressed(f_bg))
 {
 send_reliable(0, "enter_mode battlegrounds", 0);
+p.play_stationary("deploy.ogg", false);
 speak("Deploying to Battlegrounds. Good luck.");
 lobby_wait_for_map();
 game(1);
@@ -133,6 +134,7 @@ return;
 else if (f.is_pressed(f_ha))
 {
 send_reliable(0, "enter_mode habitat_alpha", 0);
+p.play_stationary("deploy.ogg", false);
 speak("Deploying to Habitat Alpha. Survive the colony.");
 lobby_wait_for_map();
 game(1);

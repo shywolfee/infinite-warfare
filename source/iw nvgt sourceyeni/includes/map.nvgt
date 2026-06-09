@@ -3,6 +3,7 @@ void checkzone()
 {
 if (get_zone_at(mr.x,mr.y,me.z)!=oldzone)
 {
+p.play_stationary("zone_enter.ogg", false);
 speak(get_zone_at(mr.x,mr.y,me.z));
 oldzone=get_zone_at(mr.x,mr.y,me.z);
 }

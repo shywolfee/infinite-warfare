@@ -196,5 +196,6 @@ speak("No item selected.");
 return;
 }
 quickbar[slot]=item;
+p.play_stationary("quickbar_bind.ogg", false);
 speak(string_replace(item, "_", " ", true)+" bound to slot "+(slot+1)+".");
 }

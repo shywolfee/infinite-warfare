@@ -222,6 +222,7 @@ speak("No vehicle nearby.");
 return;
 }
 map_vehicles[vi].door_open = !map_vehicles[vi].door_open;
+p.play_stationary("vehicle_door.ogg", false);
 if (map_vehicles[vi].door_open)
 {
 speak(map_vehicles[vi].get_name() + " door opened.");
@@ -282,6 +283,7 @@ vehicle_stamina_timer.restart();
 vehicle_accel_timer.restart();
 // Close door on entry.
 map_vehicles[vi].door_open = false;
+p.play_stationary("vehicle_enter.ogg", false);
 speak("Entered " + map_vehicles[vi].get_name() + ", " + map_vehicles[vi].seat_label(seat) + ".");
 send_reliable(0, "veh_enter " + vi + " " + seat, 0);
 }
@@ -311,6 +313,7 @@ if (seat >= 0)
 v.passengers[seat] = "";
 v.window_down[seat] = false;
 }
+p.play_stationary("vehicle_exit.ogg", false);
 speak("Exited " + v.get_name() + ".");
 send_reliable(0, "veh_exit " + player_vehicle_index, 0);
 player_vehicle_index = -1;
@@ -345,6 +348,7 @@ v.window_down[cur] = false;
 v.passengers[cur] = "";
 v.passengers[next_seat] = pname;
 player_seat = next_seat;
+p.play_stationary("vehicle_seat.ogg", false);
 speak(v.seat_label(next_seat) + ".");
 send_reliable(0, "veh_seat " + player_vehicle_index + " " + next_seat, 0);
 return;
@@ -368,6 +372,7 @@ speak("No window at this seat.");
 return;
 }
 v.window_down[player_seat] = !v.window_down[player_seat];
+p.play_stationary("vehicle_window.ogg", false);
 if (v.window_down[player_seat])
 speak("Window down.");
 else
@@ -412,6 +417,7 @@ vehicle_max_speed_level++;
 // Level 1 = slowest (2x base), Level 5 = fastest (1x base).
 int base = v.get_speed();
 vehicle_target_speed = base + ((VEHICLE_SPEED_LEVELS - vehicle_max_speed_level) * base / VEHICLE_SPEED_LEVELS);
+p.play_stationary("vehicle_speed.ogg", false);
 speak("Speed " + vehicle_max_speed_level + ".");
 }
 
@@ -433,6 +439,7 @@ if (vehicle_max_speed_level == 0)
 {
 vehicle_target_speed = 0;
 vehicle_current_speed = 0;
+p.play_stationary("vehicle_speed.ogg", false);
 speak("Stopped.");
 }
 else
@@ -440,6 +447,7 @@ else
 vehicle@ v = map_vehicles[player_vehicle_index];
 int base = v.get_speed();
 vehicle_target_speed = base + ((VEHICLE_SPEED_LEVELS - vehicle_max_speed_level) * base / VEHICLE_SPEED_LEVELS);
+p.play_stationary("vehicle_speed.ogg", false);
 speak("Speed " + vehicle_max_speed_level + ".");
 }
 }
@@ -536,6 +544,7 @@ void vehicle_on_destroy(int vi)
 {
 if (vi < 0 or vi >= int(map_vehicles.length())) return;
 vehicle@ v = map_vehicles[vi];
+p.play_stationary("vehicle_destroy.ogg", false);
 speak(v.get_name() + " destroyed!");
 send_reliable(0, "veh_destroy " + vi, 0);
 // Kick all players.
@@ -684,6 +693,7 @@ vehicle_take_damage(player_vehicle_index, 50);
 vehicle_current_speed = 0;
 vehicle_target_speed = 0;
 vehicle_max_speed_level = 0;
+p.play_stationary("vehicle_crash.ogg", false);
 speak("Crashed into a wall! Stopped.");
 if (v.health <= 0) vehicle_on_destroy(player_vehicle_index);
 return;
@@ -726,6 +736,7 @@ if (dist <= 10)
 {
 double angle = calculate_x_y_angle(double(px), double(py), double(map_vehicles[i].x), double(map_vehicles[i].y), 0);
 string dir_name = dir_to_string(int(getdir(angle)));
+p.play_stationary("vehicle_nearby.ogg", false);
 if (dist < 1)
 speak(map_vehicles[i].get_name() + " here.");
 else

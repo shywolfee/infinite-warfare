@@ -1,3 +1,6 @@
+New in 0.4.9.8, build 38 (2026-06-09)
+Implemented sound handling for most new mechanics.
+
 New in 0.4.9.7.5, build 37 (2026-06-08)
 Fixed jumping not working after dying or exiting a game. The jumping, falling, and in_vehicle flags were never reset when leaving a match, so if a player died mid-jump or mid-fall these flags stayed true and blocked all future jumps. These flags are now reset in exitgame(), the death return-to-lobby path, and at the start of each new game.
 Added /bug command for submitting bug reports. Players enter a title and description. When submitted, all online admins and devs are notified with a sound and message.

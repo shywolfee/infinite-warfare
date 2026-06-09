@@ -89,6 +89,7 @@ return;
 fire_modes[i].current_mode++;
 if (fire_modes[i].current_mode >= int(fire_modes[i].modes.length()))
 fire_modes[i].current_mode = 0;
+p.play_stationary("fire_mode.ogg", false);
 speak(fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]));
 return;
 }
@@ -312,6 +313,7 @@ if (slot == "body")
 if (equip_body != "")
 {
 give(equip_body, 1);
+p.play_stationary("unequip.ogg", false);
 speak(string_replace(equip_body, "_", " ", true) + " removed.");
 equip_body = "";
 }
@@ -456,6 +458,7 @@ speak(ba+" rounds returned from belt.");
 give(hid, 1);
 int didx=find_holster_def(hid);
 string dn=(didx>=0)?holster_defs[didx].display_name:string_replace(hid,"_"," ",true);
+p.play_stationary("unequip.ogg", false);
 speak(dn+" removed from holster "+slot+".");
 if(slot==1){equip_holster1="";holster1_weapon="";holster1_weapon_ammo=0;holster1_belt_ammo=0;}
 else{equip_holster2="";holster2_weapon="";holster2_weapon_ammo=0;holster2_belt_ammo=0;}
@@ -666,6 +669,7 @@ if (!gun_ammos[i].reloading) continue;
 if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms)
 {
 gun_ammo@ g=gun_ammos[i];
+p.play_stationary("reload_finish.ogg", false);
 if (g.is_magazine)
 {
 if (g.reload_from_partial >= 0)
@@ -810,6 +814,7 @@ if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false
 g.reload_from_partial=-1;
 g.reloading=true;
 g.reload_timer.restart();
+p.play_stationary("reload_start.ogg", false);
 if (g.is_magazine)
 {
 if (g.ammo_display=="charge")
@@ -835,6 +840,7 @@ if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false
 g.reload_from_partial=partial_index;
 g.reloading=true;
 g.reload_timer.restart();
+p.play_stationary("reload_start.ogg", false);
 if (g.ammo_display=="charge")
 speak("Swapping energy cell.");
 else if (g.ammo_display=="fuel")

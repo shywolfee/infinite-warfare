@@ -1,5 +1,5 @@
 Infinite Warfare
-Version: 0.4.9.6.2
+Version: 0.4.9.8
 Created by: Firegaming
 Coded by: Max Vrenken
 Sound design by: Jonan Smid (Djonan-music-official on YouTube)
@@ -22,10 +22,10 @@ Fire: Left Control or Right Control (if enabled in options).
 Use item: Enter on the selected inventory item.
 Reload: R to reload. Shift+R to unload.
 Ammo check: A for ammo status. Shift+A to cycle fire modes.
-Info: F for facing, C for coordinates, B for zone, H for health/stamina/effects.
+Info: F for facing, C for coordinates, B for zone, H for health, V for stamina/effects.
 Chat: / to type a message or command. Alt+C for command menu.
 Online players: F1. MOTD: F2. Ping: F3.
-Tracking: T to open player tracking, W for track info.
+Tracking: T to open player tracking, W for track info, Shift+W for tracked player health.
 Nearby: M for nearby items, P for nearby players, J for points of interest.
 Inventory: Tab/Shift+Tab to cycle items. K/Shift+K to cycle categories.
 Quickbar: Number keys 1-0 to use slots. Alt+number to bind. Shift+I to view quickbar.

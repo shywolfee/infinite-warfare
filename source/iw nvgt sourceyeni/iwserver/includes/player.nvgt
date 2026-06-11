@@ -89,6 +89,16 @@ int facing=0;
 bool invisible=false;
 timer invisibilitytimer;
 timer sendtriptimer;
+bool afk=false;
+timer msg_timer;
+int msg_count=0;
+int last_x=0;
+int last_y=0;
+int last_z=0;
+timer move_timer;
+int teleport_warnings=0;
+timer fire_timer;
+int rapid_fire_warnings=0;
 player(int px, int py, int pz, string pmap, string pname, int ppeer_id)
 {
 map=pmap;
@@ -283,6 +293,9 @@ void spawn_player(int x, int y, int z, string map, string name,int pi)
 {
 player p1(x,y,z,map,name,pi);
 p1.credits=load_player_credits(name);
+p1.last_x=x;
+p1.last_y=y;
+p1.last_z=z;
 players.insert_last(p1);
 send_reliable(0, "online "+x+" "+y+" "+z+" "+name+" "+map, 0);
 }

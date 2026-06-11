@@ -207,7 +207,28 @@ string[] parsed=string_split(get_event_message(), " ",true);
 int index=get_player_index(e.peer_id);
 if (index>-1)
 {
-if(parsed[0]=="/bunkers")
+players[index].msg_count++;
+if (players[index].msg_timer.elapsed>10000)
+{
+players[index].msg_timer.restart();
+players[index].msg_count=0;
+}
+if (players[index].msg_count>15)
+{
+if (players[index].msg_count>25)
+{
+send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
+send_reliable(players[index].peer_id, "You have been removed for flooding.", 2);
+players.remove_at(index);
+}
+else
+send_reliable(players[index].peer_id, "You are sending messages too quickly. Slow down.", 2);
+}
+else if (players[index].afk and parsed[0]!="/afk")
+{
+send_reliable(players[index].peer_id, "You are AFK.", 2);
+}
+else if(parsed[0]=="/bunkers")
 {
 send_reliable(players[index].peer_id, "bunker A is at :35: 250: -5", 2);
 send_reliable(players[index].peer_id, "bunker B is at: 305: 250: -5", 2);
@@ -463,6 +484,14 @@ if(players[index].admin==true or players[index].dev)
 send_reliable(e.peer_id, "give "+parsed[1]+" "+parsed[2], 0);
 }
 else send_reliable(0, "you must be atleast an admin to perform this action", 0);
+}
+else if(parsed[0]=="/afk")
+{
+players[index].afk=!players[index].afk;
+if (players[index].afk)
+send_reliable(0, players[index].name+" is now AFK.", 2);
+else
+send_reliable(0, players[index].name+" is no longer AFK.", 2);
 }
 else if(parsed[0]=="/changes")
 {
@@ -2092,15 +2121,57 @@ if(!is_usable and string_contains(parsed[1], "corpse_", 1)<0)
 send_reliable(players[index].peer_id, "This item cannot be used directly.", 2);
 }
 }
+else if(parsed[0]=="afk_set" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+players[index].afk=(parsed[1]=="1");
+}
+else if(parsed[0]=="ac_violation")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
+send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
+players.remove_at(index);
+}
+}
 else if(parsed[0]=="move_to_a" and parsed.length() > 3)
 {
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
-string name=players[index].name;
-players[index].x=string_to_number(parsed[1]);
-players[index].y=string_to_number(parsed[2]);
-players[index].z=string_to_number(parsed[3]);
+int new_x=string_to_number(parsed[1]);
+int new_y=string_to_number(parsed[2]);
+int new_z=string_to_number(parsed[3]);
+int dx=new_x-players[index].last_x;
+int dy=new_y-players[index].last_y;
+if (dx<0) dx=-dx;
+if (dy<0) dy=-dy;
+int dist=dx+dy;
+int elapsed=players[index].move_timer.elapsed;
+if (dist>15 and elapsed<200)
+{
+players[index].teleport_warnings++;
+if (players[index].teleport_warnings>5)
+{
+send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
+send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
+players.remove_at(index);
+}
+}
+else
+{
+if (players[index].teleport_warnings>0) players[index].teleport_warnings--;
+players[index].x=new_x;
+players[index].y=new_y;
+players[index].z=new_z;
+players[index].last_x=new_x;
+players[index].last_y=new_y;
+players[index].last_z=new_z;
+players[index].move_timer.restart();
+}
 }
 }
 else if(parsed[0]=="health")
@@ -2468,6 +2539,21 @@ else if(parsed[0]=="fire" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
+if (players[index].fire_timer.elapsed<50)
+{
+players[index].rapid_fire_warnings++;
+if (players[index].rapid_fire_warnings>10)
+{
+send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
+send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
+players.remove_at(index);
+}
+}
+else
+{
+if (players[index].rapid_fire_warnings>0) players[index].rapid_fire_warnings--;
+}
+players[index].fire_timer.restart();
 string wname=parsed[1];
 spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map);
 bool suppressed=false;
@@ -2631,12 +2717,39 @@ else if(parsed[0]=="move_to" and parsed.length() > 3)
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
+int new_x=string_to_number(parsed[1]);
+int new_y=string_to_number(parsed[2]);
+int new_z=string_to_number(parsed[3]);
+int dx=new_x-players[index].last_x;
+int dy=new_y-players[index].last_y;
+if (dx<0) dx=-dx;
+if (dy<0) dy=-dy;
+int dist=dx+dy;
+int elapsed=players[index].move_timer.elapsed;
+if (dist>15 and elapsed<200)
+{
+players[index].teleport_warnings++;
+if (players[index].teleport_warnings>5)
+{
+send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
+send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
+players.remove_at(index);
+}
+}
+else
+{
+if (players[index].teleport_warnings>0) players[index].teleport_warnings--;
 string name=players[index].name;
-players[index].x=string_to_number(parsed[1]);
-players[index].y=string_to_number(parsed[2]);
-players[index].z=string_to_number(parsed[3]);
+players[index].x=new_x;
+players[index].y=new_y;
+players[index].z=new_z;
+players[index].last_x=new_x;
+players[index].last_y=new_y;
+players[index].last_z=new_z;
+players[index].move_timer.restart();
 if(get_tile_at(players[index].x, players[index].y, players[index].z, players[index].map)!="")
 send_reliable(0, "step "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map+" "+name, 0, index);
+}
 }
 }
 }

@@ -16,10 +16,12 @@ current_room=0;
 string list_content=file_get_contents(areas_path+"/areas.txt");
 if(list_content=="")
 return false;
-string[] folder_names=string_split(list_content,"\n",true);
+list_content=list_content.replace("\r\n","\n");
+list_content=list_content.replace("\r","\n");
+string[] folder_names=list_content.split("\n");
 for(uint i=0;i<folder_names.length();i++)
 {
-string fname=string_trim_left(string_trim_right(folder_names[i]));
+string fname=trim_string(folder_names[i]);
 if(fname=="")
 continue;
 area a;
@@ -62,17 +64,17 @@ if(exit_val=="")
 return false;
 int target_area=current_area;
 int target_room=0;
-int colon=string_contains(exit_val,":",1);
+int colon=exit_val.find(":");
 if(colon>=0)
 {
-string area_folder=string_left(exit_val,colon);
+string area_folder=exit_val.substr(0,colon);
 string room_str=exit_val.substr(colon+1);
 target_area=find_area_index(area_folder);
-target_room=string_to_number(room_str);
+target_room=parse_int(room_str);
 }
 else
 {
-target_room=string_to_number(exit_val);
+target_room=parse_int(exit_val);
 }
 if(target_area<0 or uint(target_area)>=areas.length())
 return false;

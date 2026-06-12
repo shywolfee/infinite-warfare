@@ -40,17 +40,27 @@ exit_east="";
 exit_west="";
 exit_up="";
 exit_down="";
-string[] lines=string_split(content,"\n",true);
+content=content.replace("\r\n","\n");
+content=content.replace("\r","\n");
+string[] lines=content.split("\n");
 for(uint i=0;i<lines.length();i++)
 {
-string line=string_trim_left(string_trim_right(lines[i]));
-if(line=="" or string_left(line,1)==";")
+string line=lines[i];
+while(line.length()>0 and (line[0]==" " or line[0]=="\t"))
+line=line.substr(1);
+while(line.length()>0 and (line[line.length()-1]==" " or line[line.length()-1]=="\t" or line[line.length()-1]=="\r" or line[line.length()-1]=="\n"))
+line=line.substr(0,line.length()-1);
+if(line=="" or line[0]==";")
 continue;
-int eq=string_contains(line,"=",1);
+int eq=line.find("=");
 if(eq<0)
 continue;
-string key=string_trim_right(string_left(line,eq));
-string value=string_trim_left(line.substr(eq+1));
+string key=line.substr(0,eq);
+string value=line.substr(eq+1);
+while(key.length()>0 and key[key.length()-1]==" ")
+key=key.substr(0,key.length()-1);
+while(value.length()>0 and value[0]==" ")
+value=value.substr(1);
 if(key=="name")
 name=value;
 else if(key=="description")

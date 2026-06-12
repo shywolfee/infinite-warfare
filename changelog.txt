@@ -1,6 +1,21 @@
 Realm of Echoes - Changelog
 ============================
 
+Version 0.0.1.2 - Compilation Fix
+-----------------------------------
+- Fixed all compilation errors caused by using legacy BGT-style function names that do not exist in modern NVGT.
+- Replaced all string_split() calls with native NVGT string .split() method.
+- Replaced all string_contains() calls with native NVGT string .find() method.
+- Replaced all string_left() calls with .substr(0, n).
+- Replaced all string_trim_left() and string_trim_right() calls with a custom trim_string() helper using .substr(), since these are BGT-only functions.
+- Replaced all string_to_number() calls with NVGT's native parse_int() function.
+- Replaced show_game_window() (BGT function) with NVGT's native show_window().
+- Replaced all string_replace() calls in room/area file parsing with native .replace() method.
+- Normalized line endings in file parsing: all \r\n and \r are converted to \n before splitting, ensuring cross-platform room file compatibility.
+- Added trim_string() utility function in area.nvgt for safe whitespace trimming without relying on BGT compat functions.
+- Inline trimming in room.nvgt load() now uses character-by-character .substr() loops instead of missing trim functions.
+- No gameplay or content changes in this version; all room files, area files, and controls remain the same.
+
 Version 0.0.1 - Initial Release
 --------------------------------
 - Core text-based engine implemented with room-by-room navigation.

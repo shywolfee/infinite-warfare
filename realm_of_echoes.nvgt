@@ -9,7 +9,7 @@ string last_direction="";
 
 void main()
 {
-show_game_window(game_title);
+show_window(game_title);
 say(game_title+", version "+game_version+". Loading...");
 if(!game_world.load("areas"))
 {

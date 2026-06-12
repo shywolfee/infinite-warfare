@@ -1,5 +1,14 @@
 #include "room.nvgt"
 
+string trim_string(string s)
+{
+while(s.length()>0 and (s[0]==" " or s[0]=="\t" or s[0]=="\r" or s[0]=="\n"))
+s=s.substr(1);
+while(s.length()>0 and (s[s.length()-1]==" " or s[s.length()-1]=="\t" or s[s.length()-1]=="\r" or s[s.length()-1]=="\n"))
+s=s.substr(0,s.length()-1);
+return s;
+}
+
 class area
 {
 string name;
@@ -21,17 +30,19 @@ rooms.resize(0);
 string info_content=file_get_contents(path+"/area.txt");
 if(info_content!="")
 {
-string[] lines=string_split(info_content,"\n",true);
+info_content=info_content.replace("\r\n","\n");
+info_content=info_content.replace("\r","\n");
+string[] lines=info_content.split("\n");
 for(uint i=0;i<lines.length();i++)
 {
-string line=string_trim_left(string_trim_right(lines[i]));
-if(line=="" or string_left(line,1)==";")
+string line=trim_string(lines[i]);
+if(line=="" or line[0]==";")
 continue;
-int eq=string_contains(line,"=",1);
+int eq=line.find("=");
 if(eq<0)
 continue;
-string key=string_trim_right(string_left(line,eq));
-string value=string_trim_left(line.substr(eq+1));
+string key=trim_string(line.substr(0,eq));
+string value=trim_string(line.substr(eq+1));
 if(key=="name")
 name=value;
 else if(key=="description")

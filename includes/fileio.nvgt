@@ -1,0 +1,25 @@
+string file_get_contents(string filename)
+{
+file f;
+if(!f.open(filename,"rb"))
+return "";
+string r=f.read();
+f.close();
+return r;
+}
+bool file_put_contents(string filename, string contents)
+{
+file f;
+if(!f.open(filename,"wb"))
+return false;
+f.write(contents);
+f.close();
+return true;
+}
+bool file_exists(string filename)
+{
+file f;
+bool result=f.open(filename,"rb");
+if(result) f.close();
+return result;
+}

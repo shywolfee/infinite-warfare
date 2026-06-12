@@ -1,0 +1,64 @@
+#include "room.nvgt"
+
+class area
+{
+string name;
+string description;
+string folder_path;
+room[] rooms;
+bool loaded;
+area()
+{
+name="";
+description="";
+folder_path="";
+loaded=false;
+}
+bool load(string path)
+{
+folder_path=path;
+rooms.resize(0);
+string info_content=file_get_contents(path+"/area.txt");
+if(info_content!="")
+{
+string[] lines=string_split(info_content,"\n",true);
+for(uint i=0;i<lines.length();i++)
+{
+string line=string_trim_left(string_trim_right(lines[i]));
+if(line=="" or string_left(line,1)==";")
+continue;
+int eq=string_contains(line,"=",1);
+if(eq<0)
+continue;
+string key=string_trim_right(string_left(line,eq));
+string value=string_trim_left(line.substr(eq+1));
+if(key=="name")
+name=value;
+else if(key=="description")
+description=value;
+}
+}
+int room_id=0;
+while(true)
+{
+string room_file=path+"/"+room_id+".txt";
+if(!file_exists(room_file))
+break;
+room r;
+if(r.load(room_file, name, room_id))
+rooms.insert_last(r);
+else
+break;
+room_id++;
+}
+if(rooms.length()>0)
+loaded=true;
+return loaded;
+}
+room@ get_room(int id)
+{
+if(id<0 or uint(id)>=rooms.length())
+return null;
+return @rooms[id];
+}
+}

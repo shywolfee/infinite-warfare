@@ -1,0 +1,86 @@
+#include "area.nvgt"
+#include "constants.nvgt"
+
+class world
+{
+area[] areas;
+string[] area_folder_names;
+int current_area;
+int current_room;
+bool load(string areas_path)
+{
+areas.resize(0);
+area_folder_names.resize(0);
+current_area=0;
+current_room=0;
+string list_content=file_get_contents(areas_path+"/areas.txt");
+if(list_content=="")
+return false;
+string[] folder_names=string_split(list_content,"\n",true);
+for(uint i=0;i<folder_names.length();i++)
+{
+string fname=string_trim_left(string_trim_right(folder_names[i]));
+if(fname=="")
+continue;
+area a;
+if(a.load(areas_path+"/"+fname))
+{
+areas.insert_last(a);
+area_folder_names.insert_last(fname);
+}
+}
+return areas.length()>0;
+}
+int find_area_index(string folder_name)
+{
+for(uint i=0;i<area_folder_names.length();i++)
+{
+if(area_folder_names[i]==folder_name)
+return int(i);
+}
+return -1;
+}
+room@ get_current_room()
+{
+if(current_area<0 or uint(current_area)>=areas.length())
+return null;
+return areas[current_area].get_room(current_room);
+}
+area@ get_current_area()
+{
+if(current_area<0 or uint(current_area)>=areas.length())
+return null;
+return @areas[current_area];
+}
+bool move(string direction)
+{
+room@ r=get_current_room();
+if(@r==null)
+return false;
+string exit_val=r.get_exit(direction);
+if(exit_val=="")
+return false;
+int target_area=current_area;
+int target_room=0;
+int colon=string_contains(exit_val,":",1);
+if(colon>=0)
+{
+string area_folder=string_left(exit_val,colon);
+string room_str=exit_val.substr(colon+1);
+target_area=find_area_index(area_folder);
+target_room=string_to_number(room_str);
+}
+else
+{
+target_room=string_to_number(exit_val);
+}
+if(target_area<0 or uint(target_area)>=areas.length())
+return false;
+room@ dest=areas[target_area].get_room(target_room);
+if(@dest==null)
+return false;
+current_area=target_area;
+current_room=target_room;
+return true;
+}
+}

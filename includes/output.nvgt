@@ -1,0 +1,10 @@
+#include "speech.nvgt"
+
+void say(string text, bool interrupt=true)
+{
+speak(text,interrupt);
+}
+void say_no_interrupt(string text)
+{
+speak(text,false);
+}

@@ -1,0 +1,25 @@
+Realm of Echoes - Changelog
+============================
+
+Version 0.0.1 - Initial Release
+--------------------------------
+- Core text-based engine implemented with room-by-room navigation.
+- Movement controls: W (north), S (south), A (west), D (east), E (up), C (down).
+- Space bar to view current room name, description, and available exits.
+- Slash key to view the current area name and description.
+- V key to display the current game version string.
+- X key to quickly check available exits without the full room description.
+- Q or Escape to quit the game.
+- Room system: each room is a separate text file with name, description, and exit definitions.
+- Exit system: rooms connect via numerical IDs for local rooms (e.g. exit_north=3 goes to room 3 in the same area). Cross-area exits use the format folder_name:room_id (e.g. exit_south=caves:0 goes to room 0 in the caves area folder).
+- Area system: each area is a folder inside the areas directory containing an area.txt metadata file and numbered room files (0.txt, 1.txt, etc.). An areas.txt file in the areas root directory lists area folder names in load order, one per line.
+- Area metadata supports name and description fields.
+- Room files support name, description, exit_north, exit_south, exit_east, exit_west, exit_up, and exit_down fields in key=value format.
+- Comment lines in room and area files (lines starting with semicolon) are ignored.
+- Automatic area transition announcements when moving between areas.
+- Include script architecture: constants.nvgt, fileio.nvgt, room.nvgt, area.nvgt, world.nvgt, output.nvgt.
+- Two starter areas included:
+  - Thornvale Village (8 rooms): Village Square, The Weary Traveler Inn, Market Row, Southern Outskirts, Old Well, Inn Guest Room, Blacksmith's Forge, Well Bottom.
+  - Caves of Murkhollow (7 rooms): Cave Entrance, Stalactite Chamber, Underground Stream, Collapsed Tunnel, Mushroom Grotto, Deep Chasm, Ancient Shrine.
+- Cross-area connections: Village Southern Outskirts links south to Cave Entrance; Village Well Bottom links east to Cave Underground Stream.
+- All output routed through screen reader compatible speech via NVGT's speech.nvgt include.

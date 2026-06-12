@@ -1,0 +1,103 @@
+#include "fileio.nvgt"
+
+class room
+{
+int id;
+string name;
+string description;
+string area_name;
+string exit_north;
+string exit_south;
+string exit_east;
+string exit_west;
+string exit_up;
+string exit_down;
+bool loaded;
+room()
+{
+id=-1;
+name="";
+description="";
+area_name="";
+exit_north="";
+exit_south="";
+exit_east="";
+exit_west="";
+exit_up="";
+exit_down="";
+loaded=false;
+}
+bool load(string filepath, string area, int room_id)
+{
+string content=file_get_contents(filepath);
+if(content=="")
+return false;
+id=room_id;
+area_name=area;
+exit_north="";
+exit_south="";
+exit_east="";
+exit_west="";
+exit_up="";
+exit_down="";
+string[] lines=string_split(content,"\n",true);
+for(uint i=0;i<lines.length();i++)
+{
+string line=string_trim_left(string_trim_right(lines[i]));
+if(line=="" or string_left(line,1)==";")
+continue;
+int eq=string_contains(line,"=",1);
+if(eq<0)
+continue;
+string key=string_trim_right(string_left(line,eq));
+string value=string_trim_left(line.substr(eq+1));
+if(key=="name")
+name=value;
+else if(key=="description")
+description=value;
+else if(key=="exit_north")
+exit_north=value;
+else if(key=="exit_south")
+exit_south=value;
+else if(key=="exit_east")
+exit_east=value;
+else if(key=="exit_west")
+exit_west=value;
+else if(key=="exit_up")
+exit_up=value;
+else if(key=="exit_down")
+exit_down=value;
+}
+loaded=true;
+return true;
+}
+string get_exit(string direction)
+{
+if(direction=="north") return exit_north;
+else if(direction=="south") return exit_south;
+else if(direction=="east") return exit_east;
+else if(direction=="west") return exit_west;
+else if(direction=="up") return exit_up;
+else if(direction=="down") return exit_down;
+return "";
+}
+string get_exits_text()
+{
+string result="Exits: ";
+string[] available;
+if(exit_north!="") available.insert_last("north");
+if(exit_south!="") available.insert_last("south");
+if(exit_east!="") available.insert_last("east");
+if(exit_west!="") available.insert_last("west");
+if(exit_up!="") available.insert_last("up");
+if(exit_down!="") available.insert_last("down");
+if(available.length()==0)
+return "Exits: none";
+for(uint i=0;i<available.length();i++)
+{
+if(i>0) result+=", ";
+result+=available[i];
+}
+return result;
+}
+}

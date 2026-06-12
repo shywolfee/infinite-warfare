@@ -1,0 +1,124 @@
+#include "speech.nvgt"
+#include "includes/constants.nvgt"
+#include "includes/world.nvgt"
+#include "includes/output.nvgt"
+
+world game_world;
+bool running=true;
+string last_direction="";
+
+void main()
+{
+show_game_window(game_title);
+say(game_title+", version "+game_version+". Loading...");
+if(!game_world.load("areas"))
+{
+say("Error: no areas found. Make sure the areas folder exists and contains valid area data.");
+wait(3000);
+exit();
+}
+say("Welcome to "+game_title+"! You find yourself in "+game_world.areas[0].name+".");
+wait(500);
+announce_room();
+game_loop();
+}
+
+void announce_room()
+{
+room@ r=game_world.get_current_room();
+if(@r==null)
+{
+say("You are nowhere. Something has gone terribly wrong.");
+return;
+}
+say(r.name+". "+r.description+" "+r.get_exits_text()+".");
+}
+
+void announce_room_brief()
+{
+room@ r=game_world.get_current_room();
+if(@r==null) return;
+say(r.name+". "+r.get_exits_text()+".");
+}
+
+void announce_area()
+{
+area@ a=game_world.get_current_area();
+if(@a==null) return;
+if(a.description!="")
+say("Area: "+a.name+". "+a.description);
+else
+say("Area: "+a.name+".");
+}
+
+void try_move(string direction)
+{
+room@ current=game_world.get_current_room();
+if(@current==null) return;
+string target=current.get_exit(direction);
+if(target=="")
+{
+say("You can't go "+direction+".");
+return;
+}
+int old_area=game_world.current_area;
+if(game_world.move(direction))
+{
+if(game_world.current_area!=old_area)
+{
+area@ a=game_world.get_current_area();
+if(@a!=null)
+say("You enter "+a.name+".");
+wait(300);
+}
+last_direction=direction;
+announce_room();
+}
+else
+say("Something blocks your path "+direction+".");
+}
+
+void game_loop()
+{
+while(running)
+{
+wait(5);
+if(key_pressed(KEY_W))
+try_move(DIR_NORTH);
+else if(key_pressed(KEY_S))
+try_move(DIR_SOUTH);
+else if(key_pressed(KEY_D))
+try_move(DIR_EAST);
+else if(key_pressed(KEY_A))
+try_move(DIR_WEST);
+else if(key_pressed(KEY_E))
+try_move(DIR_UP);
+else if(key_pressed(KEY_C))
+try_move(DIR_DOWN);
+else if(key_pressed(KEY_SPACE))
+{
+announce_room();
+}
+else if(key_pressed(KEY_SLASH))
+{
+announce_area();
+}
+else if(key_pressed(KEY_V))
+{
+say(game_title+" version "+game_version+".");
+}
+else if(key_pressed(KEY_X))
+{
+room@ r=game_world.get_current_room();
+if(@r!=null)
+say(r.get_exits_text()+".");
+}
+else if(key_pressed(KEY_ESCAPE) or key_pressed(KEY_Q))
+{
+say("Farewell, traveler.");
+wait(1000);
+running=false;
+}
+}
+exit();
+}

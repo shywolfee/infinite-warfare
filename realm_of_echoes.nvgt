@@ -2,6 +2,7 @@
 #include "includes/constants.nvgt"
 #include "includes/world.nvgt"
 #include "includes/output.nvgt"
+#include "includes/game_menu.nvgt"
 
 world game_world;
 bool running=true;
@@ -10,12 +11,43 @@ string last_direction="";
 void main()
 {
 show_window(game_title);
-say(game_title+", version "+game_version+". Loading...");
+say(game_title+", version "+game_version+".");
+main_menu();
+}
+
+void main_menu()
+{
+string[] items={"Play","Changelog","Exit"};
+while(true)
+{
+int choice=show_menu(game_title,items);
+if(choice==0)
+{
+start_game();
+return;
+}
+else if(choice==1)
+{
+show_changelog();
+}
+else
+{
+say("Farewell, traveler.");
+wait(1000);
+exit();
+}
+}
+}
+
+void start_game()
+{
+say("Loading...");
 if(!game_world.load("areas"))
 {
 say("Error: no areas found. Make sure the areas folder exists and contains valid area data.");
 wait(3000);
-exit();
+main_menu();
+return;
 }
 say("Welcome to "+game_title+"! You find yourself in "+game_world.areas[0].name+".");
 wait(500);

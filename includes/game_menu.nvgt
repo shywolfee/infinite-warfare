@@ -1,0 +1,107 @@
+#include "form.nvgt"
+#include "speech.nvgt"
+#include "fileio.nvgt"
+
+string sounds_path="sounds/";
+
+void play_sound(string filename)
+{
+string path=sounds_path+filename;
+sound s;
+if(s.load(path))
+{
+s.play();
+while(s.playing) wait(5);
+}
+}
+
+void play_sound_async(string filename)
+{
+string path=sounds_path+filename;
+sound s;
+if(s.load(path))
+{
+s.play();
+}
+}
+
+int show_menu(string title, string[] items)
+{
+play_sound("menuopen.ogg");
+speak(title);
+int pos=0;
+wait(50);
+speak(items[pos]);
+while(true)
+{
+wait(5);
+if(key_pressed(KEY_UP))
+{
+if(pos>0)
+{
+pos--;
+play_sound_async("menumove.ogg");
+speak(items[pos]);
+}
+}
+else if(key_pressed(KEY_DOWN))
+{
+if(pos<int(items.length())-1)
+{
+pos++;
+play_sound_async("menumove.ogg");
+speak(items[pos]);
+}
+}
+else if(key_pressed(KEY_HOME))
+{
+pos=0;
+play_sound_async("menumove.ogg");
+speak(items[pos]);
+}
+else if(key_pressed(KEY_END))
+{
+pos=int(items.length())-1;
+play_sound_async("menumove.ogg");
+speak(items[pos]);
+}
+else if(key_pressed(KEY_RETURN))
+{
+play_sound("menuactivate.ogg");
+return pos;
+}
+else if(key_pressed(KEY_ESCAPE))
+{
+play_sound("menuclose.ogg");
+return -1;
+}
+}
+return -1;
+}
+
+void show_changelog()
+{
+play_sound("menuopen.ogg");
+string content=file_get_contents("changelog.txt");
+if(content=="")
+{
+speak("No changelog found.");
+wait(1000);
+play_sound("menuclose.ogg");
+return;
+}
+audio_form f;
+f.create_window("Changelog");
+int text_control=f.create_input_box("Changelog","","",0,true,true,false);
+f.set_text(text_control,content);
+int close_button=f.create_button("Close",false,true);
+f.focus(text_control);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(close_button))
+break;
+}
+play_sound("menuclose.ogg");
+}

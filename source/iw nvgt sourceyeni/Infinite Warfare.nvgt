@@ -91,8 +91,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49835;
-int build_number=43;
+double version=0.49836;
+int build_number=44;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -2817,10 +2817,21 @@ if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
 {
 buffer_manage_menu();
 }
-// Alt+C: open the command menu.
-if (MENU_is_down() and key_pressed(KEY_C))
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_C))
+{
+review_buffer_item();
+}
+else if (MENU_is_down() and key_pressed(KEY_C))
 {
 command_menu();
+}
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_BACKSLASH))
+{
+export_buffers();
+}
+if (key_pressed(KEY_DELETE))
+{
+buffer_item_action_menu();
 }
 // Shift+Enter: show weapon info for the currently selected inventory weapon.
 if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_RETURN))
@@ -3210,6 +3221,59 @@ if(key_pressed(KEY_GRAVE) and SCRIPT_COMPILED==false)
 {
 give_all();
 }
+}
+}
+}
+void buffer_item_action_menu()
+{
+if (buffers[bufferpos].items.length()==0)
+{
+speak("No items in this buffer.");
+return;
+}
+string item=buffers[bufferpos].items[buffers[bufferpos].pos];
+audio_form f;
+f.create_window("Buffer Item Actions", false, true);
+int f_list=f.create_list("Choose an action", 0, false);
+f.add_list_item(f_list, "Quote message");
+f.add_list_item(f_list, "Report");
+int f_ok=f.create_button("&OK", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_cancel))
+return;
+if (f.is_pressed(f_ok))
+{
+int sel=f.get_list_position(f_list);
+if (sel==0)
+{
+if (buffers[bufferpos].name!="chats")
+{
+speak("Quoting only works in the chats buffer.");
+return;
+}
+int colon=string_contains(item, ": ", 1);
+if (colon<0)
+{
+speak("Could not parse this chat message.");
+return;
+}
+string author=string_left(item, colon);
+string msg=string_mid(item, colon+2, item.length()-colon-2);
+string reply=af_input("Enter your message","",true);
+if (reply=="") return;
+send_reliable(0, reply+", quoted: "+author+": "+msg, 1);
+}
+else if (sel==1)
+{
+send_reliable(0, "report_message "+item, 0);
+speak("Message reported.");
+}
+return;
 }
 }
 }
@@ -4096,6 +4160,18 @@ if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
 {
 buffer_manage_menu();
 }
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_C))
+{
+review_buffer_item();
+}
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_BACKSLASH))
+{
+export_buffers();
+}
+if (key_pressed(KEY_DELETE))
+{
+buffer_item_action_menu();
+}
 }
 }
 void splaneloop()
@@ -4199,6 +4275,18 @@ nextbufferitem();
 if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
 {
 buffer_manage_menu();
+}
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_C))
+{
+review_buffer_item();
+}
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_BACKSLASH))
+{
+export_buffers();
+}
+if (key_pressed(KEY_DELETE))
+{
+buffer_item_action_menu();
 }
 }
 }

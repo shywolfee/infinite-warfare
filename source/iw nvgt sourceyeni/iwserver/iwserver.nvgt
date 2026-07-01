@@ -2242,6 +2242,31 @@ s="You are alone";
 send_reliable(players[index].peer_id, s, 2);
 }
 }
+else if(parsed[0]=="report_message")
+{
+int index=get_player_index(e.peer_id);
+if(index > -1)
+{
+string message=string_replace(get_event_message(),"report_message ", "", true);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "Report from "+players[index].name+": "+message, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "Report from "+players[index].name+": "+message, 2);
+}
+}
+send_reliable(players[index].peer_id, "Your report has been sent.", 2);
+}
+}
 else if(parsed[0]=="nearplayers")
 {
 string p;

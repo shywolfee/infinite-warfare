@@ -361,27 +361,7 @@ else
 send_reliable(players[index].peer_id,"sorry, you can't do this." , 2);
 }
 }
-if(parsed[0]=="/feedback")
-{
-int index=get_player_index(e.peer_id);
-if(index>-1)
-{
-string message=string_replace(get_event_message(),"/feedback ", "", true);
-string fid=""+next_feedback_id;
-savedata fb(feedback_dir+"/"+fid+".dat", FEEDBACK_SECRET);
-fb.add("id", fid);
-fb.add("author", players[index].name);
-fb.add("message", message);
-fb.save();
-next_feedback_id++;
-file nf;
-nf.open(feedback_dir+"/next_id.txt", "wb");
-nf.write(""+next_feedback_id);
-nf.close();
-send_reliable(players[index].peer_id, "Feedback #"+fid+" submitted successfully!", 2);
-}
-}
-else if(parsed[0]=="/ban" and parsed.length()>1)
+if(parsed[0]=="/ban" and parsed.length()>1)
 {
 int index=get_player_index(e.peer_id);
 if(index>-1)
@@ -797,12 +777,67 @@ first3=false;
 send_reliable(e.peer_id, result, 0);
 }
 }
-else if(parsed[0]=="feedbacks_list")
+else if(parsed[0]=="feedback_check_role")
 {
 int index=get_player_index(e.peer_id);
-if(index>-1 and players[index].dev)
+if(index>-1)
 {
-string result="feedbacks_data ";
+if(players[index].dev or players[index].admin)
+send_reliable(e.peer_id, "feedback_role_staff", 0);
+else
+send_reliable(e.peer_id, "feedback_role_player", 0);
+}
+else
+send_reliable(e.peer_id, "feedback_role_player", 0);
+}
+else if(parsed[0]=="feedback_create")
+{
+string payload=string_replace(get_event_message(), "feedback_create ", "", false);
+string[] fparts=string_split(payload, "|", false);
+if(fparts.length()>=3)
+{
+string f_owner=fparts[0];
+string f_subject=fparts[1];
+string f_body=fparts[2];
+string fid=""+next_feedback_id;
+savedata fb(feedback_dir+"/"+fid+".dat", FEEDBACK_SECRET);
+fb.add("id", fid);
+fb.add("owner", f_owner);
+fb.add("subject", f_subject);
+fb.add("body", f_body);
+fb.add("status", "open");
+fb.add("close_reason", "none");
+fb.add("reply_count", 0.0);
+fb.save();
+next_feedback_id++;
+file nf;
+nf.open(feedback_dir+"/next_id.txt", "wb");
+nf.write(""+next_feedback_id);
+nf.close();
+send_reliable(e.peer_id, "feedback_created "+fid, 0);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "New feedback #"+fid+" from "+f_owner+": "+f_subject, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "New feedback #"+fid+" from "+f_owner+": "+f_subject, 2);
+}
+}
+}
+}
+else if(parsed[0]=="feedback_list_my")
+{
+string payload=string_replace(get_event_message(), "feedback_list_my ", "", false);
+string f_owner=payload;
+string result="feedback_mylist ";
 string[] files=find_files(feedback_dir+"/*.dat");
 bool first=true;
 for(uint i=0; i<files.length(); i++)
@@ -810,20 +845,39 @@ for(uint i=0; i<files.length(); i++)
 if(files[i]=="next_id.txt") continue;
 savedata fb(feedback_dir+"/"+files[i], FEEDBACK_SECRET);
 fb.load();
+if(string_to_lower_case(fb.read("owner"))!=string_to_lower_case(f_owner)) continue;
 if(!first) result+=",";
-result+=fb.read("id")+"~"+fb.read("author");
+result+=fb.read("id")+"~"+fb.read("subject")+"~"+fb.read("status");
 first=false;
 }
 if(first) result+="none";
 send_reliable(e.peer_id, result, 0);
 }
-else if(index>-1)
-send_reliable(players[index].peer_id, "Only devs can view feedback.", 2);
-}
-else if(parsed[0]=="feedback_get" and parsed.length()>1)
+else if(parsed[0]=="feedback_list_all")
 {
 int index=get_player_index(e.peer_id);
-if(index>-1 and players[index].dev)
+if(index>-1 and (players[index].dev or players[index].admin))
+{
+string result="feedback_alllist ";
+string[] files=find_files(feedback_dir+"/*.dat");
+bool first=true;
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata fb(feedback_dir+"/"+files[i], FEEDBACK_SECRET);
+fb.load();
+if(fb.read("status")!="open") continue;
+if(!first) result+=",";
+result+=fb.read("id")+"~"+fb.read("owner")+"~"+fb.read("subject")+"~"+fb.read("status");
+first=false;
+}
+if(first) result+="none";
+send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="feedback_get_full")
+{
+if(parsed.length()>1)
 {
 string fid=parsed[1];
 string path=feedback_dir+"/"+fid+".dat";
@@ -831,10 +885,117 @@ if(file_exists(path))
 {
 savedata fb(path, FEEDBACK_SECRET);
 fb.load();
-send_reliable(e.peer_id, "feedback_item "+fb.read("id")+"~"+fb.read("author")+"~"+fb.read("message"), 0);
+string result="feedback_data "+fb.read("id")+"~"+fb.read("owner")+"~"+fb.read("subject")+"~"+fb.read("status")+"~"+fb.read("body");
+int rc=int(fb.readn("reply_count"));
+for(int r=0; r<rc; r++)
+result+="~"+fb.read("reply_"+r);
+send_reliable(e.peer_id, result, 0);
 }
 else
-send_reliable(e.peer_id, "feedback_item not_found", 0);
+send_reliable(e.peer_id, "feedback_data not_found", 0);
+}
+}
+else if(parsed[0]=="feedback_reply")
+{
+string payload=string_replace(get_event_message(), "feedback_reply ", "", false);
+string[] fparts=string_split(payload, "|", false);
+if(fparts.length()>=3)
+{
+string fid=fparts[0];
+string author=fparts[1];
+string reply_text=fparts[2];
+string path=feedback_dir+"/"+fid+".dat";
+if(file_exists(path))
+{
+savedata fb(path, FEEDBACK_SECRET);
+fb.load();
+int rc=int(fb.readn("reply_count"));
+fb.add("reply_"+rc, author+": "+reply_text);
+fb.add("reply_count", double(rc+1));
+fb.save();
+send_reliable(e.peer_id, "feedback_replied", 0);
+string f_owner=fb.read("owner");
+string f_subject=fb.read("subject");
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].peer_id==e.peer_id) continue;
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to feedback #"+fid+": "+f_subject, 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(f_owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to your feedback #"+fid+": "+f_subject, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].peer_id==int(e.peer_id)) continue;
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to feedback #"+fid+": "+f_subject, 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(f_owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to your feedback #"+fid+": "+f_subject, 2);
+}
+}
+}
+}
+}
+else if(parsed[0]=="feedback_close")
+{
+string payload=string_replace(get_event_message(), "feedback_close ", "", false);
+string[] fparts=string_split(payload, "|", false);
+if(fparts.length()>=3)
+{
+string fid=fparts[0];
+string closer=fparts[1];
+string reason=fparts[2];
+string path=feedback_dir+"/"+fid+".dat";
+if(file_exists(path))
+{
+savedata fb(path, FEEDBACK_SECRET);
+fb.load();
+string f_owner=fb.read("owner");
+string f_subject=fb.read("subject");
+fb.add("status", "closed");
+fb.add("close_reason", reason);
+fb.save();
+send_reliable(e.peer_id, "feedback_closed", 0);
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].peer_id==e.peer_id) continue;
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, closer+" closed feedback #"+fid+": "+f_subject, 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(f_owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "Your feedback #"+fid+" has been closed by "+closer+". Reason: "+reason, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].peer_id==int(e.peer_id)) continue;
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, closer+" closed feedback #"+fid+": "+f_subject, 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(f_owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "Your feedback #"+fid+" has been closed by "+closer+". Reason: "+reason, 2);
+}
+}
+}
 }
 }
 else if(parsed[0]=="bug_check_role")

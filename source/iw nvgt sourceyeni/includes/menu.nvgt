@@ -678,6 +678,7 @@ int f_changes = f.create_button("View &changes");
 int f_rules = f.create_button("View &rules");
 int f_account = f.create_button("&Account info");
 int f_devs = f.create_button("View &developers");
+int f_admin = f.create_button("Ad&min panel");
 int f_exit = f.create_button("E&xit game");
 int f_close = f.create_button("Cl&ose", true, true);
 f.focus(f_stats);
@@ -768,6 +769,12 @@ dv=df.read();
 df.close();
 }
 dlg(dv);
+}
+else if (f.is_pressed(f_admin))
+{
+ingame_adminpanel();
+escape_menu();
+return;
 }
 else if (f.is_pressed(f_exit))
 {
@@ -1229,6 +1236,183 @@ break;
 }
 }
 mainmenu();
+}
+void ingame_adminpanel()
+{
+speak("Verifying administrator access, please wait.");
+send_reliable(0, "admin_panel "+comp, 0);
+bool verified=false;
+bool current_authmode=false;
+timer ct;
+while(ct.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "admin_panel_ok ", 1)==0)
+{
+verified=true;
+current_authmode=(string_replace(msg, "admin_panel_ok ", "", false)=="1");
+break;
+}
+else if(msg=="admin_panel_denied")
+{
+dlg("Access denied. You are not an administrator.");
+return;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(!verified)
+{
+dlg("Could not verify administrator access. The server may not have responded.");
+return;
+}
+audio_form f;
+f.create_window("Administrator Panel", false, true);
+int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
+int f_save_auth=f.create_button("&Save authorization mode");
+int f_viewunauth=f.create_button("&View unauthenticated players");
+int f_viewresets=f.create_button("View password &reset requests");
+int f_tickets=f.create_button("Manage support &tickets");
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_authmode);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_save_auth))
+{
+string val=(f.is_checked(f_authmode) ? "1" : "0");
+send_reliable(0, "admin_set_authmode "+val+" "+comp, 0);
+timer rt;
+bool saved=false;
+while(rt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="admin_authmode_saved")
+{
+saved=true;
+break;
+}
+}
+}
+if(saved)
+speak("Authorization mode "+(f.is_checked(f_authmode) ? "enabled" : "disabled")+" and saved.");
+else
+dlg("Failed to save setting. Server may not have responded.");
+}
+else if(f.is_pressed(f_viewunauth))
+{
+send_reliable(0, "admin_get_unauth "+comp, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "admin_unauth_list ", 1)==0)
+{
+data=string_replace(msg, "admin_unauth_list ", "", false);
+break;
+}
+}
+}
+audio_form uf;
+uf.create_window("Unauthenticated Players", false, true);
+if(data=="")
+{
+uf.create_input_box("Info", "No unauthenticated players found.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+uf.create_input_box(parts[0], "Code: "+parts[1], "", 0, false, true, false);
+}
+}
+int uf_close=uf.create_button("&Close", true, true);
+uf.focus(0);
+while(true)
+{
+wait(5);
+uf.monitor();
+if(connected==true) netloop();
+if(uf.is_pressed(uf_close))
+break;
+}
+}
+else if(f.is_pressed(f_viewresets))
+{
+send_reliable(0, "admin_get_resets "+comp, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "admin_reset_list ", 1)==0)
+{
+data=string_replace(msg, "admin_reset_list ", "", false);
+break;
+}
+}
+}
+audio_form rf;
+rf.create_window("Password Reset Requests", false, true);
+if(data=="")
+{
+rf.create_input_box("Info", "No pending password reset requests.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+rf.create_input_box(parts[0], "Reset code: "+parts[1], "", 0, false, true, false);
+}
+}
+int rf_close=rf.create_button("&Close", true, true);
+rf.focus(0);
+while(true)
+{
+wait(5);
+rf.monitor();
+if(connected==true) netloop();
+if(rf.is_pressed(rf_close))
+break;
+}
+}
+else if(f.is_pressed(f_tickets))
+{
+support_view_all_tickets();
+return;
+}
+else if(f.is_pressed(f_close))
+return;
+}
 }
 int yesno(string question)
 {

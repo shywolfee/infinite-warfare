@@ -1,0 +1,455 @@
+void feedback_menu()
+{
+audio_form f;
+f.create_window("Feedback", false, true);
+int f_submit=f.create_button("&Submit new feedback", true);
+int f_my=f.create_button("View &my feedback");
+int f_allopen=-1;
+send_reliable(0, "feedback_check_role", 0);
+bool is_staff=false;
+timer rt;
+while(rt.elapsed<2000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="feedback_role_staff")
+{
+is_staff=true;
+break;
+}
+else if(msg=="feedback_role_player")
+break;
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(is_staff)
+f_allopen=f.create_button("View &all feedback (Staff)");
+int f_close=f.create_button("Go &back", false, true);
+f.focus(f_submit);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_submit))
+{
+feedback_submit();
+return;
+}
+else if(f.is_pressed(f_my))
+{
+feedback_view_my();
+return;
+}
+else if(f_allopen>-1 and f.is_pressed(f_allopen))
+{
+feedback_view_all();
+return;
+}
+else if(f.is_pressed(f_close))
+return;
+}
+}
+
+void feedback_submit()
+{
+audio_form f;
+f.create_window("Submit Feedback", false, true);
+int f_subject=f.create_input_box("Subject", "", "", 0, false, false, false);
+int f_body=f.create_input_box("Details", "", "", 0, false, false, true);
+int f_submit=f.create_button("&Submit", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_subject);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_submit))
+{
+string subj=f.get_text(f_subject);
+string body=f.get_text(f_body);
+if(subj=="")
+{
+dlg("Please enter a subject.");
+continue;
+}
+if(body=="")
+{
+dlg("Please enter details for your feedback.");
+continue;
+}
+subj=string_replace(subj, "|", "/", true);
+subj=string_replace(subj, "\n", " ", true);
+body=string_replace(body, "|", "/", true);
+body=string_replace(body, "\n", "<<NL>>", true);
+send_reliable(0, "feedback_create "+name+"|"+subj+"|"+body, 0);
+string result="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "feedback_created", 1)==0)
+{
+result=msg;
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(result!="")
+dlg("Your feedback has been submitted. Thank you!");
+else
+dlg("Failed to submit feedback. The server may not have responded.");
+feedback_menu();
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+feedback_menu();
+return;
+}
+}
+}
+
+void feedback_view_my()
+{
+speak("Loading your feedback, please wait.");
+send_reliable(0, "feedback_list_my "+name, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "feedback_mylist ", 1)==0)
+{
+data=string_replace(msg, "feedback_mylist ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+audio_form f;
+f.create_window("My Feedback", false, true);
+int f_list=f.create_list("Feedback", 0, false);
+string[] fb_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No feedback found.");
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<3) continue;
+fb_ids.insert_last(parts[0]);
+f.add_list_item(f_list, "#"+parts[0]+": "+parts[1]+" ["+parts[2]+"]");
+}
+}
+int f_view=f.create_button("&View selected");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(fb_ids.length()))
+{
+feedback_view_item(fb_ids[sel], false);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+{
+feedback_menu();
+return;
+}
+}
+}
+
+void feedback_view_all()
+{
+speak("Loading all feedback, please wait.");
+send_reliable(0, "feedback_list_all", 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "feedback_alllist ", 1)==0)
+{
+data=string_replace(msg, "feedback_alllist ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+audio_form f;
+f.create_window("All Feedback (Staff)", false, true);
+int f_list=f.create_list("Feedback", 0, false);
+string[] fb_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No feedback found.");
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<4) continue;
+fb_ids.insert_last(parts[0]);
+f.add_list_item(f_list, "#"+parts[0]+" by "+parts[1]+": "+parts[2]+" ["+parts[3]+"]");
+}
+}
+int f_view=f.create_button("&View selected");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(fb_ids.length()))
+{
+feedback_view_item(fb_ids[sel], true);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+{
+feedback_menu();
+return;
+}
+}
+}
+
+void feedback_view_item(string fb_id, bool is_staff)
+{
+speak("Loading feedback, please wait.");
+send_reliable(0, "feedback_get_full "+fb_id, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "feedback_data ", 1)==0)
+{
+data=string_replace(msg, "feedback_data ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(data=="" or data=="not_found")
+{
+dlg("Feedback not found.");
+feedback_menu();
+return;
+}
+string[] parts=string_split(data, "~", false);
+if(parts.length()<5)
+{
+dlg("Invalid feedback data.");
+feedback_menu();
+return;
+}
+string f_id=parts[0];
+string f_owner=parts[1];
+string f_subject=parts[2];
+string f_status=parts[3];
+string f_body=string_replace(parts[4], "<<NL>>", "\n", true);
+audio_form f;
+f.create_window("Feedback #"+f_id+": "+f_subject, false, true);
+f.create_input_box("Feedback ID", f_id, "", 0, false, true, false);
+f.create_input_box("Submitted by", f_owner, "", 0, false, true, false);
+f.create_input_box("Status", f_status, "", 0, false, true, false);
+f.create_input_box("Details", f_body, "", 0, false, true, true);
+if(parts.length()>5)
+{
+for(uint i=5; i<parts.length(); i++)
+{
+string reply_text=string_replace(parts[i], "<<NL>>", "\n", true);
+f.create_input_box("Reply "+(i-4), reply_text, "", 0, false, true, true);
+}
+}
+int f_reply=f.create_button("&Reply");
+int f_closefb=-1;
+if(f_status=="open" and is_staff)
+f_closefb=f.create_button("&Close this feedback (Staff)");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_reply))
+{
+if(f_status!="open")
+{
+dlg("This feedback is closed. You cannot reply to it.");
+continue;
+}
+feedback_reply(fb_id, is_staff);
+return;
+}
+else if(f_closefb>-1 and f.is_pressed(f_closefb))
+{
+feedback_close(fb_id, is_staff);
+return;
+}
+else if(f.is_pressed(f_back))
+{
+feedback_menu();
+return;
+}
+}
+}
+
+void feedback_reply(string fb_id, bool is_staff)
+{
+audio_form f;
+f.create_window("Reply to Feedback #"+fb_id, false, true);
+int f_msg=f.create_input_box("Your reply", "", "", 0, false, false, true);
+int f_send=f.create_button("&Send reply", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_msg);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_send))
+{
+string reply=f.get_text(f_msg);
+if(reply=="")
+{
+dlg("Please enter a reply.");
+continue;
+}
+reply=string_replace(reply, "|", "/", true);
+reply=string_replace(reply, "~", "-", true);
+reply=string_replace(reply, "\n", "<<NL>>", true);
+send_reliable(0, "feedback_reply "+fb_id+"|"+name+"|"+reply, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="feedback_replied") break;
+}
+if(e.type==event_disconnect) break;
+}
+dlg("Reply sent.");
+feedback_view_item(fb_id, is_staff);
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+feedback_view_item(fb_id, is_staff);
+return;
+}
+}
+}
+
+void feedback_close(string fb_id, bool is_staff)
+{
+audio_form f;
+f.create_window("Close Feedback #"+fb_id, false, true);
+int f_reason=f.create_input_box("Reason for closing", "", "", 0, false, false, true);
+int f_close=f.create_button("&Close feedback", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_reason);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_close))
+{
+string reason=f.get_text(f_reason);
+if(reason=="")
+{
+dlg("You must provide a reason for closing this feedback.");
+continue;
+}
+reason=string_replace(reason, "|", "/", true);
+reason=string_replace(reason, "~", "-", true);
+reason=string_replace(reason, "\n", "<<NL>>", true);
+send_reliable(0, "feedback_close "+fb_id+"|"+name+"|"+reason, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="feedback_closed") break;
+}
+if(e.type==event_disconnect) break;
+}
+dlg("Feedback closed.");
+feedback_menu();
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+feedback_view_item(fb_id, is_staff);
+return;
+}
+}
+}

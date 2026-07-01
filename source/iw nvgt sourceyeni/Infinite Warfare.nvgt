@@ -26,6 +26,7 @@
 #include "includes/vehicle.nvgt"
 #include "includes/support.nvgt"
 #include "includes/bugreports.nvgt"
+#include "includes/feedback.nvgt"
 bool menu_wrap_enabled=false;
 bool show_target_hp=false;
 bool remember_me=true;
@@ -92,8 +93,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49837;
-int build_number=45;
+double version=0.49838;
+int build_number=46;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -972,102 +973,6 @@ else if(sel==4) builder_delete_map();
 }
 }
 
-// ---------------------------------------------------------------------------
-// Command menu (Alt+C).
-// Lists all slash commands and sends the selected one to the server.
-// ---------------------------------------------------------------------------
-void feedbacks_menu()
-{
-send_reliable(0, "feedbacks_list", 0);
-string data="";
-timer ct;
-while(ct.elapsed<5000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "feedbacks_data ", 1)==0)
-{
-data=string_replace(msg, "feedbacks_data ", "", false);
-break;
-}
-}
-}
-if(data=="" or data=="none")
-{
-speak("No feedback submitted yet.");
-return;
-}
-string[] entries=string_split(data, ",", false);
-audio_form f;
-f.create_window("Feedback", false, true);
-int f_list=f.create_list("Select feedback to view", 0, false);
-for(uint i=0; i<entries.length(); i++)
-{
-string[] parts=string_split(entries[i], "~", false);
-if(parts.length()>=2)
-f.add_list_item(f_list, "#"+parts[0]+" from "+parts[1]);
-}
-int f_open=f.create_button("&Open", true);
-int f_close=f.create_button("&Close", false, true);
-f.focus(f_list);
-while(true)
-{
-wait(5);
-f.monitor();
-if(connected==true) netloop();
-if(f.is_pressed(f_close)) return;
-if(f.is_pressed(f_open))
-{
-int sel=f.get_list_position(f_list);
-string[] parts=string_split(entries[sel], "~", false);
-if(parts.length()<2) continue;
-string fid=parts[0];
-send_reliable(0, "feedback_get "+fid, 0);
-string fdata="";
-timer ft;
-while(ft.elapsed<5000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string fmsg=get_event_message();
-if(string_contains(fmsg, "feedback_item ", 1)==0)
-{
-fdata=string_replace(fmsg, "feedback_item ", "", false);
-break;
-}
-}
-}
-if(fdata=="" or fdata=="not_found")
-{
-speak("Feedback not found.");
-continue;
-}
-string[] fparts=string_split(fdata, "~", false);
-if(fparts.length()>=3)
-{
-audio_form vf;
-vf.create_window("Feedback #"+fparts[0], false, true);
-vf.create_input_box("From", fparts[1], "", 0, true);
-vf.create_input_box("Message", fparts[2], "", 0, true, false, true);
-int vf_close=vf.create_button("&Close", false, true);
-vf.focus(0);
-while(true)
-{
-wait(5);
-vf.monitor();
-if(connected==true) netloop();
-if(vf.is_pressed(vf_close)) break;
-}
-}
-}
-}
-}
-
 void command_menu()
 {
 audio_form f;
@@ -1080,7 +985,7 @@ f.add_list_item(f_list, "/d [message] - Send a duo chat message");
 f.add_list_item(f_list, "/pm [name] [message] - Private message a player");
 f.add_list_item(f_list, "/bug - Submit a bug report");
 f.add_list_item(f_list, "/bugs - View bug reports");
-f.add_list_item(f_list, "/feedback [message] - Submit feedback");
+f.add_list_item(f_list, "/chestfind - View chest locations");
 f.add_list_item(f_list, "/changes - View the changelog");
 f.add_list_item(f_list, "/afk - Toggle AFK mode");
 f.add_list_item(f_list, "/start_admin - Activate admin (if authorized)");
@@ -1097,7 +1002,6 @@ f.add_list_item(f_list, "/give [name item amount] - Give items (dev/admin)");
 f.add_list_item(f_list, "/givemyself [item amount] - Give items to self (admin)");
 f.add_list_item(f_list, "/getmyshit - Get all world items (dev)");
 f.add_list_item(f_list, "/removeitems - Remove all world items (dev)");
-f.add_list_item(f_list, "/feedbacks - View submitted feedback (dev)");
 }
 int f_run=f.create_button("&Run", true);
 int f_close=f.create_button("&Close", false, true);
@@ -1119,11 +1023,6 @@ if (dash>-1) cmd=string_mid(cmd, 0, dash);
 if (cmd=="/afk")
 {
 toggle_afk();
-break;
-}
-if (cmd=="/feedbacks")
-{
-feedbacks_menu();
 break;
 }
 if (cmd=="/bug")
@@ -2854,6 +2753,10 @@ holster_current_weapon();
 if (MENU_is_down() and key_pressed(KEY_S))
 {
 support_menu();
+}
+if (MENU_is_down() and key_pressed(KEY_F))
+{
+feedback_menu();
 }
 // Alt+E: open equipment menu.
 if (MENU_is_down() and key_pressed(KEY_E))

@@ -1,3 +1,14 @@
+New in 0.4.9.8.4, build 42 (2026-07-01)
+Refactored the options menu to use a single form layout with checkboxes for toggle settings (right control detection, menu wrapping, show target HP, remember me) and input fields for numeric values (camera speed, master volume). The old tab-to-category, select-setting, then press Change workflow has been replaced.
+Support ticket notifications now appear in their own dedicated "tickets" buffer instead of the misc buffer.
+Empty buffers are now hidden from navigation. Only the "all" buffer is shown by default. Other buffers appear automatically once they receive content.
+Added the ability to see a hit target's remaining HP when you shoot them. This feature starts disabled and can be toggled with Alt+Shift+W in-game or via the "Show target HP on hit" checkbox in the options menu.
+Fixed the menu wrapping setting not being applied. The options menu was not returning to the main menu after closing, so wrapping changes were never seen in action.
+Added a failsafe for missing or corrupted key configuration files. If keyconfig.json is missing or contains invalid bindings, the game restores defaults and shows a notice to the player.
+Refactored the account menu. "Log in to your account" has been renamed to "Add an existing account." The authorize and password reset options now only appear when a player is actually logged in to an account.
+Added a "Remember me" checkbox to both account registration and login. When unchecked, the player's username is not saved to the configuration file.
+The game now detects first-time launches by checking for a configuration file in the appdata directory. If none is found, a message is displayed informing the player that a configuration file will be created and suggesting they read the included readme.
+
 New in 0.4.9.8.3, build 41 (2026-07-01)
 Added the Learn Game Sounds menu to the main menu. This menu lets players browse categorized game sounds (Movement, Combat, Environment, UI and Alerts, Vehicles) and play them to become familiar with the audio cues used in-game.
 Fixed the stamina/effects key (Shift+V) not working in-game. The keybind action was missing from the key binding system and the game loop handler was not wired up. Shift+V now correctly reports stamina and active effects.

@@ -207,7 +207,9 @@ spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i
 send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 players[e].hitby=weapons[i].cn+"s "+weapons[i].type;
 play(weapons[i].type+"hit"+random(1,3),players[e].x,players[e].y,players[e].z,players[e].map);
-players[e].health-=random(weapons[i].mindammage,weapons[i].maxdammage);
+int dmg=random(weapons[i].mindammage,weapons[i].maxdammage);
+players[e].health-=dmg;
+send_reliable(players[index].peer_id, "target_hp "+players[e].health, 0);
 weapons.remove_at(i);
 return;
 }

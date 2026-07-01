@@ -63,6 +63,11 @@ speakfocusedbuffer();
 void lastbuffer()
 {
 bufferpos=buffers.length()-1;
+if (buffers[bufferpos].items.length()==0 and bufferpos>0)
+{
+bufferleft();
+return;
+}
 speakfocusedbuffer();
 }
 void bufferleft()
@@ -216,6 +221,8 @@ return 0;
 }
 void speakfocusedbuffer()
 {
+if (buffers[bufferpos].items.length()==0 and buffers[bufferpos].name!="all")
+return;
 play_buffer_sound();
 string muted;
 if (buffers[bufferpos].speak==false)

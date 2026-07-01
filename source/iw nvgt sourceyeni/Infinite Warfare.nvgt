@@ -27,6 +27,8 @@
 #include "includes/support.nvgt"
 #include "includes/bugreports.nvgt"
 bool menu_wrap_enabled=false;
+bool show_target_hp=false;
+bool remember_me=true;
 string af_input(string title, string text="", bool online=false)
 {
 audio_form af;
@@ -89,8 +91,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4983;
-int build_number=41;
+double version=0.49834;
+int build_number=42;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -267,8 +269,14 @@ register_holster("bat_holster", "Bat Holster", h_bat, false, 0, "");
 create_buffer("all");
 create_buffer("chats");
 create_buffer("misc");
+create_buffer("tickets");
 if (!directory_exists(prefsdir))
+{
 directory_create(prefsdir);
+show_first_run_message();
+}
+else if (!file_exists(prefsdir+"/settings.dat"))
+show_first_run_message();
 accounts_dir="iwserver/accounts";
 if (!directory_exists(accounts_dir))
 directory_create(accounts_dir);
@@ -298,6 +306,21 @@ mainmenu();
 // Displays the preliminary notice, then shows the rules and requires
 // agreement before proceeding.
 // ---------------------------------------------------------------------------
+void show_first_run_message()
+{
+audio_form f;
+f.create_window("Welcome", false, true);
+f.create_input_box("Notice", "It looks like this is the first time you've run Infinite Warfare. A configuration file will be created for you. If you're new to the game, we suggest you check out the included readme for information on how to play.", "", 0, false, true, false);
+int f_continue=f.create_button("&Continue", true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_continue))
+break;
+}
+}
 void first_run_welcome()
 {
 string notice_text = "Notice: The present iteration of this game has been developed with the assistance of agentic artificial-intelligence (Claude code, utilizing the 4.6 opus model). Additionally, this game utilizes unauthorized source code from Redspot: Blood and peril, by Sam Tupy. Credit goes to Sam Tupy for his original ideas, and to Max Vrenken and Djonan Smid of firegaming for the original Infinite Warfair codebase. This game is in an extensive alpha stage. Many features lack sounds or are effectively unfinished. The current server is a test build designed to stress test new features and mechanics. Your data and progress will not persist upon final release of the game. I provide no guarantees of constant server uptime or stability. The game can and will be taken down for maintenance with little or no notice. There are guaranteed bugs and glitches. The goal of this test period is to iron them out. If you wish to play the game despite this, please check the following box to certify that you have read and understood this notice.";
@@ -2710,6 +2733,12 @@ if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_c
 {
 speak(get_stamina_string() + " " + get_effects_string());
 }
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_W))
+{
+show_target_hp=!show_target_hp;
+writeprefs();
+speak("Target HP display " + (show_target_hp ? "enabled" : "disabled") + ".");
+}
 if (key_pressed(kb("options_menu")))
 {
 optionsmenu();
@@ -3227,15 +3256,24 @@ set_sound_master_volume(mastervol);
 }
 if (sd.d.exists("menu_wrap"))
 menu_wrap_enabled=(sd.readn("menu_wrap")>=1);
+if (sd.d.exists("show_target_hp"))
+show_target_hp=(sd.readn("show_target_hp")>=1);
+if (sd.d.exists("remember_me"))
+remember_me=(sd.readn("remember_me")>=1);
 }
 void writeprefs()
 {
+if (remember_me)
 sd.add("name",name);
+else
+sd.add("name","");
 sd.add("mate",mate);
 sd.add("rctrl",rctrl);
 sd.add("cameraspeed",cameraspeed);
 sd.add("mastervol",mastervol);
 sd.add("menu_wrap",menu_wrap_enabled ? 1 : 0);
+sd.add("show_target_hp",show_target_hp ? 1 : 0);
+sd.add("remember_me",remember_me ? 1 : 0);
 sd.save();
 }
 void send_reliable(uint peer, string mess, uint channel)
@@ -3449,6 +3487,11 @@ else if (parsed[0]=="play_s" and parsed.length()>=2)
 {
 p.play_stationary(parsed[1],false);
 }
+else if (parsed[0]=="target_hp" and parsed.length()>=2)
+{
+if (show_target_hp)
+speak("Target HP: "+parsed[1]);
+}
 else if (parsed[0]=="give" and parsed.length()>2)
 {
 give(parsed[1],string_to_number(parsed[2]));
@@ -3651,6 +3694,8 @@ if (string_contains(ch2msg, "this are the new changes :", 1)==0)
 string changes_text=string_replace(ch2msg, "this are the new changes :", "", false);
 show_changelog_form_text(changes_text);
 }
+else if (string_contains(ch2msg, "New support ticket", 1)>=0 or string_contains(ch2msg, "ticket", 1)>=0)
+add_buffer_item("tickets",ch2msg);
 else
 add_buffer_item("misc",ch2msg);
 }

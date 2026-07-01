@@ -176,9 +176,41 @@ _kb_reg_action("volume_down", "Volume down", KEY_END);
 _kb_reg_action("stamina_check", "Check stamina and effects", KEY_V);
 _kb_reg_action("options_menu", "Options menu", KEY_F11);
 if (file_exists("keyconfig.json"))
+{
 kb_load();
+if (!kb_validate_config())
+{
+kb_show_restore_message();
+kb_reset();
+}
+}
 else
 kb_save();
+}
+
+bool kb_validate_config()
+{
+for (uint i=0; i<_kb_act_binds.length(); i++)
+{
+if (_kb_act_binds[i]<0) return false;
+}
+return true;
+}
+
+void kb_show_restore_message()
+{
+audio_form f;
+f.create_window("Key Configuration Restored", false, true);
+f.create_input_box("Notice", "Your key configuration file could not be found or was corrupted. The game has restored all key bindings to their default values and created a new configuration file. You can rebind keys at any time from the options menu.", "", 0, false, true, false);
+int f_continue=f.create_button("&Continue", true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_continue))
+break;
+}
 }
 
 void kb_load()

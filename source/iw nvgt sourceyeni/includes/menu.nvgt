@@ -30,7 +30,10 @@ cfu("iw","iw.zip");
 mainmenu();
 }
 else if (m.get_item_name(mres)=="options")
+{
 optionsmenu();
+mainmenu();
+}
 else if (m.get_item_name(mres)=="adminpanel")
 adminpanel();
 else if (m.get_item_name(mres)=="learnsounds")
@@ -111,6 +114,7 @@ int f_confirm = f.create_input_box("Confirm password", "", "*", 0, false, false,
 int f_email = f.create_input_box("Email address", "", "", 0, false, false, false);
 f.create_input_box("Rules", rules_text, "", 0, false, true, false);
 int f_agree = f.create_checkbox("I agree to the rules", false);
+int f_remember = f.create_checkbox("Remember me", true);
 int f_register = f.create_button("&Register", true);
 int f_back = f.create_button("Go &back", false, true);
 f.focus(f_user);
@@ -189,6 +193,7 @@ continue;
 }
 // Success.
 name = reg_user;
+remember_me = f.is_checked(f_remember);
 writeprefs();
 if (auth_required)
 dlg("Account created successfully! Your username is " + reg_user + ". However, authorization mode is enabled. You will not be able to log in until an administrator provides you with your authorization code. Please contact an administrator.");
@@ -266,11 +271,13 @@ mainmenu();
 return;
 }
 setupmenu();
-m.add_item_tts("Log in to your account.","login");
-// Only show authorize option if the account actually needs authorization.
-if (name != "" and account_exists(name) and !is_account_authenticated(name))
+m.add_item_tts("Add an existing account.","login");
+if (name != "" and account_exists(name))
+{
+if (!is_account_authenticated(name))
 m.add_item_tts("Authorize your account with a code.","authorize");
 m.add_item_tts("Reset your password.","resetpass");
+}
 m.add_item_tts("Go back.","back");
 int mres=m.run("Account Management",true);
 if (m.get_item_name(mres)=="login")
@@ -291,6 +298,7 @@ audio_form f;
 f.create_window("Login", false, true);
 int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
 int f_pass=f.create_input_box("Password", "", "*", 0, false, false, false);
+int f_remember=f.create_checkbox("Remember me", true);
 int f_login=f.create_button("&Login", true);
 int f_back=f.create_button("Go &back", false, true);
 f.focus(f_user);
@@ -331,6 +339,7 @@ dlg("Your account has not been authenticated yet. Please enter the authorization
 continue;
 }
 name=get_account_username(acc_user);
+remember_me=f.is_checked(f_remember);
 writeprefs();
 speak("Logged in as "+name+".");
 break;
@@ -896,129 +905,73 @@ m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
 // ---------------------------------------------------------------------------
-// Options menu — categorized side-by-side layout matching the help menu.
-// Left list: categories. Tab to the right list to see settings for that
-// category. Press Change to modify the selected setting.
+// Options menu — single form with checkboxes for toggles, buttons for values.
 // ---------------------------------------------------------------------------
-void options_populate(audio_form@ f, int f_settings, int cat)
-{
-f.clear_list(f_settings);
-if (cat == 0)
-{
-f.add_list_item(f_settings, "Duo mate: " + (mate == "" ? "(not set)" : mate));
-}
-else if (cat == 1)
-{
-f.add_list_item(f_settings, "Right control detection: " + (rctrl == 1 ? "on" : "off"));
-f.add_list_item(f_settings, "Camera speed: " + cameraspeed);
-f.add_list_item(f_settings, "Menu wrapping: " + (menu_wrap_enabled ? "on" : "off"));
-}
-else if (cat == 2)
-{
-f.add_list_item(f_settings, "Open key binding editor");
-}
-else if (cat == 3)
-{
-f.add_list_item(f_settings, "Master volume: " + mastervol);
-}
-}
-void options_change(int cat, int sel)
-{
-if (cat == 0 and sel == 0)
-{
-string result = input_box("Duo Mate", "Enter duo mate name (no spaces):", mate);
-if (result == "")
-return;
-if (string_contains(result, " ", 1) >= 0)
-{
-dlg("Duo mate name must not contain spaces.");
-return;
-}
-mate = result;
-writeprefs();
-speak("Duo mate set to " + mate + ".");
-}
-else if (cat == 1 and sel == 0)
-{
-rctrl = (rctrl == 1 ? 0 : 1);
-writeprefs();
-speak("Right control detection " + (rctrl == 1 ? "enabled" : "disabled") + ".");
-}
-else if (cat == 1 and sel == 1)
-{
-string result = input_box("Camera Speed", "Enter camera speed (1 to 200, default 50):", "" + cameraspeed);
-if (result == "")
-return;
-int newcam = string_to_number(result);
-if (newcam < 1) newcam = 1;
-if (newcam > 200) newcam = 200;
-cameraspeed = newcam;
-kleft.setting_2 = cameraspeed;
-kright.setting_2 = cameraspeed;
-kup.setting_2 = cameraspeed;
-kdown.setting_2 = cameraspeed;
-kpgdn.setting_2 = cameraspeed;
-kpgup.setting_2 = cameraspeed;
-writeprefs();
-speak("Camera speed set to " + cameraspeed + ".");
-}
-else if (cat == 1 and sel == 2)
-{
-menu_wrap_enabled=!menu_wrap_enabled;
-writeprefs();
-speak("Menu wrapping " + (menu_wrap_enabled ? "enabled" : "disabled") + ".");
-}
-else if (cat == 2 and sel == 0)
-{
-options_keybinds();
-}
-else if (cat == 3 and sel == 0)
-{
-string result = input_box("Master Volume", "Enter master volume (-60 to 0, default 0):", "" + mastervol);
-if (result == "")
-return;
-int newvol = string_to_number(result);
-if (newvol < -60) newvol = -60;
-if (newvol > 0) newvol = 0;
-mastervol = newvol;
-set_sound_master_volume(mastervol);
-writeprefs();
-speak("Master volume set to " + mastervol + ".");
-}
-}
 void optionsmenu()
 {
-string[] opt_categories = {"Gameplay", "Controls", "Key Bindings", "Audio"};
 audio_form f;
 f.create_window("Options", false, true);
-int f_cats = f.create_list("Category", 0, false);
-for (uint i = 0; i < opt_categories.length(); i++)
-f.add_list_item(f_cats, opt_categories[i]);
-int f_settings = f.create_list("Settings", 0, false);
-int f_change = f.create_button("&Change", true);
-int f_close = f.create_button("&Close", false, true);
-int last_cat = -1;
-f.focus(f_cats);
+// Gameplay
+int f_mate=f.create_input_box("Duo mate (leave blank to clear)", mate, "", 0, false, false, false);
+int f_remember=f.create_checkbox("Remember me (save account on exit)", remember_me);
+int f_target_hp=f.create_checkbox("Show target HP on hit (Alt+Shift+W to toggle in-game)", show_target_hp);
+// Controls
+int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
+int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
+int f_cam=f.create_input_box("Camera speed (1 to 200)", ""+cameraspeed, "", 0, false, false, false);
+// Key Bindings
+int f_keybinds=f.create_button("Open &key binding editor");
+// Audio
+int f_vol=f.create_input_box("Master volume (-60 to 0)", ""+mastervol, "", 0, false, false, false);
+// Buttons
+int f_save=f.create_button("&Save", true);
+int f_close=f.create_button("&Cancel", false, true);
+f.focus(f_mate);
 while (true)
 {
 wait(5);
 f.monitor();
-if (connected == true)
+if (connected==true)
 netloop();
-int cur_cat = f.get_list_position(f_cats);
-if (cur_cat != last_cat and cur_cat >= 0 and cur_cat < int(opt_categories.length()))
+if (f.is_pressed(f_keybinds))
 {
-last_cat = cur_cat;
-options_populate(f, f_settings, cur_cat);
+options_keybinds();
+optionsmenu();
+return;
 }
-if (f.is_pressed(f_change))
+if (f.is_pressed(f_save))
 {
-int sel = f.get_list_position(f_settings);
-if (cur_cat >= 0 and cur_cat < int(opt_categories.length()) and sel >= 0)
+string new_mate=f.get_text(f_mate);
+if (new_mate!="" and string_contains(new_mate, " ", 1)>=0)
 {
-options_change(cur_cat, sel);
-last_cat = -1;
+dlg("Duo mate name must not contain spaces.");
+continue;
 }
+mate=new_mate;
+remember_me=f.is_checked(f_remember);
+show_target_hp=f.is_checked(f_target_hp);
+rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
+menu_wrap_enabled=f.is_checked(f_wrap);
+string cam_str=f.get_text(f_cam);
+int newcam=string_to_number(cam_str);
+if (newcam<1) newcam=1;
+if (newcam>200) newcam=200;
+cameraspeed=newcam;
+kleft.setting_2=cameraspeed;
+kright.setting_2=cameraspeed;
+kup.setting_2=cameraspeed;
+kdown.setting_2=cameraspeed;
+kpgdn.setting_2=cameraspeed;
+kpgup.setting_2=cameraspeed;
+string vol_str=f.get_text(f_vol);
+int newvol=string_to_number(vol_str);
+if (newvol<-60) newvol=-60;
+if (newvol>0) newvol=0;
+mastervol=newvol;
+set_sound_master_volume(mastervol);
+writeprefs();
+speak("Options saved.");
+break;
 }
 else if (f.is_pressed(f_close))
 break;

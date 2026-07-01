@@ -93,8 +93,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49838;
-int build_number=46;
+double version=0.49839;
+int build_number=47;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -3135,12 +3135,33 @@ if (buffers[bufferpos].items.length()==0)
 speak("No items in this buffer.");
 return;
 }
+string bname=buffers[bufferpos].name;
+bool can_quote=(bname=="chats");
+bool can_report=(bname=="chats" or bname=="all");
+if (!can_quote and !can_report)
+{
+speak("There are no actions available for this buffer item.");
+return;
+}
 string item=buffers[bufferpos].items[buffers[bufferpos].pos];
 audio_form f;
 f.create_window("Buffer Item Actions", false, true);
 int f_list=f.create_list("Choose an action", 0, false);
+int quote_index=-1;
+int report_index=-1;
+int idx=0;
+if (can_quote)
+{
 f.add_list_item(f_list, "Quote message");
+quote_index=idx;
+idx++;
+}
+if (can_report)
+{
 f.add_list_item(f_list, "Report");
+report_index=idx;
+idx++;
+}
 int f_ok=f.create_button("&OK", true);
 int f_cancel=f.create_button("&Cancel", false, true);
 f.focus(f_list);
@@ -3153,13 +3174,8 @@ return;
 if (f.is_pressed(f_ok))
 {
 int sel=f.get_list_position(f_list);
-if (sel==0)
+if (sel==quote_index)
 {
-if (buffers[bufferpos].name!="chats")
-{
-speak("Quoting only works in the chats buffer.");
-return;
-}
 int quote_count=0;
 string scan=item;
 while(string_contains(scan, ", quoted: ", 1)>=0)
@@ -3185,7 +3201,7 @@ string reply=af_input("Enter your message","",true);
 if (reply=="") return;
 send_reliable(0, reply+", quoted: "+author+": "+msg, 1);
 }
-else if (sel==1)
+else if (sel==report_index)
 {
 int qp=string_contains(item, ", quoted: ", 1);
 if (qp>=0)

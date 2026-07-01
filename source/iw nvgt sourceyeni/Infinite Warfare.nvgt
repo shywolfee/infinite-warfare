@@ -26,6 +26,32 @@
 #include "includes/vehicle.nvgt"
 #include "includes/support.nvgt"
 #include "includes/bugreports.nvgt"
+bool menu_wrap_enabled=false;
+string af_input(string title, string text="", bool online=false)
+{
+audio_form af;
+af.create_window(title, false, true);
+int af_n=af.create_input_box(title, text, "", 0, false, false, false);
+int af_ok=af.create_button("&OK", true);
+int af_cancel=af.create_button("&Cancel", false, true);
+af.focus(af_n);
+while(true)
+{
+wait(5);
+af.monitor();
+if(online==true)
+{
+mainloop();
+netloop();
+p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
+}
+if(af.is_pressed(af_cancel))
+return "";
+if(af.is_pressed(af_ok))
+return af.get_text(af_n);
+}
+return "";
+}
 string webdir;
 string gamename="Infinite Warfare";
 string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
@@ -63,9 +89,9 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4982;
-int build_number=40;
-string build_date="2026-06-11";
+double version=0.4983;
+int build_number=41;
+string build_date="2026-07-01";
 string name;
 string mate;
 double facing=0;
@@ -1093,7 +1119,7 @@ if (string_contains(cmd, "[", 1)>-1)
 int bracket=string_contains(cmd, " [", 1);
 string base=cmd;
 if (bracket>-1) base=string_mid(cmd, 0, bracket);
-string args=v.input("Enter arguments for "+base, "", true);
+string args=af_input("Enter arguments for "+base, "", true);
 if (args!="")
 {
 send_reliable(0, base+" "+args, 1);
@@ -2156,7 +2182,7 @@ if (space<=0)
 speak("Translocator is fully charged.");
 return;
 }
-string input_str=v.input("How many cells to insert? (have "+available+", space for "+space+")", "", true);
+string input_str=af_input("How many cells to insert? (have "+available+", space for "+space+")", "", true);
 if (input_str=="") return;
 int amount=string_to_number(input_str);
 if (amount<=0) return;
@@ -2441,7 +2467,7 @@ if (afk_mode and !afk_transitioning)
 {
 if (key_pressed(kb("chat")))
 {
-string chat=v.input("Enter your message","",true);
+string chat=af_input("Enter your message","",true);
 if (chat=="/afk")
 toggle_afk();
 else if (chat!="")
@@ -2664,7 +2690,7 @@ start_reload(weapons[w]);
 }
 if (key_pressed(kb("chat")))
 {
-string chat=v.input("Enter your message","",true);
+string chat=af_input("Enter your message","",true);
 if (chat=="/afk")
 toggle_afk();
 else if (chat!="")
@@ -2679,6 +2705,14 @@ else
 send_reliable(0,"health",0);
 pending_health_report=true;
 }
+}
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_check")))
+{
+speak(get_stamina_string() + " " + get_effects_string());
+}
+if (key_pressed(kb("options_menu")))
+{
+optionsmenu();
 }
 if (key_pressed(kb("quickbar_view")) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
 {
@@ -3191,6 +3225,8 @@ if (sd.d.exists("mastervol"))
 mastervol=sd.readn("mastervol");
 set_sound_master_volume(mastervol);
 }
+if (sd.d.exists("menu_wrap"))
+menu_wrap_enabled=(sd.readn("menu_wrap")>=1);
 }
 void writeprefs()
 {
@@ -3199,6 +3235,7 @@ sd.add("mate",mate);
 sd.add("rctrl",rctrl);
 sd.add("cameraspeed",cameraspeed);
 sd.add("mastervol",mastervol);
+sd.add("menu_wrap",menu_wrap_enabled ? 1 : 0);
 sd.save();
 }
 void send_reliable(uint peer, string mess, uint channel)
@@ -3947,7 +3984,7 @@ send_reliable(0, "go_up", 0);
 }
 if (key_pressed(kb("chat")))
 {
-string chat=v.input("Enter your message","",true);
+string chat=af_input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }
@@ -4043,7 +4080,7 @@ send_reliable(1, "trackinfo "+tracking, 0);
 }
 if (key_pressed(kb("chat")))
 {
-string chat=v.input("Enter your message","",true);
+string chat=af_input("Enter your message","",true);
 if (chat!="")
 send_reliable(0,chat,1);
 }

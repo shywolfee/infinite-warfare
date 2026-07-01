@@ -12,6 +12,7 @@ m.add_item_tts("change some options.","options");
 m.add_item_tts("check for new updates.","cfu");
 if(SCRIPT_COMPILED==false)
 m.add_item_tts("Administrator panel.","adminpanel");
+m.add_item_tts("learn game sounds.","learnsounds");
 m.add_item_tts("Exit the game.","exit");
 int mres=m.run("Main Menu",true);
 m.fade_music(20);
@@ -32,6 +33,11 @@ else if (m.get_item_name(mres)=="options")
 optionsmenu();
 else if (m.get_item_name(mres)=="adminpanel")
 adminpanel();
+else if (m.get_item_name(mres)=="learnsounds")
+{
+learn_game_sounds();
+mainmenu();
+}
 else
 exit();
 }
@@ -99,8 +105,8 @@ rules_text="Rules file not found. Please check the game folder.";
 // Single registration form.
 audio_form f;
 f.create_window("Register a New Account", false, true);
-int f_user = f.create_input_box("Username", "", "", 0, false, false, false);
-int f_pass = f.create_input_box("Password (at least 4 characters)", "", "*", 0, false, false, false);
+int f_user = f.create_input_box("Username (max 20 characters)", "", "", 0, false, false, false);
+int f_pass = f.create_input_box("Password (at least 12 characters, must include uppercase, lowercase, and a number)", "", "*", 0, false, false, false);
 int f_confirm = f.create_input_box("Confirm password", "", "*", 0, false, false, false);
 int f_email = f.create_input_box("Email address", "", "", 0, false, false, false);
 f.create_input_box("Rules", rules_text, "", 0, false, true, false);
@@ -130,9 +136,39 @@ if (reg_user == "" or string_contains(reg_user, " ", 1) >= 0)
 dlg("Username must not be empty or contain spaces.");
 continue;
 }
-if (reg_pass.length() < 4)
+if (reg_user.length() > 20)
 {
-dlg("Password must be at least 4 characters.");
+dlg("Username must be 20 characters or fewer.");
+continue;
+}
+if (reg_pass.length() < 12)
+{
+dlg("Password must be at least 12 characters.");
+continue;
+}
+bool has_upper=false, has_lower=false, has_digit=false;
+for (uint ci=0; ci<reg_pass.length(); ci++)
+{
+string ch=string_mid(reg_pass, ci, 1);
+if (ch>="A" and ch<="Z") has_upper=true;
+if (ch>="a" and ch<="z") has_lower=true;
+if (ch>="0" and ch<="9") has_digit=true;
+}
+if (!has_upper or !has_lower or !has_digit)
+{
+dlg("Password must contain at least one uppercase letter, one lowercase letter, and one number.");
+continue;
+}
+string lp=string_to_lower_case(reg_pass);
+string[] common_passwords={"1234", "12345", "123456", "1234567", "12345678", "123456789", "1234567890", "abcde", "abcdef", "abcdefg", "abcdefgh", "1111", "11111", "111111", "0000", "00000", "000000", "aaaa", "aaaaa", "aaaaaa", "password", "password1", "password12", "password123", "qwerty", "qwerty1", "qwerty12", "qwerty123", "letmein", "welcome", "monkey", "dragon", "master", "abc123", "login", "princess", "admin", "passw0rd"};
+bool is_common=false;
+for (uint ci=0; ci<common_passwords.length(); ci++)
+{
+if (lp==common_passwords[ci]){is_common=true; break;}
+}
+if (is_common)
+{
+dlg("That password is too common. Please choose a more secure password.");
 continue;
 }
 if (reg_pass != reg_confirm)
@@ -516,9 +552,34 @@ if (f.is_pressed(f_submit))
 {
 string newpass=f.get_text(f_newpass);
 string confirm=f.get_text(f_confirm);
-if (newpass.length()<4)
+if (newpass.length()<12)
 {
-dlg("Password must be at least 4 characters.");
+dlg("Password must be at least 12 characters.");
+continue;
+}
+bool has_upper=false, has_lower=false, has_digit=false;
+for (uint ci=0; ci<newpass.length(); ci++)
+{
+string ch=string_mid(newpass, ci, 1);
+if (ch>="A" and ch<="Z") has_upper=true;
+if (ch>="a" and ch<="z") has_lower=true;
+if (ch>="0" and ch<="9") has_digit=true;
+}
+if (!has_upper or !has_lower or !has_digit)
+{
+dlg("Password must contain at least one uppercase letter, one lowercase letter, and one number.");
+continue;
+}
+string lp=string_to_lower_case(newpass);
+string[] common_passwords={"1234", "12345", "123456", "1234567", "12345678", "123456789", "1234567890", "abcde", "abcdef", "abcdefg", "abcdefgh", "1111", "11111", "111111", "0000", "00000", "000000", "aaaa", "aaaaa", "aaaaaa", "password", "password1", "password12", "password123", "qwerty", "qwerty1", "qwerty12", "qwerty123", "letmein", "welcome", "monkey", "dragon", "master", "abc123", "login", "princess", "admin", "passw0rd"};
+bool is_common=false;
+for (uint ci=0; ci<common_passwords.length(); ci++)
+{
+if (lp==common_passwords[ci]){is_common=true; break;}
+}
+if (is_common)
+{
+dlg("That password is too common. Please choose a more secure password.");
 continue;
 }
 if (newpass!=confirm)
@@ -737,6 +798,82 @@ return;
 }
 }
 }
+void learn_game_sounds()
+{
+string[] cat_names = {"Movement", "Combat", "Environment", "UI and Alerts", "Vehicles"};
+string[][] sound_names;
+string[][] sound_files;
+// Movement
+string[] mv_names = {"Footstep (grass)", "Footstep (concrete)", "Footstep (sand)", "Footstep (wood)", "Footstep (ladder)", "Jump", "Fall", "Land (grass)", "Land (concrete)", "Turn"};
+string[] mv_files = {"grassstep1.ogg", "concretestep1.ogg", "sandstep1.ogg", "woodstep1.ogg", "ladderstep1.ogg", "jump.ogg", "fall.ogg", "grassland.ogg", "concreteland.ogg", "turn.ogg"};
+sound_names.insert_last(mv_names);
+sound_files.insert_last(mv_files);
+// Combat
+string[] cb_names = {"Player hit", "Kill achievement", "Weapon ping", "Grenade explosion", "Semtex explosion", "Smoke bomb", "Mortar explosion", "Torpedo", "Bomb vest explosion", "Bunker bomb"};
+string[] cb_files = {"playerhit1.ogg", "killachievement.ogg", "weaponping.ogg", "fraggrenadedist.ogg", "semtexdist.ogg", "smokebombdist.ogg", "120mm_mortarexplodedist.ogg", "torpedodist.ogg", "bombvestdist.ogg", "bunkerbombdist.ogg"};
+sound_names.insert_last(cb_names);
+sound_files.insert_last(cb_files);
+// Environment
+string[] env_names = {"Wall (wood)", "Flood start", "Flood stop", "Camera air", "Camera hazard", "Ocean ambience"};
+string[] env_files = {"wallwood.ogg", "floodstart.ogg", "floodstop.ogg", "cameraair.ogg", "camerahazard.ogg", "ocean1.ogg"};
+sound_names.insert_last(env_names);
+sound_files.insert_last(env_files);
+// UI and Alerts
+string[] ui_names = {"Menu click", "Menu enter", "Menu open", "Menu move", "Menu edge", "Chat message", "Notification", "Private message", "New MOTD", "Welcome", "Player online", "Player offline", "Kill alert", "Ping start", "Ping stop", "Buffer switch", "Buffer move", "Inventory move", "Ban", "Disconnect", "Admin join", "Dev join"};
+string[] ui_files = {"menuclick.ogg", "menuenter.ogg", "menuopen.ogg", "menumove.ogg", "menuedge.ogg", "chat.ogg", "notify.ogg", "pm.ogg", "newmotd.ogg", "welcome.ogg", "online.ogg", "offline.ogg", "killalert.ogg", "pingstart.ogg", "pingstop.ogg", "bufferswitch.ogg", "buffermove.ogg", "invmove.ogg", "ban.ogg", "dc.ogg", "admin.ogg", "dev.ogg"};
+sound_names.insert_last(ui_names);
+sound_files.insert_last(ui_files);
+// Vehicles
+string[] vh_names = {"Plane inside loop", "Plane crash", "Plane removed", "Plane bomb launch", "Plane bomb explode", "Tracking new target"};
+string[] vh_files = {"duoplaneinside.ogg", "duoplanecrashdist.ogg", "duoplanerem.ogg", "planebomblounchdist.ogg", "planebombdist.ogg", "trackingnew.ogg"};
+sound_names.insert_last(vh_names);
+sound_files.insert_last(vh_files);
+audio_form f;
+f.create_window("Learn Game Sounds", false, true);
+int f_cats=f.create_list("Category", 0, false);
+for (uint i=0; i<cat_names.length(); i++)
+f.add_list_item(f_cats, cat_names[i]);
+int f_sounds=f.create_list("Sounds", 0, false);
+int f_play=f.create_button("&Play", true);
+int f_close=f.create_button("&Close", false, true);
+int last_cat=-1;
+f.focus(f_cats);
+sound@ preview;
+while(true)
+{
+wait(5);
+f.monitor();
+int cur_cat=f.get_list_position(f_cats);
+if (cur_cat!=last_cat and cur_cat>=0 and cur_cat<int(cat_names.length()))
+{
+last_cat=cur_cat;
+f.clear_list(f_sounds);
+for (uint j=0; j<sound_names[cur_cat].length(); j++)
+f.add_list_item(f_sounds, sound_names[cur_cat][j]);
+}
+if (f.is_pressed(f_play))
+{
+int sel=f.get_list_position(f_sounds);
+if (cur_cat>=0 and cur_cat<int(cat_names.length()) and sel>=0 and sel<int(sound_files[cur_cat].length()))
+{
+if (@preview!=null)
+{
+preview.close();
+@preview=null;
+}
+sound s;
+s.load(sound_files[cur_cat][sel]);
+s.play();
+@preview=s;
+}
+}
+else if (f.is_pressed(f_close))
+{
+if (@preview!=null) preview.close();
+break;
+}
+}
+}
 void setupmenu(bool music=false, bool main=false)
 {
 m.reset(true);
@@ -748,7 +885,7 @@ else
 m.set_callback(cme, "");
 m.click_sound="menuclick.ogg";
 m.enter_sound="menuenter.ogg";
-m.wrap=false;
+m.wrap=menu_wrap_enabled;
 m.enable_home_and_end=true;
 m.enable_up_and_down=true;
 m.enable_first_letter_navigation=true;
@@ -774,6 +911,7 @@ else if (cat == 1)
 {
 f.add_list_item(f_settings, "Right control detection: " + (rctrl == 1 ? "on" : "off"));
 f.add_list_item(f_settings, "Camera speed: " + cameraspeed);
+f.add_list_item(f_settings, "Menu wrapping: " + (menu_wrap_enabled ? "on" : "off"));
 }
 else if (cat == 2)
 {
@@ -823,6 +961,12 @@ kpgdn.setting_2 = cameraspeed;
 kpgup.setting_2 = cameraspeed;
 writeprefs();
 speak("Camera speed set to " + cameraspeed + ".");
+}
+else if (cat == 1 and sel == 2)
+{
+menu_wrap_enabled=!menu_wrap_enabled;
+writeprefs();
+speak("Menu wrapping " + (menu_wrap_enabled ? "enabled" : "disabled") + ".");
 }
 else if (cat == 2 and sel == 0)
 {

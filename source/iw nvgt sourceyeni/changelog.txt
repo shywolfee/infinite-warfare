@@ -1,3 +1,12 @@
+New in 0.4.9.8.3, build 41 (2026-07-01)
+Added the Learn Game Sounds menu to the main menu. This menu lets players browse categorized game sounds (Movement, Combat, Environment, UI and Alerts, Vehicles) and play them to become familiar with the audio cues used in-game.
+Fixed the stamina/effects key (Shift+V) not working in-game. The keybind action was missing from the key binding system and the game loop handler was not wired up. Shift+V now correctly reports stamina and active effects.
+Added the ability to open the options menu from within the game using F11. The options menu key is also available in the key bindings manager.
+Added a menu wrapping toggle to the options menu under Controls. When enabled, navigating past the last menu item wraps to the first and vice versa.
+Replaced all virtualizer input boxes with proper audio form dialogs that include OK and Cancel buttons.
+Increased password requirements: passwords must now be at least 12 characters and contain at least one uppercase letter, one lowercase letter, and one number. Common passwords like 1234, password, qwerty, etc. are automatically rejected.
+Added a 20-character maximum length for usernames.
+
 New in 0.4.9.8.2, build 40 (2026-06-11)
 Fixed the B key not working for zone checks in compiled builds. The Shift+B builder shortcut was consuming the key press before the zone check could process it.
 Added /afk command to toggle AFK mode. Entering AFK counts down from 10 seconds, then disables all actions except typing /afk to return. Leaving AFK also requires a 10-second countdown. AFK mode can only be enabled once every 5 minutes.

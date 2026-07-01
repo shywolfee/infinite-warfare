@@ -284,3 +284,51 @@ size+=buffers[i].items[i2].length();
 }
 speak(items+" total items, "+convert_size(size));
 }
+void buffer_manage_menu()
+{
+while(true)
+{
+audio_form f;
+f.create_window("Buffers", false, true);
+int f_list=f.create_list("Buffers (press Enter to mute or unmute)", 0, false);
+int[] buf_indices;
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()>0)
+{
+string label=buffers[i].name;
+if (buffers[i].speak==false)
+label+=" (muted)";
+label+=" - "+buffers[i].items.length()+" items";
+f.add_list_item(f_list, label);
+buf_indices.insert_last(i);
+}
+}
+if (buf_indices.length()==0)
+{
+f.add_list_item(f_list, "No buffers with content.");
+}
+int f_toggle=f.create_button("&Toggle mute", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_list);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_toggle))
+{
+int sel=f.get_list_position(f_list);
+if (sel>=0 and sel<int(buf_indices.length()))
+{
+int bi=buf_indices[sel];
+buffers[bi].speak=!buffers[bi].speak;
+speak(buffers[bi].name + (buffers[bi].speak ? " unmuted." : " muted."));
+refresh=true;
+}
+}
+if (f.is_pressed(f_close))
+return;
+}
+}
+}

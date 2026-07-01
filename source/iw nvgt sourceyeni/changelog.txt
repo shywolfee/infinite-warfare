@@ -1,3 +1,11 @@
+New in 0.4.9.8.5, build 43 (2026-07-01)
+Registering an account now automatically logs you in, so you no longer need to log in separately after registration.
+Refactored the account menu. The login option now only appears when you are not logged in. Added a log out option that clears your session so you can switch accounts.
+Redesigned the escape menu. All stats (weapon, location, stamina, effects, items, map, player, version) are now behind a single Stats button that opens a condensed read-only dialog instead of being spread across separate input boxes.
+Fixed the rules box in account registration, the notice on first launch, and the rules agreement on first run being editable instead of read-only.
+Added Alt+B shortcut to open a buffer management menu. The menu shows only buffers that contain content and lets you mute or unmute them by pressing Enter. The menu refreshes in place after toggling so you can manage multiple buffers without reopening it.
+Redesigned the F1 player list to display AFK players separately. The new format shows total online count, active count, and AFK count, followed by the player list with AFK players tagged.
+
 New in 0.4.9.8.4, build 42 (2026-07-01)
 Refactored the options menu to use a single form layout with checkboxes for toggle settings (right control detection, menu wrapping, show target HP, remember me) and input fields for numeric values (camera speed, master volume). The old tab-to-category, select-setting, then press Change workflow has been replaced.
 Support ticket notifications now appear in their own dedicated "tickets" buffer instead of the misc buffer.

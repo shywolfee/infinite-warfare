@@ -3,9 +3,8 @@ void mainmenu()
 {
 setupmenu(true, true);
 m.add_item_tts("connect to the server and enter the lobby.","connect");
+if (name == "" or !account_exists(name))
 m.add_item_tts("register a new account.","register");
-// Only show account management if the player is logged in.
-if (name != "" and account_exists(name))
 m.add_item_tts("account management.","account");
 m.add_item_tts("view the changelog.","changelog");
 m.add_item_tts("change some options.","options");
@@ -112,7 +111,7 @@ int f_user = f.create_input_box("Username (max 20 characters)", "", "", 0, false
 int f_pass = f.create_input_box("Password (at least 12 characters, must include uppercase, lowercase, and a number)", "", "*", 0, false, false, false);
 int f_confirm = f.create_input_box("Confirm password", "", "*", 0, false, false, false);
 int f_email = f.create_input_box("Email address", "", "", 0, false, false, false);
-f.create_input_box("Rules", rules_text, "", 0, false, true, false);
+f.create_input_box("Rules", rules_text, "", 0, false, true, true);
 int f_agree = f.create_checkbox("I agree to the rules", false);
 int f_remember = f.create_checkbox("Remember me", true);
 int f_register = f.create_button("&Register", true);
@@ -271,21 +270,41 @@ mainmenu();
 return;
 }
 setupmenu();
-m.add_item_tts("Add an existing account.","login");
-if (name != "" and account_exists(name))
+if (name == "" or !account_exists(name))
 {
+m.add_item_tts("Add an existing account.","login");
+m.add_item_tts("Register a new account.","register");
+}
+else
+{
+m.add_item_tts("Logged in as "+name+".","info");
 if (!is_account_authenticated(name))
 m.add_item_tts("Authorize your account with a code.","authorize");
 m.add_item_tts("Reset your password.","resetpass");
+m.add_item_tts("Log out.","logout");
 }
 m.add_item_tts("Go back.","back");
 int mres=m.run("Account Management",true);
 if (m.get_item_name(mres)=="login")
 account_login_menu();
+else if (m.get_item_name(mres)=="register")
+{
+registermenu();
+return;
+}
 else if (m.get_item_name(mres)=="authorize")
 account_authorize_menu();
 else if (m.get_item_name(mres)=="resetpass")
 account_reset_menu();
+else if (m.get_item_name(mres)=="logout")
+{
+name="";
+writeprefs();
+speak("Logged out.");
+accountmenu();
+}
+else if (m.get_item_name(mres)=="info")
+accountmenu();
 else
 mainmenu();
 }
@@ -653,15 +672,7 @@ void escape_menu()
 {
 audio_form f;
 f.create_window("Game Menu", false, true);
-// Quick stats at the top so the player sees key info immediately.
-f.create_input_box("Weapon", string_replace(weapons[w], "_", " ", true), "", 0, false, true, false);
-f.create_input_box("Location", get_location(), "", 0, false, true, false);
-f.create_input_box("Stamina", get_stamina_string(), "", 0, false, true, false);
-f.create_input_box("Effects", get_effects_string(), "", 0, false, true, false);
-f.create_input_box("Items", "" + count_total_items() + " in inventory", "", 0, false, true, false);
-f.create_input_box("Map", mapname, "", 0, false, true, false);
-f.create_input_box("Player", name + " | version " + version + ", build " + build_number + " (" + build_date + ")", "", 0, false, true, false);
-// Direct action buttons — no list+select needed.
+int f_stats = f.create_button("&Stats");
 int f_equip = f.create_button("&Equipment");
 int f_changes = f.create_button("View &changes");
 int f_rules = f.create_button("View &rules");
@@ -669,14 +680,37 @@ int f_account = f.create_button("&Account info");
 int f_devs = f.create_button("View &developers");
 int f_exit = f.create_button("E&xit game");
 int f_close = f.create_button("Cl&ose", true, true);
-f.focus(f_equip);
+f.focus(f_stats);
 while(true)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_equip))
+if (f.is_pressed(f_stats))
+{
+string stats_text="Weapon: "+string_replace(weapons[w], "_", " ", true)+"\n";
+stats_text+="Location: "+get_location()+"\n";
+stats_text+="Stamina: "+get_stamina_string()+"\n";
+stats_text+="Effects: "+get_effects_string()+"\n";
+stats_text+="Items: "+count_total_items()+" in inventory\n";
+stats_text+="Map: "+mapname+"\n";
+stats_text+="Player: "+name+"\n";
+stats_text+="Version: "+version+", build "+build_number+" ("+build_date+")";
+audio_form sf;
+sf.create_window("Stats", false, true);
+sf.create_input_box("Stats", stats_text, "", 0, false, true, true);
+int sf_close=sf.create_button("&Close", true, true);
+sf.focus(0);
+while(true)
+{
+wait(5);
+sf.monitor();
+if (connected==true) netloop();
+if (sf.is_pressed(sf_close)) break;
+}
+}
+else if (f.is_pressed(f_equip))
 {
 equipment_menu();
 escape_menu();

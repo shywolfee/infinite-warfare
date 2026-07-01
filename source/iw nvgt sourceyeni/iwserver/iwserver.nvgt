@@ -2213,13 +2213,28 @@ if(index > -1)
 string s="";
 if (players.length()>1)
 {
-s=players.length()+" players online. ";
+int active_count=0;
+int afk_count=0;
 for (uint i=0; i<players.length(); i++)
 {
-if (i==players.length()-1)
-s+="and "+players[i].name+" with "+players[i].kills+" kills. ";
+if (players[i].afk)
+afk_count++;
 else
-s+=players[i].name+"  with "+players[i].kills+" kills. ";
+active_count++;
+}
+s="There are "+players.length()+" players online, "+active_count+" active and "+afk_count+" afk. ";
+string[] names;
+for (uint i=0; i<players.length(); i++)
+{
+if (players[i].afk)
+names.insert_last("[AFK] "+players[i].name);
+else
+names.insert_last(players[i].name);
+}
+for (uint i=0; i<names.length(); i++)
+{
+if (i>0) s+=", ";
+s+=names[i];
 }
 }
 else

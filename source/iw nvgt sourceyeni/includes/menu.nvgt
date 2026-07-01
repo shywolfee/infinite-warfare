@@ -952,6 +952,7 @@ int f_target_hp=f.create_checkbox("Show target HP on hit (Alt+Shift+W to toggle 
 // Controls
 int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
 int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
+int f_autolog=f.create_checkbox("Automatically log buffers on exit", auto_log_buffers);
 int f_cam=f.create_input_box("Camera speed (1 to 200)", ""+cameraspeed, "", 0, false, false, false);
 // Key Bindings
 int f_keybinds=f.create_button("Open &key binding editor");
@@ -986,6 +987,7 @@ remember_me=f.is_checked(f_remember);
 show_target_hp=f.is_checked(f_target_hp);
 rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
 menu_wrap_enabled=f.is_checked(f_wrap);
+auto_log_buffers=f.is_checked(f_autolog);
 string cam_str=f.get_text(f_cam);
 int newcam=string_to_number(cam_str);
 if (newcam<1) newcam=1;

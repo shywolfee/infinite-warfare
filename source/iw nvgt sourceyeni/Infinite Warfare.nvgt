@@ -29,6 +29,7 @@
 bool menu_wrap_enabled=false;
 bool show_target_hp=false;
 bool remember_me=true;
+bool auto_log_buffers=false;
 string af_input(string title, string text="", bool online=false)
 {
 audio_form af;
@@ -91,8 +92,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49836;
-int build_number=44;
+double version=0.49837;
+int build_number=45;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -3256,6 +3257,19 @@ if (buffers[bufferpos].name!="chats")
 speak("Quoting only works in the chats buffer.");
 return;
 }
+int quote_count=0;
+string scan=item;
+while(string_contains(scan, ", quoted: ", 1)>=0)
+{
+quote_count++;
+int qp=string_contains(scan, ", quoted: ", 1);
+scan=string_mid(scan, qp+10, scan.length()-qp-9);
+}
+if (quote_count>=3)
+{
+speak("This message already has the maximum of 3 quotes.");
+return;
+}
 int colon=string_contains(item, ": ", 1);
 if (colon<0)
 {
@@ -3263,14 +3277,36 @@ speak("Could not parse this chat message.");
 return;
 }
 string author=string_left(item, colon);
-string msg=string_mid(item, colon+2, item.length()-colon-2);
+string msg=string_mid(item, colon+2, item.length()-colon-1);
 string reply=af_input("Enter your message","",true);
 if (reply=="") return;
 send_reliable(0, reply+", quoted: "+author+": "+msg, 1);
 }
 else if (sel==1)
 {
+int qp=string_contains(item, ", quoted: ", 1);
+if (qp>=0)
+{
+int colon=string_contains(item, ": ", 1);
+string reporter_msg_author="unknown";
+string reporter_msg=item;
+string quoted_part="";
+if (colon>=0 and colon<qp)
+{
+reporter_msg_author=string_left(item, colon);
+reporter_msg=string_mid(item, colon+2, qp-colon-1);
+quoted_part=string_mid(item, qp+10, item.length()-qp-9);
+}
+else
+{
+quoted_part=string_mid(item, qp+10, item.length()-qp-9);
+}
+send_reliable(0, "report_quoted "+reporter_msg_author+"\t"+reporter_msg+"\t"+quoted_part, 0);
+}
+else
+{
 send_reliable(0, "report_message "+item, 0);
+}
 speak("Message reported.");
 }
 return;
@@ -3328,6 +3364,8 @@ if (sd.d.exists("show_target_hp"))
 show_target_hp=(sd.readn("show_target_hp")>=1);
 if (sd.d.exists("remember_me"))
 remember_me=(sd.readn("remember_me")>=1);
+if (sd.d.exists("auto_log_buffers"))
+auto_log_buffers=(sd.readn("auto_log_buffers")>=1);
 }
 void writeprefs()
 {
@@ -3342,6 +3380,7 @@ sd.add("mastervol",mastervol);
 sd.add("menu_wrap",menu_wrap_enabled ? 1 : 0);
 sd.add("show_target_hp",show_target_hp ? 1 : 0);
 sd.add("remember_me",remember_me ? 1 : 0);
+sd.add("auto_log_buffers",auto_log_buffers ? 1 : 0);
 sd.save();
 }
 void send_reliable(uint peer, string mess, uint channel)
@@ -3771,6 +3810,8 @@ add_buffer_item("misc",ch2msg);
 }
 void exitgame()
 {
+if (auto_log_buffers)
+auto_export_buffers();
 plane.stop();
 pinging=false;
 destroy_all_sources();

@@ -325,6 +325,41 @@ f.write("\r\n");
 f.close();
 speak("Buffers exported to "+dir+"/bufferlog.txt");
 }
+void auto_export_buffers()
+{
+bool has_content=false;
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()>0)
+{
+has_content=true;
+break;
+}
+}
+if (!has_content) return;
+if (!directory_exists("logs"))
+directory_create("logs");
+calendar dt;
+string ts=dt.year+"-"+dt.month+"-"+dt.day+"_"+dt.hour+"-"+dt.minute+"-"+dt.second;
+string dir="logs/"+ts;
+if (!directory_exists(dir))
+directory_create(dir);
+file fall;
+fall.open(dir+"/all.txt","wb");
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()==0) continue;
+file fb;
+fb.open(dir+"/"+buffers[i].name+".txt","wb");
+for (uint j=0; j<buffers[i].items.length(); j++)
+{
+fb.write(buffers[i].items[j]+"\r\n");
+fall.write("["+buffers[i].name+"] "+buffers[i].items[j]+"\r\n");
+}
+fb.close();
+}
+fall.close();
+}
 void buffer_manage_menu()
 {
 while(true)

@@ -493,6 +493,24 @@ send_reliable(0, players[index].name+" is now AFK.", 2);
 else
 send_reliable(0, players[index].name+" is no longer AFK.", 2);
 }
+else if(parsed[0]=="/chestfind")
+{
+if (chests.length()==0)
+{
+send_reliable(players[index].peer_id, "There are no chests on the map right now.", 2);
+}
+else
+{
+string s=chests.length()+" chests on the map. ";
+for (uint ci=0; ci<chests.length(); ci++)
+{
+string ctype=string_replace(chests[ci].type, "_", " ", true);
+s+=ctype+" at "+chests[ci].x+", "+chests[ci].y+", "+chests[ci].z;
+if (ci<chests.length()-1) s+=". ";
+}
+send_reliable(players[index].peer_id, s, 2);
+}
+}
 else if(parsed[0]=="/changes")
 {
 send_reliable(e.peer_id,"this are the new changes :"+changes ,2);
@@ -2262,6 +2280,36 @@ if(lobby_clients[i].dev or lobby_clients[i].admin)
 {
 send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
 send_reliable_id(lobby_clients[i].peer_id, "Report from "+players[index].name+": "+message, 2);
+}
+}
+send_reliable(players[index].peer_id, "Your report has been sent.", 2);
+}
+}
+else if(parsed[0]=="report_quoted")
+{
+int index=get_player_index(e.peer_id);
+if(index > -1)
+{
+string raw=string_replace(get_event_message(),"report_quoted ", "", true);
+string[] parts=string_split(raw, "\t", true);
+if (parts.length()>=3)
+{
+string report_text="Report from "+players[index].name+": Message by "+parts[0]+": "+parts[1]+" | Quoted message: "+parts[2];
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, report_text, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, report_text, 2);
+}
 }
 }
 send_reliable(players[index].peer_id, "Your report has been sent.", 2);

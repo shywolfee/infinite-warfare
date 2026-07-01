@@ -343,6 +343,8 @@ show_player_list_form("Players Online", plist);
 // ---------------------------------------------------------------------------
 void leave_lobby()
 {
+if (auto_log_buffers)
+auto_export_buffers();
 send_reliable(0, "leave_lobby", 0);
 pinging=false;
 distpool.destroy_all();

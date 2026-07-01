@@ -1,3 +1,10 @@
+New in 0.4.9.8.3.7, build 45 (2026-07-01)
+Fixed a bug where the last character of a quoted message was cut off due to an off-by-one error in string extraction.
+Buffers now automatically export to logs when leaving the lobby or exiting a game, sorted into individual files per buffer (chats.txt, misc.txt, etc.) plus an all.txt containing everything. This setting is disabled by default and can be enabled in the options menu.
+Quoting is now limited to a maximum depth of 3. A message that already contains 3 levels of quotes cannot be quoted further, preventing quote chain spam.
+Reporting a quoted message now separates the report into distinct parts: who wrote the reported message, what they said, and the quoted content, so admins can see both the reporter's context and the original quoted author.
+Added /chestfind command to view the location and type of all chests currently on the map.
+
 New in 0.4.9.8.6, build 44 (2026-07-01)
 Added Alt+Shift+C shortcut to open the currently selected buffer item in a read-only dialog, allowing character-by-character review with a screen reader.
 Added Shift+Backslash shortcut to export all buffers to a timestamped log file at logs/<date and time>/bufferlog.txt.

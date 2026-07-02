@@ -93,8 +93,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49810;
-int build_number=48;
+double version=0.4990;
+int build_number=49;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -1644,21 +1644,22 @@ float ft_mult=get_attachment_firetime_mult(wname);
 float wt_mult=get_attachment_walktime_mult(wname);
 int final_firetime=int(base_firetime*ft_mult);
 int final_walktime=int(base_walktime*wt_mult);
+string stats_text="";
 if(is_melee_weapon)
-f.create_input_box("Type", "Melee", "", 0, false, true, false);
+stats_text+="Type: Melee\n";
 else if(gi>=0)
 {
-f.create_input_box("Type", "Ranged", "", 0, false, true, false);
-f.create_input_box("Ammo type", gun_ammos[gi].ammo_type, "", 0, false, true, false);
-f.create_input_box("Feed device", gun_ammos[gi].feed_device, "", 0, false, true, false);
-f.create_input_box("Capacity", ""+gun_ammos[gi].mag_capacity, "", 0, false, true, false);
+stats_text+="Type: Ranged\n";
+stats_text+="Ammo type: "+gun_ammos[gi].ammo_type+"\n";
+stats_text+="Feed device: "+gun_ammos[gi].feed_device+"\n";
+stats_text+="Capacity: "+gun_ammos[gi].mag_capacity+"\n";
 }
-f.create_input_box("Fire rate", ""+final_firetime+" ms"+(ft_mult!=1.0?" (base "+base_firetime+" ms)":""), "", 0, false, true, false);
-f.create_input_box("Movement speed", ""+final_walktime+" ms"+(wt_mult!=1.0?" (base "+base_walktime+" ms)":""), "", 0, false, true, false);
+stats_text+="Fire rate: "+final_firetime+" ms"+(ft_mult!=1.0?" (base "+base_firetime+" ms)":"")+"\n";
+stats_text+="Movement speed: "+final_walktime+" ms"+(wt_mult!=1.0?" (base "+base_walktime+" ms)":"");
 string[] attached=get_weapon_attachments(wname);
 if(attached.length()>0)
 {
-int att_list=f.create_list("Attachments", 0, false);
+stats_text+="\n\nAttachments:";
 for(uint i=0; i<attached.length(); i++)
 {
 int def_idx=find_attachment_def(attached[i]);
@@ -1674,12 +1675,27 @@ if(attachment_defs[def_idx].walktime_mult!=1.0)
 label+=" move speed x"+attachment_defs[def_idx].walktime_mult;
 }
 if(!attachment_defs[def_idx].removable) label+=" [permanent]";
+stats_text+="\n"+label;
+}
+}
+}
+f.create_input_box("Stats", stats_text, "", 0, false, true, true);
+if(attached.length()>0)
+{
+int att_list=f.create_list("Attachments", 0, false);
+for(uint i=0; i<attached.length(); i++)
+{
+int def_idx=find_attachment_def(attached[i]);
+if(def_idx>=0)
+{
+string label=attachment_defs[def_idx].display_name+" ("+attachment_defs[def_idx].slot+")";
+if(!attachment_defs[def_idx].removable) label+=" [permanent]";
 f.add_list_item(att_list, label);
 }
 }
 int remove_btn=f.create_button("Remove selected attachment", false, false);
 int close_btn=f.create_button("Close", false, true);
-f.focus(att_list);
+f.focus(0);
 while(true)
 {
 wait(5);
@@ -1710,6 +1726,7 @@ return;
 else
 {
 int close_btn=f.create_button("Close", false, true);
+f.focus(0);
 while(true)
 {
 wait(5);
@@ -2482,6 +2499,7 @@ p.play_stationary("invmove.ogg", false);
 if (key_pressed(kb("nearby_items")))
 {
 send_reliable(0,"whatnear",0);
+announce_nearby_vehicles_tracked(int(mr.x), int(mr.y), int(me.z));
 }
 if (key_pressed(kb("nearby_players")))
 {
@@ -3671,7 +3689,29 @@ string[] parsed=string_split(get_event_message()," ",true);
 if(parsed.length()>=5 and is_sound_number(parsed[1]) and is_sound_number(parsed[2]) and is_sound_number(parsed[3]))
 {
 if(parsed[4]==mapname)
-p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), calculate_theta(facing), false);
+{
+int sx=string_to_number(parsed[1]);
+int sy=string_to_number(parsed[2]);
+int sz=string_to_number(parsed[3]);
+p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, sx, sy, sz, calculate_theta(facing), false);
+string snd=parsed[0];
+if(snd=="fraggrenadeexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 16, 5000, 7000);
+else if(snd=="semtexexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 30, 5000, 8000);
+else if(snd=="planebombexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 20, 6000, 7000);
+else if(snd=="120mm_mortarexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 20, 1000, 2000);
+else if(snd=="bunkerbombexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 150, 11000, 20000);
+else if(snd=="bombvestexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 25, 9000, 9500);
+else if(snd=="torpedoexplode")
+check_vehicle_damage_from_explosion(sx, sy, sz, 10, 7000, 9000);
+else if(string_contains(snd, "hit", 1) >= 0 and snd != "fraggrenadehit" and snd != "semtexhit" and snd != "planebombhit" and snd != "bunkerbombhit" and snd != "bombvesthit" and snd != "smokebombhit")
+check_vehicle_damage_from_bullet(sx, sy, sz, 3, 100, 1400);
+}
 }
 else if(parsed[0]=="distsound" and parsed.length()>5)
 {

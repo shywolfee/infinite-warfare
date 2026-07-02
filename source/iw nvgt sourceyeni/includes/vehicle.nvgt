@@ -579,29 +579,9 @@ s += " Window up.";
 return s;
 }
 
-// Track which vehicles have been proximity-announced to avoid spam.
-int last_announced_vehicle = -1;
-timer vehicle_proximity_timer;
-
 // Vehicle movement loop - called each frame from mainloop.
 void vehicle_loop()
 {
-// Proximity announcements when on foot.
-if (!in_vehicle and map_vehicles.length() > 0 and vehicle_proximity_timer.elapsed >= 500)
-{
-vehicle_proximity_timer.restart();
-int nv = find_nearest_vehicle(int(mr.x), int(mr.y), int(me.z), 10);
-if (nv >= 0 and nv != last_announced_vehicle)
-{
-last_announced_vehicle = nv;
-announce_nearby_vehicles(int(mr.x), int(mr.y), int(me.z));
-}
-else if (nv < 0)
-{
-last_announced_vehicle = -1;
-}
-}
-
 if (!in_vehicle or player_vehicle_index < 0) return;
 vehicle@ v = map_vehicles[player_vehicle_index];
 if (v.destroyed)
@@ -712,25 +692,71 @@ restore_stamina(5);
 }
 }
 
-// Announce nearby vehicles.
-void announce_nearby_vehicles(int px, int py, int pz)
+void announce_nearby_vehicles_tracked(int px, int py, int pz)
 {
-int count = 0;
 for (uint i = 0; i < map_vehicles.length(); i++)
 {
 if (map_vehicles[i].destroyed) continue;
 double dx = double(map_vehicles[i].x - px);
 double dy = double(map_vehicles[i].y - py);
-double dist = square_root(dx * dx + dy * dy);
-if (dist <= 10)
+double dz = double(map_vehicles[i].z - pz);
+double dist = square_root(dx * dx + dy * dy + dz * dz);
+if (dist <= 30)
 {
+string info = map_vehicles[i].get_name();
+if (map_vehicles[i].door_open)
+info += ", open";
+else
+info += ", closed";
+if (map_vehicles[i].count_occupants() > 0)
+info += ", moving";
+info += ", health " + map_vehicles[i].health + " of " + vehicle_types[map_vehicles[i].type_index].max_health;
+if (vehicle_types[map_vehicles[i].type_index].armor > 0)
+info += ", armor " + map_vehicles[i].armor + " of " + vehicle_types[map_vehicles[i].type_index].armor;
 double angle = calculate_x_y_angle(double(px), double(py), double(map_vehicles[i].x), double(map_vehicles[i].y), 0);
 string dir_name = dir_to_string(int(getdir(angle)));
 if (dist < 1)
-speak(map_vehicles[i].get_name() + " here.");
+info += ", here.";
 else
-speak(map_vehicles[i].get_name() + ", " + int(dist) + " tiles " + dir_name + ".");
-count++;
+{
+int level = 1;
+if (map_vehicles[i].z > pz) level = 2;
+else if (map_vehicles[i].z < pz) level = 0;
+if (level == 2) info += ", above";
+else if (level == 0) info += ", below";
+info += ", " + dir_name + ", " + int(dist) + " feet away.";
+}
+speak(info);
+}
+}
+}
+
+void check_vehicle_damage_from_explosion(int ex, int ey, int ez, int blast_radius, int min_dmg, int max_dmg)
+{
+for (uint i = 0; i < map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dist = square_root(double((map_vehicles[i].x - ex) * (map_vehicles[i].x - ex) + (map_vehicles[i].y - ey) * (map_vehicles[i].y - ey) + (map_vehicles[i].z - ez) * (map_vehicles[i].z - ez)));
+if (dist <= blast_radius)
+{
+int dmg = random(min_dmg, max_dmg);
+if (vehicle_take_damage(int(i), dmg))
+vehicle_on_destroy(int(i));
+}
+}
+}
+
+void check_vehicle_damage_from_bullet(int bx, int by, int bz, int spread, int min_dmg, int max_dmg)
+{
+for (uint i = 0; i < map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dist = square_root(double((map_vehicles[i].x - bx) * (map_vehicles[i].x - bx) + (map_vehicles[i].y - by) * (map_vehicles[i].y - by) + (map_vehicles[i].z - bz) * (map_vehicles[i].z - bz)));
+if (dist <= spread + 2)
+{
+int dmg = random(min_dmg, max_dmg);
+if (vehicle_take_damage(int(i), dmg))
+vehicle_on_destroy(int(i));
 }
 }
 }

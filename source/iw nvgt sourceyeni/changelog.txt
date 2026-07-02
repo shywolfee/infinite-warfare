@@ -1,3 +1,9 @@
+New in 0.4.9.9.0, build 49 (2026-07-02)
+Weapon stats (Shift+Enter) now display in a single read-only text box with each stat on its own line, instead of separate boxes for each stat. Attachments can still be managed from the same window.
+Added a "Read the readme" option to the main menu.
+Vehicles can now be damaged by anything that damages players: bullets, frag grenades, semtex, plane bombs, mortar rounds, bunker bombs, bomb vests, torpedoes, and C4. Vehicles have health and armor that absorb damage the same way as before (armor takes full hit, health takes 1/4 while armor holds; full damage to health once armor is gone). Destroyed vehicles eject all occupants.
+Redesigned vehicle tracking. Vehicles no longer announce themselves via proximity. Instead, pressing M (nearby items) now includes vehicles alongside items and chests, showing vehicle type, door state (open/closed), whether it is occupied, health, and armor. This matches how items are tracked for a cohesive experience.
+
 New in 0.4.9.8.10, build 48 (2026-07-02)
 Fixed a crash on first launch when no appdata config directory or settings file exists. The savedata class now safely handles missing or empty files instead of crashing when trying to deserialize empty data. Also ensured savedata properly closes files after saving.
 

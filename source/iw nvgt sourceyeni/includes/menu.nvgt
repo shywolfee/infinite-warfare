@@ -12,6 +12,7 @@ m.add_item_tts("check for new updates.","cfu");
 if(SCRIPT_COMPILED==false)
 m.add_item_tts("Administrator panel.","adminpanel");
 m.add_item_tts("learn game sounds.","learnsounds");
+m.add_item_tts("read the readme.","readme");
 m.add_item_tts("Exit the game.","exit");
 int mres=m.run("Main Menu",true);
 m.fade_music(20);
@@ -38,6 +39,11 @@ adminpanel();
 else if (m.get_item_name(mres)=="learnsounds")
 {
 learn_game_sounds();
+mainmenu();
+}
+else if (m.get_item_name(mres)=="readme")
+{
+show_readme();
 mainmenu();
 }
 else
@@ -846,6 +852,34 @@ else if (f.is_pressed(f_close))
 {
 return;
 }
+}
+}
+void show_readme()
+{
+file rf;
+string readme_text="";
+if (rf.open("readme.txt", "rb"))
+{
+readme_text=rf.read();
+rf.close();
+}
+else if (rf.open("readme.md", "rb"))
+{
+readme_text=rf.read();
+rf.close();
+}
+else
+readme_text="Readme file not found. Please check the game folder.";
+audio_form f;
+f.create_window("Readme", false, true);
+f.create_input_box("Readme", readme_text, "", 0, false, true, true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_close)) return;
 }
 }
 void learn_game_sounds()

@@ -24,6 +24,8 @@ string adminlist="";
 network n;
 network_event e;
 timer uptimer;
+dictionary grief_counts;
+dictionary grief_windows;
 string motd;
 bool auth_mode=false;
 const string ACCOUNT_SECRET = "IW_aCc0unt_K3y_xK9mP2vL7nQ4wR8t!";
@@ -1987,7 +1989,10 @@ else if(parsed[1]=="health_potion")
 if(players[index].health>1001)
 send_reliable(players[index].peer_id, "Your health is already full.", 2);
 else if(players[index].health_potiontimer.elapsed<=20000)
-send_reliable(players[index].peer_id, "You must wait before using another health potion.", 2);
+{
+int cd_remain=(20000-players[index].health_potiontimer.elapsed)/1000;
+send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before using another health potion.", 2);
+}
 else
 {
 players[index].usehealth_potion=true;
@@ -2073,7 +2078,10 @@ send_reliable(players[index].peer_id, "give fake_item -1", 0);
 play("fakeitemplace",players[index].x,players[index].y,players[index].z,players[index].map);
 }
 else
-send_reliable(players[index].peer_id, "You must wait before placing another fake item.", 2);
+{
+int cd_remain=(2000-players[index].fake_itemtimer.elapsed)/1000;
+send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before placing another fake item.", 2);
+}
 }
 if(parsed[1]=="box")
 {
@@ -2096,7 +2104,10 @@ send_reliable(players[index].peer_id, "give frag_grenade -1", 0);
 players[index].fraggrenadetimer.restart();
 }
 else
-send_reliable(players[index].peer_id, "You must wait before throwing another grenade.", 2);
+{
+int cd_remain=(5000-players[index].fraggrenadetimer.elapsed)/1000;
+send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before throwing another grenade.", 2);
+}
 }
 else if(parsed[1]=="bucket")
 {
@@ -2146,7 +2157,10 @@ spawn_smokebomb(players[index].x,players[index].y,players[index].z,players[index
 send_reliable(players[index].peer_id, "give smoke_bomb -1", 0);
 }
 else
-send_reliable(players[index].peer_id, "You must wait before using another smoke bomb.", 2);
+{
+int cd_remain=(60000-players[index].smokebombtimer.elapsed)/1000;
+send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before using another smoke bomb.", 2);
+}
 }
 if(parsed[1]=="p90_mp")
 {
@@ -2358,7 +2372,9 @@ else if(parsed[0]=="health")
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
-send_reliable(e.peer_id,players[index].health+" health, last hit by"+players[index].hitby, 0);
+int hp_pct=(players[index].health*100)/1000;
+if(hp_pct<0) hp_pct=0;
+send_reliable(e.peer_id,players[index].health+" health: "+hp_pct+"%, last hit by "+players[index].hitby, 0);
 }
 }
 else if(parsed[0]=="use_potion")

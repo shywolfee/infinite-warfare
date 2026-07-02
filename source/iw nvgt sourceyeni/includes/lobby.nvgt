@@ -310,9 +310,10 @@ show_player_list_form("Players", plist);
 void rewards_tab()
 {
 audio_form f;
-f.create_window("Rewards", false, true);
+f.create_window("Killstreak Rewards", false, true);
 f.create_input_box("3 kills", "You receive 5 frag grenades", "", 0, false, true, false);
-f.create_input_box("5 kills", "You receive an ultra health potion that fully restores your health", "", 0, false, true, false);
+f.create_input_box("5 kills", "You receive an ultra health potion and 40 bonus credits", "", 0, false, true, false);
+f.create_input_box("10 kills", "You receive 75 bonus credits", "", 0, false, true, false);
 f.create_input_box("Note", "Rewards are granted automatically the first time you hit each milestone per session", "", 0, false, true, false);
 int f_close=f.create_button("&Close", true, true);
 f.focus(0);
@@ -373,7 +374,7 @@ f.create_window("Lobby", false, true);
 int f_modes=f.create_button("&Modes", true);
 int f_acct=f.create_button("&Account Info");
 int f_players=f.create_button("&Players");
-int f_rewards=f.create_button("&Rewards");
+int f_rewards=f.create_button("Killstreak &Rewards");
 int f_leave=f.create_button("&Leave Lobby", false, true);
 f.focus(f_modes);
 bool selected=false;

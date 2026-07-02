@@ -235,6 +235,25 @@ killer=players[e].name;
 int p=get_player_index_from(killer);
 if(p>-1 and p!=int(i))
 {
+string grief_key=players[p].name+":"+players[i].name;
+double gc=0;
+double gw=0;
+grief_counts.get(grief_key, gc);
+grief_windows.get(grief_key, gw);
+double now=uptimer.elapsed;
+if(gc>=10 and (now-gw)<900000)
+{
+players[i].health=1000;
+send_reliable(players[p].peer_id, "Kill denied. You have killed this player too many times recently.", 2);
+continue;
+}
+if(gc==0 or (now-gw)>=900000)
+{
+grief_windows.set(grief_key, now);
+gc=0;
+}
+gc+=1;
+grief_counts.set(grief_key, gc);
 players[p].kills+=1;
 int kill_credits=random(10,20);
 players[p].credits+=kill_credits;

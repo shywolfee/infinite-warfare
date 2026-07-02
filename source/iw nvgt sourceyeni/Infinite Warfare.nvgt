@@ -97,8 +97,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4992;
-int build_number=51;
+double version=0.4993;
+int build_number=52;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -3680,10 +3680,6 @@ speak(full_msg);
 if (pending_health_report and string_contains(full_msg, "health", 1) >= 0)
 {
 pending_health_report = false;
-string extra = "";
-if (in_vehicle) extra = get_vehicle_status() + " ";
-extra += get_stamina_string() + " " + get_effects_string();
-speak(extra);
 }
 }
 }

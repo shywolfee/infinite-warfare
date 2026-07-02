@@ -34,7 +34,7 @@ for (uint i2=0; i2<players.length(); i2++)
 if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==planebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
 {
 players[i2].hitby=planebombs[i].owner+"'s planebomb";
-players[i2].health-=random(6000,7000);
+players[i2].health-=650;
 play("planebombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 }
@@ -42,7 +42,7 @@ for (uint i2=0; i2<planes.length(); i2++)
 {
 if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==planebombs[i].map)
 {
-planes[i2].health-=random(6000,7000);
+planes[i2].health-=650;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
@@ -83,7 +83,7 @@ for (uint i2=0; i2<players.length(); i2++)
 if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
 {
 players[i2].hitby=mortarbombs[i].owner+"'s 120mm_mortar";
-players[i2].health-=random(1000,2000);
+players[i2].health-=150;
 play("120mm_mortarhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 }
@@ -91,7 +91,7 @@ for (uint i2=0; i2<planes.length(); i2++)
 {
 if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==mortarbombs[i].map)
 {
-planes[i2].health-=random(1000,2000);
+planes[i2].health-=150;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
@@ -139,14 +139,14 @@ send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
 players[i2].hitby=bunkerbombs[i].owner+"'s bunkerbomb";
-players[i2].health-=random(11000,20000);
+players[i2].health-=2000;
 play("bunkerbombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 for (uint i2=0; i2<planes.length(); i2++)
 {
 if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==bunkerbombs[i].map)
 {
-planes[i2].health-=random(10000,20000);
+planes[i2].health-=2000;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
@@ -217,7 +217,7 @@ if(bunkers[i].healtimer.elapsed>=3000 and players[e].x==bunkers[i].x and players
 {
 play("healing",bunkers[i].x,bunkers[i].y,bunkers[i].z,bunkers[i].map);
 bunkers[i].healtimer.restart();
-players[e].health+=random(200,250);
+players[e].health+=random(20,25);
 }
 }
 }
@@ -257,14 +257,14 @@ send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
 players[i2].hitby=samtexs[i].owner+"'s semtex";
-players[i2].health-=random(5000,8000);
+players[i2].health-=650;
 play("semtexhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 for (uint i2=0; i2<planes.length(); i2++)
 {
 if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==samtexs[i].map)
 {
-planes[i2].health-=random(6000,7000);
+planes[i2].health-=650;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
@@ -362,7 +362,7 @@ for (uint i2=0; i2<players.length(); i2++)
 if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==bombs[i].map and players[i2].death==false and players[i2].in_plane==false)
 
 {
-players[i2].health-=random(9000, 9500);
+players[i2].health-=1500;
 players[i2].hitby=bombs[i].owner+"'s bombvest";
 play("bombvesthit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
@@ -370,7 +370,7 @@ for (uint i2=0; i2<planes.length(); i2++)
 {
 if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==bombs[i].map)
 {
-planes[i2].health-=random(6000,7000);
+planes[i2].health-=1500;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
@@ -441,7 +441,7 @@ for(uint p=0; p<players.length(); p++)
 if(get_3d_distance(c4charges[i].x,c4charges[i].y,c4charges[i].z,players[p].x,players[p].y,players[p].z)<=25 and players[p].map==c4charges[i].map and players[p].death==false and players[p].in_plane==false)
 {
 players[p].hitby=c4charges[i].owner+"'s C4";
-players[p].health-=random(6000,9000);
+players[p].health-=700;
 play("semtexhit",players[p].x,players[p].y,players[p].z,players[p].map);
 int ki=get_player_index_from(c4charges[i].owner);
 if(ki>-1) send_reliable(players[ki].peer_id, "play_s weaponping.ogg", 0);

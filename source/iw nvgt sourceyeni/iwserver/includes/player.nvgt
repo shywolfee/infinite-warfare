@@ -75,7 +75,7 @@ bool usehealth_potion=false;
 timer health_potiontimer;
 bool bombveston;
 string hitby="no one";
-int health=10000;
+int health=1000;
 int x;
 int y;
 int z;
@@ -113,9 +113,9 @@ void playerloop()
 {
 for(uint i=0; i<players.length(); i++)
 {
-if(players[i].health>=10001)
+if(players[i].health>=1001)
 {
-players[i].health=10000;
+players[i].health=1000;
 }
 if(players[i].kills==3 and players[i].kills1==false)
 {

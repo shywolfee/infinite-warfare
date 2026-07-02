@@ -1984,7 +1984,7 @@ send_reliable(players[index].peer_id, "Your duo already has a plane, so you can'
 }
 else if(parsed[1]=="health_potion")
 {
-if(players[index].health>10001)
+if(players[index].health>1001)
 send_reliable(players[index].peer_id, "Your health is already full.", 2);
 else if(players[index].health_potiontimer.elapsed<=20000)
 send_reliable(players[index].peer_id, "You must wait before using another health potion.", 2);
@@ -1994,7 +1994,7 @@ players[index].usehealth_potion=true;
 players[index].usehealth_potiontimer.restart();
 players[index].health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give health_potion -1", 0);
-players[index].health+=random(1500,3000);
+players[index].health+=200;
 play("health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
 }
@@ -2027,7 +2027,7 @@ send_reliable(players[index].peer_id, "You are too far away from your duo mate."
 else
 {
 send_reliable(players[index].peer_id, "give life_injection -1", 0);
-players[index2].health=5000;
+players[index2].health=500;
 players[index].life_injection=true;
 players[index].life_injectiontimer.restart();
 play("life_injection", players[index].x, players[index].y, players[index].z, players[index].map, index);
@@ -2046,13 +2046,13 @@ if(parsed[1]=="ultra_health_potion")
 players[index].ultra_health_potion=true;
 players[index].ultra_health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give ultra_health_potion -1", 0);
-players[index].health+=10000;
+players[index].health+=random(500,600);
 play("ultra_health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
 }
-if(players[index].health>=10000)
+if(players[index].health>=1000)
 {
-players[index].health=10000;
+players[index].health=1000;
 }
 if(parsed[1]=="bag")
 {
@@ -2366,11 +2366,11 @@ else if(parsed[0]=="use_potion")
 int index=get_player_index(e.peer_id);
 if(index > -1)  
 {
-if(players[index].health<=10001 and players[index].health_potiontimer.elapsed>20000)
+if(players[index].health<=1001 and players[index].health_potiontimer.elapsed>20000)
 {
 players[index].health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give health_potion -1", 0);
-players[index].health+=random(1500,3000);
+players[index].health+=200;
 play("health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 }
 }

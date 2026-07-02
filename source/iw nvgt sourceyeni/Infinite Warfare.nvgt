@@ -93,8 +93,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4990;
-int build_number=49;
+double version=0.4991;
+int build_number=50;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -3696,21 +3696,21 @@ int sz=string_to_number(parsed[3]);
 p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, sx, sy, sz, calculate_theta(facing), false);
 string snd=parsed[0];
 if(snd=="fraggrenadeexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 16, 5000, 7000);
+check_vehicle_damage_from_explosion(sx, sy, sz, 16, 500, 500);
 else if(snd=="semtexexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 30, 5000, 8000);
+check_vehicle_damage_from_explosion(sx, sy, sz, 30, 650, 650);
 else if(snd=="planebombexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 20, 6000, 7000);
+check_vehicle_damage_from_explosion(sx, sy, sz, 20, 650, 650);
 else if(snd=="120mm_mortarexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 20, 1000, 2000);
+check_vehicle_damage_from_explosion(sx, sy, sz, 20, 150, 150);
 else if(snd=="bunkerbombexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 150, 11000, 20000);
+check_vehicle_damage_from_explosion(sx, sy, sz, 150, 2000, 2000);
 else if(snd=="bombvestexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 25, 9000, 9500);
+check_vehicle_damage_from_explosion(sx, sy, sz, 25, 1500, 1500);
 else if(snd=="torpedoexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 10, 7000, 9000);
+check_vehicle_damage_from_explosion(sx, sy, sz, 10, 700, 700);
 else if(string_contains(snd, "hit", 1) >= 0 and snd != "fraggrenadehit" and snd != "semtexhit" and snd != "planebombhit" and snd != "bunkerbombhit" and snd != "bombvesthit" and snd != "smokebombhit")
-check_vehicle_damage_from_bullet(sx, sy, sz, 3, 100, 1400);
+check_vehicle_damage_from_bullet(sx, sy, sz, 3, 100, 150);
 }
 }
 else if(parsed[0]=="distsound" and parsed.length()>5)

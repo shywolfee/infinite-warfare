@@ -40,7 +40,7 @@ for (uint i2=0; i2<players.length(); i2++)
 {
 if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false)
 {
-players[i2].health-=random(7000, 9000);
+players[i2].health-=700;
 players[i2].hitby=torpedos[i].owner+"'s torpedo";
 play("torpedohit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 play("playerhit"+random(1,6),players[i2].x,players[i2].y,players[i2].z,players[i2].map);
@@ -63,7 +63,7 @@ if(index>-1)
 send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
-players[i2].health-=random(7000, 9000);
+players[i2].health-=700;
 players[i2].hitby=torpedos[i].owner+"'s torpedo";
 play("torpedohit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 torpedos.remove_at(i);
@@ -85,7 +85,7 @@ if(index>-1)
 send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
-planes[i2].health-=random(7000, 9000);
+planes[i2].health-=700;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 torpedos.remove_at(i);
 return;

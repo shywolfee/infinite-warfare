@@ -103,7 +103,7 @@ if(index>-1)
 if(players[index].in_plane==true)
 {
 players[index].in_plane=false;
-players[index].health-=random(5000,6000);
+players[index].health-=random(500,600);
 players[index].hitby="a plane crash";
 send_reliable(players[index].peer_id, "plane_crash", 0);  
 }
@@ -114,7 +114,7 @@ if(index2>-1)
 if(players[index2].in_plane==true)
 {
 players[index2].in_plane=false;
-players[index2].health-=random(5000,6000);
+players[index2].health-=random(500,600);
 players[index2].hitby="a plane crash";
 send_reliable(players[index2].peer_id, "plane_crash", 0);  
 }

@@ -65,7 +65,7 @@ if(index>-1)
 send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
-players[i2].health-=random(5000, 7000);
+players[i2].health-=500;
 players[i2].hitby=fraggrenades[i].owner+"'s fraggrenade";
 play("fraggrenadehit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 play("playerhit"+random(1,6),players[i2].x,players[i2].y,players[i2].z,players[i2].map);
@@ -81,7 +81,7 @@ if(index>-1)
 send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
-planes[i2].health-=random(5000, 7000);
+planes[i2].health-=500;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }

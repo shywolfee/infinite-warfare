@@ -1,3 +1,6 @@
+New in 0.4.9.8.3.10, build 48 (2026-07-02)
+Fixed a crash on first launch when no appdata config directory or settings file exists. The savedata class now safely handles missing or empty files instead of crashing when trying to deserialize empty data. Also ensured savedata properly closes files after saving.
+
 New in 0.4.9.8.3.9, build 47 (2026-07-01)
 The Delete key buffer item action menu now only shows actions relevant to the current buffer. Quote message only appears in the chats buffer, and Report only appears in chats and all buffers. In buffers where no actions are available (misc, tickets), pressing Delete now says "There are no actions available for this buffer item" instead of opening an empty or misleading menu.
 

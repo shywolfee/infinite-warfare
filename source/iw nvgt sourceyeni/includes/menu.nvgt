@@ -91,6 +91,18 @@ return auth_required;
 
 void registermenu()
 {
+if(lockout_active and lockout_timer.elapsed<900000)
+{
+int remaining=(900000-lockout_timer.elapsed)/1000;
+dlg("You are locked out due to too many failed login attempts. Please wait "+remaining+" seconds before trying again.");
+mainmenu();
+return;
+}
+if(lockout_active and lockout_timer.elapsed>=900000)
+{
+lockout_active=false;
+failed_login_attempts=0;
+}
 // Require the server to be reachable before accepting registrations.
 speak("Checking server status, please wait.");
 if (!server_online())
@@ -319,6 +331,18 @@ mainmenu();
 // ---------------------------------------------------------------------------
 void account_login_menu()
 {
+if(lockout_active and lockout_timer.elapsed<900000)
+{
+int remaining=(900000-lockout_timer.elapsed)/1000;
+dlg("You are locked out due to too many failed login attempts. Please wait "+remaining+" seconds before trying again.");
+accountmenu();
+return;
+}
+if(lockout_active and lockout_timer.elapsed>=900000)
+{
+lockout_active=false;
+failed_login_attempts=0;
+}
 audio_form f;
 f.create_window("Login", false, true);
 int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
@@ -355,7 +379,16 @@ continue;
 }
 if (!verify_account(acc_user, acc_pass))
 {
-dlg("Incorrect password.");
+failed_login_attempts++;
+if(failed_login_attempts>=5)
+{
+lockout_active=true;
+lockout_timer.restart();
+dlg("Too many failed login attempts. You are locked out for 15 minutes.");
+accountmenu();
+return;
+}
+dlg("Incorrect password. "+(5-failed_login_attempts)+" attempts remaining.");
 continue;
 }
 if (!is_account_authenticated(acc_user))
@@ -1122,6 +1155,7 @@ int f_save_auth=f.create_button("&Save authorization mode");
 int f_viewunauth=f.create_button("&View unauthenticated players");
 int f_viewresets=f.create_button("View password &reset requests");
 int f_tickets=f.create_button("Manage support &tickets");
+int f_devkey=f.create_button("Enter &developer unlock key");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_authmode);
 while(true)
@@ -1264,6 +1298,17 @@ else if (f.is_pressed(f_tickets))
 {
 admin_support_tickets(an, comp);
 }
+else if(f.is_pressed(f_devkey))
+{
+string key=af_input("Enter developer unlock key");
+if(key=="Fluttershy")
+{
+dev_unlocked=true;
+dlg("Developer access unlocked. You may now connect with any account.");
+}
+else if(key!="")
+dlg("Incorrect key.");
+}
 else if (f.is_pressed(f_close))
 {
 break;
@@ -1315,6 +1360,7 @@ int f_save_auth=f.create_button("&Save authorization mode");
 int f_viewunauth=f.create_button("&View unauthenticated players");
 int f_viewresets=f.create_button("View password &reset requests");
 int f_tickets=f.create_button("Manage support &tickets");
+int f_devkey=f.create_button("Enter &developer unlock key");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_authmode);
 while(true)
@@ -1443,6 +1489,17 @@ else if(f.is_pressed(f_tickets))
 {
 support_view_all_tickets();
 return;
+}
+else if(f.is_pressed(f_devkey))
+{
+string key=af_input("Enter developer unlock key", "", true);
+if(key=="Fluttershy")
+{
+dev_unlocked=true;
+dlg("Developer access unlocked. You may now connect with any account.");
+}
+else if(key!="")
+dlg("Incorrect key.");
 }
 else if(f.is_pressed(f_close))
 return;

@@ -31,6 +31,10 @@ bool menu_wrap_enabled=false;
 bool show_target_hp=false;
 bool remember_me=true;
 bool auto_log_buffers=false;
+bool dev_unlocked=false;
+int failed_login_attempts=0;
+timer lockout_timer;
+bool lockout_active=false;
 string af_input(string title, string text="", bool online=false)
 {
 audio_form af;
@@ -93,8 +97,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4991;
-int build_number=50;
+double version=0.4992;
+int build_number=51;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -3702,7 +3706,7 @@ check_vehicle_damage_from_explosion(sx, sy, sz, 30, 650, 650);
 else if(snd=="planebombexplode")
 check_vehicle_damage_from_explosion(sx, sy, sz, 20, 650, 650);
 else if(snd=="120mm_mortarexplode")
-check_vehicle_damage_from_explosion(sx, sy, sz, 20, 150, 150);
+check_vehicle_damage_from_explosion(sx, sy, sz, 20, 500, 500);
 else if(snd=="bunkerbombexplode")
 check_vehicle_damage_from_explosion(sx, sy, sz, 150, 2000, 2000);
 else if(snd=="bombvestexplode")

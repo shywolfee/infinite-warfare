@@ -83,7 +83,7 @@ for (uint i2=0; i2<players.length(); i2++)
 if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
 {
 players[i2].hitby=mortarbombs[i].owner+"'s 120mm_mortar";
-players[i2].health-=150;
+players[i2].health-=500;
 play("120mm_mortarhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 }
@@ -91,7 +91,7 @@ for (uint i2=0; i2<planes.length(); i2++)
 {
 if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==mortarbombs[i].map)
 {
-planes[i2].health-=150;
+planes[i2].health-=500;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }

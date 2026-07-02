@@ -24,6 +24,18 @@ return false;
 void connect()
 {
 timer connectiontimer;
+if(lockout_active and lockout_timer.elapsed<900000)
+{
+int remaining=(900000-lockout_timer.elapsed)/1000;
+dlg("You are locked out due to too many failed login attempts. Please wait "+remaining+" seconds before trying again.");
+mainmenu();
+return;
+}
+if(lockout_active and lockout_timer.elapsed>=900000)
+{
+lockout_active=false;
+failed_login_attempts=0;
+}
 if(name=="" or !account_exists(name))
 {
 int reg_choice = yesno("You need an account to connect. Would you like to register one?");
@@ -44,6 +56,12 @@ if (auth_choice == 1)
 account_authorize_menu();
 return;
 }
+mainmenu();
+return;
+}
+if(SCRIPT_COMPILED==false and string_to_lower_case(name)!="velan" and !dev_unlocked)
+{
+dlg("Access denied. Only authorized developers may connect when running from source. Use the administrator panel to enter a developer unlock key.");
 mainmenu();
 return;
 }

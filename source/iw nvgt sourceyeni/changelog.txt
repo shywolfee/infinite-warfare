@@ -1,14 +1,14 @@
-New in 0.4.9.8.3.10, build 48 (2026-07-02)
+New in 0.4.9.8.10, build 48 (2026-07-02)
 Fixed a crash on first launch when no appdata config directory or settings file exists. The savedata class now safely handles missing or empty files instead of crashing when trying to deserialize empty data. Also ensured savedata properly closes files after saving.
 
-New in 0.4.9.8.3.9, build 47 (2026-07-01)
+New in 0.4.9.8.9, build 47 (2026-07-01)
 The Delete key buffer item action menu now only shows actions relevant to the current buffer. Quote message only appears in the chats buffer, and Report only appears in chats and all buffers. In buffers where no actions are available (misc, tickets), pressing Delete now says "There are no actions available for this buffer item" instead of opening an empty or misleading menu.
 
-New in 0.4.9.8.3.8, build 46 (2026-07-01)
+New in 0.4.9.8.8, build 46 (2026-07-01)
 Redesigned the feedback system. Removed the broken /feedback and /feedbacks chat commands and replaced them with an Alt+F keybind that opens a proper feedback menu. The new system works like support tickets: submit feedback with a subject and details, view your own feedback, staff can view all open feedback, reply to feedback, and staff can close feedback with a reason. Notifications are sent to staff when new feedback is submitted and to relevant parties when replies or closures occur.
 Added an in-game administration panel accessible from the escape menu. Devs and admins can now authorize players, toggle auth mode, and view password resets without logging out of the game.
 
-New in 0.4.9.8.3.7, build 45 (2026-07-01)
+New in 0.4.9.8.7, build 45 (2026-07-01)
 Fixed a bug where the last character of a quoted message was cut off due to an off-by-one error in string extraction.
 Buffers now automatically export to logs when leaving the lobby or exiting a game, sorted into individual files per buffer (chats.txt, misc.txt, etc.) plus an all.txt containing everything. This setting is disabled by default and can be enabled in the options menu.
 Quoting is now limited to a maximum depth of 3. A message that already contains 3 levels of quotes cannot be quoted further, preventing quote chain spam.

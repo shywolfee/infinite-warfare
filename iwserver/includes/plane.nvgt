@@ -9,7 +9,7 @@ double y;
 int z;
 string map;
 string owner="";
-string mate="";
+int team_index=-1;
 int health=20000;
 timer movetimer;
 bool fly=false;
@@ -20,13 +20,16 @@ y=py;
 z=pz;
 map=pmap;
 owner=powner;
-
-int index=get_player_index_from(this.owner);
-{
-this.mate=players[index].mate;
-}
+team_index=find_player_team(powner);
 send_reliable(0, "src "+this.x+" "+this.x+" "+this.y+" "+this.y+" "+this.z+" "+this.z+" duoplaneloop.ogg "+this.number, 0);
 send_reliable(0, "dist_src "+this.x+" "+this.x+" "+this.y+" "+this.y+" "+this.z+" "+this.z+" duoplanedist.ogg "+this.number, 0);
+}
+bool is_team_member(string pname)
+{
+if(pname==owner) return true;
+if(team_index>=0 and uint(team_index)<teams.length())
+return teams[team_index].has_member(pname);
+return false;
 }
 }
 void spawn_plane(double x,double y,int z,string map,string owner)
@@ -68,21 +71,13 @@ for (uint i2=0; i2<players.length(); i2++)
 {
 if(players[i2].z==planes[i].z and players[i2].map==planes[i].map)
 {
-if(players[i2].name==planes[i].owner and players[i2].in_plane==true)
+if(planes[i].is_team_member(players[i2].name) and players[i2].in_plane==true)
 {
 players[i2].x=planes[i].x;
 players[i2].y=planes[i].y;
 players[i2].z=planes[i].z;
 send_reliable(players[i2].peer_id, "setcoords "+players[i2].x+" "+players[i2].y+" "+players[i2].z, 0);
 }
-if(players[i2].name==planes[i].mate and players[i2].in_plane==true)
-{
-players[i2].x=planes[i].x;
-players[i2].y=planes[i].y;
-players[i2].z=planes[i].z;
-send_reliable(players[i2].peer_id, "setcoords "+players[i2].x+" "+players[i2].y+" "+players[i2].z, 0);
-}
-
 }
 }
 }
@@ -95,44 +90,35 @@ if(planes[i].health<=0)
 {
 play("duoplanecrash", planes[i].x, planes[i].y, planes[i].z, planes[i].map, -1, true, false, 5);
 send_reliable(0,"distsound duoplanecrashdist.ogg "+planes[i].x+" "+planes[i].y+" "+planes[i].z+" "+planes[i].map,0);
-send_reliable(0, "remove_src "+planes[i].number, 0);  
-send_reliable(0, "remove_src "+planes[i].number, 0);  
-int index=get_player_index_from(planes[i].owner);
-if(index>-1)
+send_reliable(0, "remove_src "+planes[i].number, 0);
+send_reliable(0, "remove_src "+planes[i].number, 0);
+for (uint i2=0; i2<players.length(); i2++)
 {
-if(players[index].in_plane==true)
+if(planes[i].is_team_member(players[i2].name) and players[i2].in_plane==true)
 {
-players[index].in_plane=false;
-players[index].health-=random(500,600);
-players[index].hitby="a plane crash";
-send_reliable(players[index].peer_id, "plane_crash", 0);  
-}
-}
-int index2=get_player_index_from(planes[i].mate);
-if(index2>-1)
-{
-if(players[index2].in_plane==true)
-{
-players[index2].in_plane=false;
-players[index2].health-=random(500,600);
-players[index2].hitby="a plane crash";
-send_reliable(players[index2].peer_id, "plane_crash", 0);  
+players[i2].in_plane=false;
+players[i2].health-=random(500,600);
+players[i2].hitby="a plane crash";
+send_reliable(players[i2].peer_id, "plane_crash", 0);
 }
 }
 planes.remove_at(i);
 return;
 }
-int index=get_player_index_from(planes[i].owner);
+bool any_in_plane=false;
+for (uint i2=0; i2<players.length(); i2++)
 {
-int index2=get_player_index_from(planes[i].mate);
+if(planes[i].is_team_member(players[i2].name) and players[i2].in_plane==true)
 {
-if(index==-1 and index2==-1)
+any_in_plane=true;
+break;
+}
+}
+if(!any_in_plane)
 {
-send_reliable(0, "remove_src "+planes[i].number, 0);  
+send_reliable(0, "remove_src "+planes[i].number, 0);
 planes.remove_at(i);
 return;
-}
-}
 }
 }
 }

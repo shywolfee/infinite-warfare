@@ -1,3 +1,52 @@
+// Team system
+class team
+{
+string leader;
+string[] members;
+team(string _leader)
+{
+leader=_leader;
+members.insert_last(_leader);
+}
+bool has_member(string pname)
+{
+for(uint i=0; i<members.length(); i++)
+{
+if(members[i]==pname) return true;
+}
+return false;
+}
+void remove_member(string pname)
+{
+for(uint i=0; i<members.length(); i++)
+{
+if(members[i]==pname)
+{
+members.remove_at(i);
+return;
+}
+}
+}
+}
+team@[] teams(0);
+dictionary pending_invites;
+int find_player_team(string pname)
+{
+for(uint i=0; i<teams.length(); i++)
+{
+if(teams[i].has_member(pname)) return i;
+}
+return -1;
+}
+int find_team_by_leader(string leader)
+{
+for(uint i=0; i<teams.length(); i++)
+{
+if(teams[i].leader==leader) return i;
+}
+return -1;
+}
+
 // Lightweight tracker for clients sitting in the lobby (before spawn_player).
 lobby_client@[] lobby_clients(0);
 class lobby_client
@@ -170,14 +219,23 @@ send_reliable(players[i].peer_id, "movestart", 0);
 if(players[i].life_injectiontimer.elapsed>=6850 and players[i].life_injection==true)
 {
 players[i].life_injectiontimer.restart();
-send_reliable(0, players[i].mate+" is revived.", 2);
 players[i].life_injection=false;
 send_reliable(players[i].peer_id, "movestart", 0);
-int index2=get_player_index_from(players[i].mate);
-if(index2>-1)
+int ti=find_player_team(players[i].name);
+if(ti>=0)
 {
+for(uint tm=0; tm<teams[ti].members.length(); tm++)
+{
+if(teams[ti].members[tm]==players[i].name) continue;
+int index2=get_player_index_from(teams[ti].members[tm]);
+if(index2>-1 and players[index2].death==true and players[i].map==players[index2].map and get_3d_distance(players[i].x,players[i].y,players[i].z,players[index2].x,players[index2].y,players[index2].z)<=10)
+{
+send_reliable(0, players[index2].name+" is revived.", 2);
 send_reliable(players[index2].peer_id, "revive", 0);
 players[index2].death=false;
+break;
+}
+}
 }
 }
 if(players[i].usehealth_potiontimer.elapsed>2000 and players[i].usehealth_potion==true)
@@ -262,14 +320,21 @@ save_player_credits(players[p].name, players[p].credits);
 }
 }
 
-int index2=get_player_index_from(players[i].mate);
-if(index2>-1)
+int ti=find_player_team(players[i].name);
+if(ti>=0)
 {
-if(players[index2].mate==players[i].name)
+for(uint tm=0; tm<teams[ti].members.length(); tm++)
 {
-send_reliable(players[index2].peer_id, "give life_injection 1", 0);
-send_reliable(players[index2].peer_id, "Your duo mate died! You receive a life injection. Go revive them!", 2);
-} 
+if(teams[ti].members[tm]!=players[i].name)
+{
+int midx=get_player_index_from(teams[ti].members[tm]);
+if(midx>-1)
+{
+send_reliable(players[midx].peer_id, "give life_injection 1", 0);
+send_reliable(players[midx].peer_id, "Your teammate "+players[i].name+" died! You receive a life injection. Go revive them!", 2);
+}
+}
+}
 }
 send_reliable(0,killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone),2);
 send_reliable(0, "play_s killalert.ogg", 0);

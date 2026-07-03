@@ -1015,5 +1015,9 @@ for(uint i=0; i<holster_defs.length(); i++)
 {
 if(get_item_count(holster_defs[i].id)<=0) give(holster_defs[i].id, 1);
 }
+for(uint i=0; i<attachment_defs.length(); i++)
+{
+if(get_item_count(attachment_defs[i].id)<=0) give(attachment_defs[i].id, 1);
+}
 speak("All weapons, ammunition, and items given.");
 }

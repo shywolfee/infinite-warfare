@@ -1,3 +1,28 @@
+New in 0.4.9.9.5, build 54 (2026-07-03)
+Redesigned weapon suppressors with realistic model names. Pistol Suppressor is now Gemtech GM-9, SMG Suppressor is now SilencerCo Omega 9K, Rifle Suppressor is now SureFire SOCOM RC2, and Sniper Suppressor is now Thunder Beast Ultra 9. All retain the same compatible weapons and stat effects.
+Added 7 new weapon attachment types across 5 new slots:
+  Vertical Foregrip (grip slot): fits SMGs and rifles. Reduces movement penalty by 10%.
+  Angled Foregrip (grip slot): fits rifles. Reduces fire delay by 8%.
+  Red Dot Sight (optics slot): fits pistols and SMGs. Reduces fire delay by 5%.
+  Holographic Sight (optics slot): fits rifles. Reduces fire delay by 5%.
+  Tactical Scope (optics slot): fits snipers and battle rifles. Reduces fire delay by 10% but increases movement penalty by 10%.
+  Extended Stock (stock slot): fits SMGs. Reduces movement penalty by 15% but increases fire delay by 5%.
+  Laser Sight (underbarrel slot): fits pistols, SMGs, and assault rifles. Reduces fire delay by 3%.
+  All new attachments are removable and appear in item spawns and the developer Give All command.
+Fixed a bug where the equipment menu unequip button was clickable on empty slots, allowing unequip actions on slots with no equipment. The button now says "This slot is empty" when pressed on an empty slot.
+Added map chat system. Type /m followed by your message in the chat box to send a message only to players on your current map. Press Shift+Slash to open a dedicated map chat input box. Map chat messages appear with a [Map] prefix.
+Redesigned the duo mate system into a full team system. The duo mate option has been removed from the options menu.
+  Press Alt+T to open the Teams menu. From there you can create a team, invite players, leave, or disband.
+  Creating a team automatically makes you the team leader.
+  /teams: list all active teams and their member counts.
+  /teaminvite [name]: invite a player to your team (leader only).
+  /teamaccept: accept a pending team invite.
+  /teamdecline: decline a pending team invite.
+  /teamleave: leave your current team. If the leader leaves, leadership passes to the next member.
+  /teamdisband: disband the team (leader only).
+  /T [message]: send a chat message only to your team members.
+  Life injection now works with teammates instead of duo mates. When a teammate dies, all other team members receive a life injection item and can revive them.
+
 New in 0.4.9.9.4, build 53 (2026-07-03)
 Fixed a bug where the equipment menu showed an unequip button even when no equipment was equipped.
 Refactored how developer accounts are handled to prevent cheated clients from hacking staff accounts.

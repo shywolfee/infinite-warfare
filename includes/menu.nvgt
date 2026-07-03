@@ -778,8 +778,6 @@ else if (f.is_pressed(f_account))
 audio_form ai;
 ai.create_window("Account Info", false, true);
 ai.create_input_box("Username", name, "", 0, false, true, false);
-if (mate!="")
-ai.create_input_box("Duo mate", mate, "", 0, false, true, false);
 if (account_exists(name))
 {
 savedata acct(get_account_path(name), ACCOUNT_SECRET);
@@ -867,24 +865,77 @@ netloop();
 if (f_remove>-1 and f.is_pressed(f_remove))
 {
 int sel = f.get_list_position(f_list);
-if (sel == 0)
+if (sel == 0 and equip_body!="")
 {
 unequip_item("body");
 equipment_menu();
 return;
 }
-else if (sel == 1)
+else if (sel == 1 and equip_holster1!="")
 {
 unequip_holster(1);
 equipment_menu();
 return;
 }
-else if (sel == 2)
+else if (sel == 2 and equip_holster2!="")
 {
 unequip_holster(2);
 equipment_menu();
 return;
 }
+else
+{
+speak("This slot is empty.");
+}
+}
+else if (f.is_pressed(f_close))
+{
+return;
+}
+}
+}
+// ---------------------------------------------------------------------------
+// Teams menu — create or manage teams.
+// ---------------------------------------------------------------------------
+void teams_menu()
+{
+audio_form f;
+f.create_window("Teams", false, true);
+int f_create=f.create_button("&Create a team");
+int f_invite=f.create_button("&Invite a player");
+int f_leave=f.create_button("&Leave your team");
+int f_disband=f.create_button("&Disband your team");
+int f_close=f.create_button("Cl&ose", true, true);
+f.focus(f_create);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_create))
+{
+send_reliable(0, "create_team", 0);
+break;
+}
+else if (f.is_pressed(f_invite))
+{
+string inv_name=af_input("Player name to invite","",true);
+if (inv_name!="")
+send_reliable(0, "/teaminvite "+inv_name, 1);
+break;
+}
+else if (f.is_pressed(f_leave))
+{
+send_reliable(0, "/teamleave", 1);
+break;
+}
+else if (f.is_pressed(f_disband))
+{
+int q=yesno("Are you sure you want to disband your team?");
+if (q==1)
+send_reliable(0, "/teamdisband", 1);
+break;
 }
 else if (f.is_pressed(f_close))
 {
@@ -1025,7 +1076,6 @@ void optionsmenu()
 audio_form f;
 f.create_window("Options", false, true);
 // Gameplay
-int f_mate=f.create_input_box("Duo mate (leave blank to clear)", mate, "", 0, false, false, false);
 int f_remember=f.create_checkbox("Remember me (save account on exit)", remember_me);
 int f_target_hp=f.create_checkbox("Show target HP on hit (Alt+Shift+W to toggle in-game)", show_target_hp);
 // Controls
@@ -1040,7 +1090,7 @@ int f_vol=f.create_input_box("Master volume (-60 to 0)", ""+mastervol, "", 0, fa
 // Buttons
 int f_save=f.create_button("&Save", true);
 int f_close=f.create_button("&Cancel", false, true);
-f.focus(f_mate);
+f.focus(0);
 while (true)
 {
 wait(5);
@@ -1055,13 +1105,6 @@ return;
 }
 if (f.is_pressed(f_save))
 {
-string new_mate=f.get_text(f_mate);
-if (new_mate!="" and string_contains(new_mate, " ", 1)>=0)
-{
-dlg("Duo mate name must not contain spaces.");
-continue;
-}
-mate=new_mate;
 remember_me=f.is_checked(f_remember);
 show_target_hp=f.is_checked(f_target_hp);
 rctrl=(f.is_checked(f_rctrl) ? 1 : 0);

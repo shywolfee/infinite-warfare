@@ -692,8 +692,10 @@ restore_stamina(5);
 }
 }
 
-void announce_nearby_vehicles_tracked(int px, int py, int pz)
+string pending_vehicle_nearby="";
+string get_nearby_vehicles_string(int px, int py, int pz)
 {
+string result="";
 for (uint i = 0; i < map_vehicles.length(); i++)
 {
 if (map_vehicles[i].destroyed) continue;
@@ -726,9 +728,16 @@ if (level == 2) info += ", above";
 else if (level == 0) info += ", below";
 info += ", " + dir_name + ", " + int(dist) + " feet away.";
 }
-speak(info);
+if(result!="") result+=" ";
+result+=info;
 }
 }
+return result;
+}
+void announce_nearby_vehicles_tracked(int px, int py, int pz)
+{
+string info=get_nearby_vehicles_string(px, py, pz);
+if(info!="") speak(info);
 }
 
 void check_vehicle_damage_from_explosion(int ex, int ey, int ez, int blast_radius, int min_dmg, int max_dmg)

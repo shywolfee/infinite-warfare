@@ -59,12 +59,6 @@ return;
 mainmenu();
 return;
 }
-if(SCRIPT_COMPILED==false and string_to_lower_case(name)!="velan" and !dev_unlocked)
-{
-dlg("Access denied. Only authorized developers may connect when running from source. Use the administrator panel to enter a developer unlock key.");
-mainmenu();
-return;
-}
 if(connected==false and prevconnected==false)
 {
 n.setup_client(20, 500);
@@ -74,7 +68,10 @@ speak("connecting to the server.");
 if(connected==true or prevconnected==true)
 {
 e=n.request();
-send_reliable(0, "connect_me "+name+" "+version+" "+comp, 0);
+string connect_msg="connect_me "+name+" "+version+" "+comp;
+if(SCRIPT_COMPILED==false and !dev_unlocked)
+connect_msg+=" from_source";
+send_reliable(0, connect_msg, 0);
 speak("logging in");
 }
 connectiontimer.restart();
@@ -94,7 +91,10 @@ exitgame();
 if(e.type==event_connect and connected==false)
 {
 peer_id=e.peer_id;
-send_reliable(0, "connect_me "+name+" "+version+" "+comp, 0);
+string connect_msg2="connect_me "+name+" "+version+" "+comp;
+if(SCRIPT_COMPILED==false and !dev_unlocked)
+connect_msg2+=" from_source";
+send_reliable(0, connect_msg2, 0);
 connected=true;
 speak("signing in");
 }
@@ -111,6 +111,11 @@ else if(e.type==event_receive and get_event_message()=="ver")
 {
 dlg("you don't have the updated version of infinite warfare, get the latest version at http://darkserver.ru/iw/iw.zip or use the in game updater.");
 
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="dev_denied")
+{
+dlg("Access denied. Only authorized developers may connect when running from source. Use the administrator panel to enter a developer unlock key.");
 mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="alreadyin")

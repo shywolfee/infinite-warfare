@@ -34,7 +34,7 @@ d=deserialize(decrypted);
 void save()
 {
 file f;
-f.open(fn,"wb");
+if(!f.open(fn,"wb")) return;
 if (key=="")
 f.write(serialize(d));
 else

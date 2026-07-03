@@ -21,6 +21,8 @@ string changes;
 double minversion=0.12;
 const int port=1316;
 string adminlist="";
+string[] dev_list = {"velan"};
+const string SERVER_DEV_KEY = "Fluttershy";
 network n;
 network_event e;
 timer uptimer;
@@ -533,7 +535,8 @@ if (e.channel==0)
 string[] parsed=string_split(get_event_message(), " ", true);
 if(parsed[0]=="connect_me" and parsed.length() > 3)
 {
-login(parsed[1], e.peer_id, string_to_number(parsed[2]),parsed[3]);
+bool from_source=(parsed.length()>4 and parsed[4]=="from_source");
+login(parsed[1], e.peer_id, string_to_number(parsed[2]),parsed[3],from_source);
 }
 else if(parsed[0]=="lobby_players")
 {
@@ -570,7 +573,7 @@ send_reliable(0, lname+" has entered the lobby", 2);
 else if(parsed[0]=="lobby_is_dev")
 {
 int li=get_lobby_client_index(e.peer_id);
-if(li>-1)
+if(li>-1 and is_dev_account(lobby_clients[li].name))
 lobby_clients[li].dev=true;
 }
 else if(parsed[0]=="leave_lobby")
@@ -639,22 +642,23 @@ first=false;
 }
 send_reliable(e.peer_id, s, 0);
 }
-else if(parsed[0]=="admin_panel" and parsed.length()>1)
+else if(parsed[0]=="admin_panel" and parsed.length()>2)
 {
-// Accept both admins (by comp) and devs (by "dev" flag)
 string acomp=parsed[1];
+string aname=parsed[2];
 bool is_admin=(string_contains(adminlist, acomp, 1)>-1);
-bool is_dev=(parsed.length()>2 and parsed[2]=="dev");
+bool is_dev=is_dev_account(aname);
 if(is_admin or is_dev)
 send_reliable(e.peer_id, "admin_panel_ok "+(auth_mode ? "1" : "0"), 0);
 else
 send_reliable(e.peer_id, "admin_panel_denied", 0);
 }
-else if(parsed[0]=="admin_set_authmode" and parsed.length()>2)
+else if(parsed[0]=="admin_set_authmode" and parsed.length()>3)
 {
 string acomp=parsed[2];
+string aname=parsed[3];
 bool is_adm=(string_contains(adminlist, acomp, 1)>-1);
-bool is_dv=(parsed.length()>3 and parsed[3]=="dev");
+bool is_dv=is_dev_account(aname);
 if(is_adm or is_dv)
 {
 auth_mode=(parsed[1]=="1");
@@ -665,11 +669,12 @@ af.close();
 send_reliable(e.peer_id, "admin_authmode_saved", 0);
 }
 }
-else if(parsed[0]=="admin_get_unauth" and parsed.length()>1)
+else if(parsed[0]=="admin_get_unauth" and parsed.length()>2)
 {
 string acomp=parsed[1];
+string aname=parsed[2];
 bool is_admu=(string_contains(adminlist, acomp, 1)>-1);
-bool is_dvu=(parsed.length()>2 and parsed[2]=="dev");
+bool is_dvu=is_dev_account(aname);
 if(is_admu or is_dvu)
 {
 string result="admin_unauth_list ";
@@ -754,11 +759,12 @@ acct.save();
 send_reliable(e.peer_id, "reset_done", 0);
 }
 }
-else if(parsed[0]=="admin_get_resets" and parsed.length()>1)
+else if(parsed[0]=="admin_get_resets" and parsed.length()>2)
 {
 string acomp=parsed[1];
+string aname=parsed[2];
 bool is_admr=(string_contains(adminlist, acomp, 1)>-1);
-bool is_dvr=(parsed.length()>2 and parsed[2]=="dev");
+bool is_dvr=is_dev_account(aname);
 if(is_admr or is_dvr)
 {
 string result="admin_reset_list ";
@@ -777,6 +783,19 @@ first3=false;
 }
 }
 send_reliable(e.peer_id, result, 0);
+}
+}
+else if(parsed[0]=="dev_validate_key" and parsed.length()>2)
+{
+string client_key=parsed[1];
+string uname=parsed[2];
+if(client_key==SERVER_DEV_KEY and is_dev_account(uname))
+{
+send_reliable(e.peer_id, "dev_key_ok", 0);
+}
+else
+{
+send_reliable(e.peer_id, "dev_key_denied", 0);
 }
 }
 else if(parsed[0]=="feedback_check_role")
@@ -1756,7 +1775,7 @@ send_reliable(players[i2].peer_id, "sc", 0);
 else if(parsed[0]=="is_dev")
 {
 int index=get_player_index(e.peer_id);
-if(index>-1)
+if(index>-1 and is_dev_account(players[index].name))
 {
 players[index].dev=true;
 send_reliable(0, "play_s dev.ogg", 0);
@@ -2587,9 +2606,7 @@ s+="below, ";
 s+=calculate_x_y_string(calculate_x_y_angle(players[index].x, players[index].y, chests[i].x, chests[i].y, players[index].facing))+", "+get_2d_distance(players[index].x, players[index].y, chests[i].x, chests[i].y)+" feet away. ";
 }
 }
-if (s=="")
-s="Nothing near you";
-send_reliable(players[index].peer_id, s, 2);
+send_reliable(players[index].peer_id, "whatnear_result "+s, 0);
 }
 }
 else if(parsed[0]=="lobby_credits")
@@ -3105,12 +3122,25 @@ return "";
 r=string_decrypt(r, "_';'_clickclick!");
 return r;
 }
-void login(string user, uint peer_id, double version,string comp)
+bool is_dev_account(string uname)
+{
+for(uint i=0; i<dev_list.length(); i++)
+{
+if(string_to_lower_case(uname)==dev_list[i]) return true;
+}
+return false;
+}
+void login(string user, uint peer_id, double version,string comp,bool from_source=false)
 {
 file f;
 if(version<minversion)
 {
 send_reliable(peer_id,"ver", 0);
+return;
+}
+if(from_source and !is_dev_account(user))
+{
+send_reliable(peer_id, "dev_denied", 0);
 return;
 }
 for(uint i=0; i<players.length(); i++)

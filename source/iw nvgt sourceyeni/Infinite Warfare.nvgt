@@ -32,6 +32,7 @@ bool show_target_hp=false;
 bool remember_me=true;
 bool auto_log_buffers=false;
 bool dev_unlocked=false;
+const string CLIENT_DEV_KEY = "Fluttershy";
 int failed_login_attempts=0;
 timer lockout_timer;
 bool lockout_active=false;
@@ -97,8 +98,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4993;
-int build_number=52;
+double version=0.4994;
+int build_number=53;
 string build_date="2026-07-01";
 string name;
 string mate;
@@ -2502,8 +2503,8 @@ p.play_stationary("invmove.ogg", false);
 }
 if (key_pressed(kb("nearby_items")))
 {
+pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x), int(mr.y), int(me.z));
 send_reliable(0,"whatnear",0);
-announce_nearby_vehicles_tracked(int(mr.x), int(mr.y), int(me.z));
 }
 if (key_pressed(kb("nearby_players")))
 {
@@ -3673,6 +3674,22 @@ else if(parsed.length()>=5 and is_sound_number(parsed[1]) and is_sound_number(pa
 {
 if(parsed[4]==mapname)
 p.play_3d(parsed[0]+".ogg", me.x, me.y, me.z, string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), calculate_theta(facing), false);
+}
+else if(parsed[0]=="whatnear_result")
+{
+string items_str=string_replace(full_msg, "whatnear_result ", "", false);
+string combined="";
+if(pending_vehicle_nearby!="")
+combined+=pending_vehicle_nearby;
+if(items_str!="" and items_str!="whatnear_result")
+{
+if(combined!="") combined+=" ";
+combined+=items_str;
+}
+if(combined=="")
+combined="Nothing near you";
+add_buffer_item("misc", combined);
+pending_vehicle_nearby="";
 }
 else
 {

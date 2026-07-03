@@ -867,23 +867,27 @@ netloop();
 if (f_remove>-1 and f.is_pressed(f_remove))
 {
 int sel = f.get_list_position(f_list);
-if (sel == 0)
+if (sel == 0 and equip_body != "")
 {
 unequip_item("body");
 equipment_menu();
 return;
 }
-else if (sel == 1)
+else if (sel == 1 and equip_holster1 != "")
 {
 unequip_holster(1);
 equipment_menu();
 return;
 }
-else if (sel == 2)
+else if (sel == 2 and equip_holster2 != "")
 {
 unequip_holster(2);
 equipment_menu();
 return;
+}
+else
+{
+speak("Nothing equipped in this slot.");
 }
 }
 else if (f.is_pressed(f_close))

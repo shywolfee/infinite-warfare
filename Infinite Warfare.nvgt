@@ -98,9 +98,9 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4994;
-int build_number=53;
-string build_date="2026-07-01";
+double version=0.4995;
+int build_number=54;
+string build_date="2026-07-03";
 string name;
 string mate;
 double facing=0;
@@ -244,13 +244,13 @@ weapons.insert_last("empty");
 load_all_weapons();
 // --- Attachment registrations ---
 string[] compat_pistol_sup = {"glock17", "beretta92fs_pistol", "desert_eagle"};
-register_attachment("pistol_suppressor", "Pistol Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_pistol_sup);
+register_attachment("pistol_suppressor", "Compact Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_pistol_sup);
 string[] compat_smg_sup = {"mp5", "uzi", "mp7", "p90_mp"};
-register_attachment("smg_suppressor", "SMG Suppressor", "silenced", "muzzle", true, 1.05, 1.0, compat_smg_sup);
+register_attachment("smg_suppressor", "Tactical Suppressor", "silenced", "muzzle", true, 1.05, 1.0, compat_smg_sup);
 string[] compat_rifle_sup = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle"};
 register_attachment("rifle_suppressor", "Rifle Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_rifle_sup);
 string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"};
-register_attachment("sniper_suppressor", "Sniper Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
+register_attachment("sniper_suppressor", "Precision Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
 // --- Holster registrations ---
 string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle"};
 register_holster("pistol_holster", "Pistol Holster", h_pistol, false, 0, "");
@@ -264,7 +264,7 @@ string[] h_rifle = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_
 register_holster("rifle_strap", "Rifle Strap", h_rifle, false, 0, "");
 string[] h_sniper = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"};
 register_holster("sniper_carry_case", "Sniper Carry Case", h_sniper, false, 0, "");
-string[] h_shotgun = {"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun"};
+string[] h_shotgun = {"benelli_m4_shotgun", "spas_12_shotgun"};
 register_holster("shotgun_bandoleer", "Shotgun Bandoleer", h_shotgun, true, 16, "12_gauge_shell_box");
 string[] h_knife = {"combatknife"};
 register_holster("knife_sheath", "Knife Sheath", h_knife, false, 0, "");

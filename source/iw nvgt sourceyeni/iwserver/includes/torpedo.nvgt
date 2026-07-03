@@ -1,0 +1,101 @@
+torpedo@[] torpedos(0);
+class torpedo
+{
+bool canmove=true;
+double x;
+double y;
+int z;
+int dir;
+string map;
+string owner;
+timer movetimer;
+int movetime=120;
+torpedo(double tx,double ty,int tz,double tdir,string tmap,string towner)
+{
+dir=tdir;
+x=tx;
+y=ty;
+z=tz;
+map=tmap;
+owner=towner;
+}
+}
+void torpedoloop()
+{
+for (uint i=0; i<torpedos.length(); i++)
+{
+if(torpedos[i].movetimer.elapsed > 20 and torpedos[i].canmove==true)
+{
+torpedos[i].movetimer.restart();
+vector r;
+r=move(torpedos[i].x, torpedos[i].y, torpedos[i].dir);
+torpedos[i].x=r.x;
+torpedos[i].y=r.y;
+}
+if(get_tile_at(torpedos[i].x,torpedos[i].y,torpedos[i].z,torpedos[i].map)!="shallow")  
+{
+play("torpedoexplode",torpedos[i].x,torpedos[i].y,torpedos[i].z,torpedos[i].map);
+send_reliable(0,"distsound torpedodist.ogg "+torpedos[i].x+" "+torpedos[i].y+" "+torpedos[i].z+" "+torpedos[i].map,0);
+for (uint i2=0; i2<players.length(); i2++)
+{
+if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false)
+{
+players[i2].health-=700;
+players[i2].hitby=torpedos[i].owner+"'s torpedo";
+play("torpedohit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+play("playerhit"+random(1,6),players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+}
+}
+torpedos.remove_at(i);
+return;
+}
+for (uint i2=0; i2<players.length(); i2++)
+{
+ if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=5 and players[i2].map==torpedos[i].map and torpedos[i].owner!=players[i2].name)
+{
+play("torpedoexplode",torpedos[i].x,torpedos[i].y,torpedos[i].z,torpedos[i].map);
+send_reliable(0,"distsound torpedodist.ogg "+torpedos[i].x+" "+torpedos[i].y+" "+torpedos[i].z+" "+torpedos[i].map,0);
+if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false)
+{
+int index=get_player_index_from(torpedos[i].owner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+
+players[i2].health-=700;
+players[i2].hitby=torpedos[i].owner+"'s torpedo";
+play("torpedohit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
+torpedos.remove_at(i);
+return;
+}
+}
+}
+for (uint i2=0; i2<planes.length(); i2++)
+{
+ if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=5 and planes[i2].map==torpedos[i].map)
+{
+play("torpedoexplode",torpedos[i].x,torpedos[i].y,torpedos[i].z,torpedos[i].map);
+send_reliable(0,"distsound torpedodist.ogg "+torpedos[i].x+" "+torpedos[i].y+" "+torpedos[i].z+" "+torpedos[i].map,0);
+if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=10 and planes[i2].map==torpedos[i].map)
+{
+int index=get_player_index_from(torpedos[i].owner);
+if(index>-1)
+{
+send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+}
+
+planes[i2].health-=700;
+play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
+torpedos.remove_at(i);
+return;
+}
+}
+}
+}
+}
+void spawn_torpedo(double x,double y,int z,double dir,string map,string owner)
+{
+torpedo e1(x,y,z,dir,map,owner);
+torpedos.insert_last(e1);
+}

@@ -1,0 +1,410 @@
+int bufferbeep=1;
+int bufferpos;
+buffer@[] buffers(0);
+sound_pool bufferpool;
+class buffer
+{
+int interrupt;
+int active=1;
+int pos;
+string name;
+string[] items;
+string soundname;
+bool hidden=false;
+bool speak=true;
+buffer(string n, string snd,string[] items1)
+{
+soundname=snd;
+name=n;
+items=items1;
+}
+}
+void move_buffer_back()
+{
+string name=buffers[bufferpos].name;
+string [] items=buffers[bufferpos].items;
+string snd=buffers[bufferpos].soundname;
+if(bufferpos>0) 
+{
+buffers.remove_at(bufferpos);
+buffer b(name,snd,items);
+buffers.insert_at(bufferpos-1, b);
+bufferpos--;
+}
+}
+void move_buffer_next()
+{
+string name=buffers[bufferpos].name;
+string [] items=buffers[bufferpos].items;
+string snd=buffers[bufferpos].soundname;
+if(bufferpos<buffers.length()-1) 
+{
+buffers.remove_at(bufferpos);
+buffer b(name,snd,items);
+buffers.insert_at(bufferpos+1, b);
+bufferpos++;
+}
+}
+void create_buffer(string bname, string snd="")
+{
+if(buffer_exist(bname)==true)
+{
+return;
+}
+string[] items;
+buffer b1(bname,snd,items);
+buffers.insert_last(b1);
+}
+void firstbuffer()
+{
+bufferpos=0;
+speakfocusedbuffer();
+}
+void lastbuffer()
+{
+bufferpos=buffers.length()-1;
+if (buffers[bufferpos].items.length()==0 and bufferpos>0)
+{
+bufferleft();
+return;
+}
+speakfocusedbuffer();
+}
+void bufferleft()
+{
+if (bufferpos<=0)
+{
+bufferpos=0;
+speakfocusedbuffer();
+}
+else
+{
+bufferpos-=1;
+if (buffers[bufferpos].items.length()==0)
+{
+bufferleft();
+return;
+}
+speakfocusedbuffer();
+}
+}
+void bufferright()
+{
+if (bufferpos>=(buffers.length()-1))
+{
+if (buffers.length()>0)
+bufferpos=buffers.length()-1;
+speakfocusedbuffer();
+}
+else
+{
+bufferpos+=1;
+if (buffers[bufferpos].items.length()==0)
+{
+bufferright();
+return;
+}
+speakfocusedbuffer();
+}
+}
+void nextbufferitem()
+{
+play_buffer_item_sound();
+if (buffers[bufferpos].pos<(buffers[bufferpos].items.length()-1))
+{
+buffers[bufferpos].pos+=1;
+speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
+}
+}
+void prevbufferitem()
+{
+play_buffer_item_sound();
+if (buffers[bufferpos].pos>0)
+{
+buffers[bufferpos].pos-=1;
+speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
+}
+}
+void topbufferitem()
+{
+play_buffer_item_sound();
+if (buffers[bufferpos].items.length()>0)
+{
+buffers[bufferpos].pos=0;
+speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
+}
+}
+void bottombufferitem()
+{
+play_buffer_item_sound();
+if (buffers[bufferpos].items.length()>0)
+{
+buffers[bufferpos].pos=(buffers[bufferpos].items.length()-1);
+speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
+}
+}
+void add_buffer_item(string buffername, string item, string snd="")
+{
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].name==buffername and buffers[i].active==1 or buffers[i].name=="all" and buffers[i].active==1)
+{
+if (buffers[i].name!="all")
+{
+if (buffers[i].speak==true and buffer_muted("all")==true)
+{
+if (buffers[i].soundname!="")
+bufferpool.play_stationary(snd>""?snd:buffers[i].soundname,false);
+speak(item,buffers[i].interrupt!=0);
+}
+}
+if (buffers[i].name=="all" and buffer_muted(buffername)==false)
+continue;
+buffers[i].items.insert_last(item);
+}
+}
+}
+void copy_buffer_item()
+{
+if (buffers[bufferpos].items.length()>0)
+clipboard_set_text(buffers[bufferpos].items[buffers[bufferpos].pos]);
+}
+void activate_buffer()
+{
+if (buffers[bufferpos].active==1)
+{
+buffers[bufferpos].active=0;
+speak(buffers[bufferpos].name+" deactivated.");
+}
+else if (buffers[bufferpos].active==0)
+{
+buffers[bufferpos].active=1;
+speak(buffers[bufferpos].name+" activated.");
+}
+}
+void toggle_speak_buffer()
+{
+if (buffers[bufferpos].speak==true)
+{
+buffers[bufferpos].speak=false;
+speak(buffers[bufferpos].name+" muted.");
+}
+else if (buffers[bufferpos].speak==false)
+{
+buffers[bufferpos].speak=true;
+speak(buffers[bufferpos].name+" unmuted.");
+}
+}
+void interrupt_buffer()
+{
+if (buffers[bufferpos].interrupt==1)
+{
+buffers[bufferpos].interrupt=0;
+speak(buffers[bufferpos].name+" not interrupting.");
+}
+else if (buffers[bufferpos].interrupt==0)
+{
+buffers[bufferpos].interrupt=1;
+speak(buffers[bufferpos].name+" interrupting.");
+}
+}
+int buffer_active(string buffername)
+{
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].name==buffername)
+{
+return buffers[i].active;
+}
+}
+return 0;
+}
+void speakfocusedbuffer()
+{
+if (buffers[bufferpos].items.length()==0 and buffers[bufferpos].name!="all")
+return;
+play_buffer_sound();
+string muted;
+if (buffers[bufferpos].speak==false)
+muted+=" Muted.";
+if (bufferbeep==0 and buffers[bufferpos].items.length()>0)
+muted+=" "+(buffers[bufferpos].pos+1)+" of";
+if (buffers[bufferpos].items.length()>0)
+speak(buffers[bufferpos].name+"."+muted+" "+buffers[bufferpos].items.length());
+else
+speak(buffers[bufferpos].name+"."+muted+" "+"Empty.");
+}
+bool buffer_muted(string buffername)
+{
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].name==buffername)
+return buffers[i].speak;
+}
+return false;
+}
+bool buffer_exist(string buffername)
+{
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].name==buffername)
+{
+return true;
+}
+}
+return false;
+}
+int find_buffer(const string name) {
+for(uint i=0; i<buffers.length(); i++)
+if (buffers[i].name==name)
+return i;
+return -1;
+}
+void play_buffer_sound()
+{
+if (bufferbeep==1)
+bufferpool.play_stationary_extended("bufferswitch.ogg",false,0,convert_to_pan(buffers.length(),bufferpos,-20,20),0,100);
+}
+void play_buffer_item_sound()
+{
+if (bufferbeep==1)
+bufferpool.play_stationary_extended("buffermove.ogg",false,0,convert_to_pan(buffers.length(),bufferpos,-20,20),0,convert_to_pan(buffers[bufferpos].items.length(),buffers[bufferpos].pos,25,200));
+}
+void speak_total_buffer()
+{
+double items=0;
+double size=0;
+for (uint i=0; i<buffers.length(); i++)
+{
+items+=buffers[i].items.length();
+for (uint i2=0; i2<buffers[i].items.length(); i2++)
+{
+size+=buffers[i].items[i2].length();
+}
+}
+speak(items+" total items, "+convert_size(size));
+}
+void review_buffer_item()
+{
+if (buffers[bufferpos].items.length()==0) return;
+string item=buffers[bufferpos].items[buffers[bufferpos].pos];
+audio_form f;
+f.create_window("Review Buffer Item", false, true);
+f.create_input_box("Content", item, "", 0, false, true, true);
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_close))
+return;
+}
+}
+void export_buffers()
+{
+calendar dt;
+string ts=dt.year+"-"+dt.month+"-"+dt.day+"_"+dt.hour+"-"+dt.minute+"-"+dt.second;
+string dir="logs/"+ts;
+if (!directory_exists("logs"))
+directory_create("logs");
+if (!directory_exists(dir))
+directory_create(dir);
+file f;
+f.open(dir+"/bufferlog.txt","wb");
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()==0) continue;
+f.write("=== "+buffers[i].name+" ("+buffers[i].items.length()+" items) ===\r\n");
+for (uint j=0; j<buffers[i].items.length(); j++)
+{
+f.write(buffers[i].items[j]+"\r\n");
+}
+f.write("\r\n");
+}
+f.close();
+speak("Buffers exported to "+dir+"/bufferlog.txt");
+}
+void auto_export_buffers()
+{
+bool has_content=false;
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()>0)
+{
+has_content=true;
+break;
+}
+}
+if (!has_content) return;
+if (!directory_exists("logs"))
+directory_create("logs");
+calendar dt;
+string ts=dt.year+"-"+dt.month+"-"+dt.day+"_"+dt.hour+"-"+dt.minute+"-"+dt.second;
+string dir="logs/"+ts;
+if (!directory_exists(dir))
+directory_create(dir);
+file fall;
+fall.open(dir+"/all.txt","wb");
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()==0) continue;
+file fb;
+fb.open(dir+"/"+buffers[i].name+".txt","wb");
+for (uint j=0; j<buffers[i].items.length(); j++)
+{
+fb.write(buffers[i].items[j]+"\r\n");
+fall.write("["+buffers[i].name+"] "+buffers[i].items[j]+"\r\n");
+}
+fb.close();
+}
+fall.close();
+}
+void buffer_manage_menu()
+{
+while(true)
+{
+audio_form f;
+f.create_window("Buffers", false, true);
+int f_list=f.create_list("Buffers (press Enter to mute or unmute)", 0, false);
+int[] buf_indices;
+for (uint i=0; i<buffers.length(); i++)
+{
+if (buffers[i].items.length()>0)
+{
+string label=buffers[i].name;
+if (buffers[i].speak==false)
+label+=" (muted)";
+label+=" - "+buffers[i].items.length()+" items";
+f.add_list_item(f_list, label);
+buf_indices.insert_last(i);
+}
+}
+if (buf_indices.length()==0)
+{
+f.add_list_item(f_list, "No buffers with content.");
+}
+int f_toggle=f.create_button("&Toggle mute", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_list);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_toggle))
+{
+int sel=f.get_list_position(f_list);
+if (sel>=0 and sel<int(buf_indices.length()))
+{
+int bi=buf_indices[sel];
+buffers[bi].speak=!buffers[bi].speak;
+speak(buffers[bi].name + (buffers[bi].speak ? " unmuted." : " muted."));
+refresh=true;
+}
+}
+if (f.is_pressed(f_close))
+return;
+}
+}
+}

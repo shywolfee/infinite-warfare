@@ -1,0 +1,588 @@
+mapname:Archipelago
+maxx:1000
+maxy:1000
+maxz:100
+
+// ===========================
+// BASE LAYER: Ocean everywhere
+// ===========================
+tile:0:1000:0:1000:0:0:shallow
+tile:0:1000:0:1000:-100:-1:wallrock
+src:0:1000:0:1000:0:5:ocean1.ogg:-8
+zone:0:1000:0:1000:0:5:the ocean
+
+// ===========================
+// CENTRAL ISLAND (350-650, 350-650)
+// The city
+// ===========================
+// Beach ring
+tile:340:660:340:660:0:0:sand
+zone:340:660:340:660:0:5:the beach of the central island
+src:340:660:340:350:0:5:beach.ogg:-3
+src:340:660:650:660:0:5:beach.ogg:-3
+src:340:350:340:660:0:5:beach.ogg:-3
+src:650:660:340:660:0:5:beach.ogg:-3
+// Main island surface
+tile:360:640:360:640:0:0:concrete2
+zone:360:640:360:640:0:50:the city on the central island
+
+// --- City streets ---
+tile:360:640:498:502:0:0:concrete5
+zone:360:640:498:502:0:5:main street running east to west
+tile:498:502:360:640:0:0:concrete5
+zone:498:502:360:640:0:5:main street running north to south
+
+// --- Central plaza ---
+tile:480:520:480:520:0:0:concrete12
+zone:480:520:480:520:0:10:the central plaza
+tile:498:502:498:502:0:0:water1
+zone:497:503:497:503:0:5:the fountain in the central plaza
+src:498:502:498:502:0:5:waves2.ogg:-5
+
+// --- City Hall (north side of plaza) ---
+tile:475:525:460:478:0:0:hardwood
+tile:475:475:460:478:0:30:wallbrick
+tile:525:525:460:478:0:30:wallbrick
+tile:475:525:460:460:0:30:wallbrick
+tile:475:525:478:478:0:30:wallbrick
+tile:475:525:460:478:30:30:wallbrick
+tile:475:525:460:478:31:31:concrete2
+zone:475:525:460:478:0:30:city hall
+zone:475:525:460:478:31:50:roof of city hall
+src:476:524:461:477:0:30:calm.ogg:-10
+// City hall entrance (gap in south wall)
+tile:495:505:478:478:6:30:wallbrick
+
+// --- Market building (east side of plaza) ---
+tile:522:550:485:515:0:0:tile1
+tile:522:522:485:515:0:20:wallbrick
+tile:550:550:485:515:0:20:wallbrick
+tile:522:550:485:485:0:20:wallbrick
+tile:522:550:515:515:0:20:wallbrick
+tile:522:550:485:515:20:20:wallbrick
+tile:522:550:485:515:21:21:concrete2
+zone:522:550:485:515:0:20:the market
+zone:522:550:485:515:21:50:roof of the market
+// Market entrance
+tile:522:522:498:502:6:20:wallbrick
+
+// --- Armory (west side of plaza) ---
+tile:450:478:485:515:0:0:concrete10
+tile:450:450:485:515:0:20:wallbrick
+tile:478:478:485:515:0:20:wallbrick
+tile:450:478:485:485:0:20:wallbrick
+tile:450:478:515:515:0:20:wallbrick
+tile:450:478:485:515:20:20:wallbrick
+tile:450:478:485:515:21:21:metal2
+zone:450:478:485:515:0:20:the armory
+zone:450:478:485:515:21:50:roof of the armory
+// Armory entrance
+tile:478:478:498:502:6:20:wallbrick
+ispawn:451:477:486:514:0:0:3000:3:frag_grenade:semtex_pack:smoke_bomb:bomb_vest:bunker_key
+
+// --- Barracks (south side of plaza) ---
+tile:475:525:522:550:0:0:hardwood2
+tile:475:475:522:550:0:25:wallbrick
+tile:525:525:522:550:0:25:wallbrick
+tile:475:525:522:522:0:25:wallbrick
+tile:475:525:550:550:0:25:wallbrick
+tile:475:525:522:550:25:25:wallbrick
+tile:475:525:522:550:26:26:plank
+zone:475:525:522:550:0:25:the barracks
+zone:475:525:522:550:26:50:roof of the barracks
+// Barracks entrance
+tile:495:505:522:522:6:25:wallbrick
+
+// --- Watchtower (NE corner of city) ---
+tile:600:610:370:380:0:0:concrete2
+tile:600:600:370:380:0:40:wallbrick
+tile:610:610:370:380:0:40:wallbrick
+tile:600:610:370:370:0:40:wallbrick
+tile:600:610:380:380:0:40:wallbrick
+tile:601:601:371:379:0:10:cement
+tile:602:609:371:379:10:10:concrete2
+tile:602:609:370:380:9:9:wallbrick
+tile:609:609:371:379:10:20:cement
+tile:601:608:371:379:20:20:concrete2
+tile:601:608:370:380:19:19:wallbrick
+tile:601:601:371:379:20:40:cement
+tile:602:609:371:379:40:40:concrete2
+zone:600:610:370:380:0:40:the watchtower
+zone:601:601:371:379:0:40:watchtower staircase
+zone:600:610:370:380:40:50:top of the watchtower
+
+// --- Hospital (SW area of city) ---
+tile:380:420:560:600:0:0:tile2
+tile:380:380:560:600:0:25:wallbrick
+tile:420:420:560:600:0:25:wallbrick
+tile:380:420:560:560:0:25:wallbrick
+tile:380:420:600:600:0:25:wallbrick
+tile:380:420:560:600:25:25:wallbrick
+tile:380:420:560:600:26:26:concrete2
+zone:380:420:560:600:0:25:the hospital
+zone:380:420:560:600:26:50:roof of the hospital
+// Hospital entrance
+tile:398:402:560:560:6:25:wallbrick
+ispawn:381:419:561:599:0:0:5000:3:health_potion:ultra_health_potion:life_injection:energetic_potion_red:energetic_potion_blue
+
+// --- Warehouse (SE area of city) ---
+tile:560:620:560:610:0:0:concrete10
+tile:560:560:560:610:0:30:wallbrick
+tile:620:620:560:610:0:30:wallbrick
+tile:560:620:560:560:0:30:wallbrick
+tile:560:620:610:610:0:30:wallbrick
+tile:560:620:560:610:30:30:wallbrick
+tile:560:620:560:610:31:31:metal2
+zone:560:620:560:610:0:30:the warehouse
+zone:560:620:560:610:31:50:roof of the warehouse
+// Warehouse entrance
+tile:588:592:560:560:6:30:wallbrick
+ispawn:561:619:561:609:0:0:2000:5:empty_bucket:hayvork:trector_plow:rock:bag:box
+
+// --- Small park in NW city ---
+tile:370:410:370:410:0:0:grass
+zone:370:410:370:410:0:10:the park
+src:370:410:370:410:0:10:forest.ogg:-6
+
+// ===========================
+// NORTH ISLAND (430-570, 80-200)
+// A fishing village
+// ===========================
+tile:420:580:70:210:0:0:sand
+zone:420:580:70:80:0:5:the beach of the north island
+zone:420:430:70:210:0:5:the beach of the north island
+zone:570:580:70:210:0:5:the beach of the north island
+tile:440:560:90:190:0:0:grass
+zone:440:560:90:190:0:50:the fishing village on the north island
+src:440:560:90:190:0:20:farm.ogg:-8
+
+// Village house 1
+tile:460:490:110:130:0:0:hardwood
+tile:460:460:110:130:0:15:wallwood
+tile:490:490:110:130:0:15:wallwood
+tile:460:490:110:110:0:15:wallwood
+tile:460:490:130:130:0:15:wallwood
+tile:460:490:110:130:15:15:wallwood
+tile:460:490:110:130:16:16:plank
+zone:460:490:110:130:0:15:village cottage
+zone:460:490:110:130:16:30:roof of the village cottage
+tile:473:477:130:130:6:15:wallwood
+
+// Village house 2
+tile:510:540:110:130:0:0:hardwood
+tile:510:510:110:130:0:15:wallwood
+tile:540:540:110:130:0:15:wallwood
+tile:510:540:110:110:0:15:wallwood
+tile:510:540:130:130:0:15:wallwood
+tile:510:540:110:130:15:15:wallwood
+tile:510:540:110:130:16:16:plank
+zone:510:540:110:130:0:15:fishermans hut
+zone:510:540:110:130:16:30:roof of the fishermans hut
+tile:523:527:130:130:6:15:wallwood
+
+// Village house 3
+tile:470:500:155:175:0:0:hardwood
+tile:470:470:155:175:0:15:wallwood
+tile:500:500:155:175:0:15:wallwood
+tile:470:500:155:155:0:15:wallwood
+tile:470:500:175:175:0:15:wallwood
+tile:470:500:155:175:15:15:wallwood
+tile:470:500:155:175:16:16:plank
+zone:470:500:155:175:0:15:village lodge
+zone:470:500:155:175:16:30:roof of the village lodge
+tile:483:487:175:175:6:15:wallwood
+
+// Village dock
+tile:498:502:70:90:0:0:plank
+zone:498:502:70:90:0:5:the village dock
+src:498:502:70:80:0:5:waves2.ogg:-3
+
+ispawn:440:560:90:190:0:0:2000:3:health_potion:frag_grenade:empty_bucket:rock
+
+// ===========================
+// SOUTH ISLAND (430-570, 800-920)
+// A town
+// ===========================
+tile:420:580:790:930:0:0:sand
+zone:420:580:920:930:0:5:the beach of the south island
+zone:420:430:790:930:0:5:the beach of the south island
+zone:570:580:790:930:0:5:the beach of the south island
+tile:440:560:810:910:0:0:concrete2
+zone:440:560:810:910:0:50:the town on the south island
+
+// Town road
+tile:440:560:858:862:0:0:concrete5
+zone:440:560:858:862:0:5:town main road
+
+// Town hall
+tile:470:530:820:850:0:0:tile1
+tile:470:470:820:850:0:25:wallbrick
+tile:530:530:820:850:0:25:wallbrick
+tile:470:530:820:820:0:25:wallbrick
+tile:470:530:850:850:0:25:wallbrick
+tile:470:530:820:850:25:25:wallbrick
+tile:470:530:820:850:26:26:concrete2
+zone:470:530:820:850:0:25:the town hall
+zone:470:530:820:850:26:50:roof of the town hall
+tile:498:502:850:850:6:25:wallbrick
+
+// General store
+tile:450:480:870:895:0:0:hardwood
+tile:450:450:870:895:0:20:wallwood
+tile:480:480:870:895:0:20:wallwood
+tile:450:480:870:870:0:20:wallwood
+tile:450:480:895:895:0:20:wallwood
+tile:450:480:870:895:20:20:wallwood
+tile:450:480:870:895:21:21:plank
+zone:450:480:870:895:0:20:the general store
+tile:463:467:870:870:6:20:wallwood
+ispawn:451:479:871:894:0:0:3000:3:health_potion:energetic_potion_red:smoke_bomb:empty_bucket
+
+// Tavern
+tile:520:550:870:900:0:0:hardwood2
+tile:520:520:870:900:0:20:wallwood
+tile:550:550:870:900:0:20:wallwood
+tile:520:550:870:870:0:20:wallwood
+tile:520:550:900:900:0:20:wallwood
+tile:520:550:870:900:20:20:wallwood
+tile:520:550:870:900:21:21:plank
+zone:520:550:870:900:0:20:the tavern
+tile:533:537:870:870:6:20:wallwood
+src:521:549:871:899:0:20:calm.ogg:-8
+
+// ===========================
+// EAST ISLAND (800-920, 430-570)
+// Residential area
+// ===========================
+tile:790:930:420:580:0:0:sand
+zone:790:800:420:580:0:5:the beach of the east island
+zone:920:930:420:580:0:5:the beach of the east island
+zone:790:930:420:430:0:5:the beach of the east island
+zone:790:930:570:580:0:5:the beach of the east island
+tile:810:910:440:560:0:0:grass3
+zone:810:910:440:560:0:50:the residential area on the east island
+src:810:910:440:560:0:20:birds3.ogg:-8
+
+// Residential street
+tile:858:862:440:560:0:0:concrete5
+zone:858:862:440:560:0:5:residential street
+
+// House 1
+tile:820:845:450:470:0:0:carpet1
+tile:820:820:450:470:0:18:wallwood
+tile:845:845:450:470:0:18:wallwood
+tile:820:845:450:450:0:18:wallwood
+tile:820:845:470:470:0:18:wallwood
+tile:820:845:450:470:18:18:wallwood
+tile:820:845:450:470:19:19:plank
+zone:820:845:450:470:0:18:a house on elm street
+tile:845:845:458:462:6:18:wallwood
+
+// House 2
+tile:820:845:490:510:0:0:carpet1
+tile:820:820:490:510:0:18:wallwood
+tile:845:845:490:510:0:18:wallwood
+tile:820:845:490:490:0:18:wallwood
+tile:820:845:510:510:0:18:wallwood
+tile:820:845:490:510:18:18:wallwood
+tile:820:845:490:510:19:19:plank
+zone:820:845:490:510:0:18:a house on maple street
+tile:845:845:498:502:6:18:wallwood
+
+// House 3
+tile:820:845:530:550:0:0:hardwood
+tile:820:820:530:550:0:18:wallwood
+tile:845:845:530:550:0:18:wallwood
+tile:820:845:530:530:0:18:wallwood
+tile:820:845:550:550:0:18:wallwood
+tile:820:845:530:550:18:18:wallwood
+tile:820:845:530:550:19:19:plank
+zone:820:845:530:550:0:18:a house on oak street
+tile:845:845:538:542:6:18:wallwood
+
+// House 4
+tile:875:900:450:470:0:0:tile2
+tile:875:875:450:470:0:18:wallwood
+tile:900:900:450:470:0:18:wallwood
+tile:875:900:450:450:0:18:wallwood
+tile:875:900:470:470:0:18:wallwood
+tile:875:900:450:470:18:18:wallwood
+tile:875:900:450:470:19:19:plank
+zone:875:900:450:470:0:18:a house on birch lane
+tile:875:875:458:462:6:18:wallwood
+
+// House 5
+tile:875:900:490:510:0:0:tile1
+tile:875:875:490:510:0:18:wallwood
+tile:900:900:490:510:0:18:wallwood
+tile:875:900:490:490:0:18:wallwood
+tile:875:900:510:510:0:18:wallwood
+tile:875:900:490:510:18:18:wallwood
+tile:875:900:490:510:19:19:plank
+zone:875:900:490:510:0:18:a house on cedar drive
+tile:875:875:498:502:6:18:wallwood
+
+// House 6
+tile:875:900:530:550:0:0:carpet1
+tile:875:875:530:550:0:18:wallwood
+tile:900:900:530:550:0:18:wallwood
+tile:875:900:530:530:0:18:wallwood
+tile:875:900:550:550:0:18:wallwood
+tile:875:900:530:550:18:18:wallwood
+tile:875:900:530:550:19:19:plank
+zone:875:900:530:550:0:18:a house on pine court
+tile:875:875:538:542:6:18:wallwood
+
+ispawn:810:910:440:560:0:0:3000:2:health_potion:energetic_potion_green:energetic_potion_blue
+
+// ===========================
+// WEST ISLAND (80-200, 430-570)
+// The mine
+// ===========================
+tile:70:210:420:580:0:0:sand
+zone:70:80:420:580:0:5:the beach of the west island
+zone:200:210:420:580:0:5:the beach of the west island
+zone:70:210:420:430:0:5:the beach of the west island
+zone:70:210:570:580:0:5:the beach of the west island
+tile:90:190:440:560:0:0:rocks1
+zone:90:190:440:560:0:50:the mining area on the west island
+
+// Mine entrance building
+tile:130:160:480:510:0:0:concrete10
+tile:130:130:480:510:0:20:wallstone
+tile:160:160:480:510:0:20:wallstone
+tile:130:160:480:480:0:20:wallstone
+tile:130:160:510:510:0:20:wallstone
+tile:130:160:480:510:20:20:wallstone
+tile:130:160:480:510:21:21:metal2
+zone:130:160:480:510:0:20:the mine entrance building
+tile:160:160:493:497:6:20:wallstone
+
+// Mine shaft going underground
+tile:145:145:495:495:0:0:metal5
+tile:145:145:495:495:-30:-1:ladder1
+zone:145:145:495:495:0:5:mine shaft entrance
+zone:145:145:495:495:-30:-1:mine shaft ladder
+
+// Underground mine tunnels
+tile:100:190:490:500:-30:-30:stone
+tile:100:190:490:500:-29:-25:blank
+zone:100:190:490:500:-30:-25:mine tunnel east-west
+tile:140:150:460:500:-30:-30:stone
+tile:140:150:460:500:-29:-25:blank
+zone:140:150:460:500:-30:-25:mine tunnel north-south
+src:90:200:450:560:-35:-20:rumble.ogg:-8
+
+// Mine ore deposits
+tile:100:115:490:500:-30:-30:gravel1
+zone:100:115:490:500:-30:-25:ore deposit at the end of the west tunnel
+tile:140:150:460:470:-30:-30:gravel1
+zone:140:150:460:470:-30:-25:ore deposit at the end of the north tunnel
+ispawn:100:115:490:500:-30:-30:5000:2:rock:empty_bucket
+ispawn:140:150:460:470:-30:-30:5000:2:rock
+
+// Mine equipment shed
+tile:100:125:450:470:0:0:concrete10
+tile:100:100:450:470:0:15:wallwood
+tile:125:125:450:470:0:15:wallwood
+tile:100:125:450:450:0:15:wallwood
+tile:100:125:470:470:0:15:wallwood
+tile:100:125:450:470:15:15:wallwood
+tile:100:125:450:470:16:16:metal2
+zone:100:125:450:470:0:15:the mining equipment shed
+tile:125:125:458:462:6:15:wallwood
+ispawn:101:124:451:469:0:0:5000:2:hayvork:trector_plow:empty_bucket
+
+// ===========================
+// BRIDGES
+// ===========================
+
+// North bridge (central to north island)
+tile:488:512:200:360:0:0:bridge
+tile:488:488:200:360:0:3:wallfence
+tile:512:512:200:360:0:3:wallfence
+zone:488:512:200:360:0:5:the north bridge
+src:488:512:200:360:0:5:stream2.ogg:-6
+
+// South bridge (central to south island)
+tile:488:512:640:800:0:0:bridge
+tile:488:488:640:800:0:3:wallfence
+tile:512:512:640:800:0:3:wallfence
+zone:488:512:640:800:0:5:the south bridge
+src:488:512:640:800:0:5:stream2.ogg:-6
+
+// East bridge (central to east island)
+tile:650:800:488:512:0:0:bridge
+tile:650:800:488:488:0:3:wallfence
+tile:650:800:512:512:0:3:wallfence
+zone:650:800:488:512:0:5:the east bridge
+src:650:800:488:512:0:5:stream2.ogg:-6
+
+// West bridge (central to west island)
+tile:200:360:488:512:0:0:bridge
+tile:200:360:488:488:0:3:wallfence
+tile:200:360:512:512:0:3:wallfence
+zone:200:360:488:512:0:5:the west bridge
+src:200:360:488:512:0:5:stream2.ogg:-6
+
+// ===========================
+// BUNKER ALPHA - Under central plaza
+// ===========================
+tile:480:520:480:520:-10:-10:stone
+tile:480:520:480:520:-9:-1:blank
+tile:480:480:480:520:-10:0:wallstone
+tile:520:520:480:520:-10:0:wallstone
+tile:480:520:480:480:-10:0:wallstone
+tile:480:520:520:520:-10:0:wallstone
+tile:480:520:480:520:0:0:wallstone
+zone:480:520:480:520:-10:0:bunker Alpha
+// Bunker Alpha entrance ladder
+tile:500:500:519:519:-10:0:ladder1
+tile:500:500:521:521:0:0:metal5
+zone:500:500:519:519:-10:0:ladder to bunker Alpha
+zone:500:500:521:521:0:5:hatch to bunker Alpha
+// Bunker Alpha control panel
+tile:490:490:481:481:-10:-10:metal4
+zone:490:490:481:481:-10:-8:bunker Alpha control panel
+ispawn:481:519:481:519:-10:-10:5000:3:bunker_key:frag_grenade:health_potion:bunker_bomb
+
+// ===========================
+// BUNKER BRAVO - Under north island village
+// ===========================
+tile:470:510:130:160:-10:-10:stone
+tile:470:510:130:160:-9:-1:blank
+tile:470:470:130:160:-10:0:wallstone
+tile:510:510:130:160:-10:0:wallstone
+tile:470:510:130:130:-10:0:wallstone
+tile:470:510:160:160:-10:0:wallstone
+tile:470:510:130:160:0:0:wallstone
+zone:470:510:130:160:-10:0:bunker Bravo
+// Bunker Bravo entrance
+tile:490:490:159:159:-10:0:ladder1
+tile:490:490:161:161:0:0:metal5
+zone:490:490:159:159:-10:0:ladder to bunker Bravo
+zone:490:490:161:161:0:5:hatch to bunker Bravo
+tile:480:480:131:131:-10:-10:metal4
+zone:480:480:131:131:-10:-8:bunker Bravo control panel
+ispawn:471:509:131:159:-10:-10:5000:2:bunker_key:bunker_bomb:smoke_bomb
+
+// ===========================
+// BUNKER CHARLIE - Under south island town
+// ===========================
+tile:470:510:850:880:-10:-10:stone
+tile:470:510:850:880:-9:-1:blank
+tile:470:470:850:880:-10:0:wallstone
+tile:510:510:850:880:-10:0:wallstone
+tile:470:510:850:850:-10:0:wallstone
+tile:470:510:880:880:-10:0:wallstone
+tile:470:510:850:880:0:0:wallstone
+zone:470:510:850:880:-10:0:bunker Charlie
+// Bunker Charlie entrance
+tile:490:490:879:879:-10:0:ladder1
+tile:490:490:881:881:0:0:metal5
+zone:490:490:879:879:-10:0:ladder to bunker Charlie
+zone:490:490:881:881:0:5:hatch to bunker Charlie
+tile:480:480:851:851:-10:-10:metal4
+zone:480:480:851:851:-10:-8:bunker Charlie control panel
+ispawn:471:509:851:879:-10:-10:5000:2:bunker_key:frag_grenade:semtex_pack
+
+// ===========================
+// BUNKER DELTA - Under east island residential
+// ===========================
+tile:850:890:480:510:-10:-10:stone
+tile:850:890:480:510:-9:-1:blank
+tile:850:850:480:510:-10:0:wallstone
+tile:890:890:480:510:-10:0:wallstone
+tile:850:890:480:480:-10:0:wallstone
+tile:850:890:510:510:-10:0:wallstone
+tile:850:890:480:510:0:0:wallstone
+zone:850:890:480:510:-10:0:bunker Delta
+// Bunker Delta entrance
+tile:870:870:509:509:-10:0:ladder1
+tile:870:870:511:511:0:0:metal5
+zone:870:870:509:509:-10:0:ladder to bunker Delta
+zone:870:870:511:511:0:5:hatch to bunker Delta
+tile:860:860:481:481:-10:-10:metal4
+zone:860:860:481:481:-10:-8:bunker Delta control panel
+ispawn:851:889:481:509:-10:-10:5000:2:bunker_key:torpedo:bomb_vest
+
+// ===========================
+// BUNKER ECHO - Under west island mine
+// ===========================
+tile:120:160:490:520:-40:-40:stone
+tile:120:160:490:520:-39:-31:blank
+tile:120:120:490:520:-40:-30:wallstone
+tile:160:160:490:520:-40:-30:wallstone
+tile:120:160:490:490:-40:-30:wallstone
+tile:120:160:520:520:-40:-30:wallstone
+tile:120:160:490:520:-30:-30:wallstone
+zone:120:160:490:520:-40:-30:bunker Echo
+// Bunker Echo connects from mine tunnel
+tile:140:140:500:500:-40:-30:ladder1
+zone:140:140:500:500:-40:-30:ladder from mine tunnel to bunker Echo
+tile:130:130:491:491:-40:-40:metal4
+zone:130:130:491:491:-40:-38:bunker Echo control panel
+ispawn:121:159:491:519:-40:-40:5000:3:bunker_key:bunker_bomb:health_potion:life_injection
+
+// ===========================
+// UNDERGROUND TUNNEL NETWORK
+// Connects all five bunkers
+// ===========================
+
+// Tunnel from Alpha south to Charlie (y=520 down to y=850)
+tile:499:501:520:850:-15:-14:blank
+tile:499:501:520:850:-15:-15:tunnel
+zone:499:501:520:850:-15:-14:underground tunnel south
+
+// Tunnel from Alpha north to Bravo (y=160 up to y=480)
+tile:499:501:160:480:-15:-14:blank
+tile:499:501:160:480:-15:-15:tunnel
+zone:499:501:160:480:-15:-14:underground tunnel north
+
+// Tunnel from Alpha east to Delta (x=520 to x=850)
+tile:520:850:499:501:-15:-14:blank
+tile:520:850:499:501:-15:-15:tunnel
+zone:520:850:499:501:-15:-14:underground tunnel east
+
+// Tunnel from Alpha west to Echo area (x=160 to x=480)
+tile:160:480:499:501:-15:-14:blank
+tile:160:480:499:501:-15:-15:tunnel
+zone:160:480:499:501:-15:-14:underground tunnel west
+
+// Tunnel junctions at each bunker
+// Alpha junction already at 500,500
+tile:500:500:500:500:-15:-11:ladder1
+zone:500:500:500:500:-15:-1:ladder from bunker Alpha to tunnel network
+
+// Bravo junction
+tile:490:490:160:160:-15:-11:ladder1
+zone:490:490:160:160:-15:-1:ladder from bunker Bravo to tunnel network
+
+// Charlie junction
+tile:490:490:850:850:-15:-11:ladder1
+zone:490:490:850:850:-15:-1:ladder from bunker Charlie to tunnel network
+
+// Delta junction
+tile:850:850:500:500:-15:-11:ladder1
+zone:850:850:500:500:-15:-1:ladder from bunker Delta to tunnel network
+
+// Echo junction (connects to mine tunnel level)
+tile:160:160:500:500:-15:-15:tunnel
+tile:160:160:500:500:-30:-16:ladder1
+zone:160:160:500:500:-30:-15:ladder from tunnel network down to mine level
+
+src:0:1000:0:1000:-50:-10:rumble.ogg:-10
+src:0:1000:0:1000:-50:-10:cave1.ogg:-15
+zone:0:1000:0:1000:-50:-10:underground tunnel network
+
+// ===========================
+// ITEM SPAWNS (general, across all islands)
+// ===========================
+ispawn:360:640:360:640:0:0:500:100:empty_bucket:taurus_model66_revolver_suppressor:magnum_revolver_suppressor:beretta92fs_pistol_suppressor:hk_g36_suppressor:120mm.mortar_ammo_1_5:tar.21.assault.rifle_ammo_10_30:bunker_key:semtex_pack:smoke_bomb:taurus.model66.revolver_ammo_10_20:famas.f1.assault.rifle_ammo_10_20:torpedo:frag_grenade:fake_item:health_potion:bomb_vest:hk.g36_ammo_20_50:AK47_ammo_10_50:magnum.revolver_ammo_5_40:benelli.m4.shotgun_ammo_10_40:glock17_ammo_10_40:beretta92fs.pistol_ammo_10_40:sg08.sniper.rifle_ammo_1_10:m1garantBattleRifle_ammo_10_20
+
+// ===========================
+// AMBIENT SOUNDS
+// ===========================
+src:360:640:360:640:0:50:calm.ogg:-3
+src:440:560:90:190:0:20:birds5.ogg:-10
+src:810:910:440:560:0:20:birds5.ogg:-10

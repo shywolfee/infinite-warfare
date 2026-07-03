@@ -1,0 +1,771 @@
+// ---------------------------------------------------------------------------
+// Vehicle system.
+// ---------------------------------------------------------------------------
+
+const int MAX_MAP_VEHICLES = 10;
+
+// Vehicle type definitions.
+class vehicle_type
+{
+string name;
+int max_health;
+int armor;
+int max_passengers; // includes driver
+int speed; // ms per tile
+bool[] seat_has_window; // per seat (index 0 = driver)
+vehicle_type() {}
+vehicle_type(string n, int hp, int ar, int mp, int spd, bool[] windows)
+{
+name = n;
+max_health = hp;
+armor = ar;
+max_passengers = mp;
+speed = spd;
+seat_has_window = windows;
+}
+}
+
+vehicle_type@[] vehicle_types;
+
+void init_vehicle_types()
+{
+vehicle_types.resize(0);
+
+bool[] jeep_win = {true, true, false};
+vehicle_types.insert_last(vehicle_type("Jeep", 800, 0, 3, 90, jeep_win));
+
+bool[] humvee_win = {true, true, true, false};
+vehicle_types.insert_last(vehicle_type("Humvee", 1200, 400, 4, 110, humvee_win));
+
+bool[] pickup_win = {true, true};
+vehicle_types.insert_last(vehicle_type("Pickup Truck", 700, 0, 2, 100, pickup_win));
+
+bool[] apc_win = {true, false, false, false, false, false};
+vehicle_types.insert_last(vehicle_type("APC", 2500, 1000, 6, 160, apc_win));
+
+bool[] buggy_win = {true, true};
+vehicle_types.insert_last(vehicle_type("Buggy", 400, 0, 2, 65, buggy_win));
+
+bool[] sedan_win = {true, true, true, false};
+vehicle_types.insert_last(vehicle_type("Sedan", 600, 0, 4, 85, sedan_win));
+
+bool[] tank_win = {true, false};
+vehicle_types.insert_last(vehicle_type("Tank", 4000, 2000, 2, 200, tank_win));
+
+bool[] van_win = {true, true, false, false, false};
+vehicle_types.insert_last(vehicle_type("Van", 900, 0, 5, 130, van_win));
+}
+
+// A vehicle instance on the map.
+class vehicle
+{
+int type_index;
+int x;
+int y;
+int z;
+int health;
+int armor;
+double facing; // direction vehicle faces
+bool door_open;
+bool destroyed;
+string[] passengers; // player names in seats, "" = empty
+bool[] window_down; // per seat
+timer idle_timer; // for cleanup
+vehicle() {}
+vehicle(int ti, int px, int py, int pz)
+{
+type_index = ti;
+x = px;
+y = py;
+z = pz;
+health = vehicle_types[ti].max_health;
+armor = vehicle_types[ti].armor;
+facing = double(random(0, 7) * 45);
+door_open = false;
+destroyed = false;
+passengers.resize(vehicle_types[ti].max_passengers);
+window_down.resize(vehicle_types[ti].max_passengers);
+for (int i = 0; i < vehicle_types[ti].max_passengers; i++)
+{
+passengers[i] = "";
+window_down[i] = false;
+}
+}
+string get_name()
+{
+return vehicle_types[type_index].name;
+}
+int get_speed()
+{
+return vehicle_types[type_index].speed;
+}
+int get_max_passengers()
+{
+return vehicle_types[type_index].max_passengers;
+}
+bool has_seat_window(int seat)
+{
+if (seat < 0 or seat >= int(vehicle_types[type_index].seat_has_window.length()))
+return false;
+return vehicle_types[type_index].seat_has_window[seat];
+}
+int count_occupants()
+{
+int c = 0;
+for (int i = 0; i < int(passengers.length()); i++)
+{
+if (passengers[i] != "") c++;
+}
+return c;
+}
+bool is_full()
+{
+return count_occupants() >= get_max_passengers();
+}
+int find_empty_seat()
+{
+for (int i = 0; i < int(passengers.length()); i++)
+{
+if (passengers[i] == "") return i;
+}
+return -1;
+}
+int find_player_seat(string pname)
+{
+for (int i = 0; i < int(passengers.length()); i++)
+{
+if (passengers[i] == pname) return i;
+}
+return -1;
+}
+string seat_label(int seat)
+{
+if (seat == 0) return "driver's seat";
+return "passenger seat " + seat;
+}
+}
+
+vehicle@[] map_vehicles;
+int player_vehicle_index = -1; // index into map_vehicles, -1 = not in vehicle
+int player_seat = -1;
+bool in_vehicle = false;
+timer vehicle_move_timer;
+timer vehicle_stamina_timer;
+int vehicle_current_speed = 0; // current speed in ms per tile (0 = stopped)
+int vehicle_target_speed = 0; // where we're accelerating to
+int vehicle_max_speed_level = 0; // 0=stopped, increases with UP presses
+const int VEHICLE_SPEED_LEVELS = 5;
+timer vehicle_accel_timer;
+timer vehicle_decel_timer;
+bool vehicle_decelerating = false;
+
+void reset_vehicles()
+{
+map_vehicles.resize(0);
+player_vehicle_index = -1;
+player_seat = -1;
+in_vehicle = false;
+vehicle_current_speed = 0;
+vehicle_target_speed = 0;
+vehicle_max_speed_level = 0;
+vehicle_decelerating = false;
+}
+
+// Spawn vehicles at random valid positions on the map.
+void spawn_vehicles_on_map()
+{
+if (vehicle_types.length() == 0) init_vehicle_types();
+map_vehicles.resize(0);
+int count = random(5, MAX_MAP_VEHICLES);
+for (int i = 0; i < count; i++)
+{
+int ti = random(0, int(vehicle_types.length()) - 1);
+int vx = random(5, int(max.x) - 5);
+int vy = random(5, int(max.y) - 5);
+int vz = 0;
+// Make sure tile is valid.
+if (get_tile_at(vx, vy, vz) != "" and get_tile_at(vx, vy, vz) != "blank" and string_contains(get_tile_at(vx, vy, vz), "wall", 1) < 0)
+{
+map_vehicles.insert_last(vehicle(ti, vx, vy, vz));
+}
+}
+}
+
+// Find the nearest vehicle within range tiles.
+int find_nearest_vehicle(int px, int py, int pz, int range)
+{
+int best = -1;
+double best_dist = 999999;
+for (uint i = 0; i < map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dx = double(map_vehicles[i].x - px);
+double dy = double(map_vehicles[i].y - py);
+double dz = double(map_vehicles[i].z - pz);
+double dist = square_root(dx * dx + dy * dy + dz * dz);
+if (dist <= range and dist < best_dist)
+{
+best_dist = dist;
+best = int(i);
+}
+}
+return best;
+}
+
+// Toggle door open/close for nearest vehicle.
+void vehicle_toggle_door(int px, int py, int pz)
+{
+int vi = find_nearest_vehicle(px, py, pz, 5);
+if (vi < 0)
+{
+speak("No vehicle nearby.");
+return;
+}
+map_vehicles[vi].door_open = !map_vehicles[vi].door_open;
+if (map_vehicles[vi].door_open)
+{
+speak(map_vehicles[vi].get_name() + " door opened.");
+send_reliable(0, "veh_door " + vi + " 1", 0);
+}
+else
+{
+speak(map_vehicles[vi].get_name() + " door closed.");
+send_reliable(0, "veh_door " + vi + " 0", 0);
+}
+}
+
+// Enter the nearest vehicle.
+void vehicle_enter(string pname, int px, int py, int pz)
+{
+if (in_vehicle)
+{
+speak("You are already in a vehicle.");
+return;
+}
+int vi = find_nearest_vehicle(px, py, pz, 5);
+if (vi < 0)
+{
+speak("No vehicle nearby.");
+return;
+}
+if (map_vehicles[vi].destroyed)
+{
+speak("This vehicle is destroyed.");
+return;
+}
+if (!map_vehicles[vi].door_open)
+{
+speak("The door is closed. Press O to open it first.");
+return;
+}
+if (map_vehicles[vi].is_full())
+{
+speak("This vehicle is full.");
+return;
+}
+int seat = map_vehicles[vi].find_empty_seat();
+if (seat < 0)
+{
+speak("No empty seats.");
+return;
+}
+map_vehicles[vi].passengers[seat] = pname;
+player_vehicle_index = vi;
+player_seat = seat;
+in_vehicle = true;
+vehicle_current_speed = 0;
+vehicle_target_speed = 0;
+vehicle_max_speed_level = 0;
+vehicle_decelerating = false;
+vehicle_move_timer.restart();
+vehicle_stamina_timer.restart();
+vehicle_accel_timer.restart();
+// Close door on entry.
+map_vehicles[vi].door_open = false;
+speak("Entered " + map_vehicles[vi].get_name() + ", " + map_vehicles[vi].seat_label(seat) + ".");
+send_reliable(0, "veh_enter " + vi + " " + seat, 0);
+}
+
+// Exit the current vehicle.
+void vehicle_exit(string pname)
+{
+if (!in_vehicle or player_vehicle_index < 0)
+{
+speak("You are not in a vehicle.");
+return;
+}
+if (vehicle_current_speed > 0)
+{
+speak("Stop the vehicle first.");
+return;
+}
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (!v.door_open)
+{
+speak("Open the door first. Press O.");
+return;
+}
+int seat = v.find_player_seat(pname);
+if (seat >= 0)
+{
+v.passengers[seat] = "";
+v.window_down[seat] = false;
+}
+speak("Exited " + v.get_name() + ".");
+send_reliable(0, "veh_exit " + player_vehicle_index, 0);
+player_vehicle_index = -1;
+player_seat = -1;
+in_vehicle = false;
+vehicle_current_speed = 0;
+vehicle_target_speed = 0;
+vehicle_max_speed_level = 0;
+vehicle_decelerating = false;
+}
+
+// Switch seats with alt+left/right.
+void vehicle_switch_seat(string pname, int direction)
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+vehicle@ v = map_vehicles[player_vehicle_index];
+int cur = v.find_player_seat(pname);
+if (cur < 0) return;
+int max_s = v.get_max_passengers();
+int next_seat = cur + direction;
+// Wrap around.
+if (next_seat < 0) next_seat = max_s - 1;
+if (next_seat >= max_s) next_seat = 0;
+// Find next empty seat in the given direction.
+int checked = 0;
+while (checked < max_s)
+{
+if (v.passengers[next_seat] == "")
+{
+// Close window at old seat.
+v.window_down[cur] = false;
+v.passengers[cur] = "";
+v.passengers[next_seat] = pname;
+player_seat = next_seat;
+speak(v.seat_label(next_seat) + ".");
+send_reliable(0, "veh_seat " + player_vehicle_index + " " + next_seat, 0);
+return;
+}
+next_seat += direction;
+if (next_seat < 0) next_seat = max_s - 1;
+if (next_seat >= max_s) next_seat = 0;
+checked++;
+}
+speak("No other seats available.");
+}
+
+// Toggle window at current seat.
+void vehicle_toggle_window()
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (!v.has_seat_window(player_seat))
+{
+speak("No window at this seat.");
+return;
+}
+v.window_down[player_seat] = !v.window_down[player_seat];
+if (v.window_down[player_seat])
+speak("Window down.");
+else
+speak("Window up.");
+}
+
+// Check if the player can fire from a vehicle.
+bool vehicle_can_fire()
+{
+if (!in_vehicle) return true; // not in vehicle, normal fire
+if (player_vehicle_index < 0) return true;
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (!v.has_seat_window(player_seat))
+return false;
+if (!v.window_down[player_seat])
+return false;
+return true;
+}
+
+// Check if weapon is melee (can't use from vehicle).
+bool vehicle_blocks_melee()
+{
+return in_vehicle;
+}
+
+// Increase speed (UP arrow in vehicle).
+void vehicle_speed_up()
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+if (player_seat != 0)
+{
+speak("Only the driver can control the vehicle.");
+return;
+}
+vehicle_decelerating = false;
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (vehicle_max_speed_level < VEHICLE_SPEED_LEVELS)
+{
+vehicle_max_speed_level++;
+}
+// Target speed is a fraction of the vehicle's base speed.
+// Level 1 = slowest (2x base), Level 5 = fastest (1x base).
+int base = v.get_speed();
+vehicle_target_speed = base + ((VEHICLE_SPEED_LEVELS - vehicle_max_speed_level) * base / VEHICLE_SPEED_LEVELS);
+speak("Speed " + vehicle_max_speed_level + ".");
+}
+
+// Decrease speed (DOWN arrow in vehicle).
+void vehicle_speed_down()
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+if (player_seat != 0)
+{
+speak("Only the driver can control the vehicle.");
+return;
+}
+vehicle_decelerating = false;
+if (vehicle_max_speed_level > 0)
+{
+vehicle_max_speed_level--;
+}
+if (vehicle_max_speed_level == 0)
+{
+vehicle_target_speed = 0;
+vehicle_current_speed = 0;
+speak("Stopped.");
+}
+else
+{
+vehicle@ v = map_vehicles[player_vehicle_index];
+int base = v.get_speed();
+vehicle_target_speed = base + ((VEHICLE_SPEED_LEVELS - vehicle_max_speed_level) * base / VEHICLE_SPEED_LEVELS);
+speak("Speed " + vehicle_max_speed_level + ".");
+}
+}
+
+// Gradual deceleration (Shift+DOWN in vehicle).
+void vehicle_decelerate_gradual()
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+if (player_seat != 0)
+{
+speak("Only the driver can control the vehicle.");
+return;
+}
+if (vehicle_max_speed_level <= 0)
+{
+speak("Already stopped.");
+return;
+}
+vehicle_decelerating = true;
+vehicle_decel_timer.restart();
+speak("Decelerating.");
+}
+
+// Turn vehicle 90 degrees (LEFT/RIGHT arrow in vehicle).
+void vehicle_turn(int dir)
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+if (player_seat != 0)
+{
+speak("Only the driver can control the vehicle.");
+return;
+}
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (dir < 0)
+v.facing = snapleft(v.facing, int(getdir(v.facing)));
+else
+v.facing = snapright(v.facing, int(getdir(v.facing)));
+facing = v.facing; // sync player facing
+speak(dir_to_string(int(getdir(v.facing))));
+send_reliable(0, "veh_turn " + player_vehicle_index + " " + v.facing, 0);
+send_reliable(0, "turn " + facing, 0);
+}
+
+// Turn vehicle 1 degree (Shift+LEFT/RIGHT in vehicle).
+void vehicle_turn_fine(int dir)
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+if (player_seat != 0)
+{
+speak("Only the driver can control the vehicle.");
+return;
+}
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (dir < 0)
+v.facing = turnleft(v.facing, 1);
+else
+v.facing = turnright(v.facing, 1);
+facing = v.facing;
+speak(int(v.facing) + " degrees.");
+send_reliable(0, "veh_turn " + player_vehicle_index + " " + v.facing, 0);
+send_reliable(0, "turn " + facing, 0);
+}
+
+// Apply damage to a vehicle. Returns true if destroyed.
+bool vehicle_take_damage(int vi, int damage)
+{
+if (vi < 0 or vi >= int(map_vehicles.length())) return false;
+vehicle@ v = map_vehicles[vi];
+if (v.destroyed) return false;
+
+if (v.armor > 0)
+{
+// Armor absorbs full damage, then 1/4 of health is also taken.
+v.armor -= damage;
+if (v.armor < 0) v.armor = 0;
+v.health -= damage / 4;
+}
+else
+{
+v.health -= damage;
+}
+
+if (v.health <= 0)
+{
+v.health = 0;
+v.destroyed = true;
+return true;
+}
+return false;
+}
+
+// Called when vehicle is destroyed - kicks all players, deals 1/4 health damage.
+void vehicle_on_destroy(int vi)
+{
+if (vi < 0 or vi >= int(map_vehicles.length())) return;
+vehicle@ v = map_vehicles[vi];
+speak(v.get_name() + " destroyed!");
+send_reliable(0, "veh_destroy " + vi, 0);
+// Kick all players.
+for (int i = 0; i < int(v.passengers.length()); i++)
+{
+v.passengers[i] = "";
+v.window_down[i] = false;
+}
+if (player_vehicle_index == vi)
+{
+// Player takes 1/4 health damage.
+send_reliable(0, "veh_explode_damage", 0);
+player_vehicle_index = -1;
+player_seat = -1;
+in_vehicle = false;
+vehicle_current_speed = 0;
+vehicle_target_speed = 0;
+vehicle_max_speed_level = 0;
+vehicle_decelerating = false;
+}
+}
+
+// Get vehicle health/armor status string.
+string get_vehicle_status()
+{
+if (!in_vehicle or player_vehicle_index < 0) return "";
+vehicle@ v = map_vehicles[player_vehicle_index];
+string s = v.get_name() + ": ";
+s += "Health " + v.health + " of " + vehicle_types[v.type_index].max_health + ".";
+if (vehicle_types[v.type_index].armor > 0)
+s += " Armor " + v.armor + " of " + vehicle_types[v.type_index].armor + ".";
+s += " Speed level " + vehicle_max_speed_level + " of " + VEHICLE_SPEED_LEVELS + ".";
+s += " " + v.seat_label(player_seat) + ".";
+if (v.has_seat_window(player_seat))
+{
+if (v.window_down[player_seat])
+s += " Window down.";
+else
+s += " Window up.";
+}
+return s;
+}
+
+// Vehicle movement loop - called each frame from mainloop.
+void vehicle_loop()
+{
+if (!in_vehicle or player_vehicle_index < 0) return;
+vehicle@ v = map_vehicles[player_vehicle_index];
+if (v.destroyed)
+{
+vehicle_on_destroy(player_vehicle_index);
+return;
+}
+
+// Gradual deceleration.
+if (vehicle_decelerating and vehicle_decel_timer.elapsed >= 800)
+{
+vehicle_decel_timer.restart();
+if (vehicle_max_speed_level > 0)
+{
+vehicle_max_speed_level--;
+if (vehicle_max_speed_level == 0)
+{
+vehicle_target_speed = 0;
+vehicle_current_speed = 0;
+vehicle_decelerating = false;
+speak("Stopped.");
+}
+else
+{
+int base = v.get_speed();
+vehicle_target_speed = base + ((VEHICLE_SPEED_LEVELS - vehicle_max_speed_level) * base / VEHICLE_SPEED_LEVELS);
+}
+}
+else
+{
+vehicle_decelerating = false;
+}
+}
+
+// Smoothly adjust current speed toward target.
+if (vehicle_accel_timer.elapsed >= 200)
+{
+vehicle_accel_timer.restart();
+if (vehicle_current_speed == 0 and vehicle_target_speed > 0)
+vehicle_current_speed = vehicle_target_speed;
+else if (vehicle_target_speed == 0)
+vehicle_current_speed = 0;
+else if (vehicle_current_speed > vehicle_target_speed)
+{
+vehicle_current_speed -= 10;
+if (vehicle_current_speed < vehicle_target_speed) vehicle_current_speed = vehicle_target_speed;
+}
+else if (vehicle_current_speed < vehicle_target_speed)
+{
+vehicle_current_speed += 10;
+if (vehicle_current_speed > vehicle_target_speed) vehicle_current_speed = vehicle_target_speed;
+}
+}
+
+// Move vehicle if driving.
+if (player_seat == 0 and vehicle_current_speed > 0 and vehicle_move_timer.elapsed >= vehicle_current_speed)
+{
+vehicle_move_timer.restart();
+// Calculate next position based on vehicle facing.
+double rad = v.facing * 3.1415926535897932 / 180.0;
+double nx = double(v.x) + sine(rad);
+double ny = double(v.y) + cosine(rad);
+int inx = int(round(nx, 0));
+int iny = int(round(ny, 0));
+// Boundary check.
+if (inx < 0 or inx > int(max.x) or iny < 0 or iny > int(max.y))
+{
+vehicle_current_speed = 0;
+vehicle_target_speed = 0;
+vehicle_max_speed_level = 0;
+speak("Edge of map. Stopped.");
+return;
+}
+// Wall check.
+string tile = get_tile_at(inx, iny, v.z);
+if (tile == "" or tile == "blank" or string_contains(tile, "wall", 1) > -1)
+{
+// Hit a wall - take some damage.
+vehicle_take_damage(player_vehicle_index, 50);
+vehicle_current_speed = 0;
+vehicle_target_speed = 0;
+vehicle_max_speed_level = 0;
+speak("Crashed into a wall! Stopped.");
+if (v.health <= 0) vehicle_on_destroy(player_vehicle_index);
+return;
+}
+// Move vehicle.
+v.x = inx;
+v.y = iny;
+// Sync player position to vehicle.
+me.x = double(v.x);
+me.y = double(v.y);
+me.z = double(v.z);
+mr.x = round(me.x, 0);
+mr.y = round(me.y, 0);
+// Play driving sound.
+p.play_stationary(tile + "step1.ogg", false);
+send_reliable(1, "move_to " + mr.x + " " + mr.y + " " + me.z, 0);
+send_reliable(0, "veh_move " + player_vehicle_index + " " + v.x + " " + v.y, 0);
+checkzone();
+}
+
+// Stamina restoration while in vehicle - every 15 seconds.
+if (vehicle_stamina_timer.elapsed >= 15000)
+{
+vehicle_stamina_timer.restart();
+restore_stamina(5);
+}
+}
+
+string pending_vehicle_nearby="";
+string get_nearby_vehicles_string(int px, int py, int pz)
+{
+string result="";
+for (uint i = 0; i < map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dx = double(map_vehicles[i].x - px);
+double dy = double(map_vehicles[i].y - py);
+double dz = double(map_vehicles[i].z - pz);
+double dist = square_root(dx * dx + dy * dy + dz * dz);
+if (dist <= 30)
+{
+string info = map_vehicles[i].get_name();
+if (map_vehicles[i].door_open)
+info += ", open";
+else
+info += ", closed";
+if (map_vehicles[i].count_occupants() > 0)
+info += ", moving";
+info += ", health " + map_vehicles[i].health + " of " + vehicle_types[map_vehicles[i].type_index].max_health;
+if (vehicle_types[map_vehicles[i].type_index].armor > 0)
+info += ", armor " + map_vehicles[i].armor + " of " + vehicle_types[map_vehicles[i].type_index].armor;
+double angle = calculate_x_y_angle(double(px), double(py), double(map_vehicles[i].x), double(map_vehicles[i].y), 0);
+string dir_name = dir_to_string(int(getdir(angle)));
+if (dist < 1)
+info += ", here.";
+else
+{
+int level = 1;
+if (map_vehicles[i].z > pz) level = 2;
+else if (map_vehicles[i].z < pz) level = 0;
+if (level == 2) info += ", above";
+else if (level == 0) info += ", below";
+info += ", " + dir_name + ", " + int(dist) + " feet away.";
+}
+if(result!="") result+=" ";
+result+=info;
+}
+}
+return result;
+}
+void announce_nearby_vehicles_tracked(int px, int py, int pz)
+{
+string info=get_nearby_vehicles_string(px, py, pz);
+if(info!="") speak(info);
+}
+
+void check_vehicle_damage_from_explosion(int ex, int ey, int ez, int blast_radius, int min_dmg, int max_dmg)
+{
+for (uint i = 0; i < map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dist = square_root(double((map_vehicles[i].x - ex) * (map_vehicles[i].x - ex) + (map_vehicles[i].y - ey) * (map_vehicles[i].y - ey) + (map_vehicles[i].z - ez) * (map_vehicles[i].z - ez)));
+if (dist <= blast_radius)
+{
+int dmg = random(min_dmg, max_dmg);
+if (vehicle_take_damage(int(i), dmg))
+vehicle_on_destroy(int(i));
+}
+}
+}
+
+void check_vehicle_damage_from_bullet(int bx, int by, int bz, int spread, int min_dmg, int max_dmg)
+{
+for (uint i = 0; i < map_vehicles.length(); i++)
+{
+if (map_vehicles[i].destroyed) continue;
+double dist = square_root(double((map_vehicles[i].x - bx) * (map_vehicles[i].x - bx) + (map_vehicles[i].y - by) * (map_vehicles[i].y - by) + (map_vehicles[i].z - bz) * (map_vehicles[i].z - bz)));
+if (dist <= spread + 2)
+{
+int dmg = random(min_dmg, max_dmg);
+if (vehicle_take_damage(int(i), dmg))
+vehicle_on_destroy(int(i));
+}
+}
+}

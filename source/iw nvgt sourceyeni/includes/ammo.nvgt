@@ -1,0 +1,1019 @@
+// Inventory-backed ammunition system for Infinite Warfare.
+// Ammo reserves are stored as inventory items (magazines, ammo belts, shell
+// boxes, clips, mortar shells, energy cells, fuel canisters).
+// Each weapon tracks only what is currently loaded; spare ammunition lives
+// in the shared inventory dictionary.
+//
+// Three reload modes:
+//   magazine   – consume 1 inventory item, weapon loads to full capacity.
+//                Used by pistols, rifles, SMGs, and energy/fuel weapons.
+//   individual – consume rounds one-by-one from the inventory item.
+//                Used by revolvers (ammo belt), shotguns (shell box), and
+//                the mortar (loose shells).
+//
+// Ammo display modes:
+//   rounds  – show raw round count (default for ballistic weapons).
+//   charge  – show percentage as "charge" (laser weapons).
+//   fuel    – show percentage as "fuel" (flamethrower, chainsaw).
+
+// ---------------------------------------------------------------------------
+// Fire mode system.
+// ---------------------------------------------------------------------------
+const int FIREMODE_SEMI = 0;
+const int FIREMODE_BURST = 1;
+const int FIREMODE_AUTO = 2;
+
+class fire_mode_info
+{
+string weapon_name;
+int[] modes;
+int current_mode;
+fire_mode_info(string wn, int[] m)
+{
+weapon_name = wn;
+modes = m;
+// Default to last mode (AUTO for weapons that support it).
+current_mode = int(m.length()) - 1;
+}
+}
+
+fire_mode_info@[] fire_modes(0);
+int burst_rounds_remaining = 0;
+bool burst_firing = false;
+
+void register_fire_modes(string wn, int[] modes)
+{
+fire_mode_info fm(wn, modes);
+fire_modes.insert_last(fm);
+}
+
+int get_fire_mode(string wname)
+{
+for (uint i = 0; i < fire_modes.length(); i++)
+{
+if (fire_modes[i].weapon_name == wname)
+return fire_modes[i].modes[fire_modes[i].current_mode];
+}
+return FIREMODE_SEMI;
+}
+
+string fire_mode_name(int mode)
+{
+if (mode == FIREMODE_SEMI) return "semi-automatic";
+if (mode == FIREMODE_BURST) return "burst";
+if (mode == FIREMODE_AUTO) return "full automatic";
+return "unknown";
+}
+
+bool has_fire_modes(string wname)
+{
+for (uint i = 0; i < fire_modes.length(); i++)
+{
+if (fire_modes[i].weapon_name == wname and fire_modes[i].modes.length() > 1)
+return true;
+}
+return false;
+}
+
+void cycle_fire_mode(string wname)
+{
+for (uint i = 0; i < fire_modes.length(); i++)
+{
+if (fire_modes[i].weapon_name == wname)
+{
+if (fire_modes[i].modes.length() <= 1)
+{
+speak("This weapon only has one fire mode.");
+return;
+}
+fire_modes[i].current_mode++;
+if (fire_modes[i].current_mode >= int(fire_modes[i].modes.length()))
+fire_modes[i].current_mode = 0;
+speak(fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]));
+return;
+}
+}
+speak("This weapon does not have selectable fire modes.");
+}
+
+// Whether the current weapon can hold-fire (auto or burst, or melee).
+bool can_hold_fire(string wname)
+{
+// Melee weapons always allow hold-fire.
+if (find_gun(wname) < 0) return true;
+int mode = get_fire_mode(wname);
+return (mode == FIREMODE_AUTO or mode == FIREMODE_BURST);
+}
+
+// ---------------------------------------------------------------------------
+// Stamina system.
+// ---------------------------------------------------------------------------
+int stamina = 100;
+int max_stamina = 100;
+timer stamina_regen_timer;
+int jump_count = 0;
+timer jump_window_timer;
+bool stamina_degraded = false;
+
+void reset_stamina()
+{
+stamina = max_stamina;
+jump_count = 0;
+stamina_degraded = false;
+stamina_regen_timer.restart();
+jump_window_timer.restart();
+}
+
+void degrade_stamina(int amount)
+{
+stamina -= amount;
+if (stamina < 0) stamina = 0;
+stamina_degraded = true;
+}
+
+void restore_stamina(int amount)
+{
+stamina += amount;
+if (stamina > max_stamina) stamina = max_stamina;
+}
+
+void stamina_on_melee()
+{
+degrade_stamina(5);
+}
+
+void stamina_on_jump()
+{
+if (jump_window_timer.elapsed > 25000)
+{
+jump_count = 0;
+jump_window_timer.restart();
+}
+jump_count++;
+if (jump_count > 3)
+degrade_stamina(8);
+}
+
+void stamina_on_heavy_move(int walktime_val)
+{
+if (walktime_val >= 300)
+degrade_stamina(1);
+}
+
+void stamina_loop()
+{
+if (stamina_regen_timer.elapsed >= 5000 and stamina < max_stamina)
+{
+stamina_regen_timer.restart();
+restore_stamina(5);
+}
+}
+
+string get_stamina_string()
+{
+return "Stamina: " + stamina + " of " + max_stamina + ".";
+}
+
+// ---------------------------------------------------------------------------
+// Buff / Debuff system.
+// ---------------------------------------------------------------------------
+class status_effect
+{
+string name;
+string type; // "buff" or "debuff"
+timer duration_timer;
+int duration_ms;
+timer tick_timer;
+int tick_ms;
+int heal_amount;
+bool active;
+status_effect(string n, string t, int dur, int tick, int heal)
+{
+name = n;
+type = t;
+duration_ms = dur;
+tick_ms = tick;
+heal_amount = heal;
+active = true;
+duration_timer.restart();
+tick_timer.restart();
+}
+}
+
+status_effect@[] active_effects(0);
+
+void apply_effect(string name, string type, int duration_ms, int tick_ms, int heal_amount)
+{
+// Remove existing effect with same name first.
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (active_effects[i].name == name)
+{
+active_effects.remove_at(i);
+break;
+}
+}
+status_effect ef(name, type, duration_ms, tick_ms, heal_amount);
+active_effects.insert_last(ef);
+}
+
+void apply_residual_healing()
+{
+apply_effect("Residual Healing", "buff", 120000, 15000, 500);
+}
+
+void apply_ultra_residual_healing()
+{
+apply_effect("Residual Healing", "buff", 300000, 25000, 1500);
+}
+
+void apply_blinded()
+{
+apply_effect("Blinded", "debuff", 15000, 0, 0);
+}
+
+void apply_adrenaline_rush()
+{
+apply_effect("Adrenaline Rush", "buff", 30000, 0, 0);
+}
+
+bool has_effect(string name)
+{
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (active_effects[i].name == name and active_effects[i].active)
+return true;
+}
+return false;
+}
+
+void clear_all_effects()
+{
+active_effects.resize(0);
+}
+
+// Returns a string listing active buffs and debuffs for the H key.
+string get_effects_string()
+{
+string result = "";
+int count = 0;
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (!active_effects[i].active) continue;
+if (count > 0) result += " ";
+int remaining = (active_effects[i].duration_ms - active_effects[i].duration_timer.elapsed) / 1000;
+if (remaining < 0) remaining = 0;
+result += active_effects[i].name + " (" + remaining + "s remaining).";
+count++;
+}
+if (count == 0) return "No active effects.";
+return result;
+}
+
+// Called each frame from mainloop to tick effects and expire them.
+// Returns heal amount to apply this frame (0 if none).
+int effects_loop()
+{
+int heal = 0;
+for (uint i = 0; i < active_effects.length(); i++)
+{
+if (!active_effects[i].active) continue;
+if (active_effects[i].duration_timer.elapsed >= active_effects[i].duration_ms)
+{
+active_effects[i].active = false;
+active_effects.remove_at(i);
+i--;
+continue;
+}
+if (active_effects[i].tick_ms > 0 and active_effects[i].tick_timer.elapsed >= active_effects[i].tick_ms)
+{
+active_effects[i].tick_timer.restart();
+heal += active_effects[i].heal_amount;
+}
+}
+return heal;
+}
+
+// ---------------------------------------------------------------------------
+// Equipment system.
+// ---------------------------------------------------------------------------
+string equip_body = "";
+
+void equip_item(string item, string slot)
+{
+if (slot == "body")
+equip_body = item;
+}
+
+void unequip_item(string slot)
+{
+if (slot == "body")
+{
+if (equip_body != "")
+{
+give(equip_body, 1);
+speak(string_replace(equip_body, "_", " ", true) + " removed.");
+equip_body = "";
+}
+else
+speak("Nothing equipped on body.");
+}
+}
+
+string get_equipment_string()
+{
+string result = "Body: ";
+if (equip_body != "")
+result += string_replace(equip_body, "_", " ", true);
+else
+result += "empty";
+result += ". Holster 1: ";
+if (equip_holster1 != "")
+{
+result += get_holster_slot_label(1);
+}
+else
+result += "empty";
+result += ". Holster 2: ";
+if (equip_holster2 != "")
+{
+result += get_holster_slot_label(2);
+}
+else
+result += "empty";
+return result;
+}
+
+// ---------------------------------------------------------------------------
+// Holster system.
+// ---------------------------------------------------------------------------
+class holster_def
+{
+string id;
+string display_name;
+string[] compatible_weapons;
+bool has_ammo_storage;
+int ammo_capacity;
+string ammo_reserve_item;
+holster_def(string _id, string _dn, string[]@ _cw, bool _has_ammo, int _ac, string _ari)
+{
+id=_id;
+display_name=_dn;
+compatible_weapons=_cw;
+has_ammo_storage=_has_ammo;
+ammo_capacity=_ac;
+ammo_reserve_item=_ari;
+}
+}
+holster_def@[] holster_defs(0);
+
+string equip_holster1="";
+string equip_holster2="";
+string holster1_weapon="";
+string holster2_weapon="";
+int holster1_weapon_ammo=0;
+int holster2_weapon_ammo=0;
+int holster1_belt_ammo=0;
+int holster2_belt_ammo=0;
+
+void register_holster(string id, string display_name, string[]@ compatible, bool has_ammo, int ammo_cap, string ammo_item)
+{
+holster_def d(id, display_name, compatible, has_ammo, ammo_cap, ammo_item);
+holster_defs.insert_last(d);
+}
+
+int find_holster_def(string id)
+{
+for(uint i=0; i<holster_defs.length(); i++)
+{
+if(holster_defs[i].id==id) return i;
+}
+return -1;
+}
+
+bool is_holster_item(string item)
+{
+return find_holster_def(item)>=0;
+}
+
+bool holster_supports_weapon(string holster_id, string weapon)
+{
+int idx=find_holster_def(holster_id);
+if(idx<0) return false;
+for(uint i=0; i<holster_defs[idx].compatible_weapons.length(); i++)
+{
+if(holster_defs[idx].compatible_weapons[i]==weapon) return true;
+}
+return false;
+}
+
+string get_holster_slot_label(int slot)
+{
+string hid=(slot==1)?equip_holster1:equip_holster2;
+string hw=(slot==1)?holster1_weapon:holster2_weapon;
+int ha=(slot==1)?holster1_weapon_ammo:holster2_weapon_ammo;
+int ba=(slot==1)?holster1_belt_ammo:holster2_belt_ammo;
+if(hid=="") return "empty";
+int idx=find_holster_def(hid);
+string label=(idx>=0)?holster_defs[idx].display_name:string_replace(hid,"_"," ",true);
+if(hw!="")
+{
+label+=" ["+get_weapon_display_name(hw);
+if(ha>=0) label+=" ("+ha+" loaded)";
+label+="]";
+}
+else
+label+=" [empty]";
+if(idx>=0 and holster_defs[idx].has_ammo_storage and ba>0)
+label+=" ("+ba+" rounds in belt)";
+return label;
+}
+
+void unequip_holster(int slot)
+{
+string hid=(slot==1)?equip_holster1:equip_holster2;
+if(hid=="")
+{
+speak("Nothing equipped in holster "+slot+".");
+return;
+}
+string hw=(slot==1)?holster1_weapon:holster2_weapon;
+int ha=(slot==1)?holster1_weapon_ammo:holster2_weapon_ammo;
+int ba=(slot==1)?holster1_belt_ammo:holster2_belt_ammo;
+if(hw!="")
+{
+give(hw, 1);
+int gi=find_gun(hw);
+if(gi>=0) gun_ammos[gi].mag_loaded=ha;
+speak(get_weapon_display_name(hw)+" unholstered.");
+}
+int idx=find_holster_def(hid);
+if(idx>=0 and holster_defs[idx].has_ammo_storage and ba>0)
+{
+give(holster_defs[idx].ammo_reserve_item, ba);
+speak(ba+" rounds returned from belt.");
+}
+give(hid, 1);
+int didx=find_holster_def(hid);
+string dn=(didx>=0)?holster_defs[didx].display_name:string_replace(hid,"_"," ",true);
+speak(dn+" removed from holster "+slot+".");
+if(slot==1){equip_holster1="";holster1_weapon="";holster1_weapon_ammo=0;holster1_belt_ammo=0;}
+else{equip_holster2="";holster2_weapon="";holster2_weapon_ammo=0;holster2_belt_ammo=0;}
+}
+
+bool try_store_ammo_in_belt(string ammo_item)
+{
+for(int s=1; s<=2; s++)
+{
+string hid=(s==1)?equip_holster1:equip_holster2;
+if(hid=="") continue;
+int idx=find_holster_def(hid);
+if(idx<0) continue;
+if(!holster_defs[idx].has_ammo_storage) continue;
+if(holster_defs[idx].ammo_reserve_item!=ammo_item) continue;
+int ba=(s==1)?holster1_belt_ammo:holster2_belt_ammo;
+int cap=holster_defs[idx].ammo_capacity;
+if(ba>=cap)
+{
+speak("Belt is full.");
+return false;
+}
+int space=cap-ba;
+int have=get_item_count(ammo_item);
+if(have<=0){speak("No ammunition to store.");return false;}
+int store=(have<space)?have:space;
+give(ammo_item, -store);
+if(s==1) holster1_belt_ammo+=store;
+else holster2_belt_ammo+=store;
+speak(store+" rounds stored in belt. "+((s==1)?holster1_belt_ammo:holster2_belt_ammo)+" of "+cap+" total.");
+return true;
+}
+return false;
+}
+
+// ---------------------------------------------------------------------------
+// Partial ammo item tracking.
+// When a magazine, energy cell, or fuel canister is unloaded with ammo still
+// in it, a partial item is created instead of returning a full inventory item.
+// ---------------------------------------------------------------------------
+class partial_ammo_item
+{
+string base_item;    // inventory key (e.g. "glock_17_magazine", "laser_energy_cell")
+int remaining;       // units left in this item
+int max_capacity;    // full capacity (for percentage calculation)
+partial_ammo_item(string bi, int rem, int mc)
+{
+base_item = bi;
+remaining = rem;
+max_capacity = mc;
+}
+}
+
+partial_ammo_item@[] partial_items(0);
+
+int get_ammo_percentage(int loaded, int capacity)
+{
+if (capacity <= 0) return 0;
+return (loaded * 100) / capacity;
+}
+
+int add_partial(string base, int remaining, int max_cap)
+{
+partial_ammo_item p(base, remaining, max_cap);
+partial_items.insert_last(p);
+return int(partial_items.length()) - 1;
+}
+
+void remove_partial(int index)
+{
+if (index >= 0 and index < int(partial_items.length()))
+partial_items.remove_at(index);
+}
+
+int count_partials_for(string base_item)
+{
+int count = 0;
+for (uint i = 0; i < partial_items.length(); i++)
+{
+if (partial_items[i].base_item == base_item)
+count++;
+}
+return count;
+}
+
+int[] get_partial_indices_for(string base_item)
+{
+int[] result;
+for (uint i = 0; i < partial_items.length(); i++)
+{
+if (partial_items[i].base_item == base_item)
+result.insert_last(i);
+}
+return result;
+}
+
+void clear_partials_for(string base_item)
+{
+for (uint i = 0; i < partial_items.length(); i++)
+{
+if (partial_items[i].base_item == base_item)
+{
+partial_items.remove_at(i);
+i--;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Gun ammo class & core functions.
+// ---------------------------------------------------------------------------
+class gun_ammo
+{
+string weapon_name;
+string ammo_type;        // e.g. "9x19mm Parabellum"
+string feed_device;      // e.g. "17-round magazine"
+int mag_capacity;        // rounds per full magazine / clip / cylinder
+int mag_loaded;          // rounds currently in the weapon
+string reserve_item;     // inventory key for spare ammo
+string reserve_label;    // spoken name for the reserve ("magazine", "ammo belt", …)
+bool is_magazine;        // true = magazine reload, false = individual round reload
+int starting_reserve;    // qty given on reset
+bool reloading;
+timer reload_timer;
+int reload_ms;
+string ammo_display;     // "rounds", "charge", or "fuel"
+int reload_from_partial; // -1 = full item, >= 0 = index into partial_items
+
+gun_ammo(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
+{
+weapon_name=wn;
+ammo_type=at;
+feed_device=fd;
+mag_capacity=mc;
+mag_loaded=mc;
+reserve_item=ri;
+reserve_label=rl;
+is_magazine=im;
+starting_reserve=sr;
+reloading=false;
+reload_ms=rms;
+ammo_display="rounds";
+reload_from_partial=-1;
+}
+}
+
+gun_ammo@[] gun_ammos(0);
+
+// Register a weapon's ammo profile.
+void register_gun(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
+{
+gun_ammo g(wn, at, fd, mc, ri, rl, im, sr, rms);
+gun_ammos.insert_last(g);
+}
+
+// Set the ammo display mode for a weapon after registration.
+void set_ammo_display(string wname, string display)
+{
+int i = find_gun(wname);
+if (i < 0) return;
+gun_ammos[i].ammo_display = display;
+}
+
+// Legacy stub kept so any old call sites compile.
+void weapon_ammo(string wname, int amount) { }
+
+// Return the array index for wname, or -1 if not found.
+int find_gun(string wname)
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (gun_ammos[i].weapon_name==wname) return i;
+}
+return -1;
+}
+
+// Return rounds loaded in the weapon. -1 means melee / no ammo system.
+int ammo_check(string wname)
+{
+int i=find_gun(wname);
+if (i<0) return -1;
+return gun_ammos[i].mag_loaded;
+}
+
+// Add or remove rounds from the loaded count (amount is negative when firing).
+void ammo_give(string wname, int amount)
+{
+int i=find_gun(wname);
+if (i<0) return;
+gun_ammos[i].mag_loaded+=amount;
+if (gun_ammos[i].mag_loaded<0) gun_ammos[i].mag_loaded=0;
+}
+
+// Returns true while this weapon is mid-reload.
+bool is_reloading(string wname)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+return gun_ammos[i].reloading;
+}
+
+// Called every frame from mainloop(): complete any in-progress reloads.
+void reload_loop_all()
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (!gun_ammos[i].reloading) continue;
+if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms)
+{
+gun_ammo@ g=gun_ammos[i];
+if (g.is_magazine)
+{
+if (g.reload_from_partial >= 0)
+{
+// Loading from a partial item.
+if (g.reload_from_partial >= int(partial_items.length()) or partial_items[g.reload_from_partial].base_item != g.reserve_item)
+{
+g.reloading=false;
+g.reload_from_partial=-1;
+speak("Partial "+g.reserve_label+" no longer available.");
+continue;
+}
+g.mag_loaded=partial_items[g.reload_from_partial].remaining;
+remove_partial(g.reload_from_partial);
+g.reloading=false;
+g.reload_from_partial=-1;
+if (g.ammo_display=="charge")
+speak("Reloaded. "+get_ammo_percentage(g.mag_loaded, g.mag_capacity)+"% charge.");
+else if (g.ammo_display=="fuel")
+speak("Reloaded. "+get_ammo_percentage(g.mag_loaded, g.mag_capacity)+"% fuel.");
+else
+speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+".");
+}
+else
+{
+// Loading from a full item.
+int have=get_item_count(g.reserve_item);
+if (have<=0)
+{
+g.reloading=false;
+g.reload_from_partial=-1;
+speak("No spare "+g.reserve_label+" remaining.");
+continue;
+}
+give(g.reserve_item, -1);
+g.mag_loaded=g.mag_capacity;
+g.reloading=false;
+g.reload_from_partial=-1;
+if (g.ammo_display=="charge")
+speak("Reloaded. 100% charge. "+get_item_count(g.reserve_item)+" spare energy cells.");
+else if (g.ammo_display=="fuel")
+speak("Reloaded. 100% fuel. "+get_item_count(g.reserve_item)+" spare fuel canisters.");
+else
+speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+". "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+}
+}
+else
+{
+// Individual reload: pull rounds from belt / box.
+int have=get_item_count(g.reserve_item);
+if (have<=0)
+{
+g.reloading=false;
+speak("No spare "+g.reserve_label+" remaining.");
+continue;
+}
+int need=g.mag_capacity-g.mag_loaded;
+int to_load=need;
+if (to_load>have) to_load=have;
+give(g.reserve_item, -to_load);
+g.mag_loaded+=to_load;
+g.reloading=false;
+speak("Loaded "+to_load+" rounds. "+g.mag_loaded+" in "+g.feed_device+". "+get_item_count(g.reserve_item)+" left in "+g.reserve_label+".");
+}
+}
+}
+}
+
+// Cheat detection: mag_loaded must stay within valid bounds.
+void ammocheatloop()
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (gun_ammos[i].mag_loaded>gun_ammos[i].mag_capacity) exit();
+if (gun_ammos[i].mag_loaded<0) exit();
+}
+}
+
+// Speak full ammo status for the player's current weapon (A key without shift).
+void announce_ammo(string wname)
+{
+int i=find_gun(wname);
+if (i<0) { speak("This weapon does not use ammunition."); return; }
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Reloading."); return; }
+int reserve=get_item_count(g.reserve_item);
+int partials=count_partials_for(g.reserve_item);
+string mode_str = "";
+if (has_fire_modes(wname))
+mode_str = " Fire mode: " + fire_mode_name(get_fire_mode(wname)) + ".";
+if (g.ammo_display=="charge")
+{
+int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+string reserve_str=reserve+" full";
+if (partials>0) reserve_str+=", "+partials+" partial";
+speak(pct+"% charge remaining. "+reserve_str+" energy cells in reserve."+mode_str);
+}
+else if (g.ammo_display=="fuel")
+{
+int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+string reserve_str=reserve+" full";
+if (partials>0) reserve_str+=", "+partials+" partial";
+speak(pct+"% fuel remaining. "+reserve_str+" fuel canisters in reserve."+mode_str);
+}
+else if (g.is_magazine)
+{
+string reserve_str=reserve+" spare "+g.reserve_label+"s";
+if (partials>0) reserve_str+=", "+partials+" partial";
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve_str+"."+mode_str);
+}
+else
+speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+"."+mode_str);
+}
+
+// Check whether a reload menu is needed (partial items available for magazine weapons).
+bool needs_reload_menu(string wname)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+gun_ammo@ g=gun_ammos[i];
+if (!g.is_magazine) return false;
+if (g.reloading) return false;
+if (g.mag_loaded==g.mag_capacity) return false;
+int reserve=get_item_count(g.reserve_item);
+int partials=count_partials_for(g.reserve_item);
+if (reserve<=0 and partials<=0) return false;
+if (partials<=0) return false;
+return true;
+}
+
+// Begin reloading the named weapon (R key). Returns false if nothing to do.
+bool start_reload(string wname)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Already reloading."); return false; }
+int reserve=get_item_count(g.reserve_item);
+int partials=count_partials_for(g.reserve_item);
+if (reserve<=0 and partials<=0) { speak("No spare "+g.reserve_label+" remaining."); return false; }
+if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
+g.reload_from_partial=-1;
+g.reloading=true;
+g.reload_timer.restart();
+if (g.is_magazine)
+{
+if (g.ammo_display=="charge")
+speak("Swapping energy cell.");
+else if (g.ammo_display=="fuel")
+speak("Swapping fuel canister.");
+else
+speak("Swapping "+g.feed_device+".");
+}
+else
+speak("Loading "+g.feed_device+".");
+return true;
+}
+
+// Begin reloading from a specific partial item.
+bool start_reload_partial(string wname, int partial_index)
+{
+int i=find_gun(wname);
+if (i<0) return false;
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Already reloading."); return false; }
+if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
+g.reload_from_partial=partial_index;
+g.reloading=true;
+g.reload_timer.restart();
+if (g.ammo_display=="charge")
+speak("Swapping energy cell.");
+else if (g.ammo_display=="fuel")
+speak("Swapping fuel canister.");
+else
+speak("Swapping "+g.feed_device+".");
+return true;
+}
+
+// Unload the current feed device back into reserve (Shift+R).
+void unload_mag(string wname)
+{
+int i=find_gun(wname);
+if (i<0) { speak("Nothing to unload."); return; }
+gun_ammo@ g=gun_ammos[i];
+if (g.reloading) { speak("Cannot unload while reloading."); return; }
+if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
+if (g.is_magazine)
+{
+if (g.mag_loaded==g.mag_capacity)
+{
+// Fully loaded — return a full inventory item.
+give(g.reserve_item, 1);
+g.mag_loaded=0;
+speak(g.feed_device+" removed. "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+}
+else
+{
+// Partially loaded — create a partial ammo item.
+int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+add_partial(g.reserve_item, g.mag_loaded, g.mag_capacity);
+g.mag_loaded=0;
+int full_count=get_item_count(g.reserve_item);
+int partial_count=count_partials_for(g.reserve_item);
+if (g.ammo_display=="charge")
+speak("Partial energy cell removed ("+pct+"% charge). "+full_count+" full, "+partial_count+" partial energy cells.");
+else if (g.ammo_display=="fuel")
+speak("Partial fuel canister removed ("+pct+"% fuel). "+full_count+" full, "+partial_count+" partial fuel canisters.");
+else
+speak("Partial "+g.reserve_label+" removed ("+pct+"%). "+full_count+" full, "+partial_count+" partial "+g.reserve_label+"s.");
+}
+}
+else
+{
+give(g.reserve_item, g.mag_loaded);
+g.mag_loaded=0;
+speak(g.feed_device+" emptied. "+get_item_count(g.reserve_item)+" rounds in "+g.reserve_label+".");
+}
+}
+
+// Reset weapons to full load and replenish reserves for owned weapons only.
+void reset_ammo()
+{
+dictionary seen;
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+gun_ammos[i].reloading=false;
+gun_ammos[i].reload_from_partial=-1;
+// Only load and resupply weapons the player actually owns.
+if (get_item_count(gun_ammos[i].weapon_name)>0)
+{
+gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
+if (!seen.exists(gun_ammos[i].reserve_item))
+{
+seen.set(gun_ammos[i].reserve_item, true);
+clear_partials_for(gun_ammos[i].reserve_item);
+int current=get_item_count(gun_ammos[i].reserve_item);
+int diff=gun_ammos[i].starting_reserve-current;
+if (diff>0) give(gun_ammos[i].reserve_item, diff);
+}
+}
+}
+}
+
+// Give a random starting loadout: 1 melee, 1 sidearm, 1 primary, plus ammo
+// and a few utility items.  Auto-assigns quickbar slots 1-5.
+void give_starting_loadout()
+{
+string[] melee_pool = {"machete", "combatknife", "katana", "baseball_bat", "chainsaw"};
+string[] sidearm_pool = {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle", "laser_pistol"};
+string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "p90_mp", "benelli_m4_shotgun", "ks123shotgun", "m4a1_carbine", "mp5", "uzi", "scar_h_battle_rifle", "fn_fal_battle_rifle", "mp7", "spas_12_shotgun", "laser_rifle", "laser_smg"};
+
+string chosen_melee   = melee_pool[random(0, melee_pool.length()-1)];
+string chosen_sidearm = sidearm_pool[random(0, sidearm_pool.length()-1)];
+string chosen_primary = primary_pool[random(0, primary_pool.length()-1)];
+
+// Give weapons as inventory items.
+give(chosen_melee, 1);
+give(chosen_sidearm, 1);
+give(chosen_primary, 1);
+
+// Give ammo for the weapons the player now owns.
+partial_items.resize(0);
+reset_ammo();
+
+// A few utility items to start with.
+give("health_potion", 2);
+give("frag_grenade", 3);
+
+// Auto-assign quickbar.
+quickbar[0] = chosen_melee;
+quickbar[1] = chosen_sidearm;
+quickbar[2] = chosen_primary;
+quickbar[3] = "health_potion";
+quickbar[4] = "frag_grenade";
+for (int i=5; i<10; i++) quickbar[i] = "";
+
+// Reset stamina and effects on spawn.
+reset_stamina();
+clear_all_effects();
+equip_body = "";
+equip_holster1="";
+equip_holster2="";
+holster1_weapon="";
+holster2_weapon="";
+holster1_weapon_ammo=0;
+holster2_weapon_ammo=0;
+holster1_belt_ammo=0;
+holster2_belt_ammo=0;
+}
+
+// Developer cheat: give every weapon, all ammo, and all items.
+void give_all()
+{
+string[] all_weps = {
+"machete", "combatknife", "katana", "baseball_bat",
+"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle",
+"p90_mp", "mp5", "uzi", "mp7",
+"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine",
+"scar_h_battle_rifle", "fn_fal_battle_rifle",
+"rpk_lmg", "m249_saw",
+"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun",
+"m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
+"120mm_mortar",
+"crossbow",
+"hayvork", "trector_plow",
+"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon",
+"flamethrower", "chainsaw"
+};
+for (uint i=0; i<all_weps.length(); i++)
+{
+if (get_item_count(all_weps[i])<=0) give(all_weps[i], 1);
+}
+
+// Reset ammo gives reserves for every weapon now in inventory.
+partial_items.resize(0);
+reset_ammo();
+
+// Every usable item.
+give("health_potion", 5);
+give("ultra_health_potion", 3);
+give("frag_grenade", 10);
+give("semtex", 5);
+give("torpedo", 5);
+give("smoke_bomb", 5);
+give("bomb_vest", 2);
+give("invisibility", 2);
+give("bucket", 2);
+give("life_injection", 3);
+give("duo_plane", 1);
+give("water_tank", 1);
+give("bag", 2);
+give("box", 2);
+give("rock", 10);
+give("energetic_potion_red", 5);
+give("energetic_potion_blue", 3);
+give("energetic_potion_green", 2);
+give("energetic_potion_rainbow", 1);
+give("translocator", 1);
+give("translocator_cell", 10);
+give("adrenaline_syringe", 3);
+give("repair_kit", 3);
+give("waypoint_marker", 5);
+give("binoculars", 1);
+give("fortified_ration", 5);
+
+for(uint i=0; i<holster_defs.length(); i++)
+{
+if(get_item_count(holster_defs[i].id)<=0) give(holster_defs[i].id, 1);
+}
+speak("All weapons, ammunition, and items given.");
+}

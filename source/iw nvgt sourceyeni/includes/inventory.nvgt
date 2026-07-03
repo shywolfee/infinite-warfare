@@ -1,0 +1,200 @@
+int invpos;
+dictionary inv;
+
+// Quickbar: 10 slots mapped to number keys 1 through 0.
+string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
+
+// Inventory category system.
+string[] inv_categories = {"All", "Weapons", "Ammo", "Consumables", "Equipment"};
+int inv_category_index = 0;
+
+string get_item_category(string item)
+{
+if (is_weapon(item)) return "Weapons";
+if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
+if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="repair_kit" or item=="waypoint_marker" or item=="fortified_ration") return "Consumables";
+return "Equipment";
+}
+
+// Get filtered inventory keys based on current category.
+// Includes virtual keys for partial ammo items ("__partial__N").
+string[] get_filtered_keys()
+{
+string[] all_keys = inv.get_keys();
+// Append virtual keys for each partial ammo item.
+for (uint i = 0; i < partial_items.length(); i++)
+all_keys.insert_last("__partial__" + i);
+if (inv_category_index == 0) return all_keys;
+string cat = inv_categories[inv_category_index];
+string[] filtered;
+for (uint i = 0; i < all_keys.length(); i++)
+{
+string key = all_keys[i];
+if (string_contains(key, "__partial__", 1) == 0)
+{
+// Partial items are always in the Ammo category.
+if (cat == "Ammo")
+filtered.insert_last(key);
+}
+else if (get_item_category(key) == cat)
+filtered.insert_last(key);
+}
+return filtered;
+}
+
+void cycle_category(int dir)
+{
+if (dir == 1)
+inv_category_index++;
+else
+inv_category_index--;
+if (inv_category_index >= int(inv_categories.length()))
+inv_category_index = 0;
+else if (inv_category_index < 0)
+inv_category_index = int(inv_categories.length()) - 1;
+string[] filtered = get_filtered_keys();
+speak(inv_categories[inv_category_index] + ". " + filtered.length() + " items.");
+invpos = 0;
+}
+
+void give(string item, int amount)
+{
+int a;
+if (!inv.exists(item))
+{
+if (amount>0)
+inv.set(item,amount);
+}
+else
+{
+inv.get(item,a);
+if (a+amount<=0)
+inv.delete(item);
+else
+{
+inv.set(item,a+amount);
+}
+}
+}
+void cycle_inv(int dir)
+{
+string[] filtered = get_filtered_keys();
+if (filtered.length() == 0)
+{
+if (inv_category_index == 0)
+speak("No items");
+else
+speak("No items in " + inv_categories[inv_category_index]);
+return;
+}
+if (dir==1)
+invpos+=1;
+else
+invpos-=1;
+if (invpos>=int(filtered.length()))
+{
+invpos=0;
+}
+else if (invpos<0)
+{
+invpos=int(filtered.length())-1;
+}
+string key = filtered[invpos];
+if (string_contains(key, "__partial__", 1) == 0)
+{
+// Partial ammo item — show base name with percentage.
+int pidx = string_to_number(string_replace(key, "__partial__", "", false));
+if (pidx >= 0 and pidx < int(partial_items.length()))
+{
+string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
+int pct = get_ammo_percentage(partial_items[pidx].remaining, partial_items[pidx].max_capacity);
+speak(base_name + " (" + pct + "%). " + (invpos+1) + " of " + filtered.length());
+}
+}
+else
+{
+int a;
+inv.get(key, a);
+string display_name;
+if (is_weapon(key))
+display_name = get_weapon_display_name(key);
+else
+display_name = string_replace(key, "_", " ", true);
+if (is_ammo_container(key))
+speak(display_name + " (" + a + "). " + (invpos+1) + " of " + filtered.length());
+else if(a==1)
+speak(display_name+". "+(invpos+1)+" of "+filtered.length());
+else
+speak(a+" "+display_name+"s. "+(invpos+1)+" of "+filtered.length());
+}
+}
+
+// Get the currently selected item key (respecting category filter).
+string get_selected_item()
+{
+string[] filtered = get_filtered_keys();
+if (filtered.length() == 0) return "";
+if (invpos >= int(filtered.length())) invpos = 0;
+return filtered[invpos];
+}
+
+int count_total_items()
+{
+int amount=0;
+for (uint i=0; i<inv.get_keys().length(); i++)
+{
+int a;
+inv.get(inv.get_keys()[i],a);
+amount+=a;
+}
+amount += int(partial_items.length());
+return amount;
+}
+int get_item_count(string item)
+{
+int amount=0;
+for (uint i=0; i<inv.get_keys().length(); i++)
+{
+int a=0;
+if (inv.get_keys()[i]==item)
+inv.get(inv.get_keys()[i],a);
+amount+=a;
+}
+return amount;
+}
+
+// Returns true if the item is an ammo container that holds individual rounds
+// (ammo belts, shell boxes, bolt quivers) rather than discrete units like magazines.
+bool is_ammo_container(string item)
+{
+if (string_contains(item, "ammo_belt", 1)>-1) return true;
+if (string_contains(item, "shell_box", 1)>-1) return true;
+if (string_contains(item, "bolt_quiver", 1)>-1) return true;
+return false;
+}
+
+// Returns true if the item is a drawable weapon (ranged or melee).
+bool is_weapon(string item)
+{
+if (find_gun(item)>=0) return true;
+if (item=="machete" or item=="combatknife" or item=="hayvork" or item=="trector_plow" or item=="katana" or item=="baseball_bat" or item=="chainsaw") return true;
+return false;
+}
+
+// Bind the currently selected inventory item to a quickbar slot (0-9).
+void bind_quickbar(int slot)
+{
+if (inv.get_size()==0)
+{
+speak("Inventory is empty.");
+return;
+}
+string item = get_selected_item();
+if (item == "")
+{
+speak("No item selected.");
+return;
+}
+quickbar[slot]=item;
+speak(string_replace(item, "_", " ", true)+" bound to slot "+(slot+1)+".");
+}

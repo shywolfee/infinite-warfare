@@ -1,0 +1,34 @@
+bodyfall@[] bodyfalls(0);
+class bodyfall
+{
+int btime=3000;
+int x, y, z;
+string map;
+timer btimer;
+bodyfall(int bx, int by, int bz, string bmap, int bodytime=3000)
+{
+x=bx;
+y=by;
+z=bz;
+map=bmap;
+btime=bodytime;
+}
+}
+void bodyfallloop()
+{
+for (uint i=0; i<bodyfalls.length(); i++)
+{
+if (bodyfalls[i].btimer.elapsed>=bodyfalls[i].btime)
+{
+play(get_tile_at(bodyfalls[i].x,bodyfalls[i].y,bodyfalls[i].z,bodyfalls[i].map)+"fall", bodyfalls[i].x, bodyfalls[i].y, bodyfalls[i].z, bodyfalls[i].map);
+spawn_item(bodyfalls[i].x,bodyfalls[i].y,bodyfalls[i].z,bodyfalls[i].map,"bag","");
+bodyfalls.remove_at(i);
+return;
+}
+}
+}
+void spawn_bodyfall(int x, int y, int z, string map, int time=30)
+{
+bodyfall b1(x,y,z,map, time);
+bodyfalls.insert_last(b1);
+}

@@ -1,0 +1,163 @@
+string netaddress="localhost";
+int netport=1316;
+uint peer_id=0;
+// Probe the server with a temporary connection and return true if it responds.
+// Times out after 5 seconds. Uses its own local network object so it does not
+// disturb the global n or connected state.
+bool server_online()
+{
+network probe;
+probe.setup_client(1, 100);
+probe.connect(netaddress, netport);
+timer pt;
+while(pt.elapsed<5000)
+{
+wait(5);
+network_event ev=probe.request();
+if(ev.type==event_connect)
+return true;
+if(ev.type==event_disconnect)
+return false;
+}
+return false;
+}
+void connect()
+{
+timer connectiontimer;
+if(lockout_active and lockout_timer.elapsed<900000)
+{
+int remaining=(900000-lockout_timer.elapsed)/1000;
+dlg("You are locked out due to too many failed login attempts. Please wait "+remaining+" seconds before trying again.");
+mainmenu();
+return;
+}
+if(lockout_active and lockout_timer.elapsed>=900000)
+{
+lockout_active=false;
+failed_login_attempts=0;
+}
+if(name=="" or !account_exists(name))
+{
+int reg_choice = yesno("You need an account to connect. Would you like to register one?");
+if (reg_choice == 1)
+{
+registermenu();
+return;
+}
+mainmenu();
+return;
+}
+// Block unauthenticated accounts — offer to open the authorization screen.
+if(!is_account_authenticated(name))
+{
+int auth_choice = yesno("Your account has not been authenticated yet. Would you like to enter your authorization code now?");
+if (auth_choice == 1)
+{
+account_authorize_menu();
+return;
+}
+mainmenu();
+return;
+}
+if(connected==false and prevconnected==false)
+{
+n.setup_client(20, 500);
+n.connect(netaddress, netport);
+speak("connecting to the server.");
+}
+if(connected==true or prevconnected==true)
+{
+e=n.request();
+string connect_msg="connect_me "+name+" "+version+" "+comp;
+if(SCRIPT_COMPILED==false and !dev_unlocked)
+connect_msg+=" from_source";
+send_reliable(0, connect_msg, 0);
+speak("logging in");
+}
+connectiontimer.restart();
+while(true)
+{
+wait(5);
+e=n.request();
+if (key_pressed(KEY_ESCAPE))
+{
+mainmenu();
+}
+if(e.type==event_disconnect or connected==false and connectiontimer.elapsed>=10000)
+{
+dlg("error: the server is currently down or under maintenance, try connecting later.");
+exitgame();
+}
+if(e.type==event_connect and connected==false)
+{
+peer_id=e.peer_id;
+string connect_msg2="connect_me "+name+" "+version+" "+comp;
+if(SCRIPT_COMPILED==false and !dev_unlocked)
+connect_msg2+=" from_source";
+send_reliable(0, connect_msg2, 0);
+connected=true;
+speak("signing in");
+}
+else if(e.type==event_receive and get_event_message()=="loggedin123")
+{
+// Stop map ambience that was loaded during login - it should not
+// play until the player actually enters a game mode.
+destroy_all_sources();
+p.destroy_all();
+if(connected==false) connected=true;
+lobby();
+}
+else if(e.type==event_receive and get_event_message()=="ver")
+{
+dlg("you don't have the updated version of infinite warfare, get the latest version at http://darkserver.ru/iw/iw.zip or use the in game updater.");
+
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="dev_denied")
+{
+dlg("Access denied. Only authorized developers may connect when running from source. Use the administrator panel to enter a developer unlock key.");
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="alreadyin")
+{
+dlg("Sorry, this name is already in use.");
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="error")
+{
+dlg("An unknown error occurred.");
+mainmenu();
+}
+else if(e.type==event_receive and get_event_message()=="banned")
+{
+dlg("You are banned from this server.");
+mainmenu();
+}
+else if(e.type==event_receive)
+{
+if(string_contains(get_event_message(), "error:", 1)>-1)
+dlg(get_event_message());
+string[] parsed=string_split(get_event_message(), " ", false);
+if(parsed[0]=="x")
+{
+me.x=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="y")
+{
+me.y=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="z")
+{
+me.z=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="mapdata")
+{
+load_map(string_replace(get_event_message(), "mapdata ", "", false));
+}
+else if(parsed[0]=="facing")
+{
+facing=string_to_number(parsed[1]);
+}
+}
+}
+}

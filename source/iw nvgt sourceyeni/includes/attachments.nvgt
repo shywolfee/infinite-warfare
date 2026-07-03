@@ -1,0 +1,207 @@
+class attachment_def
+{
+string id;
+string display_name;
+string prefix;
+string slot;
+bool removable;
+float firetime_mult;
+float walktime_mult;
+string[] compatible_weapons;
+attachment_def(string _id, string _display_name, string _prefix, string _slot, bool _removable, float _firetime_mult, float _walktime_mult, string[]@ _compatible)
+{
+id=_id;
+display_name=_display_name;
+prefix=_prefix;
+slot=_slot;
+removable=_removable;
+firetime_mult=_firetime_mult;
+walktime_mult=_walktime_mult;
+compatible_weapons=_compatible;
+}
+}
+attachment_def@[] attachment_defs(0);
+
+dictionary weapon_attachments;
+
+void register_attachment(string id, string display_name, string prefix, string slot, bool removable, float firetime_mult, float walktime_mult, string[]@ compatible)
+{
+attachment_def d(id, display_name, prefix, slot, removable, firetime_mult, walktime_mult, compatible);
+attachment_defs.insert_last(d);
+}
+
+int find_attachment_def(string id)
+{
+for(uint i=0; i<attachment_defs.length(); i++)
+{
+if(attachment_defs[i].id==id) return i;
+}
+return -1;
+}
+
+bool is_attachment_item(string item)
+{
+return find_attachment_def(item)>=0;
+}
+
+bool can_attach_to(string attachment_id, string weapon_name)
+{
+int idx=find_attachment_def(attachment_id);
+if(idx<0) return false;
+for(uint i=0; i<attachment_defs[idx].compatible_weapons.length(); i++)
+{
+if(attachment_defs[idx].compatible_weapons[i]==weapon_name) return true;
+}
+return false;
+}
+
+string[] get_weapon_attachments(string weapon_name)
+{
+string[] result;
+if(!weapon_attachments.exists(weapon_name)) return result;
+string data;
+weapon_attachments.get(weapon_name, data);
+if(data=="") return result;
+string[] parts=string_split(data, "|", true);
+for(uint i=0; i<parts.length(); i++)
+{
+if(parts[i]!="") result.insert_last(parts[i]);
+}
+return result;
+}
+
+bool weapon_has_attachment_in_slot(string weapon_name, string slot)
+{
+string[] attached=get_weapon_attachments(weapon_name);
+for(uint i=0; i<attached.length(); i++)
+{
+int idx=find_attachment_def(attached[i]);
+if(idx>=0 and attachment_defs[idx].slot==slot) return true;
+}
+return false;
+}
+
+bool weapon_has_attachment(string weapon_name, string attachment_id)
+{
+string[] attached=get_weapon_attachments(weapon_name);
+for(uint i=0; i<attached.length(); i++)
+{
+if(attached[i]==attachment_id) return true;
+}
+return false;
+}
+
+bool attach_to_weapon(string attachment_id, string weapon_name)
+{
+if(!can_attach_to(attachment_id, weapon_name)) return false;
+int def_idx=find_attachment_def(attachment_id);
+if(def_idx<0) return false;
+if(weapon_has_attachment_in_slot(weapon_name, attachment_defs[def_idx].slot)) return false;
+string[] attached=get_weapon_attachments(weapon_name);
+attached.insert_last(attachment_id);
+string data="";
+for(uint i=0; i<attached.length(); i++)
+{
+if(i>0) data+="|";
+data+=attached[i];
+}
+weapon_attachments.set(weapon_name, data);
+return true;
+}
+
+bool detach_from_weapon(string attachment_id, string weapon_name)
+{
+int def_idx=find_attachment_def(attachment_id);
+if(def_idx<0) return false;
+if(!attachment_defs[def_idx].removable) return false;
+string[] attached=get_weapon_attachments(weapon_name);
+bool found=false;
+for(uint i=0; i<attached.length(); i++)
+{
+if(attached[i]==attachment_id)
+{
+attached.remove_at(i);
+found=true;
+break;
+}
+}
+if(!found) return false;
+string data="";
+for(uint i=0; i<attached.length(); i++)
+{
+if(i>0) data+="|";
+data+=attached[i];
+}
+weapon_attachments.set(weapon_name, data);
+return true;
+}
+
+string get_weapon_prefix(string weapon_name)
+{
+string[] attached=get_weapon_attachments(weapon_name);
+string prefix="";
+for(uint i=0; i<attached.length(); i++)
+{
+int idx=find_attachment_def(attached[i]);
+if(idx>=0 and attachment_defs[idx].prefix!="")
+{
+if(prefix!="") prefix+=" ";
+prefix+=attachment_defs[idx].prefix;
+}
+}
+return prefix;
+}
+
+string get_weapon_display_name(string weapon_name)
+{
+string prefix=get_weapon_prefix(weapon_name);
+string base=string_replace(weapon_name, "_", " ", true);
+if(prefix!="") return prefix+" "+base;
+return base;
+}
+
+bool weapon_is_suppressed(string weapon_name)
+{
+string[] attached=get_weapon_attachments(weapon_name);
+for(uint i=0; i<attached.length(); i++)
+{
+int idx=find_attachment_def(attached[i]);
+if(idx>=0 and attachment_defs[idx].slot=="muzzle" and string_contains(attachment_defs[idx].id, "suppressor", 1)>-1) return true;
+}
+return false;
+}
+
+float get_attachment_firetime_mult(string weapon_name)
+{
+float mult=1.0;
+string[] attached=get_weapon_attachments(weapon_name);
+for(uint i=0; i<attached.length(); i++)
+{
+int idx=find_attachment_def(attached[i]);
+if(idx>=0) mult*=attachment_defs[idx].firetime_mult;
+}
+return mult;
+}
+
+float get_attachment_walktime_mult(string weapon_name)
+{
+float mult=1.0;
+string[] attached=get_weapon_attachments(weapon_name);
+for(uint i=0; i<attached.length(); i++)
+{
+int idx=find_attachment_def(attached[i]);
+if(idx>=0) mult*=attachment_defs[idx].walktime_mult;
+}
+return mult;
+}
+
+string[] get_compatible_attachments(string weapon_name)
+{
+string[] result;
+for(uint i=0; i<attachment_defs.length(); i++)
+{
+if(can_attach_to(attachment_defs[i].id, weapon_name))
+result.insert_last(attachment_defs[i].id);
+}
+return result;
+}

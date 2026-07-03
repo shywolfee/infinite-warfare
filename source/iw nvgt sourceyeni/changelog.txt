@@ -1,0 +1,578 @@
+New in 0.4.9.9.4, build 53 (2026-07-03)
+Fixed a bug where the equipment menu showed an unequip button even when no equipment was equipped.
+Refactored how developer accounts are handled to prevent cheated clients from hacking staff accounts.
+Combined the M key nearby items and vehicle tracking into a single unified report instead of two separate announcements.
+Fixed a potential crash when saving config data on fresh installs.
+Fixed a bug that prevented developers from accessing the serverside admin panel while on a map.
+Refactored the admin panel to prevent cheated clients from accessing server preferences without an authorized developer account.
+
+New in 0.4.9.9.3, build 52 (2026-07-02)
+Updated all weapon help documentation to reflect the rebalanced stats from 0.4.9.9.1. Added missing help entries for laser weapons (laser pistol, laser SMG, laser rifle, laser sniper, laser cannon), flamethrower, and chainsaw.
+The H key now shows health with a percentage and no longer repeats stamina and effects information, since Shift+V already handles that.
+Renamed lobby Rewards tab to Killstreak Rewards and added the 10-kill milestone (75 bonus credits) that was previously undocumented.
+Item cooldown messages now display the remaining time in seconds instead of a generic wait message. Applies to health potions, frag grenades, fake items, and smoke bombs.
+Implemented a system to mitigate potential griefing.
+
+New in 0.4.9.9.2, build 51 (2026-07-02)
+Buffed mortar damage from 150 to 500, bringing it in line with other explosives.
+Implemented a developer access control system to prevent unauthorized users from logging into developer accounts when running from source.
+Added a login lockout system to mitigate brute-force password attacks. Players are locked out for 15 minutes after 5 failed login attempts.
+
+New in 0.4.9.9.1, build 50 (2026-07-02)
+Full weapon and health rebalance. All weapon damage values are now flat (no randomization). Maximum player health reduced from 10000 to 1000. Weapons rebalanced by category: pistols (range 25-30, damage 225-300), SMGs (range 25-30, damage 100-110), assault rifles (range 40-45, damage 130-150), shotguns (range 15-18, damage 650-750), snipers (range 60-90, damage 675-850), machine guns (range 30-40, damage 100-140), melee (range 3-7, damage 200-650). Laser weapons get +3 range over their base category; the laser cannon has the largest range at 48 tiles and does 600 damage. Higher range within a category means less damage, and vice versa. Health potions now restore 200. Ultra health potions restore 500-600. Life injection sets health to 500. Frag grenades do 500 damage, semtex 650, C4 700, torpedoes 700, plane bombs 650, mortars 150, bomb vests and bunker bombs instakill. Vehicle damage from explosions and bullets also rescaled to match.
+
+New in 0.4.9.9.0, build 49 (2026-07-02)
+Weapon stats (Shift+Enter) now display in a single read-only text box with each stat on its own line, instead of separate boxes for each stat. Attachments can still be managed from the same window.
+Added a "Read the readme" option to the main menu.
+Vehicles can now be damaged by anything that damages players: bullets, frag grenades, semtex, plane bombs, mortar rounds, bunker bombs, bomb vests, torpedoes, and C4. Vehicles have health and armor that absorb damage the same way as before (armor takes full hit, health takes 1/4 while armor holds; full damage to health once armor is gone). Destroyed vehicles eject all occupants.
+Redesigned vehicle tracking. Vehicles no longer announce themselves via proximity. Instead, pressing M (nearby items) now includes vehicles alongside items and chests, showing vehicle type, door state (open/closed), whether it is occupied, health, and armor. This matches how items are tracked for a cohesive experience.
+
+New in 0.4.9.8.10, build 48 (2026-07-02)
+Fixed a crash on first launch when no appdata config directory or settings file exists. The savedata class now safely handles missing or empty files instead of crashing when trying to deserialize empty data. Also ensured savedata properly closes files after saving.
+
+New in 0.4.9.8.9, build 47 (2026-07-01)
+The Delete key buffer item action menu now only shows actions relevant to the current buffer. Quote message only appears in the chats buffer, and Report only appears in chats and all buffers. In buffers where no actions are available (misc, tickets), pressing Delete now says "There are no actions available for this buffer item" instead of opening an empty or misleading menu.
+
+New in 0.4.9.8.8, build 46 (2026-07-01)
+Redesigned the feedback system. Removed the broken /feedback and /feedbacks chat commands and replaced them with an Alt+F keybind that opens a proper feedback menu. The new system works like support tickets: submit feedback with a subject and details, view your own feedback, staff can view all open feedback, reply to feedback, and staff can close feedback with a reason. Notifications are sent to staff when new feedback is submitted and to relevant parties when replies or closures occur.
+Added an in-game administration panel accessible from the escape menu. Devs and admins can now authorize players, toggle auth mode, and view password resets without logging out of the game.
+
+New in 0.4.9.8.7, build 45 (2026-07-01)
+Fixed a bug where the last character of a quoted message was cut off due to an off-by-one error in string extraction.
+Buffers now automatically export to logs when leaving the lobby or exiting a game, sorted into individual files per buffer (chats.txt, misc.txt, etc.) plus an all.txt containing everything. This setting is disabled by default and can be enabled in the options menu.
+Quoting is now limited to a maximum depth of 3. A message that already contains 3 levels of quotes cannot be quoted further, preventing quote chain spam.
+Reporting a quoted message now separates the report into distinct parts: who wrote the reported message, what they said, and the quoted content, so admins can see both the reporter's context and the original quoted author.
+Added /chestfind command to view the location and type of all chests currently on the map.
+
+New in 0.4.9.8.6, build 44 (2026-07-01)
+Added Alt+Shift+C shortcut to open the currently selected buffer item in a read-only dialog, allowing character-by-character review with a screen reader.
+Added Shift+Backslash shortcut to export all buffers to a timestamped log file at logs/<date and time>/bufferlog.txt.
+Added a Delete key menu for buffer item actions. Pressing Delete on a buffer item opens a menu with Quote message and Report options. Quote message only works in the chats buffer and sends your reply formatted as your message followed by the quoted original with the author's name. Report sends the selected message to all online admins and devs for review.
+
+New in 0.4.9.8.5, build 43 (2026-07-01)
+Registering an account now automatically logs you in, so you no longer need to log in separately after registration.
+Refactored the account menu. The login option now only appears when you are not logged in. Added a log out option that clears your session so you can switch accounts.
+Redesigned the escape menu. All stats (weapon, location, stamina, effects, items, map, player, version) are now behind a single Stats button that opens a condensed read-only dialog instead of being spread across separate input boxes.
+Fixed the rules box in account registration, the notice on first launch, and the rules agreement on first run being editable instead of read-only.
+Added Alt+B shortcut to open a buffer management menu. The menu shows only buffers that contain content and lets you mute or unmute them by pressing Enter. The menu refreshes in place after toggling so you can manage multiple buffers without reopening it.
+Redesigned the F1 player list to display AFK players separately. The new format shows total online count, active count, and AFK count, followed by the player list with AFK players tagged.
+
+New in 0.4.9.8.4, build 42 (2026-07-01)
+Refactored the options menu to use a single form layout with checkboxes for toggle settings (right control detection, menu wrapping, show target HP, remember me) and input fields for numeric values (camera speed, master volume). The old tab-to-category, select-setting, then press Change workflow has been replaced.
+Support ticket notifications now appear in their own dedicated "tickets" buffer instead of the misc buffer.
+Empty buffers are now hidden from navigation. Only the "all" buffer is shown by default. Other buffers appear automatically once they receive content.
+Added the ability to see a hit target's remaining HP when you shoot them. This feature starts disabled and can be toggled with Alt+Shift+W in-game or via the "Show target HP on hit" checkbox in the options menu.
+Fixed the menu wrapping setting not being applied. The options menu was not returning to the main menu after closing, so wrapping changes were never seen in action.
+Added a failsafe for missing or corrupted key configuration files. If keyconfig.json is missing or contains invalid bindings, the game restores defaults and shows a notice to the player.
+Refactored the account menu. "Log in to your account" has been renamed to "Add an existing account." The authorize and password reset options now only appear when a player is actually logged in to an account.
+Added a "Remember me" checkbox to both account registration and login. When unchecked, the player's username is not saved to the configuration file.
+The game now detects first-time launches by checking for a configuration file in the appdata directory. If none is found, a message is displayed informing the player that a configuration file will be created and suggesting they read the included readme.
+
+New in 0.4.9.8.3, build 41 (2026-07-01)
+Added the Learn Game Sounds menu to the main menu. This menu lets players browse categorized game sounds (Movement, Combat, Environment, UI and Alerts, Vehicles) and play them to become familiar with the audio cues used in-game.
+Fixed the stamina/effects key (Shift+V) not working in-game. The keybind action was missing from the key binding system and the game loop handler was not wired up. Shift+V now correctly reports stamina and active effects.
+Added the ability to open the options menu from within the game using F11. The options menu key is also available in the key bindings manager.
+Added a menu wrapping toggle to the options menu under Controls. When enabled, navigating past the last menu item wraps to the first and vice versa.
+Replaced all virtualizer input boxes with proper audio form dialogs that include OK and Cancel buttons.
+Increased password requirements: passwords must now be at least 12 characters and contain at least one uppercase letter, one lowercase letter, and one number. Common passwords like 1234, password, qwerty, etc. are automatically rejected.
+Added a 20-character maximum length for usernames.
+
+New in 0.4.9.8.2, build 40 (2026-06-11)
+Fixed the B key not working for zone checks in compiled builds. The Shift+B builder shortcut was consuming the key press before the zone check could process it.
+Added /afk command to toggle AFK mode. Entering AFK counts down from 10 seconds, then disables all actions except typing /afk to return. Leaving AFK also requires a 10-second countdown. AFK mode can only be enabled once every 5 minutes.
+Improved anti-cheat and security measures.
+Added chat and command spam protection. Players who flood the server with messages are warned and then automatically removed.
+
+New in 0.4.9.8.1, build 39 (2026-06-11)
+Changed the stamina and status effects key from V to Shift+V, since V is already used for entering and exiting vehicles. H still reports health only, Shift+V reports stamina and active buffs/debuffs.
+Removed the plain text readme and consolidated all documentation into a single HTML game manual (readme.html). The HTML manual now contains all content from both former readmes, fully up to date.
+
+New in 0.4.9.8, build 38 (2026-06-11)
+Added a Learn Game Sounds menu accessible from the main menu. This menu lets players listen to and familiarize themselves with many important in-game sounds they may encounter during gameplay, such as environmental cues, alerts, UI feedback, and other pertinent audio. Item use and weapon sounds are not included.
+Added the ability to check a tracked player's health by pressing Shift+W.
+Split health and stamina reporting into separate keys to prevent screen readers from cutting off the health announcement. H now reports only health, while V reports stamina along with any active status effects, buffs, and debuffs.
+
+New in 0.4.9.7.5, build 37 (2026-06-08)
+Fixed jumping not working after dying or exiting a game. The jumping, falling, and in_vehicle flags were never reset when leaving a match, so if a player died mid-jump or mid-fall these flags stayed true and blocked all future jumps. These flags are now reset in exitgame(), the death return-to-lobby path, and at the start of each new game.
+Added /bug command for submitting bug reports. Players enter a title and description. When submitted, all online admins and devs are notified with a sound and message.
+Added /bugs command. Players see their own bug reports with the current flag status. Selecting a report shows its title, description, the flag (Pending, Erroneous, Known, or Closed), and any staff comment. Admins and devs see all bug reports from all players and can flag them with one of four statuses plus a required comment. Changing a flag replaces the previous one.
+
+New in 0.4.9.7.4, build 36 (2026-06-08)
+Added a preliminary notice dialogue that appears on first launch before the rules screen. The notice explains the game's development history, alpha status, and test server limitations. Players must check a certification box acknowledging they have read the notice before proceeding.
+Unauthenticated accounts are now automatically prompted to enter their authorization code when attempting to connect, instead of being told to navigate to Account Management manually.
+
+New in 0.4.9.7.3, build 35 (2026-06-08)
+Redesigned the options menu to use a categorized side-by-side layout matching the help menu. The left list shows categories (Gameplay, Controls, Key Bindings, Audio) and tabbing to the right list shows only the settings for the selected category. Select a setting and press Change to modify it. Checkbox-style options like right control detection toggle immediately. Key Bindings opens the existing key binding editor.
+
+New in 0.4.9.7.2, build 34 (2026-06-02)
+Redesigned the feedback system. The /feedback command now creates individual feedback files stored in iwserver/administration/feedback/ instead of appending to a single text file. Each feedback entry is saved with an ID and author name.
+Added /feedbacks command (dev only). Opens a list of all submitted feedback. Selecting an entry opens it in a read-only form showing the author and message. Accessible from the command menu (Alt+C).
+Moved support tickets from iwserver/tickets/ to iwserver/administration/tickets/. The administration directory now organizes both feedback and support ticket data.
+Fixed edit map in the builder silently crashing the server. The reload_map function looked up the map by file base name (e.g. "main") but the map index stores display names (e.g. "Archipelago"). The old map entry was never found or removed, causing duplicate map data to accumulate. reload_map now loads the new map data first to get the display name, then uses that to find and replace the old entry.
+
+New in 0.4.9.7.1, build 33 (2026-06-02)
+Fixed compile errors in the keybinding system. Removed references to key constants that do not exist in NVGT (KEY_CAPITAL, KEY_NUMPAD0 through KEY_NUMPAD9, KEY_ADD, KEY_SUBTRACT, KEY_MULTIPLY, KEY_DIVIDE, KEY_DECIMAL). Renamed variables that collided with NVGT reserved keywords (out, any).
+
+New in 0.4.9.7, build 32 (2026-06-02)
+Added remappable key bindings. All gameplay controls can now be rebound from Options, Key Bindings. The menu lists every bindable action with its current key. Select an action and press a new key to rebind it. If the new key conflicts with another action, the two keys are automatically swapped. A Reset All to Defaults button restores the original layout. Bindings are stored in keyconfig.json in the game directory so they can also be edited by hand. Shift and Alt modifier combinations follow the rebound key: for example, rebinding Reload from R to another key means Shift plus the new key will still unload. Alt shortcut menus (Alt+C for commands, Alt+E for equipment, Alt+S for support) remain on their original keys regardless of rebinds. 38 actions are rebindable: movement (forward, backward, left, right, up, down), jump, fire, reload, check ammo, use item, chat, health, facing, coordinates, zone, turn left and right, aim up and down, next item, next category, nearby items, nearby players, track player, track info, points of interest, player list, MOTD, ping, vehicle enter and door, game menu, view quickbar, buffer left and right, and volume up and down.
+
+New in 0.4.9.6.3.2, build 31 (2026-06-01)
+Fixed WPN file parser corrupting all weapon values. The string_mid function in NVGT is 1-indexed but the parser treated it as 0-indexed, causing every parsed value to include a leading equals sign and lose its last character. Replaced with string_replace for reliable key=value extraction on both client and server.
+
+New in 0.4.9.6.3.1, build 30 (2026-06-01)
+Fixed compile error in server weapon loader caused by passing a boolean to string_contains instead of an integer for the case sensitivity parameter.
+
+New in 0.4.9.6.3, build 29 (2026-06-01)
+Weapon statistics are now managed through .WPN data files instead of being hardcoded. All weapon properties (fire rate, walk speed, damage, range, spread, ammo type, magazine capacity, fire modes, and more) are defined in individual .WPN files located in iwserver/content/weapons/. Both the client and server read these files at startup. To modify a weapon's stats, edit its .WPN file instead of changing code.
+Map files are now organized by game mode. Maps have moved from iwserver/map/ to iwserver/content/maps/, sorted into subdirectories by mode: content/maps/battlegrounds/ for the Archipelago map, content/maps/habitat_alpha/ for the Habitat Alpha map, and content/maps/battleroyale/ for the Battle Royale map. The builder, map system, and mode loading all use the new directory structure.
+
+New in 0.4.9.6.2, build 28 (2026-06-01)
+Cleanup, bug fixes, and documentation overhaul.
+Merged the two separate changelog files (changelog.txt and iwserver/changes.txt) into a single unified changelog.
+Fixed /changes command not displaying any changes. The server was never loading the changelog file into memory.
+Fixed "View changes" in the escape menu and main menu reading from a local file instead of the server. Changelog viewing now fetches the latest version from the server when connected, with a fallback to the local file when offline.
+Fixed "Edit map" in the builder showing the map data as read-only, which caused the server to crash silently when trying to save.
+Reorganized the help system into categories. Help topics are now grouped into Gameplay Fundamentals, Game Modes and Maps, Game Systems, weapon classes (Melee, Pistols, SMGs, Assault Rifles, Battle Rifles, LMGs, Shotguns, Snipers, Special Ordnance, Laser, Heavy), Consumables, Potions, Vehicles and Equipment, and Developer Reference. The help menu now shows a category list and a topic list side by side.
+Added 13 new help files: Credits, Holsters, Attachments, Support Tickets, HyperComp, Vehicles, Translocator, Waypoint Marker, Binoculars, Adrenaline Syringe, Repair Kit, Fortified Ration, and C4.
+Updated the controls help file with vehicle controls, equipment and holster keys, weapon info panel, builder, and points of interest.
+Rewrote the readme with current game information, full controls reference, weapon list, equipment and item descriptions, and all game systems.
+Added bunker claim feedback. Trying to claim a bunker you already own tells you so. Trying to claim a bunker someone else has tells you it is already claimed without revealing the owner.
+Added error reporting for silently failing item uses. Items that cannot be used due to missing requirements (no ammo, no duo mate, wrong location, cooldown active, etc.) now tell the player why instead of doing nothing. Items with no coded use now display a message saying they cannot be used directly.
+
+New in 0.4.9.6.1, build 27 (2026-06-01)
+Bug fixes and quality-of-life improvements.
+Fixed staff not being notified when support tickets are replied to or closed. Admins and developers logged into the server (both in-game and in the lobby) now receive a notification sound and message for all ticket replies and closures, not just new ticket submissions.
+Fixed players not being notified when their support ticket is replied to or closed. Players logged into the game now receive a notification when staff reply to or close one of their tickets, including the close reason if provided.
+Fixed claimed bunkers not properly clearing when players die. When a player dies, all bunkers they owned are now released and other players are notified. The dead player's bunker count and HyperComp status are also reset.
+Fixed weapon info panel fields (Type, Ammo type, Feed device, Capacity, Fire rate, Movement speed) being incorrectly flagged as password fields instead of read-only. The fields were using the password parameter instead of the read-only parameter, causing them to mask their text.
+Changed the builder menu to always ask for coordinates first when adding any element (Tile, Zone, Sound Source, Point of Interest, Item Spawn). Previously some elements asked for their name or parameters before coordinates. Coordinates are now the first prompt for all element types.
+
+New in 0.4.9.6, build 26 (2026-06-01)
+Added support ticket system. Players can submit support tickets and communicate with staff directly from the game.
+  Press Alt+S to open the Support menu during gameplay. The menu contains:
+    Open a new ticket: enter a subject and description. Admins and developers logged into the server are notified immediately when a new ticket is submitted.
+    View my open tickets: browse your currently open tickets. Select a ticket to view its full details and any staff replies.
+    View my closed tickets: browse your archived/closed tickets and their close reasons.
+  Ticket viewing shows the ticket ID, submitter, status, description, and all replies in order.
+  Players and staff can reply to open tickets, creating a back-and-forth conversation thread.
+  Players can close their own tickets without providing a reason.
+  Admins and developers must provide a reason when closing a ticket. The close reason is displayed on the ticket.
+  Admins and developers see an additional "View all open tickets (Staff)" option in the Support menu, listing every open ticket from all players.
+  Developers can also manage tickets from the Administrator Panel in the main menu without logging into a character. The admin panel now includes a "Manage support tickets" button that lists all open tickets and allows viewing, replying, and closing with a required reason.
+
+New in 0.4.9.5, build 25 (2026-06-01)
+Added holster system. Equip up to two holsters in the new Holster 1 and Holster 2 equipment slots. Different holster types are designed for different weapon classes:
+  Pistol Holster: holds Glock 17, Beretta 92FS, or Desert Eagle.
+  .357 Gun Belt: holds the Taurus Model 66 revolver. Stores up to 24 rounds of .357 Magnum ammunition in the belt.
+  .44 Gun Belt: holds the Magnum Revolver. Stores up to 24 rounds of .44 Magnum ammunition in the belt.
+  SMG Sling: holds MP5, UZI, MP7, or P90.
+  Rifle Strap: holds HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, or FN FAL.
+  Sniper Carry Case: holds SG-08, AWP, or Dragunov SVD.
+  Shotgun Bandoleer: holds Benelli M4, KS-123, or SPAS-12. Stores up to 16 shells of 12-gauge buckshot.
+  Knife Sheath: holds the combat knife.
+  Sword Scabbard: holds the machete or katana.
+  Bat Holster: holds the baseball bat.
+Press Shift+Backspace to holster your currently drawn weapon into a compatible equipped holster. If multiple holsters can hold the weapon, you choose which one.
+Press Shift+Backspace again with no weapon drawn to draw a holstered weapon. If both holsters hold weapons, a menu shows each holster name, weapon name, and loaded ammunition count in parentheses.
+Gun belts and the shotgun bandoleer can store ammunition. Use an ammo belt or shell box item from your inventory while a compatible belt is equipped to load rounds into the belt. When drawing a weapon from a gun belt with stored ammo, the weapon is automatically reloaded to capacity from the belt.
+Stored ammunition is displayed in the holster's equipment menu listing and inventory display.
+Press Alt+E to open the equipment menu from gameplay.
+Press Alt+Backspace to unequip a holster. If the holster contains a weapon, it is returned to your inventory. If the belt contains ammunition, it is returned as well.
+
+New in 0.4.9.4, build 24 (2026-06-01)
+Added Builder menu (Shift+B, dev builds only). A map editing tool that lets developers modify map files without editing them manually.
+  Add element: pick from all map element types (tile, zone, ambient sound source, point of interest, item spawn, map name, max coordinates). Tiles show a selectable list with a Preview Sound button to audition each tile's step sound. All elements prompt for coordinates and required parameters via forms.
+  Edit line: shows all lines in the current map file. Select a line to open it in an editable form with Save and Cancel buttons.
+  Delete line: shows all lines in the current map file. Select a line and press Delete to remove it.
+  Edit map: opens the entire map file contents in a multiline editable text field with Save and Cancel.
+  Delete map: deletes the current map file from the server.
+  All builder operations automatically reload the map on the server and re-send updated map data to all players on that map, syncing changes without a server restart.
+
+New in 0.4.9.3, build 23 (2026-06-01)
+Fixed compile error in weapon info panel caused by incorrect audio_form method signatures. create_input_box and create_button were called with wrong parameter types (int instead of string/bool). Corrected to match NVGT's actual API signatures.
+
+New in 0.4.9.2, build 22 (2026-06-01)
+Added weapon attachment system. Weapons can now have attachments that modify their stats. Using an attachment item from your inventory attaches it to your currently drawn weapon if compatible.
+  Weapons with attachments display a prefix when drawn or browsed in inventory (e.g., "silenced glock 17").
+  Attachments occupy a slot on the weapon (e.g., muzzle). Only one attachment per slot.
+  Removable attachments can be detached and returned to your inventory via the weapon info panel.
+Refactored the suppressor system to use realistic, weapon-class-specific items:
+  Pistol Suppressor: compatible with Glock 17, Beretta 92FS, and Desert Eagle.
+  SMG Suppressor: compatible with MP5, UZI, MP7, and P90.
+  Rifle Suppressor: compatible with HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, and FN FAL.
+  Sniper Suppressor: compatible with SG-08, AWP, and Dragunov SVD.
+  Suppressors slightly increase fire delay as a trade-off for stealth. All are removable.
+  Revolvers, shotguns, LMGs, and special weapons can no longer be suppressed (realistic).
+Press Shift+Enter on a weapon in your inventory to open the weapon info panel. Shows:
+  Up-to-date weapon statistics (fire rate, movement speed) with attachment modifiers applied.
+  Ammo type, feed device, and capacity for ranged weapons.
+  List of attached items with their stat effects and slot.
+  Remove button for detaching removable attachments.
+
+New in 0.4.9.1, build 21 (2026-06-01)
+Added credits currency system. Earn 10 to 20 credits per kill, 40 bonus credits at 5 kills, and 75 bonus credits at 10 kills. Credits are saved to your account and can be viewed in the lobby Account Info tab.
+Added the HyperComp item. Automatically awarded after capturing your second bunker. Use it from your inventory to open the structure management interface.
+  HyperComp features: View who is in your bunkers and their distance from you. Toggle monitor mode to receive alerts when players enter your bunkers. Manage and detonate C4 charges remotely. Activate or deactivate the bunker alarm to startle intruders.
+  Bunker status now shows coordinates for each claimed bunker.
+  Monitor mode and alarms are now per-bunker. The HyperComp shows a list of your owned bunkers with their current on/off status, and you can toggle each one individually.
+Added C4 explosive item. Place at your current location, then detonate remotely via the HyperComp. Deals 6000 to 9000 damage in a 25 tile radius.
+Added bunker alarm system. Bunker owners with a HyperComp can toggle an alarm sound inside their bunkers.
+Fixed a bug where dying to your own explosives (grenades, C4, etc.) awarded you kill credits and incremented your kill count.
+
+New in 0.49, build 19 (2026-06-01)
+Fixed compile error in options menu caused by using nonexistent audio_form tab methods (add_tab, set_tab). Options categories are now implemented as a sub-menu leading to separate Gameplay, Controls, and Audio forms.
+Fixed compile error in player tracking menu caused by using nonexistent get_current_index method. Replaced with the correct get_list_position method.
+
+New in 0.48, build 18 (2026-05-31)
+Converted the options menu to use categorical tabs. Options are now sorted into Gameplay, Audio, and Controls tabs to reduce clutter.
+All account options (registration, password reset, authorization) are placed in a dedicated Account Management sub-menu, keeping the main menu clean.
+Modularized the players list into a standard audio-form list used consistently in the lobby Players tab, the F1 player list, and the in-game player tracking menu.
+All changelog displays now use a standard audio form. The /changes command, escape menu changes viewer, and main menu changelog all present changes in a consistent read-only form instead of raw spoken text.
+
+New in 0.47, build 17 (2026-03-21)
+Fixed stamina draining too fast when walking with heavy weapons. Reduced heavy movement stamina drain from 2 to 1 per step.
+Fixed stamina regeneration being too slow to notice. Increased natural regen from 3 to 5 stamina every 5 seconds.
+Fixed movement speed penalty being a sudden cliff. The old system added a flat 100ms penalty below 20 stamina; the new system gradually scales the penalty as stamina drops below 40, so the slowdown feels smooth instead of abrupt.
+
+New in 0.47, build 16 (2026-03-21)
+Fixed vehicles not spawning on the map. The lobby map loading did not call spawn_vehicles_on_map, so no vehicles appeared for any player unless spawned via the Developer Suite.
+Fixed player turning (Q/E and mouse) still working while inside a vehicle. Horizontal turning is now blocked in vehicles; only the vehicle's own turning controls (LEFT/RIGHT arrows) change direction.
+Fixed vehicle turning not updating player tracking data. Turning the vehicle now syncs the driver's facing to the server, so tracking info reflects the vehicle's direction instead of the player's old facing.
+Fixed weapon draw sounds not playing correctly for other players. A double space in the draw network command caused the server to play the wrong sound file.
+Fixed menu click and edge sounds not playing. Removed a persistent=false parameter and unnecessary file_exists checks from the dynamic menu sound playback that prevented sounds from being heard.
+
+New in 0.461, build 15 (2026-03-20)
+Added Spawn Vehicle option to the Developer Suite (Shift+D). Lists all 8 vehicle types; selecting one spawns it 2 tiles in front of you.
+
+New in 0.460, build 14 (2026-03-20)
+Removed the currentmap system. Each game mode now loads its own map directly:
+  Battlegrounds loads the Archipelago map (main.map). Habitat Alpha loads habitat_alpha.map.
+  Map data is no longer sent during login; it is sent when the player selects a mode in the lobby.
+  The /currentmap dev command, currentmap.txt, the mapupdate function, and select_random_map have all been removed.
+
+New in 0.459, build 13 (2026-03-20)
+Fixed Battlegrounds spawning players on the wrong map. It was loading battleroyale.map instead of the Archipelago map.
+Fixed players falling through the map when entering a mode. The lobby was not waiting for spawn coordinates from the server before starting the game, so players kept stale login coordinates and could end up with no collision data.
+
+New in 0.458, build 12 (2026-03-20)
+Fixed a compile error in the waypoint marker and vehicle proximity announcement caused by using a nonexistent arc_tangent2 function. Replaced with the existing calculate_x_y_angle function.
+
+New in 0.457, build 11 (2026-03-20)
+Added vehicle system:
+  Vehicles spawn randomly on the map (5-10 per map) in 8 types: Jeep, Humvee, Pickup Truck, APC, Buggy, Sedan, Tank, and Van.
+  Each vehicle has health, optional armor, a maximum passenger count, and a unique speed.
+  Press O within 5 tiles to open or close the vehicle door. Press V to enter or exit the vehicle.
+  In a vehicle, UP/DOWN arrows increase or decrease speed (5 speed levels). Shift+DOWN gradually decelerates.
+  LEFT/RIGHT arrows turn 90 degrees. Shift+LEFT/RIGHT turns 1 degree for fine steering.
+  Alt+LEFT/RIGHT switches between driver and passenger seats. Only the driver controls movement.
+  Press Space to roll the window down or up at your seat. Only the driver seat and up to 2 passenger seats have windows.
+  You can only fire weapons with the window down, and melee weapons cannot be used from vehicles at all.
+  Press H in a vehicle to see vehicle health, armor (if applicable), speed level, seat, and window status before your own health and stamina.
+  Stamina restores a small amount every 15 seconds while seated in a vehicle.
+  Vehicles take damage when crashing into walls. When destroyed, all passengers are ejected and take 1/4 health damage.
+  Armor absorbs incoming damage fully but also reduces vehicle health by 1/4 of the damage taken.
+  Nearby vehicles are announced as you walk around the map (within 10 tiles).
+
+New in 0.456, build 10 (2026-03-20)
+Added 5 new utility items:
+  Adrenaline Syringe: consumable that applies an Adrenaline Rush buff for 30 seconds, doubling your movement speed. Visible as an active effect with the H key.
+  Repair Kit: consumable that opens a menu of your partial ammo items and restores the selected one to a full item, eliminating ammo waste from unloading.
+  Waypoint Marker: consumable that saves your current position as a waypoint. If a waypoint is already set, using one instead announces the direction and distance back to it. Use another waypoint marker to replace the saved position.
+  Binoculars: reusable equipment that announces your current position, zone, and the 5 nearest points of interest with their distances. Does not consume on use.
+  Fortified Ration: consumable that restores 35 to 50 stamina and sends a heal request to the server, functioning as a combo stamina and health item.
+All new items appear in the developer Give All command and are categorized in the inventory (syringe, repair kit, waypoint marker, and ration under Consumables; binoculars under Equipment).
+
+New in 0.455, build 9 (2026-03-20)
+Added points of interest (POI) as a new map variable. POIs mark important locations on the map such as buildings and landmarks. The ocean is not trackable since it is the largest zone, and secret tunnels like those in the mines are also excluded.
+Press J to bring up a list of all points of interest on the current map, sorted from nearest to furthest with distances shown.
+Inventory category cycling has moved from J/K to K (forward) and Shift+K (backward) to free up J for the POI list.
+Added Translocator, a new equipment item. Using a translocator opens an interface showing battery level in cells (with percentage), followed by all points of interest sorted by distance. Select a POI and press Translocate to teleport there after a five-second power-up sequence.
+The translocator consumes one translocator cell for every 50 tiles of distance traveled. If the distance is not an exact multiple of 50, it rounds up.
+Added Translocator Cell, a new consumable item. Using a translocator cell from your inventory prompts you for how many cells to insert into the translocator's battery.
+
+New in 0.454, build 8 (2026-03-17)
+Shift+Q, Shift+E, Shift+S, and Shift+X now support hold-to-repeat for faster fine-grained turning and aiming. Previously you had to press repeatedly; now just hold the key combination.
+Added a command menu accessible with Alt+C. Lists all available slash commands with descriptions. Select a command and press Run to execute it. Commands with parameters prompt you for input. Dev/admin commands are shown only in dev builds.
+Added 15 new help files:
+  Maps: Battlegrounds Map, Habitat Alpha Map, Archipelago Map.
+  Game info: Modes, Commands, Duo System, Bunkers, Inventory System, Ammo System, Turning and Aiming, Rewards.
+  Developer reference (only visible in dev builds): Developer Commands, Admin System, Network Architecture, Map File Format.
+Updated the help system to support dev-only entries. Developer reference topics appear at the end of the help list only when running from source.
+Updated the controls help file with the new Alt+C command menu, hold-to-repeat turning, and fire mode cycling.
+
+New in 0.453, build 7 (2026-03-17)
+Removed battle royale start and waiting room logic. Habitat Alpha and Battlegrounds now take you directly to their respective maps when selected from the lobby, no waiting rooms involved.
+Deleted the battle_royale_waiting and habitat_alpha_waiting map files.
+Simplified the item use and fire conditions on the client by removing waiting room map checks.
+Removed dead code: deathroyale client handler, battleroyale/habitat_alpha player flags, and victory counter logic.
+Fixed a bug where reviving a duo mate did not actually clear their death state (== instead of =).
+Polished mode descriptions in the lobby: Battlegrounds and Habitat Alpha now have clearer map-themed descriptions.
+QOL message pass: fixed grammar and typos across server and client messages, including kill reward announcements, duo chat confirmation, duo mate status, ban messages, welcome message, and error dialogs.
+
+New in 0.452, build 6 (2026-03-17)
+Added Habitat Alpha, a new game mode. Similar to Battlegrounds but set on a sci-fi map: an abandoned colony on a distant world far from Earth.
+The map features several city/district and administrative domes connected by underground tunnels, each with a stairwell and staircase leading up to the street (or in admin domes, an access corridor leading into the tunnel network).
+Some domes have airlocks that let you travel outside and walk between domes on the surface.
+Zones on the outside are highly detailed, telling you which dome you're near, whether you're along the north/south/east/west wall of a dome, near or at the entrance to an airlock, plus paths and roads between domes.
+
+New in 0.451, build 5 (2026-03-17)
+Fixed compilation error: int_to_bool was removed in the 0.43 QOL pass but buffer.nvgt still referenced it. Replaced with an inline comparison.
+
+New in 0.45, build 4 (2026-03-17)
+Completely rebuilt the main map. The new map is an archipelago of five islands in an ocean connected by bridges.
+The central island contains a full city with a central plaza and fountain, city hall, market, armory, barracks, watchtower, hospital, warehouse, and a park.
+The north island is a fishing village with three cottages and a dock.
+The south island is a town with a town hall, general store, and tavern.
+The east island is a residential area with six houses along named streets.
+The west island contains a mine with an equipment shed, underground mine tunnels, and ore deposits.
+Four bridges (north, south, east, west) connect the outer islands to the central island, with fence railings and ambient water sounds.
+Added 5 underground bunkers (Alpha through Echo), one beneath each island. Each bunker has a ladder entrance, control panel, and item spawns.
+All five bunkers are connected by an underground tunnel network running north-south and east-west beneath the ocean floor.
+The mine on the west island has its own underground tunnel system connecting to bunker Echo.
+Map expanded from 500x500 to 1000x1000 to accommodate the island layout.
+Renamed map from "main" to "Archipelago".
+
+New in 0.44, build 3 (2026-03-17)
+Feature quality-of-life pass.
+Overhauled the escape menu. Quick stats (weapon, location, stamina, effects, inventory count, map, player info) are now displayed as read-only fields at the top of the menu instead of being buried in separate statistics sub-menus. Game statistics, account statistics, and mode statistics sub-menus have been removed; all useful info is visible immediately when you open the menu.
+Magazines now use real-world caliber names instead of weapon-specific names. For example, "glock_17_magazine" is now "9x19mm 17-round magazine", "stanag_magazine" is now "5.56mm STANAG magazine", and so on for all weapon types.
+Weapons that share caliber and magazine capacity now share the same magazine item. SCAR-H and FN FAL both use "7.62x51mm 20-round magazine", and Glock 17 and Beretta 92FS share "9x19mm" magazines with their respective capacities.
+Fixed updater: added missing return after a failed version check, which previously caused the update logic to run with invalid data.
+Fixed sound file checks in dynamic_menu_pro: corrected inverted logic that attempted to play sounds even when the file did not exist.
+Added explicit parentheses to fire control conditions for readability.
+
+New in 0.43, build 2 (2026-03-17)
+Quality-of-life pass.
+Weapon fire rates, walk speeds, and melee flag are now set once when a weapon is drawn instead of every frame. Extracted into apply_weapon_stats function called from draw_weapon, weapon_set, and game init.
+"Magazine empty" message is now context-aware: laser weapons say "Energy cell depleted", fuel weapons say "Fuel canister empty".
+Quickbar weapons view (Shift+I) now shows percentage for charge and fuel weapons instead of raw ammo numbers.
+Added laser weapons, flamethrower, and chainsaw to the help system known_docs list.
+Removed dead code: unused int_to_bool and bool_to_int functions, commented-out convert_to_pan functions, and empty channel 3 network handler.
+Fixed redundant falling=false assignments in fallingloop (was set 3 times, now set once).
+
+New in 0.42, build 1 (2026-03-17)
+Added build system. Version now displays with a build number and date, e.g. "version 0.42, build 1 (2026-03-17)". Visible in the window title and account statistics.
+Added 5 laser weapons: Laser Pistol, Laser SMG, Laser Rifle, Laser Sniper, Laser Cannon. All use energy cells and display charge as a percentage instead of raw ammo counts.
+Added Flamethrower and Chainsaw. Both use fuel canisters and display fuel as a percentage.
+New weapons added to starting loadout pools: Laser Pistol (sidearm), Laser SMG and Laser Rifle (primary), Chainsaw (melee).
+Laser SMG and Laser Rifle support semi/burst/auto fire modes. Laser Cannon and Flamethrower are full-auto only.
+Added partial ammo item system. Unloading a magazine-fed weapon (including energy cells and fuel canisters) that is not fully loaded now creates a separate partial ammo item instead of returning a full one.
+Partial ammo items show their percentage when cycling inventory with Tab/Shift+Tab, e.g. "glock 17 magazine (70%)".
+Pressing R to reload a magazine-fed weapon when partial ammo items are available now opens a selection menu, letting you choose between full and partial items.
+Fixed H key not reporting health, stamina, or effects. The network event message was being consumed before the health handler could read it.
+Ammo containers (ammo belts, shell boxes, bolt quivers) now display as a single item with round count in parentheses, e.g. ".357 magnum ammo belt (72)" instead of "72 .357 magnum ammo belts".
+
+New in 0.41
+Revamped account experience. Registration is now a single form with all fields, rules, and agreement checkbox.
+First-time players see a welcome dialog explaining the beta and are shown the rules before proceeding.
+Logging in with a nonexistent account now asks if you want to register one.
+Connecting without an account prompts you to register.
+Account Management menu (renamed from Account) is only visible when logged in.
+Authorization code option is only shown when your account actually needs authorization.
+Fixed legacy preferences allowing login to nonexistent accounts.
+Game statistics, account statistics, and mode statistics now display in proper forms with separate fields.
+Fixed Shift+A fire mode cycling not working (key press was consumed by the ammo check).
+Fixed Shift+H help list, Shift+R unload not working for the same reason.
+Fixed H key health display to properly show health from the server, then stamina and effects.
+
+New in 0.40
+Added 15 new weapons: Desert Eagle, MP5, UZI, M4A1 Carbine, SCAR-H, RPK LMG, M249 SAW, AWP Sniper, Dragunov SVD, SPAS-12, MP7, FN FAL, Crossbow, Katana, Baseball Bat.
+Added fire mode system. Press Shift+A to cycle between semi-automatic, burst, and full automatic on supported weapons.
+Added stamina system. Stamina degrades when using melee weapons, jumping excessively, or moving with heavy weapons. Restores every 5 seconds naturally.
+Added energetic potions in 4 tiers: red, blue, green, and rainbow. Each restores increasing amounts of stamina.
+Added buffs and debuffs system. Health potions give Residual Healing (HP restore every 15s for 2 min). Ultra potions give stronger healing (every 25s for 5 min). Smoke bombs apply Blinded debuff.
+Added equipment system with body slot. Bomb vests are now equipped as body equipment and can be removed in the equipment menu.
+Replaced grave accent game menu with escape menu. New menu includes: changes, rules, account info, developers, game statistics, equipment, account statistics, mode statistics, and exit game.
+Press H to see health, stamina, and active buffs/debuffs.
+Updated starting loadout pools with all new weapons.
+
+New in 0.35
+Added developer suite accessible with Shift+D (dev builds only), featuring a give all items option.
+Added documentation system with help entries in iwserver/docs. Press Shift+H to browse all help topics, or Alt+Enter on an inventory item to view its help entry.
+Enter key now draws weapons from inventory in addition to using items, matching quickbar behavior.
+Added Shift+I to view all weapons currently in quickbar slots.
+Added inventory category cycling with J and K keys. Categories: All, Weapons, Ammo, Consumables, Equipment. Tab and Shift+Tab only show items in the selected category.
+
+New in 0.34
+Completely redesigned the weapon system.
+  Weapons are now inventory items.  You can see them when cycling your
+  inventory alongside ammo, potions, and other gear.
+  Number keys 1-0 are now a quickbar with 10 customizable slots.
+  Press Alt and a number key to bind the currently selected inventory
+  item to that quickbar slot.  Press the number key by itself to use
+  the bound item: weapons are drawn, consumables are used.
+  Starting weapons are auto-assigned to quickbar slots 1-5.
+Players no longer spawn with all weapons.
+  Each spawn gives a random loadout from a pool:
+    1 melee weapon (machete or combat knife),
+    1 sidearm (Glock 17, Beretta 92FS, or a revolver),
+    1 primary weapon (assault rifle, SMG, or shotgun).
+  Ammunition is given only for the weapons you actually received.
+  You also start with 2 health potions and 3 frag grenades.
+  Additional weapons can be found from corpses, chests, and drops.
+Added a developer Give All command (grave accent key).
+  Only available when running from source (not in compiled builds).
+  Gives every weapon, all ammunition types, and all usable items.
+
+New in 0.33
+Fixed Q, E, S and X keys not working without Shift.
+  The key press was consumed by the Shift check and never reached the
+  normal handler.  All four keys now cache the press in a variable first.
+Refactored the ammunition system to use inventory items for reserves.
+  Magazine-fed weapons (pistols, rifles, SMGs) consume a magazine item
+  from your inventory when you reload.  Unloading returns the magazine.
+  Revolvers draw individual rounds from an ammo belt carried in your
+  inventory.  Reloading pulls rounds from the belt into the cylinder.
+  Shotguns load individual shells from a shell box in your inventory.
+  The M1 Garand uses en-bloc clips and the mortar uses loose shells.
+  Shared ammo types work across weapons (e.g. STANAG magazines are
+  used by both the HK G36 and TAR-21).
+All reserve ammunition is now visible when cycling your inventory.
+Beta: players start with all weapons and generous reserve ammo.
+
+New in 0.32
+Added fine-grained turning controls with the Shift key.
+  Shift+Q: turn left by 1 degree (instead of the normal 45-degree snap).
+  Shift+E: turn right by 1 degree.
+  Shift+S: aim up by 1 degree.
+  Shift+X: aim down by 1 degree.
+  Without Shift, Q/E/S/X still snap to the major positions as before.
+Vertical aiming now uses a degree-based system internally (0 to 180 degrees).
+  0 degrees is straight down, 90 degrees is straight forward, 180 degrees is straight up.
+  The server weapon system has been updated to use range-based angle checks to match.
+Added new options to the options menu.
+  Camera speed: controls how fast the camera moves when holding arrow keys (1 to 200).
+  Master volume: adjusts the overall game volume (-60 to 0 dB).
+  Both settings are saved to your preferences and persist between sessions.
+
+New in 0.31
+Fixed a bug where unauthenticated players could bypass the authorization check and connect
+  to the server. The connect function only checked whether a name was set, but the name could
+  be loaded from saved preferences without going through the account login flow. An explicit
+  authentication check is now performed before connecting.
+The account menu has been reorganized into separate sub-menus for clarity.
+  Instead of one cluttered form with login fields, authorization code, and password reset all
+  mixed together, there is now a hub menu with three options:
+  Login: enter your username and password to log in.
+  Authorize account: enter your username and the authorization code from an administrator.
+  Password reset: request a reset, then enter the reset code to set a new password.
+
+New in 0.30
+Fixed the administrator panel so developers running from source can actually open it.
+  Previously, the panel verified access using the computer ID against admins.txt, which
+  meant developers who weren't listed as admins were locked out of the panel they could see.
+The changelog viewer is now a form with a read-only text field and a close button.
+Account-related options (login, authorization code, password reset) have been moved out of
+  the options menu into a dedicated Account menu, which requires the server to be online.
+  The options menu is now cleaner, containing only game settings like duo mate and right control.
+Added a password reset feature.
+  Players can request a password reset from the account menu by entering their username.
+  A reset code is generated and stored on their account.
+  Administrators can view pending password reset requests and codes in the admin panel.
+  When the player enters their reset code, they are prompted to set a new password.
+
+New in 0.22
+Fixed a compilation error caused by calling string_trim_whitespace, a function that does not
+  exist in NVGT. The code confidently called it in two places as if it were a real function,
+  checking if server responses were blank. The empty string check alone was already sufficient
+  since the server sends controlled data, making the entire call both broken and unnecessary.
+
+New in 0.21
+Added an Administrator Panel to the main menu (only visible when running from source).
+  The admin panel connects to the server to verify administrator access.
+  Authorization mode: a checkbox that, when enabled, requires new accounts to be approved by an admin before they can log in.
+  View unauthenticated players: shows a list of players awaiting approval along with their authorization codes.
+When authorization mode is enabled, newly registered accounts are created but cannot log in.
+  A message tells the player that their account must be authenticated first.
+  Administrators can view the pending player and their authorization code in the admin panel, then provide the code to the player.
+  A new "Authorization code" field and "Authorize account" button have been added to the options menu.
+  Players enter their username and the code provided by the admin to authenticate their account.
+Players now respawn in the lobby instead of reconnecting to the server when they die.
+Exiting the game now returns you to the lobby instead of the main menu, keeping your connection alive.
+
+New in 0.20
+The options menu is now a proper form with input fields, a checkbox, and buttons instead of a list menu.
+  Account login: enter your username and password directly in the form and press Login.
+  Duo mate: type your duo mate name and press Set duo mate.
+  Right control detection: toggle the checkbox and press Save to apply.
+The lobby and all its tabs now use forms instead of list menus.
+  Account Info tab shows your details in read-only fields.
+  Players tab displays the player list in a form.
+  Rewards tab presents each milestone in its own field.
+  Modes tab uses buttons to select a game mode.
+Fixed a bug where map ambience would play when entering the lobby before joining a game.
+Players now receive a message when someone enters or leaves the lobby.
+Players now receive a message when someone enters a game mode from the lobby.
+Press F1 in the lobby to open the player list showing every connected player's name, dev or admin status, and whether they are in the lobby or in a game mode.
+
+New in 0.19
+Connecting to the server now takes you to a lobby instead of dropping you straight into the game.
+The lobby has four tabs navigated with the arrow keys:
+  Modes: lists available game modes. Currently Battlegrounds is available.
+    Select Battlegrounds and press Enter to deploy to the main map and begin playing.
+  Account Info: displays your username, email, registration status, and duo mate.
+  Players: queries the server for the live in-game player list and reads it aloud.
+  Rewards: describes the kill-reward milestones (3 kills and 5 kills).
+Leaving the lobby returns you to the main menu without entering the game world.
+The server now handles the lobby_players request from pre-spawn clients.
+
+New in 0.18
+Weapons now use a realistic magazine and clip-based ammo system.
+Each weapon has a specific feed device with a real-world capacity and must be reloaded manually.
+Press R to reload. The current feed device is ejected and a fresh one is loaded from reserve.
+Press Shift+R to unload the current magazine back into your reserve pool.
+Press A to hear rounds loaded, ammo type, feed device name, and rounds in reserve.
+When a weapon runs dry, you hear the empty click and a reminder to press R.
+Firing is blocked while a reload is in progress.
+Beta: all players start with a full weapon and generous reserve magazines.
+Ammo types and feed devices by weapon:
+  Glock 17: 9x19mm Parabellum, 17-round magazine (10 spare)
+  Beretta 92FS: 9x19mm Parabellum, 15-round magazine (10 spare)
+  Taurus Model 66: .357 Magnum, 6-round cylinder (12 spare)
+  Magnum Revolver: .44 Magnum, 6-round cylinder (12 spare)
+  FN P90: FN 5.7x28mm, 50-round magazine (6 spare)
+  HK G36: 5.56x45mm NATO, 30-round magazine (8 spare)
+  AK-47: 7.62x39mm, 30-round magazine (8 spare)
+  TAR-21: 5.56x45mm NATO, 30-round magazine (8 spare)
+  FAMAS F1: 5.56x45mm NATO, 25-round magazine (8 spare)
+  Benelli M4: 12-gauge buckshot, 8-round tube magazine (8 spare)
+  KS-123: 12-gauge buckshot, 5-round tube magazine (8 spare)
+  M1 Garand: .30-06 Springfield, 8-round en-bloc clip (8 spare)
+  SG-08 Sniper: .308 Winchester, 10-round magazine (5 spare)
+  120mm Mortar: 120mm HE mortar shell, single-load barrel (5 spare)
+
+New in 0.17
+Added "View the changelog" option to the main menu so you can read patch notes without being in-game.
+Added an in-game game menu, opened with the grave accent key (the key above Tab, left of 1).
+The game menu contains four options: View changes, View rules, View account info, and View developers.
+Account info shows your username, duo mate, and registered email address.
+The developers screen lists the full Firegaming development team.
+
+New in 0.16
+The server must now be reachable before you can register a new account or log in via the options menu.
+If the server is offline, both actions are blocked with a clear error message.
+Added server_online() network probe that checks connectivity before sensitive account operations.
+
+New in 0.15
+Added a full account system.
+Accounts are stored in iwserver/accounts/ alongside the server data.
+Register a new account from the main menu: choose a username, password, confirm the password, and provide a valid email address.
+You must read and agree to the server rules before your account is created.
+The options menu now has a "Set account (login)" option which replaces the old "Set your name" entry.
+Enter your registered username and password to log in and set your in-game name.
+Passwords are stored encrypted with a per-account salt.
+
+New in 0.14
+Added buffer beeps
+Added code for corpses, they will be added soon
+
+New in 0.13
+Fixed right ctrl detection
+The game now checks for updates at launch
+
+New in 0.12
+Added a setting to disable the right ctrl for shooting
+Now, when administrators or developers log in to the server, a sound is played
+Changed some sounds
+Now you can hold the arrows to move the camera
+Corrected some spelling errors

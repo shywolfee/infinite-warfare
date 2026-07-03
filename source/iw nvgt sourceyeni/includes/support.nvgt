@@ -1,0 +1,799 @@
+// Support ticket system for Infinite Warfare
+// Tickets are stored on the server in iwserver/tickets/
+// Each ticket is a file named <id>.dat containing encrypted ticket data.
+
+// ---------------------------------------------------------------------------
+// Support menu — opened with Alt+S during gameplay.
+// Players can open tickets, view open tickets, view closed tickets.
+// Admins/devs additionally see an option to view all open tickets.
+// ---------------------------------------------------------------------------
+void support_menu()
+{
+audio_form f;
+f.create_window("Support", false, true);
+int f_open=f.create_button("&Open a new ticket", true);
+int f_myopen=f.create_button("View my &open tickets");
+int f_myclosed=f.create_button("View my &closed tickets");
+int f_allopen=-1;
+// Request admin/dev status from server so we can show the admin option.
+send_reliable(0, "ticket_check_role", 0);
+bool is_staff=false;
+timer rt;
+while(rt.elapsed<2000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="ticket_role_staff")
+{
+is_staff=true;
+break;
+}
+else if(msg=="ticket_role_player")
+break;
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(is_staff)
+f_allopen=f.create_button("View &all open tickets (Staff)");
+int f_close=f.create_button("Go &back", false, true);
+f.focus(f_open);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_open))
+{
+support_open_ticket();
+return;
+}
+else if(f.is_pressed(f_myopen))
+{
+support_view_my_tickets("open");
+return;
+}
+else if(f.is_pressed(f_myclosed))
+{
+support_view_my_tickets("closed");
+return;
+}
+else if(f_allopen>-1 and f.is_pressed(f_allopen))
+{
+support_view_all_tickets();
+return;
+}
+else if(f.is_pressed(f_close))
+return;
+}
+}
+
+// ---------------------------------------------------------------------------
+// Open a new ticket — asks for subject and body.
+// ---------------------------------------------------------------------------
+void support_open_ticket()
+{
+audio_form f;
+f.create_window("Open a Support Ticket", false, true);
+int f_subject=f.create_input_box("Subject", "", "", 0, false, false, false);
+int f_body=f.create_input_box("Description", "", "", 0, false, false, true);
+int f_submit=f.create_button("&Submit ticket", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_subject);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_submit))
+{
+string subj=f.get_text(f_subject);
+string body=f.get_text(f_body);
+if(subj=="")
+{
+dlg("Please enter a subject for your ticket.");
+continue;
+}
+if(body=="")
+{
+dlg("Please enter a description for your ticket.");
+continue;
+}
+// Encode newlines and pipes so we can send as a single message.
+subj=string_replace(subj, "|", "/", true);
+subj=string_replace(subj, "\n", " ", true);
+body=string_replace(body, "|", "/", true);
+body=string_replace(body, "\n", "<<NL>>", true);
+send_reliable(0, "ticket_create "+name+"|"+subj+"|"+body, 0);
+string result="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "ticket_created", 1)==0)
+{
+result=msg;
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(result!="")
+{
+dlg("Your support ticket has been submitted. Staff have been notified.");
+}
+else
+dlg("Failed to submit your ticket. The server may not have responded.");
+support_menu();
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+support_menu();
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// View my tickets — fetches ticket list from server.
+// filter is "open" or "closed".
+// ---------------------------------------------------------------------------
+void support_view_my_tickets(string filter)
+{
+speak("Loading tickets, please wait.");
+send_reliable(0, "ticket_list_my "+name+"|"+filter, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "ticket_mylist ", 1)==0)
+{
+data=string_replace(msg, "ticket_mylist ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+audio_form f;
+string title=(filter=="open" ? "My Open Tickets" : "My Closed Tickets");
+f.create_window(title, false, true);
+int f_list=f.create_list("Tickets", 0, false);
+string[] ticket_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No "+filter+" tickets found.");
+}
+else
+{
+// Format: id~subject~status,id~subject~status,...
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<3) continue;
+ticket_ids.insert_last(parts[0]);
+f.add_list_item(f_list, "#"+parts[0]+": "+parts[1]+" ["+parts[2]+"]");
+}
+}
+int f_view=f.create_button("&View selected ticket");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(ticket_ids.length()))
+{
+support_view_ticket(ticket_ids[sel], false);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+{
+support_menu();
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// View all open tickets (staff only).
+// ---------------------------------------------------------------------------
+void support_view_all_tickets()
+{
+speak("Loading all open tickets, please wait.");
+send_reliable(0, "ticket_list_all", 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "ticket_alllist ", 1)==0)
+{
+data=string_replace(msg, "ticket_alllist ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+audio_form f;
+f.create_window("All Open Tickets", false, true);
+int f_list=f.create_list("Tickets", 0, false);
+string[] ticket_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No open tickets found.");
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<4) continue;
+ticket_ids.insert_last(parts[0]);
+f.add_list_item(f_list, "#"+parts[0]+" by "+parts[1]+": "+parts[2]+" ["+parts[3]+"]");
+}
+}
+int f_view=f.create_button("&View selected ticket");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(ticket_ids.length()))
+{
+support_view_ticket(ticket_ids[sel], true);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+{
+support_menu();
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// View a single ticket — shows subject, body, and all replies.
+// is_staff controls whether admin actions (reply, close with reason) appear.
+// ---------------------------------------------------------------------------
+void support_view_ticket(string ticket_id, bool is_staff)
+{
+speak("Loading ticket, please wait.");
+send_reliable(0, "ticket_get "+ticket_id, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "ticket_data ", 1)==0)
+{
+data=string_replace(msg, "ticket_data ", "", false);
+break;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(data=="" or data=="not_found")
+{
+dlg("Ticket not found.");
+support_menu();
+return;
+}
+// Format: id~owner~subject~status~close_reason~body~reply1~reply2~...
+string[] parts=string_split(data, "~", false);
+if(parts.length()<6)
+{
+dlg("Invalid ticket data.");
+support_menu();
+return;
+}
+string t_id=parts[0];
+string t_owner=parts[1];
+string t_subject=parts[2];
+string t_status=parts[3];
+string t_close_reason=parts[4];
+string t_body=string_replace(parts[5], "<<NL>>", "\n", true);
+audio_form f;
+f.create_window("Ticket #"+t_id+": "+t_subject, false, true);
+f.create_input_box("Ticket ID", t_id, "", 0, false, true, false);
+f.create_input_box("Submitted by", t_owner, "", 0, false, true, false);
+f.create_input_box("Status", t_status, "", 0, false, true, false);
+if(t_close_reason!="" and t_close_reason!="none")
+f.create_input_box("Close reason", string_replace(t_close_reason, "<<NL>>", "\n", true), "", 0, false, true, false);
+f.create_input_box("Description", t_body, "", 0, false, true, true);
+// Show replies
+if(parts.length()>6)
+{
+for(uint i=6; i<parts.length(); i++)
+{
+string reply_text=string_replace(parts[i], "<<NL>>", "\n", true);
+// Replies are formatted as "author: message"
+f.create_input_box("Reply "+(i-5), reply_text, "", 0, false, true, true);
+}
+}
+int f_reply=f.create_button("&Reply to this ticket");
+int f_closeticket=-1;
+bool is_owner=(string_to_lower_case(t_owner)==string_to_lower_case(name));
+if(t_status=="open")
+{
+if(is_owner)
+f_closeticket=f.create_button("&Close this ticket");
+if(is_staff)
+f_closeticket=f.create_button("&Close this ticket (Staff)");
+}
+int f_back=f.create_button("Go &back", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_reply))
+{
+if(t_status!="open")
+{
+dlg("This ticket is closed. You cannot reply to it.");
+continue;
+}
+support_reply_ticket(ticket_id, is_staff);
+return;
+}
+else if(f_closeticket>-1 and f.is_pressed(f_closeticket))
+{
+if(is_staff and !is_owner)
+{
+// Staff must provide a reason.
+support_close_ticket_staff(ticket_id, is_staff);
+}
+else
+{
+// Player can close without reason.
+send_reliable(0, "ticket_close "+ticket_id+"|"+name+"|none", 0);
+timer ct;
+while(ct.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="ticket_closed") break;
+}
+if(e.type==event_disconnect) break;
+}
+dlg("Ticket closed.");
+support_menu();
+}
+return;
+}
+else if(f.is_pressed(f_back))
+{
+support_menu();
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Reply to a ticket.
+// ---------------------------------------------------------------------------
+void support_reply_ticket(string ticket_id, bool is_staff)
+{
+audio_form f;
+f.create_window("Reply to Ticket #"+ticket_id, false, true);
+int f_msg=f.create_input_box("Your reply", "", "", 0, false, false, true);
+int f_send=f.create_button("&Send reply", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_msg);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_send))
+{
+string reply=f.get_text(f_msg);
+if(reply=="")
+{
+dlg("Please enter a reply.");
+continue;
+}
+reply=string_replace(reply, "|", "/", true);
+reply=string_replace(reply, "~", "-", true);
+reply=string_replace(reply, "\n", "<<NL>>", true);
+send_reliable(0, "ticket_reply "+ticket_id+"|"+name+"|"+reply, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="ticket_replied") break;
+}
+if(e.type==event_disconnect) break;
+}
+dlg("Reply sent.");
+support_view_ticket(ticket_id, is_staff);
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+support_view_ticket(ticket_id, is_staff);
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Staff close ticket — requires a reason.
+// ---------------------------------------------------------------------------
+void support_close_ticket_staff(string ticket_id, bool is_staff)
+{
+audio_form f;
+f.create_window("Close Ticket #"+ticket_id, false, true);
+int f_reason=f.create_input_box("Reason for closing", "", "", 0, false, false, true);
+int f_close=f.create_button("&Close ticket", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_reason);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_close))
+{
+string reason=f.get_text(f_reason);
+if(reason=="")
+{
+dlg("You must provide a reason for closing this ticket.");
+continue;
+}
+reason=string_replace(reason, "|", "/", true);
+reason=string_replace(reason, "~", "-", true);
+reason=string_replace(reason, "\n", "<<NL>>", true);
+send_reliable(0, "ticket_close "+ticket_id+"|"+name+"|"+reason, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="ticket_closed") break;
+}
+if(e.type==event_disconnect) break;
+}
+dlg("Ticket closed.");
+support_menu();
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+support_view_ticket(ticket_id, is_staff);
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Admin panel ticket management — works without being logged into a character.
+// Uses a dedicated network connection like the other admin panel features.
+// ---------------------------------------------------------------------------
+void admin_support_tickets(network@ an, string comp_id)
+{
+// Fetch all open tickets via the admin connection.
+string msg_str="ticket_admin_list_all "+comp_id;
+if(SCRIPT_COMPILED==false)
+msg_str+=" dev";
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "ticket_admin_alllist ", 1)==0)
+{
+data=string_replace(r, "ticket_admin_alllist ", "", false);
+break;
+}
+}
+}
+audio_form f;
+f.create_window("Support Tickets (Admin Panel)", false, true);
+int f_list=f.create_list("Open Tickets", 0, false);
+string[] ticket_ids;
+if(data=="" or data=="none")
+{
+f.add_list_item(f_list, "No open tickets found.");
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "~", false);
+if(parts.length()<4) continue;
+ticket_ids.insert_last(parts[0]);
+f.add_list_item(f_list, "#"+parts[0]+" by "+parts[1]+": "+parts[2]+" ["+parts[3]+"]");
+}
+}
+int f_view=f.create_button("&View selected ticket");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(ticket_ids.length()))
+{
+admin_view_ticket(an, comp_id, ticket_ids[sel]);
+return;
+}
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+
+// ---------------------------------------------------------------------------
+// Admin panel — view a single ticket.
+// ---------------------------------------------------------------------------
+void admin_view_ticket(network@ an, string comp_id, string ticket_id)
+{
+string msg_str="ticket_admin_get "+comp_id+" "+ticket_id;
+if(SCRIPT_COMPILED==false)
+msg_str+=" dev";
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+string data="";
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "ticket_admin_data ", 1)==0)
+{
+data=string_replace(r, "ticket_admin_data ", "", false);
+break;
+}
+}
+}
+if(data=="" or data=="not_found")
+{
+dlg("Ticket not found.");
+return;
+}
+string[] parts=string_split(data, "~", false);
+if(parts.length()<6) return;
+string t_id=parts[0];
+string t_owner=parts[1];
+string t_subject=parts[2];
+string t_status=parts[3];
+string t_close_reason=parts[4];
+string t_body=string_replace(parts[5], "<<NL>>", "\n", true);
+audio_form f;
+f.create_window("Ticket #"+t_id+": "+t_subject, false, true);
+f.create_input_box("Ticket ID", t_id, "", 0, false, true, false);
+f.create_input_box("Submitted by", t_owner, "", 0, false, true, false);
+f.create_input_box("Status", t_status, "", 0, false, true, false);
+if(t_close_reason!="" and t_close_reason!="none")
+f.create_input_box("Close reason", string_replace(t_close_reason, "<<NL>>", "\n", true), "", 0, false, true, false);
+f.create_input_box("Description", t_body, "", 0, false, true, true);
+if(parts.length()>6)
+{
+for(uint i=6; i<parts.length(); i++)
+{
+string reply_text=string_replace(parts[i], "<<NL>>", "\n", true);
+f.create_input_box("Reply "+(i-5), reply_text, "", 0, false, true, true);
+}
+}
+int f_reply=f.create_button("&Reply to this ticket");
+int f_closeticket=-1;
+if(t_status=="open")
+f_closeticket=f.create_button("&Close this ticket");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(f_reply))
+{
+if(t_status!="open")
+{
+dlg("This ticket is closed.");
+continue;
+}
+admin_reply_ticket(an, comp_id, ticket_id);
+return;
+}
+else if(f_closeticket>-1 and f.is_pressed(f_closeticket))
+{
+admin_close_ticket(an, comp_id, ticket_id);
+return;
+}
+else if(f.is_pressed(f_back))
+{
+admin_support_tickets(an, comp_id);
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Admin panel — reply to ticket.
+// ---------------------------------------------------------------------------
+void admin_reply_ticket(network@ an, string comp_id, string ticket_id)
+{
+audio_form f;
+f.create_window("Reply to Ticket #"+ticket_id, false, true);
+int f_msg=f.create_input_box("Your reply", "", "", 0, false, false, true);
+int f_send=f.create_button("&Send reply", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_msg);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(f_send))
+{
+string reply=f.get_text(f_msg);
+if(reply=="")
+{
+dlg("Please enter a reply.");
+continue;
+}
+reply=string_replace(reply, "|", "/", true);
+reply=string_replace(reply, "~", "-", true);
+reply=string_replace(reply, "\n", "<<NL>>", true);
+string msg_str="ticket_admin_reply "+comp_id+" "+ticket_id+"|admin|"+reply;
+if(SCRIPT_COMPILED==false)
+msg_str=string_replace(msg_str, comp_id+" ", comp_id+" dev ", false);
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(r=="ticket_replied") break;
+}
+}
+dlg("Reply sent.");
+admin_view_ticket(an, comp_id, ticket_id);
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+admin_view_ticket(an, comp_id, ticket_id);
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Admin panel — close ticket with required reason.
+// ---------------------------------------------------------------------------
+void admin_close_ticket(network@ an, string comp_id, string ticket_id)
+{
+audio_form f;
+f.create_window("Close Ticket #"+ticket_id, false, true);
+int f_reason=f.create_input_box("Reason for closing", "", "", 0, false, false, true);
+int f_close=f.create_button("&Close ticket", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_reason);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(f_close))
+{
+string reason=f.get_text(f_reason);
+if(reason=="")
+{
+dlg("You must provide a reason for closing this ticket.");
+continue;
+}
+reason=string_replace(reason, "|", "/", true);
+reason=string_replace(reason, "~", "-", true);
+reason=string_replace(reason, "\n", "<<NL>>", true);
+string msg_str="ticket_admin_close "+comp_id+" "+ticket_id+"|admin|"+reason;
+if(SCRIPT_COMPILED==false)
+msg_str=string_replace(msg_str, comp_id+" ", comp_id+" dev ", false);
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer wt;
+while(wt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(r=="ticket_closed") break;
+}
+}
+dlg("Ticket closed.");
+admin_support_tickets(an, comp_id);
+return;
+}
+else if(f.is_pressed(f_cancel))
+{
+admin_view_ticket(an, comp_id, ticket_id);
+return;
+}
+}
+}

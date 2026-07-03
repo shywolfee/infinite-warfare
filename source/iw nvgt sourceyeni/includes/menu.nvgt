@@ -1,0 +1,1594 @@
+dynamic_menu_pro m;
+void mainmenu()
+{
+setupmenu(true, true);
+m.add_item_tts("connect to the server and enter the lobby.","connect");
+if (name == "" or !account_exists(name))
+m.add_item_tts("register a new account.","register");
+m.add_item_tts("account management.","account");
+m.add_item_tts("view the changelog.","changelog");
+m.add_item_tts("change some options.","options");
+m.add_item_tts("check for new updates.","cfu");
+if(SCRIPT_COMPILED==false)
+m.add_item_tts("Administrator panel.","adminpanel");
+m.add_item_tts("learn game sounds.","learnsounds");
+m.add_item_tts("read the readme.","readme");
+m.add_item_tts("Exit the game.","exit");
+int mres=m.run("Main Menu",true);
+m.fade_music(20);
+if (m.get_item_name(mres)=="connect")
+connect();
+else if (m.get_item_name(mres)=="register")
+registermenu();
+else if (m.get_item_name(mres)=="account")
+accountmenu();
+else if (m.get_item_name(mres)=="changelog")
+changelogmenu();
+else if (m.get_item_name(mres)=="cfu")
+{
+cfu("iw","iw.zip");
+mainmenu();
+}
+else if (m.get_item_name(mres)=="options")
+{
+optionsmenu();
+mainmenu();
+}
+else if (m.get_item_name(mres)=="adminpanel")
+adminpanel();
+else if (m.get_item_name(mres)=="learnsounds")
+{
+learn_game_sounds();
+mainmenu();
+}
+else if (m.get_item_name(mres)=="readme")
+{
+show_readme();
+mainmenu();
+}
+else
+exit();
+}
+// Check authorization mode from the server.
+bool check_auth_mode_from_server()
+{
+bool auth_required=false;
+network probe;
+probe.setup_client(1, 100);
+probe.connect(netaddress, netport);
+timer ct;
+while(ct.elapsed<5000)
+{
+wait(5);
+network_event ev=probe.request();
+if(ev.type==event_connect)
+{
+string msg=string_encrypt("check_authmode", "_';'_clickclick!");
+probe.send_reliable(0, msg, 0);
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+ev=probe.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "authmode_status ", 1)==0)
+{
+auth_required=(string_replace(r, "authmode_status ", "", false)=="1");
+break;
+}
+}
+}
+break;
+}
+if(ev.type==event_disconnect)
+break;
+}
+return auth_required;
+}
+
+void registermenu()
+{
+if(lockout_active and lockout_timer.elapsed<900000)
+{
+int remaining=(900000-lockout_timer.elapsed)/1000;
+dlg("You are locked out due to too many failed login attempts. Please wait "+remaining+" seconds before trying again.");
+mainmenu();
+return;
+}
+if(lockout_active and lockout_timer.elapsed>=900000)
+{
+lockout_active=false;
+failed_login_attempts=0;
+}
+// Require the server to be reachable before accepting registrations.
+speak("Checking server status, please wait.");
+if (!server_online())
+{
+dlg("The server is currently offline. You cannot register a new account while the server is down. Please try again later.");
+mainmenu();
+return;
+}
+bool auth_required = check_auth_mode_from_server();
+// Load rules text.
+file rf;
+string rules_text="";
+if (rf.open("rules.txt","rb"))
+{
+rules_text=rf.read();
+rf.close();
+}
+else
+rules_text="Rules file not found. Please check the game folder.";
+// Single registration form.
+audio_form f;
+f.create_window("Register a New Account", false, true);
+int f_user = f.create_input_box("Username (max 20 characters)", "", "", 0, false, false, false);
+int f_pass = f.create_input_box("Password (at least 12 characters, must include uppercase, lowercase, and a number)", "", "*", 0, false, false, false);
+int f_confirm = f.create_input_box("Confirm password", "", "*", 0, false, false, false);
+int f_email = f.create_input_box("Email address", "", "", 0, false, false, false);
+f.create_input_box("Rules", rules_text, "", 0, false, true, true);
+int f_agree = f.create_checkbox("I agree to the rules", false);
+int f_remember = f.create_checkbox("Remember me", true);
+int f_register = f.create_button("&Register", true);
+int f_back = f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_register))
+{
+string reg_user = f.get_text(f_user);
+string reg_pass = f.get_text(f_pass);
+string reg_confirm = f.get_text(f_confirm);
+string reg_email = f.get_text(f_email);
+if (!f.is_checked(f_agree))
+{
+dlg("You must agree to the rules to register an account.");
+continue;
+}
+if (reg_user == "" or string_contains(reg_user, " ", 1) >= 0)
+{
+dlg("Username must not be empty or contain spaces.");
+continue;
+}
+if (reg_user.length() > 20)
+{
+dlg("Username must be 20 characters or fewer.");
+continue;
+}
+if (reg_pass.length() < 12)
+{
+dlg("Password must be at least 12 characters.");
+continue;
+}
+bool has_upper=false, has_lower=false, has_digit=false;
+for (uint ci=0; ci<reg_pass.length(); ci++)
+{
+string ch=string_mid(reg_pass, ci, 1);
+if (ch>="A" and ch<="Z") has_upper=true;
+if (ch>="a" and ch<="z") has_lower=true;
+if (ch>="0" and ch<="9") has_digit=true;
+}
+if (!has_upper or !has_lower or !has_digit)
+{
+dlg("Password must contain at least one uppercase letter, one lowercase letter, and one number.");
+continue;
+}
+string lp=string_to_lower_case(reg_pass);
+string[] common_passwords={"1234", "12345", "123456", "1234567", "12345678", "123456789", "1234567890", "abcde", "abcdef", "abcdefg", "abcdefgh", "1111", "11111", "111111", "0000", "00000", "000000", "aaaa", "aaaaa", "aaaaaa", "password", "password1", "password12", "password123", "qwerty", "qwerty1", "qwerty12", "qwerty123", "letmein", "welcome", "monkey", "dragon", "master", "abc123", "login", "princess", "admin", "passw0rd"};
+bool is_common=false;
+for (uint ci=0; ci<common_passwords.length(); ci++)
+{
+if (lp==common_passwords[ci]){is_common=true; break;}
+}
+if (is_common)
+{
+dlg("That password is too common. Please choose a more secure password.");
+continue;
+}
+if (reg_pass != reg_confirm)
+{
+dlg("Passwords do not match.");
+continue;
+}
+if (reg_email == "" or !is_valid_email(reg_email))
+{
+dlg("Please enter a valid email address.");
+continue;
+}
+string reg_error = register_account(reg_user, reg_pass, reg_confirm, reg_email, auth_required);
+if (reg_error != "")
+{
+dlg(reg_error);
+continue;
+}
+// Success.
+name = reg_user;
+remember_me = f.is_checked(f_remember);
+writeprefs();
+if (auth_required)
+dlg("Account created successfully! Your username is " + reg_user + ". However, authorization mode is enabled. You will not be able to log in until an administrator provides you with your authorization code. Please contact an administrator.");
+else
+dlg("Account created successfully! Your username is " + reg_user + ". You can now connect to the server.");
+break;
+}
+else if (f.is_pressed(f_back))
+break;
+}
+mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Changelog viewer — standard audio form with read-only text field.
+// ---------------------------------------------------------------------------
+void show_changelog_form_text(string cl)
+{
+audio_form f;
+f.create_window("Changelog", false, true);
+f.create_input_box("Changes", cl, "", 0, false, true, false);
+int f_close=f.create_button("&Close", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_close))
+break;
+}
+}
+void show_changelog_form()
+{
+if (connected==true)
+{
+changelog_ready=false;
+received_changelog="";
+send_reliable(0, "request_changes", 0);
+timer cl_timeout;
+while(cl_timeout.elapsed<5000 and changelog_ready==false)
+{
+wait(5);
+netloop();
+}
+if (changelog_ready and received_changelog!="")
+{
+show_changelog_form_text(received_changelog);
+return;
+}
+}
+file cf;
+string cl="Changelog not found. Connect to the server to view the latest changes.";
+if (cf.open("changelog.txt","rb"))
+{
+cl=cf.read();
+cf.close();
+}
+show_changelog_form_text(cl);
+}
+void changelogmenu()
+{
+show_changelog_form();
+mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Account menu — requires server to be online.
+// Hub menu that leads to Login, Authorize, and Password Reset sub-menus.
+// ---------------------------------------------------------------------------
+void accountmenu()
+{
+speak("Checking server status, please wait.");
+if (!server_online())
+{
+dlg("The server is currently offline. Account management is not available while the server is down. Please try again later.");
+mainmenu();
+return;
+}
+setupmenu();
+if (name == "" or !account_exists(name))
+{
+m.add_item_tts("Add an existing account.","login");
+m.add_item_tts("Register a new account.","register");
+}
+else
+{
+m.add_item_tts("Logged in as "+name+".","info");
+if (!is_account_authenticated(name))
+m.add_item_tts("Authorize your account with a code.","authorize");
+m.add_item_tts("Reset your password.","resetpass");
+m.add_item_tts("Log out.","logout");
+}
+m.add_item_tts("Go back.","back");
+int mres=m.run("Account Management",true);
+if (m.get_item_name(mres)=="login")
+account_login_menu();
+else if (m.get_item_name(mres)=="register")
+{
+registermenu();
+return;
+}
+else if (m.get_item_name(mres)=="authorize")
+account_authorize_menu();
+else if (m.get_item_name(mres)=="resetpass")
+account_reset_menu();
+else if (m.get_item_name(mres)=="logout")
+{
+name="";
+writeprefs();
+speak("Logged out.");
+accountmenu();
+}
+else if (m.get_item_name(mres)=="info")
+accountmenu();
+else
+mainmenu();
+}
+// ---------------------------------------------------------------------------
+// Account sub-menu: Login
+// ---------------------------------------------------------------------------
+void account_login_menu()
+{
+if(lockout_active and lockout_timer.elapsed<900000)
+{
+int remaining=(900000-lockout_timer.elapsed)/1000;
+dlg("You are locked out due to too many failed login attempts. Please wait "+remaining+" seconds before trying again.");
+accountmenu();
+return;
+}
+if(lockout_active and lockout_timer.elapsed>=900000)
+{
+lockout_active=false;
+failed_login_attempts=0;
+}
+audio_form f;
+f.create_window("Login", false, true);
+int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
+int f_pass=f.create_input_box("Password", "", "*", 0, false, false, false);
+int f_remember=f.create_checkbox("Remember me", true);
+int f_login=f.create_button("&Login", true);
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_login))
+{
+string acc_user=f.get_text(f_user);
+string acc_pass=f.get_text(f_pass);
+if (acc_user=="" or acc_pass=="")
+{
+dlg("Please enter both a username and password.");
+continue;
+}
+if (!account_exists(acc_user))
+{
+// Account doesn't exist — offer to register.
+int reg_choice = yesno("No account found with that username. Would you like to register a new account?");
+if (reg_choice == 1)
+{
+registermenu();
+return;
+}
+continue;
+}
+if (!verify_account(acc_user, acc_pass))
+{
+failed_login_attempts++;
+if(failed_login_attempts>=5)
+{
+lockout_active=true;
+lockout_timer.restart();
+dlg("Too many failed login attempts. You are locked out for 15 minutes.");
+accountmenu();
+return;
+}
+dlg("Incorrect password. "+(5-failed_login_attempts)+" attempts remaining.");
+continue;
+}
+if (!is_account_authenticated(acc_user))
+{
+dlg("Your account has not been authenticated yet. Please enter the authorization code provided by an administrator, or contact an administrator to receive your code.");
+continue;
+}
+name=get_account_username(acc_user);
+remember_me=f.is_checked(f_remember);
+writeprefs();
+speak("Logged in as "+name+".");
+break;
+}
+else if (f.is_pressed(f_back))
+{
+break;
+}
+}
+accountmenu();
+}
+// ---------------------------------------------------------------------------
+// Account sub-menu: Authorize
+// ---------------------------------------------------------------------------
+void account_authorize_menu()
+{
+audio_form f;
+f.create_window("Authorize Account", false, true);
+int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
+int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
+int f_submit=f.create_button("&Authorize account", true);
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_submit))
+{
+string acc_user=f.get_text(f_user);
+string code=f.get_text(f_authcode);
+if (acc_user=="")
+{
+dlg("Please enter your account username.");
+continue;
+}
+if (code=="")
+{
+dlg("Please enter an authorization code.");
+continue;
+}
+if (!account_exists(acc_user))
+{
+dlg("No account found with that username.");
+continue;
+}
+if (is_account_authenticated(acc_user))
+{
+dlg("This account is already authenticated.");
+continue;
+}
+if (authenticate_account(acc_user, code))
+{
+dlg("Account authenticated successfully! You can now log in.");
+break;
+}
+else
+{
+dlg("Invalid authorization code. Please check the code and try again.");
+}
+}
+else if (f.is_pressed(f_back))
+{
+break;
+}
+}
+accountmenu();
+}
+// ---------------------------------------------------------------------------
+// Account sub-menu: Password Reset
+// ---------------------------------------------------------------------------
+void account_reset_menu()
+{
+audio_form f;
+f.create_window("Password Reset", false, true);
+int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
+int f_resetreq=f.create_button("Request &password reset", true);
+int f_resetcode=f.create_input_box("Reset code", "", "", 0, false, false, false);
+int f_resetsubmit=f.create_button("&Submit reset code");
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_user);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_resetreq))
+{
+string acc_user=f.get_text(f_user);
+if (acc_user=="")
+{
+dlg("Please enter your username before requesting a password reset.");
+continue;
+}
+// Send the request to the server via a temporary connection.
+network rn;
+rn.setup_client(1, 100);
+rn.connect(netaddress, netport);
+timer rct;
+bool got_response=false;
+string rresult="";
+while(rct.elapsed<5000)
+{
+wait(5);
+network_event rev=rn.request();
+if(rev.type==event_connect)
+{
+string rmsg=string_encrypt("request_password_reset "+acc_user, "_';'_clickclick!");
+rn.send_reliable(0, rmsg, 0);
+timer rrt;
+while(rrt.elapsed<3000)
+{
+wait(5);
+rev=rn.request();
+if(rev.type==event_receive)
+{
+string rr=rev.message;
+if(rr!="") rr=string_decrypt(rr, "masonandsamare2bitches");
+rresult=rr;
+got_response=true;
+break;
+}
+}
+break;
+}
+if(rev.type==event_disconnect)
+break;
+}
+if(rresult=="reset_requested")
+dlg("Password reset requested. Please contact an administrator to receive your reset code.");
+else if(rresult=="reset_no_account")
+dlg("No account found with that username.");
+else
+dlg("Could not send the reset request. The server may not have responded.");
+}
+else if (f.is_pressed(f_resetsubmit))
+{
+string acc_user=f.get_text(f_user);
+string rcode=f.get_text(f_resetcode);
+if (acc_user=="")
+{
+dlg("Please enter your username before submitting a reset code.");
+continue;
+}
+if (rcode=="")
+{
+dlg("Please enter a reset code.");
+continue;
+}
+// Verify the reset code with the server.
+network rn;
+rn.setup_client(1, 100);
+rn.connect(netaddress, netport);
+timer rct;
+string rresult="";
+while(rct.elapsed<5000)
+{
+wait(5);
+network_event rev=rn.request();
+if(rev.type==event_connect)
+{
+string rmsg=string_encrypt("submit_reset_code "+acc_user+" "+rcode, "_';'_clickclick!");
+rn.send_reliable(0, rmsg, 0);
+timer rrt;
+while(rrt.elapsed<3000)
+{
+wait(5);
+rev=rn.request();
+if(rev.type==event_receive)
+{
+string rr=rev.message;
+if(rr!="") rr=string_decrypt(rr, "masonandsamare2bitches");
+rresult=rr;
+break;
+}
+}
+break;
+}
+if(rev.type==event_disconnect)
+break;
+}
+if(rresult!="reset_code_ok")
+{
+dlg("Invalid reset code. Please check the code and try again.");
+continue;
+}
+// Code is valid — prompt for new password.
+password_reset_form(acc_user);
+break;
+}
+else if (f.is_pressed(f_back))
+{
+break;
+}
+}
+accountmenu();
+}
+// ---------------------------------------------------------------------------
+// Password reset form — lets the player enter and confirm a new password.
+// Called after the reset code has been verified.
+// ---------------------------------------------------------------------------
+void password_reset_form(string username)
+{
+audio_form f;
+f.create_window("Reset Password", false, true);
+int f_newpass=f.create_input_box("New password", "", "*", 0, false, false, false);
+int f_confirm=f.create_input_box("Confirm new password", "", "*", 0, false, false, false);
+int f_submit=f.create_button("&Reset password", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_newpass);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_submit))
+{
+string newpass=f.get_text(f_newpass);
+string confirm=f.get_text(f_confirm);
+if (newpass.length()<12)
+{
+dlg("Password must be at least 12 characters.");
+continue;
+}
+bool has_upper=false, has_lower=false, has_digit=false;
+for (uint ci=0; ci<newpass.length(); ci++)
+{
+string ch=string_mid(newpass, ci, 1);
+if (ch>="A" and ch<="Z") has_upper=true;
+if (ch>="a" and ch<="z") has_lower=true;
+if (ch>="0" and ch<="9") has_digit=true;
+}
+if (!has_upper or !has_lower or !has_digit)
+{
+dlg("Password must contain at least one uppercase letter, one lowercase letter, and one number.");
+continue;
+}
+string lp=string_to_lower_case(newpass);
+string[] common_passwords={"1234", "12345", "123456", "1234567", "12345678", "123456789", "1234567890", "abcde", "abcdef", "abcdefg", "abcdefgh", "1111", "11111", "111111", "0000", "00000", "000000", "aaaa", "aaaaa", "aaaaaa", "password", "password1", "password12", "password123", "qwerty", "qwerty1", "qwerty12", "qwerty123", "letmein", "welcome", "monkey", "dragon", "master", "abc123", "login", "princess", "admin", "passw0rd"};
+bool is_common=false;
+for (uint ci=0; ci<common_passwords.length(); ci++)
+{
+if (lp==common_passwords[ci]){is_common=true; break;}
+}
+if (is_common)
+{
+dlg("That password is too common. Please choose a more secure password.");
+continue;
+}
+if (newpass!=confirm)
+{
+dlg("Passwords do not match.");
+continue;
+}
+// Send the new password to the server.
+network rn;
+rn.setup_client(1, 100);
+rn.connect(netaddress, netport);
+timer rct;
+string rresult="";
+while(rct.elapsed<5000)
+{
+wait(5);
+network_event rev=rn.request();
+if(rev.type==event_connect)
+{
+string rmsg=string_encrypt("reset_password "+username+" "+newpass, "_';'_clickclick!");
+rn.send_reliable(0, rmsg, 0);
+timer rrt;
+while(rrt.elapsed<3000)
+{
+wait(5);
+rev=rn.request();
+if(rev.type==event_receive)
+{
+string rr=rev.message;
+if(rr!="") rr=string_decrypt(rr, "masonandsamare2bitches");
+rresult=rr;
+break;
+}
+}
+break;
+}
+if(rev.type==event_disconnect)
+break;
+}
+if(rresult=="reset_done")
+{
+dlg("Your password has been reset successfully. You can now log in with your new password.");
+return;
+}
+else
+{
+dlg("Failed to reset password. The server may not have responded.");
+return;
+}
+}
+else if (f.is_pressed(f_cancel))
+{
+return;
+}
+}
+}
+// ---------------------------------------------------------------------------
+// Escape menu — replaces the old grave-accent game menu.
+// Contains game info, equipment, statistics, and exit.
+// ---------------------------------------------------------------------------
+void escape_menu()
+{
+audio_form f;
+f.create_window("Game Menu", false, true);
+int f_stats = f.create_button("&Stats");
+int f_equip = f.create_button("&Equipment");
+int f_changes = f.create_button("View &changes");
+int f_rules = f.create_button("View &rules");
+int f_account = f.create_button("&Account info");
+int f_devs = f.create_button("View &developers");
+int f_admin=-1;
+if(SCRIPT_COMPILED==false)
+f_admin = f.create_button("Ad&min panel");
+int f_exit = f.create_button("E&xit game");
+int f_close = f.create_button("Cl&ose", true, true);
+f.focus(f_stats);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_stats))
+{
+string stats_text="Weapon: "+string_replace(weapons[w], "_", " ", true)+"\n";
+stats_text+="Location: "+get_location()+"\n";
+stats_text+="Stamina: "+get_stamina_string()+"\n";
+stats_text+="Effects: "+get_effects_string()+"\n";
+stats_text+="Items: "+count_total_items()+" in inventory\n";
+stats_text+="Map: "+mapname+"\n";
+stats_text+="Player: "+name+"\n";
+stats_text+="Version: "+version+", build "+build_number+" ("+build_date+")";
+audio_form sf;
+sf.create_window("Stats", false, true);
+sf.create_input_box("Stats", stats_text, "", 0, false, true, true);
+int sf_close=sf.create_button("&Close", true, true);
+sf.focus(0);
+while(true)
+{
+wait(5);
+sf.monitor();
+if (connected==true) netloop();
+if (sf.is_pressed(sf_close)) break;
+}
+}
+else if (f.is_pressed(f_equip))
+{
+equipment_menu();
+escape_menu();
+return;
+}
+else if (f.is_pressed(f_changes))
+{
+show_changelog_form();
+}
+else if (f.is_pressed(f_rules))
+{
+file rf;
+string rl="Rules file not found.";
+if (rf.open("rules.txt","rb"))
+{
+rl=rf.read();
+rf.close();
+}
+dlg(rl);
+}
+else if (f.is_pressed(f_account))
+{
+audio_form ai;
+ai.create_window("Account Info", false, true);
+ai.create_input_box("Username", name, "", 0, false, true, false);
+if (mate!="")
+ai.create_input_box("Duo mate", mate, "", 0, false, true, false);
+if (account_exists(name))
+{
+savedata acct(get_account_path(name), ACCOUNT_SECRET);
+acct.load();
+string em=acct.read("email");
+if (em!="")
+ai.create_input_box("Email", em, "", 0, false, true, false);
+}
+else
+ai.create_input_box("Account", "No registered account found for this username.", "", 0, false, true, false);
+int ai_close = ai.create_button("&Close", true, true);
+ai.focus(0);
+while(true)
+{
+wait(5);
+ai.monitor();
+if (connected==true) netloop();
+if (ai.is_pressed(ai_close)) break;
+}
+}
+else if (f.is_pressed(f_devs))
+{
+file df;
+string dv="Developers file not found.";
+if (df.open("developers.txt","rb"))
+{
+dv=df.read();
+df.close();
+}
+dlg(dv);
+}
+else if (f_admin>-1 and f.is_pressed(f_admin))
+{
+ingame_adminpanel();
+escape_menu();
+return;
+}
+else if (f.is_pressed(f_exit))
+{
+int q = yesno("Are you sure you wish to exit the game?");
+if (q == 1)
+{
+speak("Exiting the game");
+send_reliable(0, "close", 0);
+x = true;
+xtimer.restart();
+return;
+}
+}
+else if (f.is_pressed(f_close))
+{
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Equipment menu — view and manage equipped items.
+// ---------------------------------------------------------------------------
+void equipment_menu()
+{
+audio_form f;
+f.create_window("Equipment", false, true);
+int f_list = f.create_list("Equipment slots", 0, false);
+string body_label = "Body: ";
+if (equip_body != "")
+body_label += string_replace(equip_body, "_", " ", true);
+else
+body_label += "empty";
+f.add_list_item(f_list, body_label);
+f.add_list_item(f_list, "Holster 1: "+get_holster_slot_label(1));
+f.add_list_item(f_list, "Holster 2: "+get_holster_slot_label(2));
+bool has_equipment=(equip_body!="" or equip_holster1!="" or equip_holster2!="");
+int f_remove=-1;
+if(has_equipment)
+f_remove=f.create_button("&Remove selected");
+int f_close = f.create_button("&Close", true, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f_remove>-1 and f.is_pressed(f_remove))
+{
+int sel = f.get_list_position(f_list);
+if (sel == 0)
+{
+unequip_item("body");
+equipment_menu();
+return;
+}
+else if (sel == 1)
+{
+unequip_holster(1);
+equipment_menu();
+return;
+}
+else if (sel == 2)
+{
+unequip_holster(2);
+equipment_menu();
+return;
+}
+}
+else if (f.is_pressed(f_close))
+{
+return;
+}
+}
+}
+void show_readme()
+{
+file rf;
+string readme_text="";
+if (rf.open("readme.txt", "rb"))
+{
+readme_text=rf.read();
+rf.close();
+}
+else if (rf.open("readme.md", "rb"))
+{
+readme_text=rf.read();
+rf.close();
+}
+else
+readme_text="Readme file not found. Please check the game folder.";
+audio_form f;
+f.create_window("Readme", false, true);
+f.create_input_box("Readme", readme_text, "", 0, false, true, true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_close)) return;
+}
+}
+void learn_game_sounds()
+{
+string[] cat_names = {"Movement", "Combat", "Environment", "UI and Alerts", "Vehicles"};
+string[][] sound_names;
+string[][] sound_files;
+// Movement
+string[] mv_names = {"Footstep (grass)", "Footstep (concrete)", "Footstep (sand)", "Footstep (wood)", "Footstep (ladder)", "Jump", "Fall", "Land (grass)", "Land (concrete)", "Turn"};
+string[] mv_files = {"grassstep1.ogg", "concretestep1.ogg", "sandstep1.ogg", "woodstep1.ogg", "ladderstep1.ogg", "jump.ogg", "fall.ogg", "grassland.ogg", "concreteland.ogg", "turn.ogg"};
+sound_names.insert_last(mv_names);
+sound_files.insert_last(mv_files);
+// Combat
+string[] cb_names = {"Player hit", "Kill achievement", "Weapon ping", "Grenade explosion", "Semtex explosion", "Smoke bomb", "Mortar explosion", "Torpedo", "Bomb vest explosion", "Bunker bomb"};
+string[] cb_files = {"playerhit1.ogg", "killachievement.ogg", "weaponping.ogg", "fraggrenadedist.ogg", "semtexdist.ogg", "smokebombdist.ogg", "120mm_mortarexplodedist.ogg", "torpedodist.ogg", "bombvestdist.ogg", "bunkerbombdist.ogg"};
+sound_names.insert_last(cb_names);
+sound_files.insert_last(cb_files);
+// Environment
+string[] env_names = {"Wall (wood)", "Flood start", "Flood stop", "Camera air", "Camera hazard", "Ocean ambience"};
+string[] env_files = {"wallwood.ogg", "floodstart.ogg", "floodstop.ogg", "cameraair.ogg", "camerahazard.ogg", "ocean1.ogg"};
+sound_names.insert_last(env_names);
+sound_files.insert_last(env_files);
+// UI and Alerts
+string[] ui_names = {"Menu click", "Menu enter", "Menu open", "Menu move", "Menu edge", "Chat message", "Notification", "Private message", "New MOTD", "Welcome", "Player online", "Player offline", "Kill alert", "Ping start", "Ping stop", "Buffer switch", "Buffer move", "Inventory move", "Ban", "Disconnect", "Admin join", "Dev join"};
+string[] ui_files = {"menuclick.ogg", "menuenter.ogg", "menuopen.ogg", "menumove.ogg", "menuedge.ogg", "chat.ogg", "notify.ogg", "pm.ogg", "newmotd.ogg", "welcome.ogg", "online.ogg", "offline.ogg", "killalert.ogg", "pingstart.ogg", "pingstop.ogg", "bufferswitch.ogg", "buffermove.ogg", "invmove.ogg", "ban.ogg", "dc.ogg", "admin.ogg", "dev.ogg"};
+sound_names.insert_last(ui_names);
+sound_files.insert_last(ui_files);
+// Vehicles
+string[] vh_names = {"Plane inside loop", "Plane crash", "Plane removed", "Plane bomb launch", "Plane bomb explode", "Tracking new target"};
+string[] vh_files = {"duoplaneinside.ogg", "duoplanecrashdist.ogg", "duoplanerem.ogg", "planebomblounchdist.ogg", "planebombdist.ogg", "trackingnew.ogg"};
+sound_names.insert_last(vh_names);
+sound_files.insert_last(vh_files);
+audio_form f;
+f.create_window("Learn Game Sounds", false, true);
+int f_cats=f.create_list("Category", 0, false);
+for (uint i=0; i<cat_names.length(); i++)
+f.add_list_item(f_cats, cat_names[i]);
+int f_sounds=f.create_list("Sounds", 0, false);
+int f_play=f.create_button("&Play", true);
+int f_close=f.create_button("&Close", false, true);
+int last_cat=-1;
+f.focus(f_cats);
+sound@ preview;
+while(true)
+{
+wait(5);
+f.monitor();
+int cur_cat=f.get_list_position(f_cats);
+if (cur_cat!=last_cat and cur_cat>=0 and cur_cat<int(cat_names.length()))
+{
+last_cat=cur_cat;
+f.clear_list(f_sounds);
+for (uint j=0; j<sound_names[cur_cat].length(); j++)
+f.add_list_item(f_sounds, sound_names[cur_cat][j]);
+}
+if (f.is_pressed(f_play))
+{
+int sel=f.get_list_position(f_sounds);
+if (cur_cat>=0 and cur_cat<int(cat_names.length()) and sel>=0 and sel<int(sound_files[cur_cat].length()))
+{
+if (@preview!=null)
+{
+preview.close();
+@preview=null;
+}
+sound s;
+s.load(sound_files[cur_cat][sel]);
+s.play();
+@preview=s;
+}
+}
+else if (f.is_pressed(f_close))
+{
+if (@preview!=null) preview.close();
+break;
+}
+}
+}
+void setupmenu(bool music=false, bool main=false)
+{
+m.reset(true);
+if (music==true)
+m.add_music("menumus.ogg");
+if(main==true)
+m.set_callback(main_events, "");
+else
+m.set_callback(cme, "");
+m.click_sound="menuclick.ogg";
+m.enter_sound="menuenter.ogg";
+m.wrap=menu_wrap_enabled;
+m.enable_home_and_end=true;
+m.enable_up_and_down=true;
+m.enable_first_letter_navigation=true;
+m.open_sound="menuopen.ogg";
+m.wrap_sound="menumove.ogg";
+m.edge_sound="menuedge.ogg";
+m.enable_side_scrolling=false;
+m.enable_left_and_right=false;
+}
+// ---------------------------------------------------------------------------
+// Options menu — single form with checkboxes for toggles, buttons for values.
+// ---------------------------------------------------------------------------
+void optionsmenu()
+{
+audio_form f;
+f.create_window("Options", false, true);
+// Gameplay
+int f_mate=f.create_input_box("Duo mate (leave blank to clear)", mate, "", 0, false, false, false);
+int f_remember=f.create_checkbox("Remember me (save account on exit)", remember_me);
+int f_target_hp=f.create_checkbox("Show target HP on hit (Alt+Shift+W to toggle in-game)", show_target_hp);
+// Controls
+int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
+int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
+int f_autolog=f.create_checkbox("Automatically log buffers on exit", auto_log_buffers);
+int f_cam=f.create_input_box("Camera speed (1 to 200)", ""+cameraspeed, "", 0, false, false, false);
+// Key Bindings
+int f_keybinds=f.create_button("Open &key binding editor");
+// Audio
+int f_vol=f.create_input_box("Master volume (-60 to 0)", ""+mastervol, "", 0, false, false, false);
+// Buttons
+int f_save=f.create_button("&Save", true);
+int f_close=f.create_button("&Cancel", false, true);
+f.focus(f_mate);
+while (true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_keybinds))
+{
+options_keybinds();
+optionsmenu();
+return;
+}
+if (f.is_pressed(f_save))
+{
+string new_mate=f.get_text(f_mate);
+if (new_mate!="" and string_contains(new_mate, " ", 1)>=0)
+{
+dlg("Duo mate name must not contain spaces.");
+continue;
+}
+mate=new_mate;
+remember_me=f.is_checked(f_remember);
+show_target_hp=f.is_checked(f_target_hp);
+rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
+menu_wrap_enabled=f.is_checked(f_wrap);
+auto_log_buffers=f.is_checked(f_autolog);
+string cam_str=f.get_text(f_cam);
+int newcam=string_to_number(cam_str);
+if (newcam<1) newcam=1;
+if (newcam>200) newcam=200;
+cameraspeed=newcam;
+kleft.setting_2=cameraspeed;
+kright.setting_2=cameraspeed;
+kup.setting_2=cameraspeed;
+kdown.setting_2=cameraspeed;
+kpgdn.setting_2=cameraspeed;
+kpgup.setting_2=cameraspeed;
+string vol_str=f.get_text(f_vol);
+int newvol=string_to_number(vol_str);
+if (newvol<-60) newvol=-60;
+if (newvol>0) newvol=0;
+mastervol=newvol;
+set_sound_master_volume(mastervol);
+writeprefs();
+speak("Options saved.");
+break;
+}
+else if (f.is_pressed(f_close))
+break;
+}
+}
+// ---------------------------------------------------------------------------
+// Administrator Panel (only available when running from source)
+// Connects to the server to verify admin/dev status, then provides
+// authorization mode toggle, unauthenticated player list, and
+// password reset request viewer.
+// ---------------------------------------------------------------------------
+void adminpanel()
+{
+if(name=="" or !account_exists(name))
+{
+dlg("You must be logged into an account to access the admin panel.");
+mainmenu();
+return;
+}
+speak("Connecting to server to verify administrator access, please wait.");
+network an;
+an.setup_client(1, 100);
+an.connect(netaddress, netport);
+bool verified=false;
+bool current_authmode=false;
+timer ct;
+while(ct.elapsed<5000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_connect)
+{
+string msg_str="admin_panel "+comp+" "+name;
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "admin_panel_ok ", 1)==0)
+{
+verified=true;
+current_authmode=(string_replace(r, "admin_panel_ok ", "", false)=="1");
+break;
+}
+else if(r=="admin_panel_denied")
+{
+dlg("Access denied. You are not an administrator.");
+mainmenu();
+return;
+}
+}
+}
+break;
+}
+if(ev.type==event_disconnect)
+break;
+}
+if(!verified)
+{
+dlg("Could not verify administrator access. The server may be offline.");
+mainmenu();
+return;
+}
+// Show admin panel form
+audio_form f;
+f.create_window("Administrator Panel", false, true);
+int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
+int f_save_auth=f.create_button("&Save authorization mode");
+int f_viewunauth=f.create_button("&View unauthenticated players");
+int f_viewresets=f.create_button("View password &reset requests");
+int f_tickets=f.create_button("Manage support &tickets");
+int f_devkey=f.create_button("Enter &developer unlock key");
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_authmode);
+while(true)
+{
+wait(5);
+f.monitor();
+if (f.is_pressed(f_save_auth))
+{
+string val=(f.is_checked(f_authmode) ? "1" : "0");
+string msg_str="admin_set_authmode "+val+" "+comp+" "+name;
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer rt;
+bool saved=false;
+while(rt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(r=="admin_authmode_saved")
+{
+saved=true;
+break;
+}
+}
+}
+if(saved)
+speak("Authorization mode "+(f.is_checked(f_authmode) ? "enabled" : "disabled")+" and saved.");
+else
+dlg("Failed to save setting. Server may not have responded.");
+}
+else if (f.is_pressed(f_viewunauth))
+{
+string msg_str="admin_get_unauth "+comp+" "+name;
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "admin_unauth_list ", 1)==0)
+{
+data=string_replace(r, "admin_unauth_list ", "", false);
+break;
+}
+}
+}
+// Show unauthenticated players in a sub-form
+audio_form uf;
+uf.create_window("Unauthenticated Players", false, true);
+if(data=="")
+{
+uf.create_input_box("Info", "No unauthenticated players found.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+uf.create_input_box(parts[0], "Code: "+parts[1], "", 0, false, true, false);
+}
+}
+int uf_close=uf.create_button("&Close", true, true);
+uf.focus(0);
+while(true)
+{
+wait(5);
+uf.monitor();
+if(uf.is_pressed(uf_close))
+break;
+}
+}
+else if (f.is_pressed(f_viewresets))
+{
+string msg_str="admin_get_resets "+comp+" "+name;
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(string_contains(r, "admin_reset_list ", 1)==0)
+{
+data=string_replace(r, "admin_reset_list ", "", false);
+break;
+}
+}
+}
+// Show password reset requests in a sub-form
+audio_form rf;
+rf.create_window("Password Reset Requests", false, true);
+if(data=="")
+{
+rf.create_input_box("Info", "No pending password reset requests.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+rf.create_input_box(parts[0], "Reset code: "+parts[1], "", 0, false, true, false);
+}
+}
+int rf_close=rf.create_button("&Close", true, true);
+rf.focus(0);
+while(true)
+{
+wait(5);
+rf.monitor();
+if(rf.is_pressed(rf_close))
+break;
+}
+}
+else if (f.is_pressed(f_tickets))
+{
+admin_support_tickets(an, comp);
+}
+else if(f.is_pressed(f_devkey))
+{
+string key=af_input("Enter developer unlock key");
+if(key!="")
+{
+if(key!=CLIENT_DEV_KEY)
+{
+dlg("Incorrect key.");
+}
+else
+{
+string msg_str="dev_validate_key "+key+" "+name;
+string msg=string_encrypt(msg_str, "_';'_clickclick!");
+an.send_reliable(0, msg, 0);
+timer kt;
+bool got_response=false;
+while(kt.elapsed<3000)
+{
+wait(5);
+network_event ev=an.request();
+if(ev.type==event_receive)
+{
+string r=ev.message;
+if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
+if(r=="dev_key_ok")
+{
+dev_unlocked=true;
+dlg("Developer access unlocked. You may now connect with any account.");
+got_response=true;
+break;
+}
+else if(r=="dev_key_denied")
+{
+dlg("Key validation failed.");
+got_response=true;
+break;
+}
+}
+}
+if(!got_response)
+dlg("Server did not respond to key validation.");
+}
+}
+}
+else if (f.is_pressed(f_close))
+{
+break;
+}
+}
+mainmenu();
+}
+void ingame_adminpanel()
+{
+speak("Verifying administrator access, please wait.");
+send_reliable(0, "admin_panel "+comp+" "+name, 0);
+bool verified=false;
+bool current_authmode=false;
+timer ct;
+while(ct.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "admin_panel_ok ", 1)==0)
+{
+verified=true;
+current_authmode=(string_replace(msg, "admin_panel_ok ", "", false)=="1");
+break;
+}
+else if(msg=="admin_panel_denied")
+{
+dlg("Access denied. You are not an administrator.");
+return;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(!verified)
+{
+dlg("Could not verify administrator access. The server may not have responded.");
+return;
+}
+audio_form f;
+f.create_window("Administrator Panel", false, true);
+int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
+int f_save_auth=f.create_button("&Save authorization mode");
+int f_viewunauth=f.create_button("&View unauthenticated players");
+int f_viewresets=f.create_button("View password &reset requests");
+int f_tickets=f.create_button("Manage support &tickets");
+int f_devkey=f.create_button("Enter &developer unlock key");
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_authmode);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_save_auth))
+{
+string val=(f.is_checked(f_authmode) ? "1" : "0");
+send_reliable(0, "admin_set_authmode "+val+" "+comp+" "+name, 0);
+timer rt;
+bool saved=false;
+while(rt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="admin_authmode_saved")
+{
+saved=true;
+break;
+}
+}
+}
+if(saved)
+speak("Authorization mode "+(f.is_checked(f_authmode) ? "enabled" : "disabled")+" and saved.");
+else
+dlg("Failed to save setting. Server may not have responded.");
+}
+else if(f.is_pressed(f_viewunauth))
+{
+send_reliable(0, "admin_get_unauth "+comp+" "+name, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "admin_unauth_list ", 1)==0)
+{
+data=string_replace(msg, "admin_unauth_list ", "", false);
+break;
+}
+}
+}
+audio_form uf;
+uf.create_window("Unauthenticated Players", false, true);
+if(data=="")
+{
+uf.create_input_box("Info", "No unauthenticated players found.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+uf.create_input_box(parts[0], "Code: "+parts[1], "", 0, false, true, false);
+}
+}
+int uf_close=uf.create_button("&Close", true, true);
+uf.focus(0);
+while(true)
+{
+wait(5);
+uf.monitor();
+if(connected==true) netloop();
+if(uf.is_pressed(uf_close))
+break;
+}
+}
+else if(f.is_pressed(f_viewresets))
+{
+send_reliable(0, "admin_get_resets "+comp+" "+name, 0);
+string data="";
+timer rt;
+while(rt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "admin_reset_list ", 1)==0)
+{
+data=string_replace(msg, "admin_reset_list ", "", false);
+break;
+}
+}
+}
+audio_form rf;
+rf.create_window("Password Reset Requests", false, true);
+if(data=="")
+{
+rf.create_input_box("Info", "No pending password reset requests.", "", 0, false, true, false);
+}
+else
+{
+string[] entries=string_split(data, ",", false);
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<2) continue;
+rf.create_input_box(parts[0], "Reset code: "+parts[1], "", 0, false, true, false);
+}
+}
+int rf_close=rf.create_button("&Close", true, true);
+rf.focus(0);
+while(true)
+{
+wait(5);
+rf.monitor();
+if(connected==true) netloop();
+if(rf.is_pressed(rf_close))
+break;
+}
+}
+else if(f.is_pressed(f_tickets))
+{
+support_view_all_tickets();
+return;
+}
+else if(f.is_pressed(f_devkey))
+{
+string key=af_input("Enter developer unlock key", "", true);
+if(key!="")
+{
+if(key!=CLIENT_DEV_KEY)
+{
+dlg("Incorrect key.");
+}
+else
+{
+send_reliable(0, "dev_validate_key "+key+" "+name, 0);
+timer kt;
+bool got_response=false;
+while(kt.elapsed<3000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(msg=="dev_key_ok")
+{
+dev_unlocked=true;
+dlg("Developer access unlocked. You may now connect with any account.");
+got_response=true;
+break;
+}
+else if(msg=="dev_key_denied")
+{
+dlg("Key validation failed.");
+got_response=true;
+break;
+}
+}
+}
+if(!got_response)
+dlg("Server did not respond to key validation.");
+}
+}
+}
+else if(f.is_pressed(f_close))
+return;
+}
+}
+int yesno(string question)
+{
+setupmenu();
+m.add_item_tts("Yes","yes");
+m.add_item_tts("No","no");
+int mres=m.run(question,true);
+if (m.get_item_name(mres)=="yes")
+return 1;
+else
+return 2;
+}
+int cme(dynamic_menu_pro@ test, string data)
+{
+if (connected==true)
+netloop();
+return 0;
+}
+int main_events(dynamic_menu_pro@fuck, string fucking)
+{//if(key_pressed(KEY_V)) speak("version "+version);
+return 0;
+}

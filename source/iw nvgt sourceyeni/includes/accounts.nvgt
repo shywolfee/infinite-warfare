@@ -1,0 +1,185 @@
+// Account system for Infinite Warfare
+// Accounts are stored in: iwserver/accounts/<username>.dat
+// Each account file is encrypted with ACCOUNT_SECRET.
+// Passwords are stored as an encrypted string using a per-account salt.
+
+// Set to "iwserver/accounts" (relative to game exe) in Infinite Warfare.nvgt main().
+string accounts_dir;
+
+// Secret used to encrypt account files and derive per-account password hashes.
+// Changing this will invalidate all existing accounts.
+const string ACCOUNT_SECRET = "IW_aCc0unt_K3y_xK9mP2vL7nQ4wR8t!";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// Return the path to a user's account file.
+string get_account_path(string username)
+{
+    return accounts_dir + "/" + string_to_lower_case(username) + ".dat";
+}
+
+// Return true if an account file exists for username.
+bool account_exists(string username)
+{
+    return file_exists(get_account_path(username));
+}
+
+// Produce a storable "hash" for a password.
+// Encrypted with a key derived from the global secret + lower-cased username salt.
+string hash_password(string password, string username)
+{
+    return string_encrypt(password, ACCOUNT_SECRET + "_" + string_to_lower_case(username));
+}
+
+// Basic email format check: must contain @ and a dot after the @.
+bool is_valid_email(string email)
+{
+    int at = string_contains(email, "@", 1);
+    if (at < 1)
+        return false;
+    string after = email.substr(at + 1);
+    if (string_contains(after, ".", 1) < 1)
+        return false;
+    return true;
+}
+
+// Ensure the accounts directory exists.
+void ensure_accounts_dir()
+{
+    if (!directory_exists(accounts_dir))
+        directory_create(accounts_dir);
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+// Check whether authorization mode is enabled.
+bool is_auth_mode_enabled()
+{
+    if (!file_exists("iwserver/authmode.svr"))
+        return false;
+    file f;
+    f.open("iwserver/authmode.svr", "rb");
+    string val = f.read();
+    f.close();
+    return val == "1";
+}
+
+// Generate a random 6-character alphanumeric authorization code.
+string generate_auth_code()
+{
+    string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    string code = "";
+    for (int i = 0; i < 6; i++)
+        code += chars[random(0, chars.length() - 1)];
+    return code;
+}
+
+// Register a new account.
+// Returns an empty string on success, or a human-readable error message.
+// When auth_required is true, the account is created but marked unauthenticated
+// with a random authorization code that an admin must provide to the user.
+string register_account(string username, string password, string confirm, string email, bool auth_required = false)
+{
+    if (username == "")
+        return "Username cannot be empty.";
+    if (string_contains(username, " ", 1) >= 0)
+        return "Username must not contain spaces.";
+    if (username.length() > 20)
+        return "Username must be 20 characters or fewer.";
+    if (password == "")
+        return "Password cannot be empty.";
+    if (password.length() < 12)
+        return "Password must be at least 12 characters.";
+    bool has_upper=false, has_lower=false, has_digit=false;
+    for (uint i=0; i<password.length(); i++)
+    {
+        string ch=string_mid(password, i, 1);
+        if (ch>="A" and ch<="Z") has_upper=true;
+        if (ch>="a" and ch<="z") has_lower=true;
+        if (ch>="0" and ch<="9") has_digit=true;
+    }
+    if (!has_upper or !has_lower or !has_digit)
+        return "Password must contain at least one uppercase letter, one lowercase letter, and one number.";
+    if (password != confirm)
+        return "Passwords do not match.";
+    if (email == "" or !is_valid_email(email))
+        return "Please enter a valid email address.";
+    if (account_exists(username))
+        return "An account with that username already exists.";
+
+    ensure_accounts_dir();
+
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.add("username", username);
+    acct.add("password", hash_password(password, username));
+    acct.add("email", email);
+    if (auth_required)
+    {
+        acct.add("authenticated", 0.0);
+        acct.add("authcode", generate_auth_code());
+    }
+    else
+        acct.add("authenticated", 1.0);
+    acct.save();
+    return "";
+}
+
+// Check if an account is authenticated.
+// Returns true if the account is authenticated or has no auth requirement.
+// Existing accounts without the authenticated field are treated as authenticated.
+bool is_account_authenticated(string username)
+{
+    if (!account_exists(username))
+        return false;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    if (!acct.d.exists("authenticated"))
+        return true;
+    return acct.readn("authenticated") >= 1.0;
+}
+
+// Authenticate an account using the provided authorization code.
+// Returns true if the code matches and the account is now authenticated.
+bool authenticate_account(string username, string code)
+{
+    if (!account_exists(username))
+        return false;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    string stored_code = acct.read("authcode");
+    if (stored_code == "" or stored_code != code)
+        return false;
+    acct.add("authenticated", 1.0);
+    acct.add("authcode", "");
+    acct.save();
+    return true;
+}
+
+// Verify login credentials.
+// Returns true if the username exists and the password is correct.
+bool verify_account(string username, string password)
+{
+    if (!account_exists(username))
+        return false;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    string stored = acct.read("password");
+    return stored == hash_password(password, username);
+}
+
+// Load the stored display-name for an account (preserves original casing).
+string get_account_username(string username)
+{
+    if (!account_exists(username))
+        return username;
+    savedata acct(get_account_path(username), ACCOUNT_SECRET);
+    acct.load();
+    string stored = acct.read("username");
+    if (stored != "")
+        return stored;
+    return username;
+}

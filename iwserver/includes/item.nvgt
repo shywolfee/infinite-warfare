@@ -41,10 +41,13 @@ if (get_3d_distance(items[i].x,items[i].y,items[i].z,players[x].x,players[x].y,p
 play("itemget"+random(1,3), items[i].x, items[i].y, items[i].z, items[i].map, x);
 if(items[i].name=="fake.item")
 {
+if(!are_teammates(items[i].bowner, players[x].name))
+{
 players[x].health-=5000;
 play("fakeitem",players[x].x,players[x].y,players[x].z,players[x].map,x);
 send_reliable(0,"distsound fakeitemdist "+items[i].x+" "+items[i].y+" "+items[i].z+" "+items[i].map,0);
 players[x].hitby="a fake item on the ground";
+}
 }
 else if(string_contains(items[i].name, "ammo_", 1)>-1)
 {

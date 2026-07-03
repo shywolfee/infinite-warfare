@@ -74,7 +74,23 @@ temp.maxz=maxz;
 temp.type=type;
 maptiles.insert_last(temp);
 }
-if(parsed[0]=="wall"){
+if(parsed[0]=="bunker" and parsed.length()>3)
+{
+int bx=string_to_number(parsed[1]);
+int by=string_to_number(parsed[2]);
+int bz=string_to_number(parsed[3]);
+string bname="bunker";
+if(parsed.length()>4) bname=parsed[4];
+spawn_bunker(bx,by,bz,name,"",bname);
+}
+else if(parsed[0]=="watertank" and parsed.length()>3)
+{
+int wx=string_to_number(parsed[1]);
+int wy=string_to_number(parsed[2]);
+int wz=string_to_number(parsed[3]);
+spawn_watertank(wx,wy,wz,name);
+}
+else if(parsed[0]=="wall"){
 int minx=string_to_number(parsed[1]);
 int maxx=string_to_number(parsed[2]);
 int miny=string_to_number(parsed[3]);

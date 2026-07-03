@@ -46,6 +46,12 @@ if(teams[i].leader==leader) return i;
 }
 return -1;
 }
+bool are_teammates(string a, string b)
+{
+int ti=find_player_team(a);
+if(ti<0) return false;
+return teams[ti].has_member(b);
+}
 
 // Lightweight tracker for clients sitting in the lobby (before spawn_player).
 lobby_client@[] lobby_clients(0);

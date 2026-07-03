@@ -123,19 +123,11 @@ nf.close();
 n.setup_server(port, 20, 500);
 load_wpn_stats();
 init_mapsystem();
-spawn_bunker(35,250,-5,"main","","bunker A");
-spawn_bunker(305,250,-5,"main","","bunker B");
-spawn_bunker(300,10,-5,"main","","bunker C");
-spawn_bunker(300,490,-5,"main","","bunker D");
 init_bunker_alarms();
 spawn_ballista(45,250,0,"main");
 spawn_ballista(295,250,0,"main");
 spawn_ballista(300,20,0,"main");
 spawn_ballista(300,480,0,"main");
-spawn_watertank(31,251,-50,"main");
-spawn_watertank(309,251,-50,"main");
-spawn_watertank(299,6,-50,"main");
-spawn_watertank(299,494,-50,"main");
 while(true)
 {
 wait(5);
@@ -261,10 +253,13 @@ send_reliable(players[index].peer_id, "You are AFK.", 2);
 }
 else if(parsed[0]=="/bunkers")
 {
-send_reliable(players[index].peer_id, "bunker A is at :35: 250: -5", 2);
-send_reliable(players[index].peer_id, "bunker B is at: 305: 250: -5", 2);
-send_reliable(players[index].peer_id, "bunker C is at: 300: 10: -5", 2);
-send_reliable(players[index].peer_id, "bunker D is at: 300: 490: -5", 2);
+if(bunkers.length()==0)
+send_reliable(players[index].peer_id, "No bunkers on this map.", 2);
+else
+{
+for(uint b=0; b<bunkers.length(); b++)
+send_reliable(players[index].peer_id, bunkers[b].name+" is at: "+bunkers[b].x+", "+bunkers[b].y+", "+bunkers[b].z, 2);
+}
 }
 else if(parsed[0]=="/getmyshit" and players[index].dev)
 {
@@ -2000,6 +1995,32 @@ team t(players[index].name);
 teams.insert_last(t);
 players[index].mate=players[index].name;
 send_reliable(players[index].peer_id, "Team created. You are the team leader. Use /teaminvite [name] to invite players.", 2);
+}
+}
+}
+else if(parsed[0]=="team_locations")
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+int ti=find_player_team(players[index].name);
+if(ti<0)
+send_reliable(players[index].peer_id, "team_locations_data none", 0);
+else
+{
+string result="";
+for(uint tm=0; tm<teams[ti].members.length(); tm++)
+{
+if(teams[ti].members[tm]==players[index].name) continue;
+int mi=get_player_index_from(teams[ti].members[tm]);
+if(mi<0) continue;
+string status="alive";
+if(players[mi].death) status="dead";
+if(result!="") result+=",";
+result+=players[mi].name+"|"+players[mi].x+"|"+players[mi].y+"|"+players[mi].z+"|"+status;
+}
+if(result=="") result="none";
+send_reliable(players[index].peer_id, "team_locations_data "+result, 0);
 }
 }
 }

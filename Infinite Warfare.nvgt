@@ -98,8 +98,8 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.49995;
-int build_number=54;
+double version=0.49996;
+int build_number=55;
 string build_date="2026-07-03";
 string name;
 string mate;
@@ -593,6 +593,8 @@ f.add_list_item(f_list, "Zone");
 f.add_list_item(f_list, "Ambient Sound Source");
 f.add_list_item(f_list, "Point of Interest");
 f.add_list_item(f_list, "Item Spawn");
+f.add_list_item(f_list, "Bunker Control Panel");
+f.add_list_item(f_list, "Water Tank");
 f.add_list_item(f_list, "Map Name");
 f.add_list_item(f_list, "Map Max X");
 f.add_list_item(f_list, "Map Max Y");
@@ -710,6 +712,33 @@ line="ispawn:"+coords+":"+istime+":"+ismax+":"+items_colon;
 }
 else if(sel==5)
 {
+string coords=builder_coord_form("Bunker Control Panel Location", false, false, "");
+if(coords=="") return;
+audio_form bf;
+bf.create_window("Bunker Name", false, true);
+bf.create_input_box("Bunker name (e.g. bunker A)");
+int bok=bf.create_button("OK", true);
+int bcancel=bf.create_button("Cancel", false, true);
+bf.focus(0);
+string bname="";
+while(true)
+{
+wait(5);
+bf.monitor();
+if(bf.is_pressed(bcancel)) return;
+if(bf.is_pressed(bok)){bname=bf.get_text(0);break;}
+}
+if(bname=="") return;
+line="bunker:"+coords+":"+bname;
+}
+else if(sel==6)
+{
+string coords=builder_coord_form("Water Tank Location", false, false, "");
+if(coords=="") return;
+line="watertank:"+coords;
+}
+else if(sel==7)
+{
 audio_form nf;
 nf.create_window("Map Name", false, true);
 nf.create_input_box("Map name");
@@ -724,7 +753,7 @@ if(nf.is_pressed(ncancel)) return;
 if(nf.is_pressed(nok)){line="mapname:"+nf.get_text(0);break;}
 }
 }
-else if(sel==6)
+else if(sel==8)
 {
 audio_form vf;
 vf.create_window("Map Max X", false, true);
@@ -740,7 +769,7 @@ if(vf.is_pressed(vcancel)) return;
 if(vf.is_pressed(vok)){line="maxx:"+vf.get_text(0);break;}
 }
 }
-else if(sel==7)
+else if(sel==9)
 {
 audio_form vf;
 vf.create_window("Map Max Y", false, true);
@@ -756,7 +785,7 @@ if(vf.is_pressed(vcancel)) return;
 if(vf.is_pressed(vok)){line="maxy:"+vf.get_text(0);break;}
 }
 }
-else if(sel==8)
+else if(sel==10)
 {
 audio_form vf;
 vf.create_window("Map Max Z", false, true);
@@ -2669,6 +2698,10 @@ else if (key_pressed(kb("chat")))
 string chat=af_input("Enter your message","",true);
 if (chat=="/afk")
 toggle_afk();
+else if (chat=="/bug")
+bug_submit();
+else if (chat=="/bugs")
+bugs_menu();
 else if (chat!="")
 send_reliable(0,chat,1);
 }
@@ -2708,7 +2741,7 @@ if (SCRIPT_COMPILED==false and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) an
 {
 builder_menu();
 }
-else if (key_pressed(kb("zone")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+else if (key_pressed(kb("zone")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 if (get_zone_at(mr.x,mr.y,me.z)!="")
 {
@@ -2802,22 +2835,23 @@ if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key
 {
 holster_current_weapon();
 }
-// Alt+S: open support menu.
+// Alt+S: open support and feedback menu.
 if (MENU_is_down() and key_pressed(KEY_S))
 {
-support_menu();
-}
-if (MENU_is_down() and key_pressed(KEY_F))
-{
-feedback_menu();
+support_feedback_menu();
 }
 // Alt+E: open equipment menu.
 if (MENU_is_down() and key_pressed(KEY_E))
 {
 equipment_menu();
 }
+// Alt+Shift+T: view teammate locations.
+if (MENU_is_down() and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_T))
+{
+send_reliable(0, "team_locations", 0);
+}
 // Alt+T: open teams menu.
-if (MENU_is_down() and key_pressed(KEY_T))
+else if (MENU_is_down() and key_pressed(KEY_T))
 {
 teams_menu();
 }
@@ -3554,6 +3588,11 @@ string text=string_replace(get_event_message(), "playermenu ", "Stop Tracking\r\
 string[] players=string_split(text, "\r\n", false);
 playertrackmenu(players);
 }
+else if(parsed[0]=="team_locations_data")
+{
+string data=string_replace(get_event_message(), "team_locations_data ", "", false);
+teammate_track_menu(data);
+}
 else if(parsed[0]=="distsound" and parsed.length()>5)
 {
 string soundname=parsed[1];
@@ -4091,6 +4130,89 @@ speak("canceled");
 tracking="";
 return;
 }
+}
+}
+void teammate_track_menu(string data)
+{
+if(data=="" or data=="none")
+{
+speak("You are not in a team or no teammates are online.");
+return;
+}
+string[] entries=string_split(data, ",", false);
+audio_form f;
+f.create_window("Teammate Locations", false, true);
+int f_list=f.create_list("Teammates", 0, false);
+string[] names;
+for(uint i=0; i<entries.length(); i++)
+{
+string[] parts=string_split(entries[i], "|", false);
+if(parts.length()<5) continue;
+names.insert_last(parts[0]);
+string status=parts[4];
+string label=parts[0]+" - "+status+" at "+parts[1]+", "+parts[2]+", "+parts[3];
+f.add_list_item(f_list, label);
+}
+if(names.length()==0)
+{
+speak("No teammates found.");
+return;
+}
+int f_track=f.create_button("&Track", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+netloop();
+fallloop();
+if(f.is_pressed(f_track))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(names.length()))
+{
+p.play_stationary("trackingnew.ogg", false);
+speak("You are now tracking "+names[sel]);
+tracking=names[sel];
+return;
+}
+}
+if(f.is_pressed(f_close))
+return;
+}
+}
+void support_feedback_menu()
+{
+audio_form f;
+f.create_window("Support and Feedback", false, true);
+int f_bugs=f.create_button("&Bug Reports", true);
+int f_feedback=f.create_button("&Feedback");
+int f_tickets=f.create_button("Support &Tickets");
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_bugs);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_bugs))
+{
+bugs_menu();
+return;
+}
+else if(f.is_pressed(f_feedback))
+{
+feedback_menu();
+return;
+}
+else if(f.is_pressed(f_tickets))
+{
+support_menu();
+return;
+}
+else if(f.is_pressed(f_close))
+return;
 }
 }
 void planeloop()

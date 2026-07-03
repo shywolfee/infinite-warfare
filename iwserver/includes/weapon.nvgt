@@ -69,12 +69,14 @@ int maxdammage=1000;
 string cn;
 string map;
 int spread=0;
+int origin_z;
 weapon(double wx, double wy, double wz, double wdir,int wfacing, string wtype, string wcn, string wmap)
 {
 facing=wfacing;
 x=wx;
 y=wy;
 z=wz;
+origin_z=wz;
 dir=wdir;
 type=wtype;
 cn=wcn;
@@ -198,7 +200,9 @@ if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,players[e].x,players[
 {
 int index=get_player_index_from(weapons[i].cn);
 {
-if(players[index].mate!=players[e].name or players[e].mate!=players[index].name)
+int shooter_team=find_player_team(weapons[i].cn);
+bool is_teammate=(shooter_team>=0 and teams[shooter_team].has_member(players[e].name));
+if(!is_teammate)
 {
  if(weapons[i].type=="120mm_mortar")
 {
@@ -208,6 +212,11 @@ send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 players[e].hitby=weapons[i].cn+"s "+weapons[i].type;
 play(weapons[i].type+"hit"+random(1,3),players[e].x,players[e].y,players[e].z,players[e].map);
 int dmg=random(weapons[i].mindammage,weapons[i].maxdammage);
+if(weapons[i].facing<45 and weapons[i].origin_z-players[e].z>=7)
+{
+dmg=dmg*3/2;
+send_reliable(players[index].peer_id, "Headshot!", 2);
+}
 players[e].health-=dmg;
 send_reliable(players[index].peer_id, "target_hp "+players[e].health, 0);
 weapons.remove_at(i);

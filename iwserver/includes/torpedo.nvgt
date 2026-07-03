@@ -38,7 +38,7 @@ play("torpedoexplode",torpedos[i].x,torpedos[i].y,torpedos[i].z,torpedos[i].map)
 send_reliable(0,"distsound torpedodist.ogg "+torpedos[i].x+" "+torpedos[i].y+" "+torpedos[i].z+" "+torpedos[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false)
+if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false and !are_teammates(torpedos[i].owner, players[i2].name))
 {
 players[i2].health-=700;
 players[i2].hitby=torpedos[i].owner+"'s torpedo";
@@ -51,11 +51,11 @@ return;
 }
 for (uint i2=0; i2<players.length(); i2++)
 {
- if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=5 and players[i2].map==torpedos[i].map and torpedos[i].owner!=players[i2].name)
+ if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=5 and players[i2].map==torpedos[i].map and torpedos[i].owner!=players[i2].name and !are_teammates(torpedos[i].owner, players[i2].name))
 {
 play("torpedoexplode",torpedos[i].x,torpedos[i].y,torpedos[i].z,torpedos[i].map);
 send_reliable(0,"distsound torpedodist.ogg "+torpedos[i].x+" "+torpedos[i].y+" "+torpedos[i].z+" "+torpedos[i].map,0);
-if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false)
+if (get_3d_distance(torpedos[i].x,torpedos[i].y,torpedos[i].z,players[i2].x,players[i2].y,players[i2].z)<=10 and players[i2].map==torpedos[i].map and players[i2].in_plane==false and !are_teammates(torpedos[i].owner, players[i2].name))
 {
 int index=get_player_index_from(torpedos[i].owner);
 if(index>-1)

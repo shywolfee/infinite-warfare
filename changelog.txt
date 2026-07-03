@@ -1,3 +1,13 @@
+New in 0.4.9.9.6, build 55 (2026-07-03)
+Added missing items to the developer Give All command: bunker bombs, bunker keys, fake items, semtex packs, semtex controllers, C4, HyperComp, and empty buckets.
+Bunker control panels and water tanks are now defined as map data instead of being hardcoded. Devs can add them from the builder menu (Shift+B > Add Element > Bunker Control Panel / Water Tank). Bunkers added via the builder are automatically included in the /bunkers command. The /bunkers command now dynamically lists all bunkers from the loaded map.
+Added team friendly fire protection. Teammates can no longer damage each other with any weapon, explosive (frag grenades, semtex, C4, bunker bombs, bomb vests, mortars, planebombs, torpedoes), fake item traps, or smoke bomb effects.
+Press Alt+Shift+T to view a list of your teammates with their current locations and status (alive/dead). Press Enter on a teammate to start tracking them.
+Added a headshot system. When aiming vertically downward and hitting a player from at least 7 tiles above their position, the shot deals 1.5X damage and the shooter receives a headshot notification.
+Fixed /bug and /bugs commands not working when typed in the chat box. They now correctly open the bug report submission and viewing menus.
+Removed the Alt+F feedback keybind and integrated bug reports, feedback, and support tickets into the Alt+S menu, now called Support and Feedback. The menu provides access to all three systems from a single location.
+Fixed the Alt+B keybind for buffer management not working because the zone check (B key) was consuming the key press when Alt was held.
+
 New in 0.4.9.9.5, build 54 (2026-07-03)
 Redesigned weapon suppressors with realistic model names. Pistol Suppressor is now Gemtech GM-9, SMG Suppressor is now SilencerCo Omega 9K, Rifle Suppressor is now SureFire SOCOM RC2, and Sniper Suppressor is now Thunder Beast Ultra 9. All retain the same compatible weapons and stat effects.
 Added 7 new weapon attachment types across 5 new slots:

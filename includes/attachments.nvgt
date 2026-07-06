@@ -1,3 +1,5 @@
+dictionary wpn_display_names;
+
 class attachment_def
 {
 string id;
@@ -155,7 +157,11 @@ return prefix;
 string get_weapon_display_name(string weapon_name)
 {
 string prefix=get_weapon_prefix(weapon_name);
-string base=string_replace(weapon_name, "_", " ", true);
+string base;
+if(wpn_display_names.exists(weapon_name))
+wpn_display_names.get(weapon_name, base);
+else
+base=string_replace(weapon_name, "_", " ", true);
 if(prefix!="") return prefix+" "+base;
 return base;
 }

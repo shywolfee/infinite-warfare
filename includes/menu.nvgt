@@ -935,23 +935,23 @@ string[] mv_files = {"grassstep1.ogg", "concretestep1.ogg", "sandstep1.ogg", "wo
 sound_names.insert_last(mv_names);
 sound_files.insert_last(mv_files);
 // Combat
-string[] cb_names = {"Player hit", "Kill achievement", "Weapon ping", "Grenade explosion", "Semtex explosion", "Smoke bomb", "Mortar explosion", "Torpedo", "Bomb vest explosion", "Bunker bomb"};
-string[] cb_files = {"playerhit1.ogg", "killachievement.ogg", "weaponping.ogg", "fraggrenadedist.ogg", "semtexdist.ogg", "smokebombdist.ogg", "120mm_mortarexplodedist.ogg", "torpedodist.ogg", "bombvestdist.ogg", "bunkerbombdist.ogg"};
+string[] cb_names = {"Player hit", "Kill achievement", "Weapon ping", "Grenade explosion", "Semtex explosion", "Smoke bomb", "Mortar explosion", "Torpedo explosion", "Torpedo launch", "Bomb vest explosion", "Bunker bomb", "Bunker bomb warning", "Ballista fire", "Plane bomb launch", "Plane bomb explode"};
+string[] cb_files = {"playerhit1.ogg", "killachievement.ogg", "weaponping.ogg", "fraggrenadedist.ogg", "semtexdist.ogg", "smokebombdist.ogg", "120mm_mortarexplodedist.ogg", "torpedodist.ogg", "torpedolounchdist.ogg", "bombvestdist.ogg", "bunkerbombdist.ogg", "bunkerbombwarndist.ogg", "ballistafire1.ogg", "planebomblounchdist.ogg", "planebombdist.ogg"};
 sound_names.insert_last(cb_names);
 sound_files.insert_last(cb_files);
 // Environment
-string[] env_names = {"Wall (wood)", "Flood start", "Flood stop", "Camera air", "Camera hazard", "Ocean ambience"};
-string[] env_files = {"wallwood.ogg", "floodstart.ogg", "floodstop.ogg", "cameraair.ogg", "camerahazard.ogg", "ocean1.ogg"};
+string[] env_names = {"Wall (wood)", "Flood start", "Flood stop", "Flood ambient", "Camera air", "Camera hazard", "Ocean ambience"};
+string[] env_files = {"wallwood.ogg", "floodstart.ogg", "floodstop.ogg", "flooddist.ogg", "cameraair.ogg", "camerahazard.ogg", "ocean1.ogg"};
 sound_names.insert_last(env_names);
 sound_files.insert_last(env_files);
 // UI and Alerts
-string[] ui_names = {"Menu click", "Menu enter", "Menu open", "Menu move", "Menu edge", "Chat message", "Notification", "Private message", "New MOTD", "Welcome", "Player online", "Player offline", "Kill alert", "Ping start", "Ping stop", "Buffer switch", "Buffer move", "Inventory move", "Ban", "Disconnect", "Admin join", "Dev join"};
-string[] ui_files = {"menuclick.ogg", "menuenter.ogg", "menuopen.ogg", "menumove.ogg", "menuedge.ogg", "chat.ogg", "notify.ogg", "pm.ogg", "newmotd.ogg", "welcome.ogg", "online.ogg", "offline.ogg", "killalert.ogg", "pingstart.ogg", "pingstop.ogg", "bufferswitch.ogg", "buffermove.ogg", "invmove.ogg", "ban.ogg", "dc.ogg", "admin.ogg", "dev.ogg"};
+string[] ui_names = {"Menu click", "Menu enter", "Menu open", "Menu move", "Menu edge", "Chat message", "Notification", "Private message", "New MOTD", "Welcome", "Player online", "Player offline", "Kill alert", "Ping start", "Ping stop", "Buffer switch", "Buffer move", "Inventory move", "Inventory pickup", "Ban", "Disconnect", "Admin join", "Dev join", "Logo"};
+string[] ui_files = {"menuclick.ogg", "menuenter.ogg", "menuopen.ogg", "menumove.ogg", "menuedge.ogg", "chat.ogg", "notify.ogg", "pm.ogg", "newmotd.ogg", "welcome.ogg", "online.ogg", "offline.ogg", "killalert.ogg", "pingstart.ogg", "pingstop.ogg", "bufferswitch.ogg", "buffermove.ogg", "invmove.ogg", "inv1.ogg", "ban.ogg", "dc.ogg", "admin.ogg", "dev.ogg", "logo.ogg"};
 sound_names.insert_last(ui_names);
 sound_files.insert_last(ui_files);
 // Vehicles
-string[] vh_names = {"Plane inside loop", "Plane crash", "Plane removed", "Plane bomb launch", "Plane bomb explode", "Tracking new target"};
-string[] vh_files = {"duoplaneinside.ogg", "duoplanecrashdist.ogg", "duoplanerem.ogg", "planebomblounchdist.ogg", "planebombdist.ogg", "trackingnew.ogg"};
+string[] vh_names = {"Plane inside loop", "Plane distant loop", "Plane crash", "Plane removed", "Tracking new target"};
+string[] vh_files = {"duoplaneinside.ogg", "duoplanedist.ogg", "duoplanecrashdist.ogg", "duoplanerem.ogg", "trackingnew.ogg"};
 sound_names.insert_last(vh_names);
 sound_files.insert_last(vh_files);
 audio_form f;

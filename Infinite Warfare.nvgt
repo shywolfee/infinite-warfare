@@ -98,9 +98,9 @@ bool x=false;
 bool connected;
 string received_changelog="";
 bool changelog_ready=false;
-double version=0.4995;
-int build_number=54;
-string build_date="2026-07-03";
+double version=0.4996;
+int build_number=55;
+string build_date="2026-07-06";
 string name;
 string mate;
 double facing=0;
@@ -151,9 +151,13 @@ key_hold kX(KEY_X,300,40);
 class wpn_stats
 {
 string id;
+string name;
 int firetime;
 int walktime;
 bool melee;
+int range;
+int damage;
+int spread;
 }
 wpn_stats@[] wpn_cache(0);
 
@@ -190,14 +194,23 @@ props.set(k, val);
 wpn_stats ws;
 ws.id=wid;
 string tmp;
+if (props.get("name", tmp)) ws.name=tmp;
+else ws.name=string_replace(wid, "_", " ", true);
 if (props.get("firetime", tmp)) ws.firetime=string_to_number(tmp);
 else ws.firetime=500;
 if (props.get("walktime", tmp)) ws.walktime=string_to_number(tmp);
 else ws.walktime=200;
+if (props.get("range", tmp)) ws.range=string_to_number(tmp);
+else ws.range=0;
+if (props.get("min_damage", tmp)) ws.damage=string_to_number(tmp);
+else ws.damage=0;
+if (props.get("spread", tmp)) ws.spread=string_to_number(tmp);
+else ws.spread=0;
 string melee_str;
 if (props.get("melee", melee_str) and melee_str=="true") ws.melee=true;
 else ws.melee=false;
 wpn_cache.insert_last(ws);
+wpn_display_names.set(wid, ws.name);
 // Register gun for non-melee weapons that have ammo fields
 string ammo_type, feed_device, capacity_str, reserve_item, reserve_label, is_mag_str, starting_reserve_str, reload_ms_str;
 if (!ws.melee and props.get("ammo_type", ammo_type) and props.get("feed_device", feed_device) and props.get("capacity", capacity_str) and props.get("reserve_item", reserve_item) and props.get("reserve_label", reserve_label) and props.get("is_magazine", is_mag_str) and props.get("starting_reserve", starting_reserve_str) and props.get("reload_ms", reload_ms_str))
@@ -1602,65 +1615,29 @@ void show_weapon_info(string wname)
 audio_form f;
 f.create_window(get_weapon_display_name(wname), false, true);
 int gi=find_gun(wname);
-int base_firetime=500;
-int base_walktime=200;
-bool is_melee_weapon=false;
-if(wname=="machete"){base_firetime=1000;base_walktime=170;is_melee_weapon=true;}
-else if(wname=="combatknife"){base_firetime=500;base_walktime=170;is_melee_weapon=true;}
-else if(wname=="katana"){base_firetime=800;base_walktime=170;is_melee_weapon=true;}
-else if(wname=="baseball_bat"){base_firetime=600;base_walktime=170;is_melee_weapon=true;}
-else if(wname=="hayvork"){base_firetime=900;base_walktime=185;is_melee_weapon=true;}
-else if(wname=="trector_plow"){base_firetime=1100;base_walktime=400;is_melee_weapon=true;}
-else if(wname=="glock17"){base_firetime=800;base_walktime=180;}
-else if(wname=="beretta92fs_pistol"){base_firetime=600;base_walktime=180;}
-else if(wname=="desert_eagle"){base_firetime=900;base_walktime=180;}
-else if(wname=="taurus_model66_revolver"){base_firetime=790;base_walktime=180;}
-else if(wname=="magnum_revolver"){base_firetime=800;base_walktime=180;}
-else if(wname=="p90_mp"){base_firetime=90;base_walktime=190;}
-else if(wname=="mp5"){base_firetime=100;base_walktime=190;}
-else if(wname=="uzi"){base_firetime=75;base_walktime=190;}
-else if(wname=="mp7"){base_firetime=85;base_walktime=190;}
-else if(wname=="hk_g36"){base_firetime=150;base_walktime=220;}
-else if(wname=="AK47"){base_firetime=150;base_walktime=220;}
-else if(wname=="tar_21_assault_rifle"){base_firetime=180;base_walktime=220;}
-else if(wname=="famas_f1_assault_rifle"){base_firetime=750;base_walktime=210;}
-else if(wname=="m4a1_carbine"){base_firetime=140;base_walktime=210;}
-else if(wname=="scar_h_battle_rifle"){base_firetime=300;base_walktime=300;}
-else if(wname=="fn_fal_battle_rifle"){base_firetime=280;base_walktime=300;}
-else if(wname=="m1garantBattleRifle"){base_firetime=1200;base_walktime=400;}
-else if(wname=="rpk_lmg"){base_firetime=120;base_walktime=350;}
-else if(wname=="m249_saw"){base_firetime=100;base_walktime=500;}
-else if(wname=="ks123shotgun"){base_firetime=850;base_walktime=230;}
-else if(wname=="benelli_m4_shotgun"){base_firetime=1500;base_walktime=230;}
-else if(wname=="spas_12_shotgun"){base_firetime=1000;base_walktime=250;}
-else if(wname=="sg08_sniper_rifle"){base_firetime=3000;base_walktime=1000;}
-else if(wname=="awp_sniper_rifle"){base_firetime=3500;base_walktime=1200;}
-else if(wname=="dragunov_svd"){base_firetime=1500;base_walktime=600;}
-else if(wname=="120mm_mortar"){base_firetime=4000;base_walktime=5000;}
-else if(wname=="crossbow"){base_firetime=2000;base_walktime=250;}
-else if(wname=="laser_pistol"){base_firetime=700;base_walktime=180;}
-else if(wname=="laser_smg"){base_firetime=80;base_walktime=190;}
-else if(wname=="laser_rifle"){base_firetime=160;base_walktime=220;}
-else if(wname=="laser_sniper"){base_firetime=2500;base_walktime=800;}
-else if(wname=="laser_cannon"){base_firetime=90;base_walktime=450;}
-else if(wname=="flamethrower"){base_firetime=50;base_walktime=300;}
-else if(wname=="chainsaw"){base_firetime=100;base_walktime=250;}
-float ft_mult=get_attachment_firetime_mult(wname);
-float wt_mult=get_attachment_walktime_mult(wname);
-int final_firetime=int(base_firetime*ft_mult);
-int final_walktime=int(base_walktime*wt_mult);
-string stats_text="";
-if(is_melee_weapon)
-stats_text+="Type: Melee\n";
-else if(gi>=0)
+int base_range=0;
+int base_damage=0;
+int base_spread=0;
+int base_capacity=0;
+for(uint i=0; i<wpn_cache.length(); i++)
 {
-stats_text+="Type: Ranged\n";
-stats_text+="Ammo type: "+gun_ammos[gi].ammo_type+"\n";
-stats_text+="Feed device: "+gun_ammos[gi].feed_device+"\n";
-stats_text+="Capacity: "+gun_ammos[gi].mag_capacity+"\n";
+if(wpn_cache[i].id==wname)
+{
+base_range=wpn_cache[i].range;
+base_damage=wpn_cache[i].damage;
+base_spread=wpn_cache[i].spread;
+break;
 }
-stats_text+="Fire rate: "+final_firetime+" ms"+(ft_mult!=1.0?" (base "+base_firetime+" ms)":"")+"\n";
-stats_text+="Movement speed: "+final_walktime+" ms"+(wt_mult!=1.0?" (base "+base_walktime+" ms)":"");
+}
+if(gi>=0) base_capacity=gun_ammos[gi].mag_capacity;
+string stats_text="";
+stats_text+="Range: "+base_range+" tiles\n";
+stats_text+="Damage: "+base_damage+"\n";
+stats_text+="Spread: "+base_spread+"\n";
+if(gi>=0)
+stats_text+="Max ammo: "+base_capacity;
+else
+stats_text+="Max ammo: N/A";
 string[] attached=get_weapon_attachments(wname);
 if(attached.length()>0)
 {
@@ -1671,14 +1648,6 @@ int def_idx=find_attachment_def(attached[i]);
 if(def_idx>=0)
 {
 string label=attachment_defs[def_idx].display_name+" ("+attachment_defs[def_idx].slot+")";
-if(ft_mult!=1.0 or wt_mult!=1.0)
-{
-label+=" -";
-if(attachment_defs[def_idx].firetime_mult!=1.0)
-label+=" fire rate x"+attachment_defs[def_idx].firetime_mult;
-if(attachment_defs[def_idx].walktime_mult!=1.0)
-label+=" move speed x"+attachment_defs[def_idx].walktime_mult;
-}
 if(!attachment_defs[def_idx].removable) label+=" [permanent]";
 stats_text+="\n"+label;
 }

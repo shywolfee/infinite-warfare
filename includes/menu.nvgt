@@ -243,26 +243,9 @@ break;
 }
 void show_changelog_form()
 {
-if (connected==true)
-{
-changelog_ready=false;
-received_changelog="";
-send_reliable(0, "request_changes", 0);
-timer cl_timeout;
-while(cl_timeout.elapsed<5000 and changelog_ready==false)
-{
-wait(5);
-netloop();
-}
-if (changelog_ready and received_changelog!="")
-{
-show_changelog_form_text(received_changelog);
-return;
-}
-}
 file cf;
-string cl="Changelog not found. Connect to the server to view the latest changes.";
-if (cf.open("changelog.txt","rb"))
+string cl="Changelog not found.";
+if (cf.open("changes.txt","rb"))
 {
 cl=cf.read();
 cf.close();
@@ -1031,7 +1014,8 @@ f.create_window("Options", false, true);
 // Gameplay
 int f_mate=f.create_input_box("Duo mate (leave blank to clear)", mate, "", 0, false, false, false);
 int f_remember=f.create_checkbox("Remember me (save account on exit)", remember_me);
-int f_target_hp=f.create_checkbox("Show target HP on hit (Alt+Shift+W to toggle in-game)", show_target_hp);
+int f_target_hp=f.create_checkbox("Show target HP on hit", show_target_hp);
+int f_damage_readout=f.create_checkbox("Show damage readout on hit", show_damage_readout);
 // Controls
 int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
 int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
@@ -1068,6 +1052,7 @@ continue;
 mate=new_mate;
 remember_me=f.is_checked(f_remember);
 show_target_hp=f.is_checked(f_target_hp);
+show_damage_readout=f.is_checked(f_damage_readout);
 rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
 menu_wrap_enabled=f.is_checked(f_wrap);
 auto_log_buffers=f.is_checked(f_autolog);

@@ -17,7 +17,6 @@
 #include "../includes/sd.nvgt"
 string[] killmsgs;
 timer spawn_chesttimer;
-string changes;
 double minversion=0.12;
 const int port=1316;
 string adminlist="";
@@ -76,20 +75,6 @@ file af;
 af.open("authmode.svr", "rb");
 auth_mode=(af.read()=="1");
 af.close();
-}
-if(file_exists("../changelog.txt"))
-{
-file cf;
-cf.open("../changelog.txt", "rb");
-changes=cf.read();
-cf.close();
-}
-else if(file_exists("changelog.txt"))
-{
-file cf;
-cf.open("changelog.txt", "rb");
-changes=cf.read();
-cf.close();
 }
 if(!directory_exists("administration"))
 directory_create("administration");
@@ -495,10 +480,6 @@ if (ci<chests.length()-1) s+=". ";
 send_reliable(players[index].peer_id, s, 2);
 }
 }
-else if(parsed[0]=="/changes")
-{
-send_reliable(e.peer_id,"this are the new changes :"+changes ,2);
-}
 else if(parsed[0]=="/motd")
 {
 if(players[index].dev or players[index].admin==true)
@@ -699,10 +680,6 @@ send_reliable(e.peer_id, result, 0);
 else if(parsed[0]=="check_authmode")
 {
 send_reliable(e.peer_id, "authmode_status "+(auth_mode ? "1" : "0"), 0);
-}
-else if(parsed[0]=="request_changes")
-{
-send_reliable(e.peer_id, "changes_data "+changes, 0);
 }
 else if(parsed[0]=="request_password_reset" and parsed.length()>1)
 {
@@ -2837,7 +2814,9 @@ if (players[index].rapid_fire_warnings>0) players[index].rapid_fire_warnings--;
 }
 players[index].fire_timer.restart();
 string wname=parsed[1];
-spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map);
+string fire_mode_str="";
+if (parsed.length()>2) fire_mode_str=parsed[2];
+spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map, fire_mode_str);
 bool suppressed=false;
 for(uint s=0; s<players[index].suppressed_weapons.length(); s++)
 {

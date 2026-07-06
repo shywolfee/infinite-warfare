@@ -22,6 +22,8 @@
 const int FIREMODE_SEMI = 0;
 const int FIREMODE_BURST = 1;
 const int FIREMODE_AUTO = 2;
+const int FIREMODE_SCATTERSHOT = 3;
+const int FIREMODE_FOCUSED = 4;
 
 class fire_mode_info
 {
@@ -62,6 +64,8 @@ string fire_mode_name(int mode)
 if (mode == FIREMODE_SEMI) return "semi-automatic";
 if (mode == FIREMODE_BURST) return "burst";
 if (mode == FIREMODE_AUTO) return "full automatic";
+if (mode == FIREMODE_SCATTERSHOT) return "scattershot";
+if (mode == FIREMODE_FOCUSED) return "focused";
 return "unknown";
 }
 
@@ -1006,7 +1010,8 @@ give("energetic_potion_rainbow", 1);
 give("translocator", 1);
 give("translocator_cell", 10);
 give("adrenaline_syringe", 3);
-give("repair_kit", 3);
+give("nanomatic_multitool", 3);
+give("nanomatic_components", 10);
 give("waypoint_marker", 5);
 give("binoculars", 1);
 give("fortified_ration", 5);

@@ -1,3 +1,14 @@
+New in 0.4.9.9.8, build 57 (2026-07-06)
+The changelog is now read from a local changes.txt file instead of being fetched from the server.
+Added a toggleable damage readout option in the options menu. When enabled, you hear how much damage each hit dealt.
+Removed the Alt+Shift+W keybind for toggling target HP display since it is already available in the options menu.
+Added scattershot firing mode for shotguns (Benelli M4, SPAS-12, KS-23). Toggle with Shift+A. Deals less damage but increases spread by 1.
+Added focused firing mode for energy weapons (Volt Sidearm, Pulse Repeater, Photon Carbine, Particle Lance, Nova Cannon). Toggle with Shift+A. Deals more damage with more range but consumes 3x ammo.
+Removed the repair kit item.
+Added weapon durability system for energy weapons. All energy weapons start at 100% durability, shown in the Shift+Enter weapon info panel. Firing in focused mode has a 20% chance to reduce durability by 1-10%. When durability reaches 0%, the weapon breaks and is salvaged into 1-5 nanomatic components.
+Added nanomatic multitool item. Has 5 uses, each repairing an energy weapon for 5-15% durability. Disappears when all uses are spent.
+Added nanomatic components item. Using 5 components on a multitool that still has uses remaining adds 1 extra use to it.
+
 New in 0.4.9.9.7, build 56 (2026-07-06)
 Renamed all laser weapons to distinctive energy weapon names: Laser Pistol is now Volt Sidearm, Laser SMG is now Pulse Repeater, Laser Rifle is now Photon Carbine, Laser Sniper is now Particle Lance, and Laser Cannon is now Nova Cannon. The help category is now Energy Weapons.
 Cleaned up ammo type names: FN 5.7x28mm is now 5.7x28mm, 4.6x30mm HK is now 4.6x30mm. Energy weapon ammo types renamed to energy bolt, energy pulse, energy beam, charged energy beam, and supercharged beam.

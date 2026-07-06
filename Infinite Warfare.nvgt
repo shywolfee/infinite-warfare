@@ -96,10 +96,11 @@ bool pinging=false;
 timer pingtimer;
 bool x=false;
 bool connected;
-string received_changelog="";
-bool changelog_ready=false;
-double version=0.4997;
-int build_number=56;
+bool show_damage_readout=false;
+dictionary weapon_durability;
+int multitool_uses=0;
+double version=0.4998;
+int build_number=57;
 string build_date="2026-07-06";
 string name;
 string mate;
@@ -238,6 +239,8 @@ for (uint m=0; m<mode_parts.length(); m++)
 if (mode_parts[m]=="semi") modes[m]=FIREMODE_SEMI;
 else if (mode_parts[m]=="burst") modes[m]=FIREMODE_BURST;
 else if (mode_parts[m]=="auto") modes[m]=FIREMODE_AUTO;
+else if (mode_parts[m]=="scattershot") modes[m]=FIREMODE_SCATTERSHOT;
+else if (mode_parts[m]=="focused") modes[m]=FIREMODE_FOCUSED;
 }
 register_fire_modes(wid, modes);
 }
@@ -1004,7 +1007,6 @@ f.add_list_item(f_list, "/pm [name] [message] - Private message a player");
 f.add_list_item(f_list, "/bug - Submit a bug report");
 f.add_list_item(f_list, "/bugs - View bug reports");
 f.add_list_item(f_list, "/chestfind - View chest locations");
-f.add_list_item(f_list, "/changes - View the changelog");
 f.add_list_item(f_list, "/afk - Toggle AFK mode");
 f.add_list_item(f_list, "/start_admin - Activate admin (if authorized)");
 if (SCRIPT_COMPILED==false)
@@ -1128,7 +1130,7 @@ string[][] cat_docs = {
 {"120mm_mortar", "ballista", "crossbow", "frag_grenade"},
 {"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon"},
 {"flamethrower", "chainsaw", "hayvork", "trector_plow"},
-{"health_potion", "ultra_health_potion", "fortified_ration", "adrenaline_syringe", "repair_kit"},
+{"health_potion", "ultra_health_potion", "fortified_ration", "adrenaline_syringe", "nanomatic_multitool", "nanomatic_components"},
 {"energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"},
 {"vehicles", "translocator", "waypoint_marker", "binoculars", "c4"}
 };
@@ -1356,9 +1358,14 @@ give("adrenaline_syringe", -1);
 speak("Adrenaline rush! Movement speed doubled for 30 seconds.");
 return;
 }
-else if (item == "repair_kit")
+else if (item == "nanomatic_multitool")
 {
-use_repair_kit();
+use_nanomatic_multitool();
+return;
+}
+else if (item == "nanomatic_components")
+{
+use_nanomatic_components();
 return;
 }
 else if (item == "waypoint_marker")
@@ -1638,6 +1645,11 @@ if(gi>=0)
 stats_text+="Max ammo: "+base_capacity;
 else
 stats_text+="Max ammo: N/A";
+if(is_energy_weapon(wname))
+{
+int dur=get_durability(wname);
+stats_text+="\nDurability: "+dur+"%";
+}
 string[] attached=get_weapon_attachments(wname);
 if(attached.length()>0)
 {
@@ -2108,51 +2120,151 @@ speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_t
 }
 
 // ---------------------------------------------------------------------------
-// Repair Kit — restores a partial ammo item to full.
+// Weapon durability system — energy weapons can be damaged and repaired.
 // ---------------------------------------------------------------------------
-void use_repair_kit()
+bool is_energy_weapon(string wname)
 {
-if (partial_items.length() == 0)
+int gi=find_gun(wname);
+if (gi<0) return false;
+return (gun_ammos[gi].ammo_display=="charge");
+}
+
+int get_durability(string wname)
 {
-speak("You have no partial ammo items to repair.");
+int dur=100;
+if (weapon_durability.exists(wname))
+weapon_durability.get(wname, dur);
+else
+{
+weapon_durability.set(wname, 100);
+}
+return dur;
+}
+
+void set_durability(string wname, int val)
+{
+if (val<0) val=0;
+if (val>100) val=100;
+weapon_durability.set(wname, val);
+}
+
+void on_weapon_break(string wname)
+{
+int components=random(1, 5);
+give(wname, -1);
+weapon_durability.delete(wname);
+give("nanomatic_components", components);
+for (uint i=0; i<weapons.length(); i++)
+{
+if (weapons[i]==wname)
+{
+weapons[i]="empty";
+break;
+}
+}
+speak(get_weapon_display_name(wname)+" has broken! Salvaged "+components+" nanomatic component"+(components>1 ? "s" : "")+".");
+}
+
+void apply_focused_durability_damage(string wname)
+{
+if (!is_energy_weapon(wname)) return;
+if (random(1, 100)<=20)
+{
+int dmg_pct=random(1, 10);
+int cur=get_durability(wname);
+cur-=dmg_pct;
+if (cur<=0)
+{
+set_durability(wname, 0);
+on_weapon_break(wname);
 return;
 }
-audio_form f;
-f.create_window("Repair Kit", false, true);
-int f_list = f.create_list("Select a partial item to restore", 0, false);
-for (uint i = 0; i < partial_items.length(); i++)
-{
-string base_name = string_replace(partial_items[i].base_item, "_", " ", true);
-int pct = get_ammo_percentage(partial_items[i].remaining, partial_items[i].max_capacity);
-f.add_list_item(f_list, base_name + " (" + pct + "%)");
+set_durability(wname, cur);
+speak("Warning: weapon durability at "+cur+"%.");
 }
-int f_repair = f.create_button("&Repair", true);
-int f_close = f.create_button("&Close", false, true);
+}
+
+// ---------------------------------------------------------------------------
+// Nanomatic Multitool — repairs energy weapon durability.
+// ---------------------------------------------------------------------------
+void use_nanomatic_multitool()
+{
+string[] damaged;
+for (uint i=0; i<weapons.length(); i++)
+{
+if (weapons[i]!="empty" and is_energy_weapon(weapons[i]) and get_durability(weapons[i])<100)
+damaged.insert_last(weapons[i]);
+}
+if (damaged.length()==0)
+{
+speak("No energy weapons need repair.");
+return;
+}
+if (multitool_uses<=0) multitool_uses=5;
+audio_form f;
+f.create_window("Nanomatic Multitool", false, true);
+int f_list=f.create_list("Select a weapon to repair ("+multitool_uses+" uses remaining)", 0, false);
+for (uint i=0; i<damaged.length(); i++)
+{
+int dur=get_durability(damaged[i]);
+f.add_list_item(f_list, get_weapon_display_name(damaged[i])+" ("+dur+"% durability)");
+}
+int f_repair=f.create_button("&Repair", true);
+int f_close=f.create_button("&Close", false, true);
 f.focus(f_list);
 while(true)
 {
 wait(5);
 f.monitor();
-if (connected == true)
+if (connected==true)
 netloop();
 if (f.is_pressed(f_repair))
 {
-int sel = f.get_list_position(f_list);
-if (sel >= 0 and sel < int(partial_items.length()))
+int sel=f.get_list_position(f_list);
+if (sel>=0 and sel<int(damaged.length()))
 {
-string base = partial_items[sel].base_item;
-remove_partial(sel);
-give(base, 1);
-give("repair_kit", -1);
-speak("Repaired. You now have a full " + string_replace(base, "_", " ", true) + ".");
+int repair_amount=random(5, 15);
+int cur=get_durability(damaged[sel]);
+int new_dur=cur+repair_amount;
+if (new_dur>100) new_dur=100;
+set_durability(damaged[sel], new_dur);
+multitool_uses--;
+speak("Repaired "+get_weapon_display_name(damaged[sel])+" to "+new_dur+"% durability. "+multitool_uses+" uses remaining.");
+if (multitool_uses<=0)
+{
+give("nanomatic_multitool", -1);
+speak("Multitool spent.");
+multitool_uses=0;
+}
 }
 break;
 }
 else if (f.is_pressed(f_close))
-{
 break;
 }
 }
+
+// ---------------------------------------------------------------------------
+// Nanomatic Components — add a use to a multitool.
+// ---------------------------------------------------------------------------
+void use_nanomatic_components()
+{
+int comp_count=get_item_count("nanomatic_components");
+if (comp_count<5)
+{
+speak("You need 5 nanomatic components. You have "+comp_count+".");
+return;
+}
+int tool_count=get_item_count("nanomatic_multitool");
+if (tool_count<=0)
+{
+speak("You need a nanomatic multitool to add uses to.");
+return;
+}
+if (multitool_uses<=0) multitool_uses=5;
+give("nanomatic_components", -5);
+multitool_uses++;
+speak("Added 1 use to multitool. Now has "+multitool_uses+" uses.");
 }
 
 // ---------------------------------------------------------------------------
@@ -2274,7 +2386,7 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "repair_kit" and item != "waypoint_marker" and item != "binoculars" and !is_attachment_item(item) and !is_holster_item(item))
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "waypoint_marker" and item != "binoculars" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item))
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -2522,11 +2634,17 @@ fire_now = true;
 if (fire_now)
 {
 int weapon_ammo=ammo_check(weapons[w]);
-if(weapon_ammo>0 or melee==true)
+int ammo_cost=1;
+if (cur_fm==FIREMODE_FOCUSED) ammo_cost=3;
+if((weapon_ammo>=ammo_cost or melee==true))
 {
-ammo_give(weapons[w], -1);
+ammo_give(weapons[w], -ammo_cost);
 firetimer.restart();
-send_reliable(0,"fire "+weapons[w],0);
+string fire_cmd="fire "+weapons[w];
+if (cur_fm==FIREMODE_SCATTERSHOT) fire_cmd+=" scattershot";
+else if (cur_fm==FIREMODE_FOCUSED) fire_cmd+=" focused";
+send_reliable(0,fire_cmd,0);
+if (cur_fm==FIREMODE_FOCUSED) apply_focused_durability_damage(weapons[w]);
 if (melee) stamina_on_melee();
 if (cur_fm == FIREMODE_BURST and burst_firing)
 {
@@ -2624,12 +2742,6 @@ pending_health_report=true;
 if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_check")))
 {
 speak(get_stamina_string() + " " + get_effects_string());
-}
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_W))
-{
-show_target_hp=!show_target_hp;
-writeprefs();
-speak("Target HP display " + (show_target_hp ? "enabled" : "disabled") + ".");
 }
 if (key_pressed(kb("options_menu")))
 {
@@ -2814,7 +2926,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "repair_kit" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp" and !is_attachment_item(sel_item) and !is_holster_item(sel_item))
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item))
 send_reliable(0, "use " + sel_item, 0);
 }
 }
@@ -3277,6 +3389,8 @@ if (sd.d.exists("remember_me"))
 remember_me=(sd.readn("remember_me")>=1);
 if (sd.d.exists("auto_log_buffers"))
 auto_log_buffers=(sd.readn("auto_log_buffers")>=1);
+if (sd.d.exists("show_damage_readout"))
+show_damage_readout=(sd.readn("show_damage_readout")>=1);
 }
 void writeprefs()
 {
@@ -3292,6 +3406,7 @@ sd.add("menu_wrap",menu_wrap_enabled ? 1 : 0);
 sd.add("show_target_hp",show_target_hp ? 1 : 0);
 sd.add("remember_me",remember_me ? 1 : 0);
 sd.add("auto_log_buffers",auto_log_buffers ? 1 : 0);
+sd.add("show_damage_readout",show_damage_readout ? 1 : 0);
 sd.save();
 }
 void send_reliable(uint peer, string mess, uint channel)
@@ -3507,8 +3622,12 @@ p.play_stationary(parsed[1],false);
 }
 else if (parsed[0]=="target_hp" and parsed.length()>=2)
 {
+string hp_msg="";
+if (show_damage_readout and parsed.length()>=3)
+hp_msg+="Damage: "+parsed[2]+". ";
 if (show_target_hp)
-speak("Target HP: "+parsed[1]);
+hp_msg+="Target HP: "+parsed[1];
+if (hp_msg!="") speak(hp_msg);
 }
 else if (parsed[0]=="give" and parsed.length()>2)
 {
@@ -3609,11 +3728,6 @@ else if(parsed[4]!=name)
 p.play_stationary("offline.ogg", false);
 add_buffer_item("misc",parsed[4]+" just went offline");
 }
-}
-else if(parsed[0]=="changes_data")
-{
-received_changelog=string_replace(full_msg, "changes_data ", "", false);
-changelog_ready=true;
 }
 else if(parsed[0]=="movestop")
 {
@@ -3741,12 +3855,7 @@ sph_timer.restart();
 if (e.channel==2)
 {
 string ch2msg=get_event_message();
-if (string_contains(ch2msg, "this are the new changes :", 1)==0)
-{
-string changes_text=string_replace(ch2msg, "this are the new changes :", "", false);
-show_changelog_form_text(changes_text);
-}
-else if (string_contains(ch2msg, "New support ticket", 1)>=0 or string_contains(ch2msg, "ticket", 1)>=0)
+if (string_contains(ch2msg, "New support ticket", 1)>=0 or string_contains(ch2msg, "ticket", 1)>=0)
 add_buffer_item("tickets",ch2msg);
 else
 add_buffer_item("misc",ch2msg);

@@ -124,7 +124,7 @@ li { margin: 4px 0; }
   <tr><td><kbd>R</kbd></td><td>Reload</td></tr>
   <tr><td><kbd>Shift+R</kbd></td><td>Unload magazine</td></tr>
   <tr><td><kbd>A</kbd></td><td>Announce ammo status</td></tr>
-  <tr><td><kbd>Shift+A</kbd></td><td>Cycle fire mode (semi / burst / auto)</td></tr>
+  <tr><td><kbd>Shift+A</kbd></td><td>Cycle fire mode (semi / burst / auto / scattershot / focused)</td></tr>
 </table>
 
 <h3>4.3. Inventory &amp; Items</h3>
@@ -150,7 +150,6 @@ li { margin: 4px 0; }
   <tr><td><kbd>P</kbd></td><td>Announce nearby players</td></tr>
   <tr><td><kbd>T</kbd></td><td>Open player tracking menu</td></tr>
   <tr><td><kbd>W</kbd></td><td>Get direction to tracked player</td></tr>
-  <tr><td><kbd>Shift+W</kbd></td><td>Check tracked player&rsquo;s health</td></tr>
   <tr><td><kbd>F1</kbd></td><td>View online players list</td></tr>
   <tr><td><kbd>F2</kbd></td><td>View Message of the Day</td></tr>
   <tr><td><kbd>F3</kbd></td><td>Ping the server</td></tr>
@@ -242,9 +241,9 @@ li { margin: 4px 0; }
 <h3>5.7. Shotguns</h3>
 <table>
   <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Benelli M4</td><td>12-gauge buckshot</td><td>8-round tube magazine</td><td>8</td><td>40 shells (box)</td><td>5000</td><td>Semi</td></tr>
-  <tr><td>KS-23</td><td>23x75mm R</td><td>5-round tube magazine</td><td>5</td><td>40 rounds (box)</td><td>5000</td><td>Semi</td></tr>
-  <tr><td>SPAS-12</td><td>12-gauge buckshot</td><td>8-round tube magazine</td><td>8</td><td>40 shells (box)</td><td>5000</td><td>Semi</td></tr>
+  <tr><td>Benelli M4</td><td>12-gauge buckshot</td><td>8-round tube magazine</td><td>8</td><td>40 shells (box)</td><td>5000</td><td>Semi / Scattershot</td></tr>
+  <tr><td>KS-23</td><td>23x75mm R</td><td>5-round tube magazine</td><td>5</td><td>40 rounds (box)</td><td>5000</td><td>Semi / Scattershot</td></tr>
+  <tr><td>SPAS-12</td><td>12-gauge buckshot</td><td>8-round tube magazine</td><td>8</td><td>40 shells (box)</td><td>5000</td><td>Semi / Scattershot</td></tr>
 </table>
 
 <h3>5.8. Sniper Rifles</h3>
@@ -265,11 +264,11 @@ li { margin: 4px 0; }
 <p>Energy weapons use energy cells and display ammo as a charge percentage.</p>
 <table>
   <tr><th>Weapon</th><th>Beam Type</th><th>Cell Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Volt Sidearm</td><td>Energy bolt</td><td>40 charge</td><td>8 cells</td><td>2000</td><td>Semi</td></tr>
-  <tr><td>Pulse Repeater</td><td>Energy pulse</td><td>60 charge</td><td>6 cells</td><td>1800</td><td>Semi / Auto</td></tr>
-  <tr><td>Photon Carbine</td><td>Energy beam</td><td>80 charge</td><td>5 cells</td><td>2500</td><td>Semi / Burst / Auto</td></tr>
-  <tr><td>Particle Lance</td><td>Charged energy beam</td><td>120 charge</td><td>3 cells</td><td>3500</td><td>Semi</td></tr>
-  <tr><td>Nova Cannon</td><td>Supercharged beam</td><td>200 charge</td><td>2 cells</td><td>5000</td><td>Auto only</td></tr>
+  <tr><td>Volt Sidearm</td><td>Energy bolt</td><td>40 charge</td><td>8 cells</td><td>2000</td><td>Semi / Focused</td></tr>
+  <tr><td>Pulse Repeater</td><td>Energy pulse</td><td>60 charge</td><td>6 cells</td><td>1800</td><td>Semi / Auto / Focused</td></tr>
+  <tr><td>Photon Carbine</td><td>Energy beam</td><td>80 charge</td><td>5 cells</td><td>2500</td><td>Semi / Burst / Auto / Focused</td></tr>
+  <tr><td>Particle Lance</td><td>Charged energy beam</td><td>120 charge</td><td>3 cells</td><td>3500</td><td>Semi / Focused</td></tr>
+  <tr><td>Nova Cannon</td><td>Supercharged beam</td><td>200 charge</td><td>2 cells</td><td>5000</td><td>Auto / Focused</td></tr>
 </table>
 
 <h3>5.11. Special Weapons</h3>
@@ -330,7 +329,8 @@ li { margin: 4px 0; }
   <tr><td>Weapon Suppressor</td><td>Attach to a weapon to reduce its firing sound</td><td>Weapon-specific</td></tr>
   <tr><td>Waypoint Marker</td><td>Saves your current position; use again to check distance to the saved point</td><td>Reusable</td></tr>
   <tr><td>Binoculars</td><td>Announces position, current zone, and 5 nearest points of interest</td><td></td></tr>
-  <tr><td>Repair Kit</td><td>Restores partial ammo containers to full capacity</td><td></td></tr>
+  <tr><td>Nanomatic Multitool</td><td>Repairs energy weapon durability by 5-15% per use</td><td>5 uses per tool</td></tr>
+  <tr><td>Nanomatic Components</td><td>Use 5 components on a multitool to add 1 extra use</td><td>Salvaged from broken energy weapons</td></tr>
 </table>
 
 <h3>6.4. Equipment</h3>
@@ -442,7 +442,6 @@ li { margin: 4px 0; }
 <h2>13. Slash Commands</h2>
 <table>
   <tr><th>Command</th><th>Description</th></tr>
-  <tr><td><code>/changes</code></td><td>View the changelog</td></tr>
   <tr><td><code>/pm &lt;name&gt; &lt;message&gt;</code></td><td>Send a private message</td></tr>
   <tr><td><code>/d &lt;message&gt;</code></td><td>Send a duo chat message</td></tr>
   <tr><td><code>/duomate &lt;name&gt;</code></td><td>Set your duo mate</td></tr>

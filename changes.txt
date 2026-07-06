@@ -1,3 +1,8 @@
+New in 0.4.9.9.9, build 58 (2026-07-06)
+Added weapon class system. Every weapon now has a wclass property defining its class: pistol, revolver, assault rifle, battle rifle, sniper rifle, submachine gun, light machine gun, explosive, incendiary, tool, melee (blunt), melee (long blade), melee (short blade), archery, energy, and shotgun.
+Weapon files are now organized into subfolders by class under the weapons directory (e.g. pistols/, energy/, shotguns/).
+Class-based capabilities are now automatic: all energy weapons get focused mode, all shotguns get scattershot mode, without needing to specify them per weapon.
+
 New in 0.4.9.9.8, build 57 (2026-07-06)
 The changelog is now read from a local changes.txt file instead of being fetched from the server.
 Added a toggleable damage readout option in the options menu. When enabled, you hear how much damage each hit dealt.

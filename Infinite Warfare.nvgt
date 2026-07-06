@@ -99,8 +99,8 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.4998;
-int build_number=57;
+double version=0.4999;
+int build_number=58;
 string build_date="2026-07-06";
 string name;
 string mate;
@@ -153,6 +153,7 @@ class wpn_stats
 {
 string id;
 string name;
+string wclass;
 int firetime;
 int walktime;
 bool melee;
@@ -162,26 +163,19 @@ int spread;
 }
 wpn_stats@[] wpn_cache(0);
 
-void load_all_weapons()
+string[] wpn_class_folders = {"pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
+
+void load_weapon_file(string wpn_dir, string subdir, string fname)
 {
-string wpn_dir="iwserver/content/weapons";
-if (!directory_exists(wpn_dir))
-wpn_dir="content/weapons";
-string[] files=find_files(wpn_dir+"/*.wpn");
-for (uint i=0; i<files.length(); i++)
-{
-string fname=files[i];
-// Extract weapon id from filename (remove .wpn extension)
 string wid=string_left(fname, fname.length()-4);
-// Read the file
+string full_path=wpn_dir+"/"+fname;
+if (subdir!="") full_path=wpn_dir+"/"+subdir+"/"+fname;
 file f;
-f.open(wpn_dir+"/"+fname, "rb");
+f.open(full_path, "rb");
 string content=f.read();
 f.close();
-// Normalize line endings: replace \r\n with \n, then split on \n
 content=string_replace(content, "\r\n", "\n", true);
 string[] lines=string_split(content, "\n", true);
-// Parse key=value pairs into a dictionary
 dictionary props;
 for (uint j=0; j<lines.length(); j++)
 {
@@ -191,12 +185,13 @@ string k=string_left(lines[j], eq_pos);
 string val=string_replace(lines[j], k+"=", "", false);
 props.set(k, val);
 }
-// Build wpn_stats entry
 wpn_stats ws;
 ws.id=wid;
 string tmp;
 if (props.get("name", tmp)) ws.name=tmp;
 else ws.name=string_replace(wid, "_", " ", true);
+if (props.get("wclass", tmp)) ws.wclass=tmp;
+else ws.wclass="";
 if (props.get("firetime", tmp)) ws.firetime=string_to_number(tmp);
 else ws.firetime=500;
 if (props.get("walktime", tmp)) ws.walktime=string_to_number(tmp);
@@ -212,7 +207,6 @@ if (props.get("melee", melee_str) and melee_str=="true") ws.melee=true;
 else ws.melee=false;
 wpn_cache.insert_last(ws);
 wpn_display_names.set(wid, ws.name);
-// Register gun for non-melee weapons that have ammo fields
 string ammo_type, feed_device, capacity_str, reserve_item, reserve_label, is_mag_str, starting_reserve_str, reload_ms_str;
 if (!ws.melee and props.get("ammo_type", ammo_type) and props.get("feed_device", feed_device) and props.get("capacity", capacity_str) and props.get("reserve_item", reserve_item) and props.get("reserve_label", reserve_label) and props.get("is_magazine", is_mag_str) and props.get("starting_reserve", starting_reserve_str) and props.get("reload_ms", reload_ms_str))
 {
@@ -221,30 +215,48 @@ bool is_magazine=(is_mag_str=="true");
 int starting_reserve=string_to_number(starting_reserve_str);
 int reload_ms=string_to_number(reload_ms_str);
 register_gun(wid, ammo_type, feed_device, capacity, reserve_item, reserve_label, is_magazine, starting_reserve, reload_ms);
-// Set ammo display if not default "rounds"
 string ammo_display;
 if (props.get("ammo_display", ammo_display) and ammo_display!="rounds")
 set_ammo_display(wid, ammo_display);
 }
-// Register fire modes
+// Build fire modes from .wpn file, then add class-based modes
 string fire_modes_str;
+int[] modes(0);
 if (props.get("fire_modes", fire_modes_str))
 {
 string[] mode_parts=string_split(fire_modes_str, ",", true);
-if (mode_parts.length()>1)
-{
-int[] modes(mode_parts.length());
 for (uint m=0; m<mode_parts.length(); m++)
 {
-if (mode_parts[m]=="semi") modes[m]=FIREMODE_SEMI;
-else if (mode_parts[m]=="burst") modes[m]=FIREMODE_BURST;
-else if (mode_parts[m]=="auto") modes[m]=FIREMODE_AUTO;
-else if (mode_parts[m]=="scattershot") modes[m]=FIREMODE_SCATTERSHOT;
-else if (mode_parts[m]=="focused") modes[m]=FIREMODE_FOCUSED;
+if (mode_parts[m]=="semi") modes.insert_last(FIREMODE_SEMI);
+else if (mode_parts[m]=="burst") modes.insert_last(FIREMODE_BURST);
+else if (mode_parts[m]=="auto") modes.insert_last(FIREMODE_AUTO);
+else if (mode_parts[m]=="scattershot") modes.insert_last(FIREMODE_SCATTERSHOT);
+else if (mode_parts[m]=="focused") modes.insert_last(FIREMODE_FOCUSED);
 }
+}
+if (ws.wclass=="shotgun") modes.insert_last(FIREMODE_SCATTERSHOT);
+if (ws.wclass=="energy") modes.insert_last(FIREMODE_FOCUSED);
+if (modes.length()>1)
 register_fire_modes(wid, modes);
 }
-}
+
+void load_all_weapons()
+{
+string wpn_dir="iwserver/content/weapons";
+if (!directory_exists(wpn_dir))
+wpn_dir="content/weapons";
+// Load .wpn files from root (backwards compatibility)
+string[] root_files=find_files(wpn_dir+"/*.wpn");
+for (uint i=0; i<root_files.length(); i++)
+load_weapon_file(wpn_dir, "", root_files[i]);
+// Load .wpn files from class subfolders
+for (uint d=0; d<wpn_class_folders.length(); d++)
+{
+string subdir=wpn_class_folders[d];
+if (!directory_exists(wpn_dir+"/"+subdir)) continue;
+string[] sub_files=find_files(wpn_dir+"/"+subdir+"/*.wpn");
+for (uint i=0; i<sub_files.length(); i++)
+load_weapon_file(wpn_dir, subdir, sub_files[i]);
 }
 }
 
@@ -2122,11 +2134,18 @@ speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_t
 // ---------------------------------------------------------------------------
 // Weapon durability system — energy weapons can be damaged and repaired.
 // ---------------------------------------------------------------------------
+string get_weapon_class(string wname)
+{
+for (uint i=0; i<wpn_cache.length(); i++)
+{
+if (wpn_cache[i].id==wname) return wpn_cache[i].wclass;
+}
+return "";
+}
+
 bool is_energy_weapon(string wname)
 {
-int gi=find_gun(wname);
-if (gi<0) return false;
-return (gun_ammos[gi].ammo_display=="charge");
+return (get_weapon_class(wname)=="energy");
 }
 
 int get_durability(string wname)

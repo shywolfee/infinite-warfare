@@ -1,6 +1,7 @@
 class wpn_server_stats
 {
 string id;
+string wclass;
 int speedtime;
 int range;
 int mindammage;
@@ -8,21 +9,20 @@ int maxdammage;
 int spread;
 }
 wpn_server_stats@[] wpn_stats_cache(0);
-void load_wpn_stats()
+string[] wpn_class_folders = {"pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
+
+void load_wpn_file(string path, string fname)
 {
-wpn_stats_cache.resize(0);
-string[] files=find_files("content/weapons/*.wpn");
-for(uint i=0; i<files.length(); i++)
-{
-string wpn_id=string_replace(files[i], ".wpn", "", true);
+string wpn_id=string_replace(fname, ".wpn", "", true);
 file f;
-f.open("content/weapons/"+files[i], "rb");
+f.open(path+"/"+fname, "rb");
 string content=f.read();
 f.close();
 content=string_replace(content, "\r\n", "\n", true);
 string[] lines=string_split(content, "\n", true);
 wpn_server_stats s;
 s.id=wpn_id;
+s.wclass="";
 s.speedtime=5;
 s.range=10;
 s.mindammage=50;
@@ -39,8 +39,24 @@ else if(key=="range") s.range=string_to_number(val);
 else if(key=="min_damage") s.mindammage=string_to_number(val);
 else if(key=="max_damage") s.maxdammage=string_to_number(val);
 else if(key=="spread") s.spread=string_to_number(val);
+else if(key=="wclass") s.wclass=val;
 }
 wpn_stats_cache.insert_last(s);
+}
+
+void load_wpn_stats()
+{
+wpn_stats_cache.resize(0);
+string[] root_files=find_files("content/weapons/*.wpn");
+for(uint i=0; i<root_files.length(); i++)
+load_wpn_file("content/weapons", root_files[i]);
+for(uint d=0; d<wpn_class_folders.length(); d++)
+{
+string subdir="content/weapons/"+wpn_class_folders[d];
+if(!directory_exists(subdir)) continue;
+string[] sub_files=find_files(subdir+"/*.wpn");
+for(uint i=0; i<sub_files.length(); i++)
+load_wpn_file(subdir, sub_files[i]);
 }
 }
 int find_wpn_stats(string type)

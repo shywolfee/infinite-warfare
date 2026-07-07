@@ -15,9 +15,10 @@ void load_wpn_file(string path, string fname)
 {
 string wpn_id=string_replace(fname, ".wpn", "", true);
 file f;
-f.open(path+"/"+fname, "rb");
+if (!f.open(path+"/"+fname, "rb")) return;
 string content=f.read();
 f.close();
+if (content=="") return;
 content=string_replace(content, "\r\n", "\n", true);
 string[] lines=string_split(content, "\n", true);
 wpn_server_stats s;

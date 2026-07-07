@@ -99,9 +99,9 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.4999;
-int build_number=58;
-string build_date="2026-07-06";
+double version=0.49991;
+int build_number=59;
+string build_date="2026-07-07";
 string name;
 string mate;
 double facing=0;
@@ -171,9 +171,10 @@ string wid=string_left(fname, fname.length()-4);
 string full_path=wpn_dir+"/"+fname;
 if (subdir!="") full_path=wpn_dir+"/"+subdir+"/"+fname;
 file f;
-f.open(full_path, "rb");
+if (!f.open(full_path, "rb")) return;
 string content=f.read();
 f.close();
+if (content=="") return;
 content=string_replace(content, "\r\n", "\n", true);
 string[] lines=string_split(content, "\n", true);
 dictionary props;
@@ -305,13 +306,14 @@ create_buffer("all");
 create_buffer("chats");
 create_buffer("misc");
 create_buffer("tickets");
+bool is_first_run=false;
 if (!directory_exists(prefsdir))
 {
 directory_create(prefsdir);
-show_first_run_message();
+is_first_run=true;
 }
 else if (!file_exists(prefsdir+"/settings.dat"))
-show_first_run_message();
+is_first_run=true;
 accounts_dir="iwserver/accounts";
 if (!directory_exists(accounts_dir))
 directory_create(accounts_dir);
@@ -328,8 +330,9 @@ show_game_window(gamename+"!, version "+version+", build "+build_number+" ("+bui
 if (screen_reader_is_running(1))
 install_keyhook();
 //cfu("iw","iw.zip",true);
+if (is_first_run)
+show_first_run_message();
 dlgplay("logo.ogg", true, false, 15);
-// First-run welcome: show beta notice and rules agreement.
 if (!sd.d.exists("first_run_done"))
 {
 first_run_welcome();

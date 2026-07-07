@@ -1,3 +1,8 @@
+New in 0.4.9.9.9.1, build 59 (2026-07-07)
+Fixed a crash that occurred when running the game for the first time. The first-run configuration dialog was being shown before the game window was initialized, causing the game to close immediately on a fresh install. First-run messages now display after the game window is created.
+Added error guards to weapon file loading and keybind configuration to prevent crashes from missing or unreadable files.
+Fixed network polling in dialog functions to only run when connected, preventing potential crashes during pre-connection dialogs.
+
 New in 0.4.9.9.9, build 58 (2026-07-06)
 Added weapon class system. Every weapon now has a wclass property defining its class: pistol, revolver, assault rifle, battle rifle, sniper rifle, submachine gun, light machine gun, explosive, incendiary, tool, melee (blunt), melee (long blade), melee (short blade), archery, energy, and shotgun.
 Weapon files are now organized into subfolders by class under the weapons directory (e.g. pistols/, energy/, shotguns/).

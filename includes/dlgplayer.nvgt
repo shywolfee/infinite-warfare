@@ -6,7 +6,7 @@ dlgaudio.load(dlgsound);
 dlgaudio.play();
 while(dlgaudio.playing)
 {
-e=n.request();
+if (connected) e=n.request();
 wait(5);
 if(key_pressed(KEY_RETURN))
 {

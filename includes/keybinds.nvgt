@@ -216,9 +216,10 @@ break;
 void kb_load()
 {
 file f;
-f.open("keyconfig.json","rb");
+if (!f.open("keyconfig.json","rb")) return;
 string content=f.read();
 f.close();
+if (content=="") return;
 content=string_replace(content,"\r\n","\n",true);
 content=string_replace(content,"\r","\n",true);
 string[] lines=string_split(content,"\n",true);
@@ -249,7 +250,7 @@ break;
 void kb_save()
 {
 file f;
-f.open("keyconfig.json","wb");
+if (!f.open("keyconfig.json","wb")) return;
 string json_str="{\n";
 for (uint i=0; i<_kb_act_names.length(); i++)
 {

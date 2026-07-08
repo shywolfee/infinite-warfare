@@ -1,3 +1,9 @@
+New in 0.5.0, build 60 (2026-07-08)
+Added a server-side weapon editor and creator, accessible from the Weapon Editor button in the escape menu (developer builds only). Developers can edit existing weapons or create new ones without restarting the server.
+Edit Existing Weapon: Browse weapons sorted by class (pistols, assault rifles, energy, etc.). Selecting a class shows all weapons in that folder. Clicking a weapon displays all its values in editable fields. Saving writes the changes to the weapon file and refreshes the server's weapon cache. If no values were changed, the save is skipped to avoid unnecessary server reloads.
+Add New Weapon: Select a weapon class, then fill in all required weapon values (name, melee, firetime, walktime, speedtime, range, min/max damage, spread, ammo type, feed device, capacity, reserve item, reserve label, is_magazine, starting reserve, reload time, ammo display, fire modes, wclass). All fields must be filled before saving. The weapon file is created in the appropriate class folder and the server weapon cache is refreshed automatically.
+The server's weapon stats loading function can now be called at any time to hot-reload weapon data without a restart.
+
 New in 0.4.9.9.9.1, build 59 (2026-07-07)
 Fixed a crash that occurred when running the game for the first time. The first-run configuration dialog was being shown before the game window was initialized, causing the game to close immediately on a fresh install. First-run messages now display after the game window is created.
 Added error guards to weapon file loading and keybind configuration to prevent crashes from missing or unreadable files.

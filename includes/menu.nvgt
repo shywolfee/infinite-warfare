@@ -701,8 +701,12 @@ int f_rules = f.create_button("View &rules");
 int f_account = f.create_button("&Account info");
 int f_devs = f.create_button("View &developers");
 int f_admin=-1;
+int f_wpnedit=-1;
 if(SCRIPT_COMPILED==false)
+{
+f_wpnedit = f.create_button("&Weapon editor");
 f_admin = f.create_button("Ad&min panel");
+}
 int f_exit = f.create_button("E&xit game");
 int f_close = f.create_button("Cl&ose", true, true);
 f.focus(f_stats);
@@ -793,6 +797,12 @@ dv=df.read();
 df.close();
 }
 dlg(dv);
+}
+else if (f_wpnedit>-1 and f.is_pressed(f_wpnedit))
+{
+weapon_editor_panel();
+escape_menu();
+return;
 }
 else if (f_admin>-1 and f.is_pressed(f_admin))
 {
@@ -1560,6 +1570,322 @@ else if(f.is_pressed(f_close))
 return;
 }
 }
+// ---------------------------------------------------------------------------
+// Weapon Editor Panel — dev-only tool for editing and creating weapons.
+// ---------------------------------------------------------------------------
+string[] wpn_value_keys = {"name", "melee", "firetime", "walktime", "speedtime", "range", "min_damage", "max_damage", "spread", "ammo_type", "feed_device", "capacity", "reserve_item", "reserve_label", "is_magazine", "starting_reserve", "reload_ms", "ammo_display", "fire_modes", "wclass"};
+
+void weapon_editor_panel()
+{
+speak("Requesting weapon class list from server, please wait.");
+send_reliable(0, "wpn_get_classes", 0);
+string[] classes(0);
+timer ct;
+bool got_classes=false;
+while(ct.elapsed<5000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "wpn_classes ", 1)==0)
+{
+string data=string_replace(msg, "wpn_classes ", "", false);
+classes=string_split(data, "|", true);
+got_classes=true;
+break;
+}
+else if(msg=="wpn_editor_denied")
+{
+dlg("Access denied. You must be a developer to use the weapon editor.");
+return;
+}
+}
+if(e.type==event_disconnect)
+{
+speak("Disconnected from server.");
+return;
+}
+}
+if(!got_classes)
+{
+dlg("Failed to get weapon classes from server. No response received.");
+return;
+}
+audio_form f;
+f.create_window("Weapon Editor", false, true);
+int f_edit=f.create_button("&Edit an existing weapon");
+int f_add=f.create_button("&Add a new weapon");
+int f_close=f.create_button("&Close", true, true);
+f.focus(f_edit);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected==true) netloop();
+if(f.is_pressed(f_edit))
+{
+wpn_edit_existing(classes);
+return;
+}
+else if(f.is_pressed(f_add))
+{
+wpn_add_new(classes);
+return;
+}
+else if(f.is_pressed(f_close))
+return;
+}
+}
+
+void wpn_edit_existing(string[]@ classes)
+{
+setupmenu(true);
+for(uint i=0; i<classes.length(); i++)
+m.add_item_tts(string_replace(classes[i], "_", " ", true), classes[i]);
+m.add_item_tts("Cancel", "cancel");
+int sel=m.run("Select weapon class to browse", true);
+string selected_class=m.get_item_name(sel);
+if(selected_class=="cancel") return;
+speak("Loading weapons in "+string_replace(selected_class, "_", " ", true)+", please wait.");
+send_reliable(0, "wpn_get_list "+selected_class, 0);
+string[] weapon_list(0);
+timer ct;
+while(ct.elapsed<5000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "wpn_list ", 1)==0)
+{
+string data=string_replace(msg, "wpn_list ", "", false);
+if(data!="")
+weapon_list=string_split(data, "|", true);
+break;
+}
+else if(msg=="wpn_editor_denied")
+{
+dlg("Access denied.");
+return;
+}
+}
+if(e.type==event_disconnect) return;
+}
+if(weapon_list.length()==0)
+{
+dlg("No weapons found in this class.");
+return;
+}
+setupmenu(true);
+for(uint i=0; i<weapon_list.length(); i++)
+m.add_item_tts(string_replace(weapon_list[i], "_", " ", true), weapon_list[i]);
+m.add_item_tts("Cancel", "cancel");
+int wsel=m.run("Select weapon to edit", true);
+string selected_wpn=m.get_item_name(wsel);
+if(selected_wpn=="cancel") return;
+speak("Loading weapon values, please wait.");
+send_reliable(0, "wpn_get_values "+selected_class+" "+selected_wpn, 0);
+string[] value_lines(0);
+timer vt;
+while(vt.elapsed<5000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "wpn_values ", 1)==0)
+{
+string data=string_replace(msg, "wpn_values ", "", false);
+if(data!="")
+value_lines=string_split(data, "|", true);
+break;
+}
+else if(string_contains(msg, "wpn_values_error ", 1)==0)
+{
+dlg(string_replace(msg, "wpn_values_error ", "", false));
+return;
+}
+}
+if(e.type==event_disconnect) return;
+}
+if(value_lines.length()==0)
+{
+dlg("No values received for this weapon.");
+return;
+}
+dictionary original_values;
+string[] keys(0);
+string[] vals(0);
+for(uint i=0; i<value_lines.length(); i++)
+{
+int eq=string_contains(value_lines[i], "=", 1);
+if(eq<0) continue;
+string k=string_left(value_lines[i], eq);
+string v=string_replace(value_lines[i], k+"=", "", false);
+keys.insert_last(k);
+vals.insert_last(v);
+original_values.set(k, v);
+}
+audio_form ef;
+ef.create_window("Edit: "+string_replace(selected_wpn, "_", " ", true), false, true);
+int[] field_ids(0);
+for(uint i=0; i<keys.length(); i++)
+{
+int fid=ef.create_input_box(keys[i], vals[i], vals[i], 0, false, false, false);
+field_ids.insert_last(fid);
+}
+int ef_save=ef.create_button("&Save changes");
+int ef_close=ef.create_button("&Close without saving", true, true);
+ef.focus(field_ids[0]);
+while(true)
+{
+wait(5);
+ef.monitor();
+if(connected==true) netloop();
+if(ef.is_pressed(ef_save))
+{
+string new_data="";
+bool changed=false;
+for(uint i=0; i<keys.length(); i++)
+{
+string new_val=ef.get_text(field_ids[i]);
+string orig_val;
+original_values.get(keys[i], orig_val);
+if(new_val!=orig_val) changed=true;
+if(i>0) new_data+="|";
+new_data+=keys[i]+"="+new_val;
+}
+if(!changed)
+{
+speak("No changes detected. Nothing to save.");
+continue;
+}
+speak("Saving weapon, please wait.");
+send_reliable(0, "wpn_save_existing "+name+"~"+selected_class+"~"+selected_wpn+"~"+new_data, 0);
+timer st;
+while(st.elapsed<5000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "wpn_save_ok ", 1)==0)
+{
+dlg("Weapon saved successfully.");
+return;
+}
+else if(string_contains(msg, "wpn_save_error ", 1)==0)
+{
+dlg("Error: "+string_replace(msg, "wpn_save_error ", "", false));
+return;
+}
+else if(msg=="wpn_editor_denied")
+{
+dlg("Access denied.");
+return;
+}
+}
+if(e.type==event_disconnect) return;
+}
+dlg("Server did not respond to save request.");
+return;
+}
+else if(ef.is_pressed(ef_close))
+return;
+}
+}
+
+void wpn_add_new(string[]@ classes)
+{
+setupmenu(true);
+for(uint i=0; i<classes.length(); i++)
+m.add_item_tts(string_replace(classes[i], "_", " ", true), classes[i]);
+m.add_item_tts("Cancel", "cancel");
+int sel=m.run("Select weapon class for new weapon", true);
+string selected_class=m.get_item_name(sel);
+if(selected_class=="cancel") return;
+audio_form af;
+af.create_window("Create New Weapon ("+string_replace(selected_class, "_", " ", true)+")", false, true);
+int[] field_ids(0);
+for(uint i=0; i<wpn_value_keys.length(); i++)
+{
+string default_val="";
+if(wpn_value_keys[i]=="wclass") default_val=string_replace(selected_class, "s", "", false);
+else if(wpn_value_keys[i]=="melee") default_val="false";
+else if(wpn_value_keys[i]=="is_magazine") default_val="true";
+else if(wpn_value_keys[i]=="ammo_display") default_val="rounds";
+else if(wpn_value_keys[i]=="fire_modes") default_val="semi";
+int fid=af.create_input_box(wpn_value_keys[i], default_val, default_val, 0, false, false, false);
+field_ids.insert_last(fid);
+}
+int af_create=af.create_button("&Create weapon");
+int af_close=af.create_button("C&ancel", true, true);
+af.focus(field_ids[0]);
+while(true)
+{
+wait(5);
+af.monitor();
+if(connected==true) netloop();
+if(af.is_pressed(af_create))
+{
+bool all_filled=true;
+string new_data="";
+for(uint i=0; i<wpn_value_keys.length(); i++)
+{
+string val=af.get_text(field_ids[i]);
+if(val=="")
+{
+all_filled=false;
+speak("Please fill in all values. The field "+wpn_value_keys[i]+" is empty.");
+af.focus(field_ids[i]);
+break;
+}
+if(i>0) new_data+="|";
+new_data+=wpn_value_keys[i]+"="+val;
+}
+if(!all_filled) continue;
+speak("Creating weapon, please wait.");
+send_reliable(0, "wpn_save "+name+"~"+selected_class+"~"+new_data, 0);
+timer st;
+while(st.elapsed<5000)
+{
+wait(5);
+e=n.request();
+if(e.type==event_receive)
+{
+string msg=get_event_message();
+if(string_contains(msg, "wpn_save_ok ", 1)==0)
+{
+string new_id=string_replace(msg, "wpn_save_ok ", "", false);
+dlg("Weapon '"+new_id+"' created successfully in "+selected_class+".");
+return;
+}
+else if(string_contains(msg, "wpn_save_error ", 1)==0)
+{
+dlg("Error: "+string_replace(msg, "wpn_save_error ", "", false));
+return;
+}
+else if(msg=="wpn_editor_denied")
+{
+dlg("Access denied.");
+return;
+}
+}
+if(e.type==event_disconnect) return;
+}
+dlg("Server did not respond to create request.");
+return;
+}
+else if(af.is_pressed(af_close))
+return;
+}
+}
+
 int yesno(string question)
 {
 setupmenu();

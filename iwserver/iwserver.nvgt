@@ -775,6 +775,168 @@ else
 send_reliable(e.peer_id, "dev_key_denied", 0);
 }
 }
+else if(parsed[0]=="wpn_get_classes")
+{
+int index=get_player_index(e.peer_id);
+if(index<0) index=get_lobby_client_index(e.peer_id);
+bool authorized=false;
+if(index>-1)
+{
+string pname="";
+if(get_player_index(e.peer_id)>-1) pname=players[get_player_index(e.peer_id)].name;
+else if(get_lobby_client_index(e.peer_id)>-1) pname=lobby_clients[get_lobby_client_index(e.peer_id)].name;
+if(is_dev_account(pname)) authorized=true;
+}
+if(authorized)
+{
+string result="wpn_classes ";
+for(uint i=0; i<wpn_class_folders.length(); i++)
+{
+if(i>0) result+="|";
+result+=wpn_class_folders[i];
+}
+send_reliable(e.peer_id, result, 0);
+}
+else
+send_reliable(e.peer_id, "wpn_editor_denied", 0);
+}
+else if(parsed[0]=="wpn_get_list" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+string pname="";
+if(index>-1) pname=players[index].name;
+else
+{
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1) pname=lobby_clients[li].name;
+}
+if(is_dev_account(pname))
+{
+string folder=parsed[1];
+string subdir="content/weapons/"+folder;
+if(!directory_exists(subdir))
+{
+send_reliable(e.peer_id, "wpn_list ", 0);
+return;
+}
+string[] files=find_files(subdir+"/*.wpn");
+string result="wpn_list ";
+for(uint i=0; i<files.length(); i++)
+{
+if(i>0) result+="|";
+result+=string_replace(files[i], ".wpn", "", true);
+}
+send_reliable(e.peer_id, result, 0);
+}
+else
+send_reliable(e.peer_id, "wpn_editor_denied", 0);
+}
+else if(parsed[0]=="wpn_get_values" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);
+string pname="";
+if(index>-1) pname=players[index].name;
+else
+{
+int li=get_lobby_client_index(e.peer_id);
+if(li>-1) pname=lobby_clients[li].name;
+}
+if(is_dev_account(pname))
+{
+string folder=parsed[1];
+string wpn_name=parsed[2];
+string path="content/weapons/"+folder+"/"+wpn_name+".wpn";
+if(!file_exists(path))
+{
+send_reliable(e.peer_id, "wpn_values_error File not found", 0);
+return;
+}
+file f;
+f.open(path, "rb");
+string content=f.read();
+f.close();
+content=string_replace(content, "\r\n", "\n", true);
+string result="wpn_values "+string_replace(content, "\n", "|", true);
+send_reliable(e.peer_id, result, 0);
+}
+else
+send_reliable(e.peer_id, "wpn_editor_denied", 0);
+}
+else if(parsed[0]=="wpn_save")
+{
+string payload=string_replace(get_event_message(), "wpn_save ", "", false);
+string[] parts=string_split(payload, "~", false);
+if(parts.length()>=3)
+{
+string pname=parts[0];
+string folder=parts[1];
+string wpn_data=parts[2];
+if(is_dev_account(pname))
+{
+wpn_data=string_replace(wpn_data, "|", "\n", true);
+string[] lines=string_split(wpn_data, "\n", true);
+string wpn_id="";
+for(uint i=0; i<lines.length(); i++)
+{
+int eq=string_contains(lines[i], "=", 1);
+if(eq>=0)
+{
+string key=string_left(lines[i], eq);
+if(key=="name")
+{
+string val=string_replace(lines[i], key+"=", "", false);
+wpn_id=string_replace(string_to_lower_case(val), " ", "_", true);
+break;
+}
+}
+}
+if(wpn_id=="")
+{
+send_reliable(e.peer_id, "wpn_save_error No weapon name found", 0);
+return;
+}
+string path="content/weapons/"+folder+"/"+wpn_id+".wpn";
+file f;
+f.open(path, "wb");
+f.write(wpn_data+"\n");
+f.close();
+load_wpn_stats();
+send_reliable(e.peer_id, "wpn_save_ok "+wpn_id, 0);
+}
+else
+send_reliable(e.peer_id, "wpn_editor_denied", 0);
+}
+}
+else if(parsed[0]=="wpn_save_existing")
+{
+string payload=string_replace(get_event_message(), "wpn_save_existing ", "", false);
+string[] parts=string_split(payload, "~", false);
+if(parts.length()>=4)
+{
+string pname=parts[0];
+string folder=parts[1];
+string wpn_id=parts[2];
+string wpn_data=parts[3];
+if(is_dev_account(pname))
+{
+wpn_data=string_replace(wpn_data, "|", "\n", true);
+string path="content/weapons/"+folder+"/"+wpn_id+".wpn";
+if(!file_exists(path))
+{
+send_reliable(e.peer_id, "wpn_save_error File not found: "+path, 0);
+return;
+}
+file f;
+f.open(path, "wb");
+f.write(wpn_data+"\n");
+f.close();
+load_wpn_stats();
+send_reliable(e.peer_id, "wpn_save_ok "+wpn_id, 0);
+}
+else
+send_reliable(e.peer_id, "wpn_editor_denied", 0);
+}
+}
 else if(parsed[0]=="feedback_check_role")
 {
 int index=get_player_index(e.peer_id);

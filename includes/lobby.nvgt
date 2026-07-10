@@ -115,6 +115,7 @@ audio_form f;
 f.create_window("Modes", false, true);
 int f_bg=f.create_button("&Battlegrounds - Fight for survival on a war-torn island archipelago", true);
 int f_ha=f.create_button("&Habitat Alpha - Fight for survival in an abandoned alien colony");
+int f_ffa=f.create_button("&Free for All - Every soldier for themselves in a sprawling city");
 int f_back=f.create_button("Go &back", false, true);
 f.focus(f_bg);
 while(true)
@@ -134,6 +135,14 @@ else if (f.is_pressed(f_ha))
 {
 send_reliable(0, "enter_mode habitat_alpha", 0);
 speak("Deploying to Habitat Alpha. Survive the colony.");
+lobby_wait_for_map();
+game(1);
+return;
+}
+else if (f.is_pressed(f_ffa))
+{
+send_reliable(0, "enter_mode freeforall", 0);
+speak("Deploying to Free for All. Every soldier for themselves.");
 lobby_wait_for_map();
 game(1);
 return;

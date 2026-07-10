@@ -52,6 +52,7 @@ zone:475:525:460:478:31:50:roof of city hall
 src:476:524:461:477:0:30:calm.ogg:-10
 // City hall entrance (gap in south wall)
 tile:495:505:478:478:6:30:wallbrick
+zone:490:510:478:482:0:5:fronting city hall
 
 // --- Market building (east side of plaza) ---
 tile:522:550:485:515:0:0:tile1
@@ -65,6 +66,7 @@ zone:522:550:485:515:0:20:the market
 zone:522:550:485:515:21:50:roof of the market
 // Market entrance
 tile:522:522:498:502:6:20:wallbrick
+zone:518:522:493:507:0:5:fronting the market
 
 // --- Armory (west side of plaza) ---
 tile:450:478:485:515:0:0:concrete10
@@ -78,6 +80,7 @@ zone:450:478:485:515:0:20:the armory
 zone:450:478:485:515:21:50:roof of the armory
 // Armory entrance
 tile:478:478:498:502:6:20:wallbrick
+zone:478:482:493:507:0:5:fronting the armory
 ispawn:451:477:486:514:0:0:3000:3:frag_grenade:semtex_pack:smoke_bomb:bomb_vest:bunker_key
 
 // --- Barracks (south side of plaza) ---
@@ -92,6 +95,7 @@ zone:475:525:522:550:0:25:the barracks
 zone:475:525:522:550:26:50:roof of the barracks
 // Barracks entrance
 tile:495:505:522:522:6:25:wallbrick
+zone:490:510:518:522:0:5:fronting the barracks
 
 // --- Watchtower (NE corner of city) ---
 tile:600:610:370:380:0:0:concrete2
@@ -110,6 +114,9 @@ tile:602:609:371:379:40:40:concrete2
 zone:600:610:370:380:0:40:the watchtower
 zone:601:601:371:379:0:40:watchtower staircase
 zone:600:610:370:380:40:50:top of the watchtower
+// Watchtower entrance (gap in south wall)
+tile:603:607:380:380:6:40:wallbrick
+zone:600:610:380:385:0:5:fronting the watchtower
 
 // --- Hospital (SW area of city) ---
 tile:380:420:560:600:0:0:tile2
@@ -123,6 +130,7 @@ zone:380:420:560:600:0:25:the hospital
 zone:380:420:560:600:26:50:roof of the hospital
 // Hospital entrance
 tile:398:402:560:560:6:25:wallbrick
+zone:393:407:555:560:0:5:fronting the hospital
 ispawn:381:419:561:599:0:0:5000:3:health_potion:ultra_health_potion:life_injection:energetic_potion_red:energetic_potion_blue
 
 // --- Warehouse (SE area of city) ---
@@ -137,6 +145,7 @@ zone:560:620:560:610:0:30:the warehouse
 zone:560:620:560:610:31:50:roof of the warehouse
 // Warehouse entrance
 tile:588:592:560:560:6:30:wallbrick
+zone:583:597:555:560:0:5:fronting the warehouse
 ispawn:561:619:561:609:0:0:2000:5:empty_bucket:hayvork:trector_plow:rock:bag:box
 
 // --- Small park in NW city ---
@@ -167,6 +176,7 @@ tile:460:490:110:130:16:16:plank
 zone:460:490:110:130:0:15:village cottage
 zone:460:490:110:130:16:30:roof of the village cottage
 tile:473:477:130:130:6:15:wallwood
+zone:470:480:130:135:0:5:fronting the village cottage
 
 // Village house 2
 tile:510:540:110:130:0:0:hardwood
@@ -179,6 +189,7 @@ tile:510:540:110:130:16:16:plank
 zone:510:540:110:130:0:15:fishermans hut
 zone:510:540:110:130:16:30:roof of the fishermans hut
 tile:523:527:130:130:6:15:wallwood
+zone:520:530:130:135:0:5:fronting the fishermans hut
 
 // Village house 3
 tile:470:500:155:175:0:0:hardwood
@@ -191,6 +202,7 @@ tile:470:500:155:175:16:16:plank
 zone:470:500:155:175:0:15:village lodge
 zone:470:500:155:175:16:30:roof of the village lodge
 tile:483:487:175:175:6:15:wallwood
+zone:480:490:175:180:0:5:fronting the village lodge
 
 // Village dock
 tile:498:502:70:90:0:0:plank
@@ -225,6 +237,7 @@ tile:470:530:820:850:26:26:concrete2
 zone:470:530:820:850:0:25:the town hall
 zone:470:530:820:850:26:50:roof of the town hall
 tile:498:502:850:850:6:25:wallbrick
+zone:493:507:850:858:0:5:fronting the town hall
 
 // General store
 tile:450:480:870:895:0:0:hardwood
@@ -236,6 +249,7 @@ tile:450:480:870:895:20:20:wallwood
 tile:450:480:870:895:21:21:plank
 zone:450:480:870:895:0:20:the general store
 tile:463:467:870:870:6:20:wallwood
+zone:458:472:862:870:0:5:fronting the general store
 ispawn:451:479:871:894:0:0:3000:3:health_potion:energetic_potion_red:smoke_bomb:empty_bucket
 
 // Tavern
@@ -248,6 +262,7 @@ tile:520:550:870:900:20:20:wallwood
 tile:520:550:870:900:21:21:plank
 zone:520:550:870:900:0:20:the tavern
 tile:533:537:870:870:6:20:wallwood
+zone:528:542:862:870:0:5:fronting the tavern
 src:521:549:871:899:0:20:calm.ogg:-8
 
 // ===========================
@@ -277,6 +292,7 @@ tile:820:845:450:470:18:18:wallwood
 tile:820:845:450:470:19:19:plank
 zone:820:845:450:470:0:18:a house on elm street
 tile:845:845:458:462:6:18:wallwood
+zone:845:858:455:465:0:5:fronting a house on elm street
 
 // House 2
 tile:820:845:490:510:0:0:carpet1
@@ -288,6 +304,7 @@ tile:820:845:490:510:18:18:wallwood
 tile:820:845:490:510:19:19:plank
 zone:820:845:490:510:0:18:a house on maple street
 tile:845:845:498:502:6:18:wallwood
+zone:845:858:495:505:0:5:fronting a house on maple street
 
 // House 3
 tile:820:845:530:550:0:0:hardwood
@@ -299,6 +316,7 @@ tile:820:845:530:550:18:18:wallwood
 tile:820:845:530:550:19:19:plank
 zone:820:845:530:550:0:18:a house on oak street
 tile:845:845:538:542:6:18:wallwood
+zone:845:858:535:545:0:5:fronting a house on oak street
 
 // House 4
 tile:875:900:450:470:0:0:tile2
@@ -310,6 +328,7 @@ tile:875:900:450:470:18:18:wallwood
 tile:875:900:450:470:19:19:plank
 zone:875:900:450:470:0:18:a house on birch lane
 tile:875:875:458:462:6:18:wallwood
+zone:862:875:455:465:0:5:fronting a house on birch lane
 
 // House 5
 tile:875:900:490:510:0:0:tile1
@@ -321,6 +340,7 @@ tile:875:900:490:510:18:18:wallwood
 tile:875:900:490:510:19:19:plank
 zone:875:900:490:510:0:18:a house on cedar drive
 tile:875:875:498:502:6:18:wallwood
+zone:862:875:495:505:0:5:fronting a house on cedar drive
 
 // House 6
 tile:875:900:530:550:0:0:carpet1
@@ -332,6 +352,7 @@ tile:875:900:530:550:18:18:wallwood
 tile:875:900:530:550:19:19:plank
 zone:875:900:530:550:0:18:a house on pine court
 tile:875:875:538:542:6:18:wallwood
+zone:862:875:535:545:0:5:fronting a house on pine court
 
 ispawn:810:910:440:560:0:0:3000:2:health_potion:energetic_potion_green:energetic_potion_blue
 
@@ -357,6 +378,7 @@ tile:130:160:480:510:20:20:wallstone
 tile:130:160:480:510:21:21:metal2
 zone:130:160:480:510:0:20:the mine entrance building
 tile:160:160:493:497:6:20:wallstone
+zone:160:165:490:500:0:5:fronting the mine entrance building
 
 // Mine shaft going underground
 tile:145:145:495:495:0:0:metal5
@@ -391,6 +413,7 @@ tile:100:125:450:470:15:15:wallwood
 tile:100:125:450:470:16:16:metal2
 zone:100:125:450:470:0:15:the mining equipment shed
 tile:125:125:458:462:6:15:wallwood
+zone:125:130:455:465:0:5:fronting the mining equipment shed
 ispawn:101:124:451:469:0:0:5000:2:hayvork:trector_plow:empty_bucket
 
 // ===========================

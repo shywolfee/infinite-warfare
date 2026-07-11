@@ -99,9 +99,9 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.49991;
-int build_number=59;
-string build_date="2026-07-07";
+double version=0.501;
+int build_number=61;
+string build_date="2026-07-11";
 string name;
 string mate;
 double facing=0;
@@ -2809,7 +2809,7 @@ if(key_pressed(kb("motd")))
 send_reliable(0, "motd", 0);
 }
 // Grave accent removed; escape menu replaces it.
-if(key_pressed(kb("track_info")) and tracking!="")
+if(key_pressed(kb("track_info")) and tracking!="" and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 send_reliable(1, "trackinfo "+tracking, 0);
 }
@@ -3009,11 +3009,11 @@ if(key_pressed(kb("coordinates")))
 {
 speak(mr.x+", "+mr.y+", "+me.z);
 }
-if(key_pressed(kb("jump")) and in_vehicle and can_move==true)
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_W) and in_vehicle and can_move==true)
 {
 vehicle_toggle_window();
 }
-else if(key_pressed(kb("jump")) and jumping==false and falling==false and can_move==true and !in_vehicle)
+if(key_pressed(kb("jump")) and jumping==false and falling==false and can_move==true and !in_vehicle)
 {
 p.play_stationary("jump.ogg", false);
 send_reliable(0, "jump", 0);

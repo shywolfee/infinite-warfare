@@ -302,11 +302,40 @@ return heal;
 // Equipment system.
 // ---------------------------------------------------------------------------
 string equip_body = "";
+string equip_bracelet = "";
+string equip_medical = "";
+
+// WireNet state.
+int wirenet_charges = 0;
+bool wirenet_active = true;
+timer wirenet_cooldown;
+
+// Biomonitor bracelet state.
+timer biomonitor_cooldown;
+bool biomonitor_ready = true;
 
 void equip_item(string item, string slot)
 {
 if (slot == "body")
 equip_body = item;
+else if (slot == "bracelet")
+{
+equip_bracelet = item;
+if (item == "biomonitor_bracelet")
+{
+biomonitor_ready = true;
+biomonitor_cooldown.restart();
+}
+}
+else if (slot == "medical")
+{
+equip_medical = item;
+if (item == "wirenet")
+{
+wirenet_charges = 3;
+wirenet_active = true;
+}
+}
 }
 
 void unequip_item(string slot)
@@ -322,6 +351,29 @@ equip_body = "";
 else
 speak("Nothing equipped on body.");
 }
+else if (slot == "bracelet")
+{
+if (equip_bracelet != "")
+{
+give(equip_bracelet, 1);
+speak(string_replace(equip_bracelet, "_", " ", true) + " removed.");
+equip_bracelet = "";
+}
+else
+speak("Nothing equipped in bracelet slot.");
+}
+else if (slot == "medical")
+{
+if (equip_medical != "")
+{
+give(equip_medical, 1);
+speak(string_replace(equip_medical, "_", " ", true) + " removed.");
+equip_medical = "";
+wirenet_charges = 0;
+}
+else
+speak("Nothing equipped in medical slot.");
+}
 }
 
 string get_equipment_string()
@@ -329,6 +381,20 @@ string get_equipment_string()
 string result = "Body: ";
 if (equip_body != "")
 result += string_replace(equip_body, "_", " ", true);
+else
+result += "empty";
+result += ". Bracelet: ";
+if (equip_bracelet != "")
+result += string_replace(equip_bracelet, "_", " ", true);
+else
+result += "empty";
+result += ". Medical: ";
+if (equip_medical != "")
+{
+result += string_replace(equip_medical, "_", " ", true);
+if (equip_medical == "wirenet")
+result += " (" + wirenet_charges + " charges, " + (wirenet_active ? "active" : "inactive") + ")";
+}
 else
 result += "empty";
 result += ". Holster 1: ";
@@ -346,6 +412,16 @@ result += get_holster_slot_label(2);
 else
 result += "empty";
 return result;
+}
+
+void wirenet_check()
+{
+if (equip_medical != "wirenet") return;
+if (!wirenet_active) return;
+if (wirenet_charges <= 0) return;
+if (wirenet_cooldown.elapsed < 3000) return;
+wirenet_cooldown.restart();
+send_reliable(0, "wirenet_heal", 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -950,6 +1026,11 @@ for (int i=5; i<10; i++) quickbar[i] = "";
 reset_stamina();
 clear_all_effects();
 equip_body = "";
+equip_bracelet = "";
+equip_medical = "";
+wirenet_charges = 0;
+wirenet_active = true;
+biomonitor_ready = true;
 equip_holster1="";
 equip_holster2="";
 holster1_weapon="";
@@ -1013,8 +1094,8 @@ give("adrenaline_syringe", 3);
 give("nanomatic_multitool", 3);
 give("nanomatic_components", 10);
 give("waypoint_marker", 5);
-give("binoculars", 1);
-give("fortified_ration", 5);
+give("biomonitor_bracelet", 1);
+give("wirenet", 1);
 give("c4", 5);
 give("bunker_key", 3);
 give("bunker_bomb", 2);

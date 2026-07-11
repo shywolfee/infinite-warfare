@@ -99,8 +99,8 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.502;
-int build_number=62;
+double version=0.503;
+int build_number=63;
 string build_date="2026-07-11";
 string name;
 string mate;
@@ -1145,9 +1145,9 @@ string[][] cat_docs = {
 {"120mm_mortar", "ballista", "crossbow", "frag_grenade"},
 {"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon"},
 {"flamethrower", "chainsaw", "hayvork", "trector_plow"},
-{"health_potion", "ultra_health_potion", "fortified_ration", "adrenaline_syringe", "nanomatic_multitool", "nanomatic_components"},
+{"health_potion", "ultra_health_potion", "adrenaline_syringe", "nanomatic_multitool", "nanomatic_components"},
 {"energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"},
-{"vehicles", "translocator", "waypoint_marker", "binoculars", "c4"}
+{"vehicles", "translocator", "waypoint_marker", "biomonitor_bracelet", "wirenet", "c4"}
 };
 for (uint c = 0; c < cat_names.length(); c++)
 {
@@ -1388,16 +1388,29 @@ else if (item == "waypoint_marker")
 use_waypoint_marker();
 return;
 }
-else if (item == "binoculars")
+else if (item == "biomonitor_bracelet")
 {
-use_binoculars();
+if (equip_bracelet != "")
+{
+speak("You already have a bracelet equipped. Remove it first.");
 return;
 }
-else if (item == "fortified_ration")
+equip_item("biomonitor_bracelet", "bracelet");
+give("biomonitor_bracelet", -1);
+speak("Biomonitor bracelet equipped. Press Shift+U to scan nearby players.");
+return;
+}
+else if (item == "wirenet")
 {
-restore_stamina(random(35, 50));
-give("fortified_ration", -1);
-speak("Ration consumed. " + get_stamina_string());
+if (equip_medical != "")
+{
+speak("You already have medical equipment equipped. Remove it first.");
+return;
+}
+equip_item("wirenet", "medical");
+give("wirenet", -1);
+speak("WireNet equipped with 3 charges. Automatically heals when health drops below 20 percent. Press Alt+U to toggle.");
+return;
 }
 else if (item == "c4")
 {
@@ -2330,35 +2343,6 @@ waypoint_set = false;
 // ---------------------------------------------------------------------------
 // Binoculars — reusable scouting tool, shows POIs and zone info.
 // ---------------------------------------------------------------------------
-void use_binoculars()
-{
-string zone = get_zone_at(mr.x, mr.y, me.z);
-string info = "Position: " + int(mr.x) + ", " + int(mr.y) + ", " + int(me.z) + ". ";
-if (zone != "")
-info += "Zone: " + zone + ". ";
-else
-info += "Zone: uncharted. ";
-if (pois.length() == 0)
-{
-info += "No points of interest on this map.";
-speak(info);
-return;
-}
-int[] sorted = get_sorted_poi_indices();
-int show = 5;
-if (int(sorted.length()) < show) show = int(sorted.length());
-info += show + " nearest points: ";
-for (int i = 0; i < show; i++)
-{
-int idx = sorted[i];
-double dist = get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
-info += string_replace(pois[idx].name, "_", " ", true) + " " + int(dist) + " tiles";
-if (i < show - 1) info += ", ";
-else info += ".";
-}
-speak(info);
-}
-
 // Set fire rate, walk speed, and melee flag for the given weapon.
 // Called once on weapon draw / server weapon_set, not every frame.
 void apply_weapon_stats(string wname)
@@ -2408,7 +2392,7 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "waypoint_marker" and item != "binoculars" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item))
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "waypoint_marker" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item))
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -2510,6 +2494,7 @@ while(true)
 wait(5);
 netloop();
 mainloop();
+wirenet_check();
 anticheat_scan();
 if (afk_mode and !afk_transitioning)
 {
@@ -2875,6 +2860,41 @@ if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key
 {
 holster_current_weapon();
 }
+// Shift+U: activate biomonitor bracelet scan.
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_U))
+{
+if (equip_bracelet == "biomonitor_bracelet")
+{
+if (biomonitor_cooldown.elapsed >= 15000 or biomonitor_ready)
+{
+biomonitor_ready = false;
+biomonitor_cooldown.restart();
+send_reliable(0, "bioscan", 0);
+speak("Scanning.");
+}
+else
+{
+int cd_left = (15000 - biomonitor_cooldown.elapsed) / 1000;
+speak("Biomonitor recharging. " + cd_left + " seconds remaining.");
+}
+}
+else
+speak("No biomonitor bracelet equipped.");
+}
+// Alt+U: toggle WireNet auto-heal.
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_U))
+{
+if (equip_medical == "wirenet")
+{
+wirenet_active = !wirenet_active;
+if (wirenet_active)
+speak("WireNet activated. " + wirenet_charges + " charges remaining.");
+else
+speak("WireNet deactivated.");
+}
+else
+speak("No WireNet equipped.");
+}
 // Alt+S: open support menu.
 if (MENU_is_down() and key_pressed(KEY_S))
 {
@@ -2948,7 +2968,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "waypoint_marker" and sel_item != "binoculars" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item))
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "waypoint_marker" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item))
 send_reliable(0, "use " + sel_item, 0);
 }
 }
@@ -3814,6 +3834,16 @@ if(combined=="")
 combined="Nothing near you";
 add_buffer_item("misc", combined);
 pending_vehicle_nearby="";
+}
+else if(parsed[0]=="wirenet_healed" and parsed.length()>1)
+{
+wirenet_charges--;
+speak("WireNet activated! Health restored to " + parsed[1] + "%. " + wirenet_charges + " charges remaining.");
+if (wirenet_charges <= 0)
+{
+speak("WireNet depleted.");
+equip_medical = "";
+}
 }
 else
 {

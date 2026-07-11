@@ -2383,6 +2383,50 @@ if(hp_pct<0) hp_pct=0;
 send_reliable(e.peer_id,players[index].health+" health: "+hp_pct+"%, last hit by "+players[index].hitby, 0);
 }
 }
+else if(parsed[0]=="wirenet_heal")
+{
+int index=get_player_index(e.peer_id);
+if(index > -1)
+{
+int hp_pct=(players[index].health*100)/1000;
+if(hp_pct<20 and players[index].health>0)
+{
+int heal_amount=200;
+players[index].health+=heal_amount;
+if(players[index].health>1000) players[index].health=1000;
+int new_pct=(players[index].health*100)/1000;
+send_reliable(e.peer_id, "wirenet_healed "+new_pct, 0);
+}
+}
+}
+else if(parsed[0]=="bioscan")
+{
+int index=get_player_index(e.peer_id);
+if(index > -1)
+{
+string result="";
+int found=0;
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].name==players[index].name) continue;
+if(players[i].map!=players[index].map) continue;
+if(players[i].death==true) continue;
+double dist=get_3d_distance(players[i].x, players[i].y, players[i].z, players[index].x, players[index].y, players[index].z);
+if(dist<=150)
+{
+int pct=(players[i].health*100)/1000;
+if(pct<0) pct=0;
+if(result!="") result+=", ";
+result+=players[i].name+" "+pct+"%";
+found++;
+}
+}
+if(found==0)
+send_reliable(e.peer_id, "Bioscan complete. No players detected within range.", 2);
+else
+send_reliable(e.peer_id, "Bioscan: "+found+" player"+(found>1?"s":"")+". "+result+".", 2);
+}
+}
 else if(parsed[0]=="use_potion")
 {
 int index=get_player_index(e.peer_id);

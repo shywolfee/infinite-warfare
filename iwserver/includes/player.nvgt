@@ -99,6 +99,9 @@ timer move_timer;
 int teleport_warnings=0;
 timer fire_timer;
 int rapid_fire_warnings=0;
+string current_weapon="";
+int server_firetime=500;
+int server_walktime=200;
 player(int px, int py, int pz, string pmap, string pname, int ppeer_id)
 {
 map=pmap;

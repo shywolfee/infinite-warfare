@@ -137,6 +137,7 @@ if(SCRIPT_COMPILED==false and !dev_unlocked)
 connect_msg2+=" from_source";
 send_reliable(0, connect_msg2, 0);
 connected=true;
+last_server_msg.restart();
 speak("signing in");
 }
 else if(e.type==event_receive and get_event_message()=="loggedin123")
@@ -146,6 +147,7 @@ else if(e.type==event_receive and get_event_message()=="loggedin123")
 destroy_all_sources();
 p.destroy_all();
 if(connected==false) connected=true;
+last_server_msg.restart();
 lobby();
 }
 else if(e.type==event_receive and get_event_message()=="ver")

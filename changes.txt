@@ -1,3 +1,10 @@
+New in 0.5.0.4, build 64 (2026-07-11)
+Pings (F3) now automatically time out after 20 seconds, preventing the ping state from locking up when the server does not respond.
+Improved server disconnect detection. The client now monitors server heartbeats and kicks to the main menu within 8 seconds if the server stops responding, instead of waiting for the network library's slower timeout.
+The lobby now requires a live server connection. If the server goes down while you are in the lobby, you are automatically kicked to the main menu with a notification instead of being stuck in a non-functional lobby.
+Ported walk time and fire time validation from the client to the server. The server now enforces per-weapon movement speed and fire rate limits based on the weapon data files, instead of using permissive hardcoded thresholds. This prevents cheated clients from moving or firing faster than their weapon allows.
+Unified the player list menu across lobby and game modes. The F1 player list and T tracking menu now use the same audio form interface everywhere, with the tracking menu adding Track and Stop Tracking buttons.
+
 New in 0.5.0.3, build 63 (2026-07-11)
 Removed binoculars. Added the Biomonitor Bracelet, a new equipment item worn in the Bracelet slot. When equipped, press Shift+U to scan for nearby players within 150 tiles and see their health percentages. Has a 15-second cooldown between scans.
 Removed fortified rations. Added WireNet, a new equipment item worn in the Medical slot. When equipped and active, it automatically heals 20% of your health when your health drops below 20%. Has 3 charges before it is depleted and removed. Press Alt+U to toggle WireNet on or off to avoid wasting charges.

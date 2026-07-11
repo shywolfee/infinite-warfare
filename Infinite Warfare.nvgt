@@ -99,14 +99,15 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.503;
-int build_number=63;
+double version=0.504;
+int build_number=64;
 string build_date="2026-07-11";
 string name;
 string mate;
 double facing=0;
 sound_pool p,spool;
 timer rectimer,firetimer, walktimer;
+timer last_server_msg;
 int walktime=170;
 savedata sd(prefsdir+"/settings.dat","hgdfgjkdfsglfggfhguhgyktryjkgseryjkgjkyg323454FAFHYGSYJTYGSTJHJTYgdfgsysdfjfgRhRHGRhdgshgsgyjstjkfgfbghsdfvdgsfgdsfgfG$%^&^%HFGHDTRGHYRHNTRsjk");
 vector me,wal,lad,mr,max,camera;
@@ -2493,6 +2494,25 @@ while(true)
 {
 wait(5);
 netloop();
+if (connected and last_server_msg.elapsed>8000)
+{
+speak("Connection to the server timed out.");
+connected=false;
+prevconnected=false;
+pinging=false;
+inv.delete_all();
+destroy_all_sources();
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+jumping=false;
+falling=false;
+in_vehicle=false;
+dlg("Connection to the server was lost. Press Enter to return to the main menu.");
+mainmenu();
+return;
+}
 mainloop();
 wirenet_check();
 anticheat_scan();
@@ -2512,10 +2532,10 @@ mouse_update();
 mousey=MOUSE_Y/3;
 mousex=MOUSE_X/8;
 mousez=MOUSE_Z/6;
-if(pingtimer.elapsed > 10000 and pinging==true)
+if(pingtimer.elapsed > 20000 and pinging==true)
 {
 p.play_stationary("pingstop.ogg", false);
-speak("Ping failed");
+speak("Ping lost");
 pinging=false;
 }
 if (key_down(KEY_G))
@@ -2780,7 +2800,9 @@ speak("Current zone: unknown area of "+mapname);
 }
 if (key_pressed(kb("player_list")))
 {
-send_reliable(0,"whoonline",0);
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Players Online", plist);
 }
 if(key_pressed(kb("ping")) and pinging==false)
 {
@@ -2800,7 +2822,9 @@ send_reliable(1, "trackinfo "+tracking, 0);
 }
 if(key_pressed(kb("track_player")))
 {
-send_reliable(1, "playermenu", 0);
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Track Player", plist, true);
 }
 if (key_pressed(kb("buffer_left")))
 {
@@ -3495,6 +3519,7 @@ return;
 }
 if (e.type==event_receive)
 {
+last_server_msg.restart();
 if (e.channel==0)
 {
 string full_msg=get_event_message();
@@ -4224,7 +4249,9 @@ mainloop();
 netloop();
 if (key_pressed(kb("player_list")))
 {
-send_reliable(0,"whoonline",0);
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Players Online", plist);
 }
 if(key_pressed(kb("ping")) and pinging==false)
 {
@@ -4241,7 +4268,7 @@ if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
 }
-if(key_pressed(kb("menu")) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true) 
+if(key_pressed(kb("menu")) and can_stop==true and get_tile_at(me.x, me.y, me.z)!="" and get_tile_at(me.x, me.y, me.z)!="blank" or go_out==true)
 {
 go_out=false;
 send_reliable(0, "plane_stop", 0);
@@ -4270,7 +4297,9 @@ send_reliable(0,chat,1);
 }
 if(key_pressed(kb("track_player")))
 {
-send_reliable(1, "playermenu", 0);
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Track Player", plist, true);
 }
 if(key_pressed(kb("move_left")) or mousex<0 and key_up(KEY_LMENU) and key_up(KEY_RMENU) and turntimer.elapsed >200)
 {
@@ -4353,7 +4382,9 @@ mainloop();
 netloop();
 if (key_pressed(kb("player_list")))
 {
-send_reliable(0,"whoonline",0);
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Players Online", plist);
 }
 if(key_pressed(kb("ping")) and pinging==false)
 {
@@ -4382,7 +4413,9 @@ send_reliable(0,chat,1);
 }
 if(key_pressed(kb("track_player")))
 {
-send_reliable(1, "playermenu", 0);
+speak("Fetching player list, please wait.");
+string[] plist=fetch_player_list();
+show_player_list_form("Track Player", plist, true);
 }
 if(key_pressed(kb("use_item")) and bombloaded==false and go_reload==false)
 {

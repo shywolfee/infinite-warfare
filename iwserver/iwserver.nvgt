@@ -557,6 +557,10 @@ int li=get_lobby_client_index(e.peer_id);
 if(li>-1 and is_dev_account(lobby_clients[li].name))
 lobby_clients[li].dev=true;
 }
+else if(parsed[0]=="lobby_keepalive")
+{
+send_reliable(e.peer_id, "lobby_keepalive", 0);
+}
 else if(parsed[0]=="leave_lobby")
 {
 int li=get_lobby_client_index(e.peer_id);
@@ -1930,6 +1934,9 @@ else if(parsed[0]=="draw" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
+players[index].current_weapon=parsed[1];
+players[index].server_firetime=get_wpn_firetime(parsed[1]);
+players[index].server_walktime=get_wpn_walktime(parsed[1]);
 play(parsed[1]+"draw", players[index].x, players[index].y, players[index].z, players[index].map, index);
 }
 }
@@ -2350,7 +2357,9 @@ if (dx<0) dx=-dx;
 if (dy<0) dy=-dy;
 int dist=dx+dy;
 int elapsed=players[index].move_timer.elapsed;
-if (dist>15 and elapsed<200)
+int min_move_interval=players[index].server_walktime*3/4;
+if(min_move_interval<100) min_move_interval=100;
+if (dist>15 and elapsed<min_move_interval)
 {
 players[index].teleport_warnings++;
 if (players[index].teleport_warnings>5)
@@ -2852,7 +2861,9 @@ else if(parsed[0]=="fire" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
-if (players[index].fire_timer.elapsed<50)
+int min_fire_interval=players[index].server_firetime*3/4;
+if(min_fire_interval<50) min_fire_interval=50;
+if (players[index].fire_timer.elapsed<min_fire_interval)
 {
 players[index].rapid_fire_warnings++;
 if (players[index].rapid_fire_warnings>10)
@@ -3041,7 +3052,9 @@ if (dx<0) dx=-dx;
 if (dy<0) dy=-dy;
 int dist=dx+dy;
 int elapsed=players[index].move_timer.elapsed;
-if (dist>15 and elapsed<200)
+int min_move_interval=players[index].server_walktime*3/4;
+if(min_move_interval<100) min_move_interval=100;
+if (dist>15 and elapsed<min_move_interval)
 {
 players[index].teleport_warnings++;
 if (players[index].teleport_warnings>5)

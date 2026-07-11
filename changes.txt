@@ -1,3 +1,6 @@
+New in 0.5.0.4.1, build 65 (2026-07-11)
+Fixed a bug where all players were assigned the name "for" when entering Free for All mode. The map name "Free for All City" contained spaces, which broke the space-delimited spawn_player message and caused the map name fragment "for" to be used as the player name instead of their actual account name. This also prevented developer commands from working since "for" is not a recognized developer account. The map's internal name has been changed to "freeforall" to match the naming convention used by other maps.
+
 New in 0.5.0.4, build 64 (2026-07-11)
 Pings (F3) now automatically time out after 20 seconds, preventing the ping state from locking up when the server does not respond.
 Improved server disconnect detection. The client now monitors server heartbeats and kicks to the main menu within 8 seconds if the server stops responding, instead of waiting for the network library's slower timeout.

@@ -99,8 +99,8 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.501;
-int build_number=61;
+double version=0.502;
+int build_number=62;
 string build_date="2026-07-11";
 string name;
 string mate;
@@ -3454,6 +3454,25 @@ return r;
 void netloop()
 {
 e=n.request();
+if (e.type==event_disconnect)
+{
+speak("You have lost connection to the server.");
+connected=false;
+prevconnected=false;
+pinging=false;
+inv.delete_all();
+destroy_all_sources();
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+jumping=false;
+falling=false;
+in_vehicle=false;
+dlg("Connection to the server was lost. Press Enter to return to the main menu.");
+mainmenu();
+return;
+}
 if (e.type==event_receive)
 {
 if (e.channel==0)
@@ -3894,6 +3913,7 @@ destroy_all_sources();
 distpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
+inv.delete_all();
 can_move=true;
 jumping=false;
 falling=false;

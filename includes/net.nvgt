@@ -82,11 +82,52 @@ e=n.request();
 if (key_pressed(KEY_ESCAPE))
 {
 mainmenu();
+return;
 }
-if(e.type==event_disconnect or connected==false and connectiontimer.elapsed>=10000)
+if(e.type==event_disconnect)
 {
-dlg("error: the server is currently down or under maintenance, try connecting later.");
-exitgame();
+dlg("The server is currently down or under maintenance. Try connecting later.");
+mainmenu();
+return;
+}
+if(connected==false and connectiontimer.elapsed>=5000)
+{
+audio_form cf;
+cf.create_window("Connection Timeout", false, true);
+cf.create_input_box("Notice", "Unable to connect to the server. The server may be down or your connection may be slow.", "", 0, false, true, false);
+int cf_wait=cf.create_button("&Keep waiting", true);
+int cf_back=cf.create_button("&Back to main menu", false, true);
+cf.focus(cf_wait);
+bool resolved=false;
+while(!resolved)
+{
+wait(5);
+cf.monitor();
+e=n.request();
+if(e.type==event_connect)
+{
+resolved=true;
+break;
+}
+if(e.type==event_disconnect)
+{
+dlg("The server is currently down or under maintenance. Try connecting later.");
+mainmenu();
+return;
+}
+if(cf.is_pressed(cf_wait))
+{
+connectiontimer.restart();
+resolved=true;
+break;
+}
+if(cf.is_pressed(cf_back))
+{
+mainmenu();
+return;
+}
+}
+if(e.type!=event_connect) continue;
 }
 if(e.type==event_connect and connected==false)
 {

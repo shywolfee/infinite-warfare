@@ -1,3 +1,8 @@
+New in 0.5.0.2, build 62 (2026-07-11)
+Fixed an exploit where players who left a mode and returned to the lobby could re-enter a mode and keep their old inventory alongside a new one. Inventory now clears completely when leaving a mode.
+Fixed a bug where losing connection to the server while in-game would leave players stuck in a broken lobby state. Players are now kicked to the main menu with a notification when the connection is lost.
+Improved the connection timeout experience. If the client cannot connect within 5 seconds, a dialog now appears letting players choose to keep waiting or return to the main menu, instead of silently hanging for 10 seconds then failing.
+
 New in 0.5.0.1, build 61 (2026-07-11)
 Changed the vehicle window toggle keybind from Space to Alt+W to resolve a conflict with the jump key. Jumping now works correctly outside of vehicles.
 

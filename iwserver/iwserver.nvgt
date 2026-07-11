@@ -592,6 +592,16 @@ send_reliable(e.peer_id, "x "+random(0, 400), 0);
 send_reliable(e.peer_id, "y "+random(0, 499), 0);
 send_reliable(e.peer_id, "z 0", 0);
 }
+else if(parsed[1]=="freeforall")
+{
+file mf;
+mf.open("content/maps/freeforall/freeforall.map", "rb");
+send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
+mf.close();
+send_reliable(e.peer_id, "x "+random(50, 550), 0);
+send_reliable(e.peer_id, "y "+random(50, 550), 0);
+send_reliable(e.peer_id, "z 0", 0);
+}
 lobby_clients.remove_at(li);
 }
 }

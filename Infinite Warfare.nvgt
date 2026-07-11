@@ -787,7 +787,7 @@ if(vf.is_pressed(vok)){line="maxz:"+vf.get_text(0);break;}
 if(line!="")
 {
 string mname=string_replace(mapname, " ", "_", true);
-string[] mfiles={"main", "habitat_alpha", "battleroyale"};
+string[] mfiles={"main", "habitat_alpha", "battleroyale", "freeforall"};
 for(uint i=0; i<mfiles.length(); i++)
 {
 string mdata=builder_fetch_map_data(mfiles[i]);
@@ -807,7 +807,7 @@ return;
 
 void builder_delete_line_menu()
 {
-string[] mfiles={"main", "habitat_alpha", "battleroyale"};
+string[] mfiles={"main", "habitat_alpha", "battleroyale", "freeforall"};
 string found_file="";
 string mdata="";
 for(uint i=0; i<mfiles.length(); i++)
@@ -857,7 +857,7 @@ return;
 
 void builder_edit_line_menu()
 {
-string[] mfiles={"main", "habitat_alpha", "battleroyale"};
+string[] mfiles={"main", "habitat_alpha", "battleroyale", "freeforall"};
 string found_file="";
 string mdata="";
 for(uint i=0; i<mfiles.length(); i++)
@@ -925,7 +925,7 @@ return;
 
 void builder_edit_map()
 {
-string[] mfiles={"main", "habitat_alpha", "battleroyale"};
+string[] mfiles={"main", "habitat_alpha", "battleroyale", "freeforall"};
 string found_file="";
 string mdata="";
 for(uint i=0; i<mfiles.length(); i++)
@@ -962,7 +962,7 @@ return;
 
 void builder_delete_map()
 {
-string[] mfiles={"main", "habitat_alpha", "battleroyale"};
+string[] mfiles={"main", "habitat_alpha", "battleroyale", "freeforall"};
 string found_file="";
 for(uint i=0; i<mfiles.length(); i++)
 {

@@ -7,6 +7,8 @@ int range;
 int mindammage;
 int maxdammage;
 int spread;
+int firetime;
+int walktime;
 }
 wpn_server_stats@[] wpn_stats_cache(0);
 string[] wpn_class_folders = {"pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
@@ -29,6 +31,8 @@ s.range=10;
 s.mindammage=50;
 s.maxdammage=1000;
 s.spread=0;
+s.firetime=500;
+s.walktime=200;
 for(uint l=0; l<lines.length(); l++)
 {
 int eq=string_contains(lines[l], "=", 1);
@@ -41,6 +45,8 @@ else if(key=="min_damage") s.mindammage=string_to_number(val);
 else if(key=="max_damage") s.maxdammage=string_to_number(val);
 else if(key=="spread") s.spread=string_to_number(val);
 else if(key=="wclass") s.wclass=val;
+else if(key=="firetime") s.firetime=string_to_number(val);
+else if(key=="walktime") s.walktime=string_to_number(val);
 }
 wpn_stats_cache.insert_last(s);
 }
@@ -67,6 +73,18 @@ for(uint i=0; i<wpn_stats_cache.length(); i++)
 if(wpn_stats_cache[i].id==type) return i;
 }
 return -1;
+}
+int get_wpn_firetime(string type)
+{
+int si=find_wpn_stats(type);
+if(si>=0) return wpn_stats_cache[si].firetime;
+return 500;
+}
+int get_wpn_walktime(string type)
+{
+int si=find_wpn_stats(type);
+if(si>=0) return wpn_stats_cache[si].walktime;
+return 200;
 }
 weapon@[] weapons(0);
 class weapon

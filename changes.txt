@@ -1,3 +1,27 @@
+New in 0.5.0.4.1, build 65 (2026-07-11)
+Fixed a bug where all players were assigned the name "for" when entering Free for All mode. The map name "Free for All City" contained spaces, which broke the space-delimited spawn_player message and caused the map name fragment "for" to be used as the player name instead of their actual account name. This also prevented developer commands from working since "for" is not a recognized developer account. The map's internal name has been changed to "freeforall" to match the naming convention used by other maps.
+
+New in 0.5.0.4, build 64 (2026-07-11)
+Pings (F3) now automatically time out after 20 seconds, preventing the ping state from locking up when the server does not respond.
+Improved server disconnect detection. The client now monitors server heartbeats and kicks to the main menu within 8 seconds if the server stops responding, instead of waiting for the network library's slower timeout.
+The lobby now requires a live server connection. If the server goes down while you are in the lobby, you are automatically kicked to the main menu with a notification instead of being stuck in a non-functional lobby.
+Ported walk time and fire time validation from the client to the server. The server now enforces per-weapon movement speed and fire rate limits based on the weapon data files, instead of using permissive hardcoded thresholds. This prevents cheated clients from moving or firing faster than their weapon allows.
+Unified the player list menu across lobby and game modes. The F1 player list and T tracking menu now use the same audio form interface everywhere, with the tracking menu adding Track and Stop Tracking buttons.
+
+New in 0.5.0.3, build 63 (2026-07-11)
+Removed binoculars. Added the Biomonitor Bracelet, a new equipment item worn in the Bracelet slot. When equipped, press Shift+U to scan for nearby players within 150 tiles and see their health percentages. Has a 15-second cooldown between scans.
+Removed fortified rations. Added WireNet, a new equipment item worn in the Medical slot. When equipped and active, it automatically heals 20% of your health when your health drops below 20%. Has 3 charges before it is depleted and removed. Press Alt+U to toggle WireNet on or off to avoid wasting charges.
+Renamed adrenaline to adrenaline syringe.
+Added Bracelet and Medical equipment slots to the equipment menu, viewable alongside Body and Holster slots.
+
+New in 0.5.0.2, build 62 (2026-07-11)
+Fixed an exploit where players who left a mode and returned to the lobby could re-enter a mode and keep their old inventory alongside a new one. Inventory now clears completely when leaving a mode.
+Fixed a bug where losing connection to the server while in-game would leave players stuck in a broken lobby state. Players are now kicked to the main menu with a notification when the connection is lost.
+Improved the connection timeout experience. If the client cannot connect within 5 seconds, a dialog now appears letting players choose to keep waiting or return to the main menu, instead of silently hanging for 10 seconds then failing.
+
+New in 0.5.0.1, build 61 (2026-07-11)
+Changed the vehicle window toggle keybind from Space to Alt+W to resolve a conflict with the jump key. Jumping now works correctly outside of vehicles.
+
 New in 0.5.0, build 60 (2026-07-11)
 Added Free for All, a new game mode accessible from the lobby modes menu. Fight for survival in a large, detailed city featuring a grid of numbered streets, 25 unique buildings with fully furnished interiors, and a residential subdivision with 32 houses across 5 named streets.
 

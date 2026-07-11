@@ -12,10 +12,17 @@
 // Network check used during all lobby forms.
 // Keeps the connection alive and handles abnormal server events.
 // ---------------------------------------------------------------------------
+timer lobby_keepalive_timer;
+
 void lobby_form_netcheck()
 {
+if (lobby_keepalive_timer.elapsed>3000)
+{
+lobby_keepalive_timer.restart();
+send_reliable(0, "lobby_keepalive", 0);
+}
 e=n.request();
-if (e.type==event_disconnect)
+if (e.type==event_disconnect or (connected and last_server_msg.elapsed>8000))
 {
 speak("You have been disconnected from the server.");
 connected=false;
@@ -25,10 +32,12 @@ distpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
+dlg("Connection to the server was lost. Press Enter to return to the main menu.");
 mainmenu();
 }
 if (e.type==event_receive)
 {
+last_server_msg.restart();
 string msg=get_event_message();
 if (msg=="updating")
 {
@@ -276,19 +285,27 @@ return result;
 }
 // ---------------------------------------------------------------------------
 // Display a player list in a standard audio-form list.
-// Used by Players tab and F1 player list for consistency.
+// Used by Players tab, F1 player list, and T tracking menu.
+// If allow_tracking is true, adds Track and Stop Tracking buttons.
 // ---------------------------------------------------------------------------
-void show_player_list_form(string title, string[] players)
+void show_player_list_form(string title, string[] plist, bool allow_tracking=false)
 {
 audio_form f;
 f.create_window(title, false, true);
 int f_list=f.create_list("Players", 0, false);
-if (players.length()==0)
+if (plist.length()==0)
 f.add_list_item(f_list, "No players are currently online.");
 else
 {
-for(uint i=0; i<players.length(); i++)
-f.add_list_item(f_list, players[i]);
+for(uint i=0; i<plist.length(); i++)
+f.add_list_item(f_list, plist[i]);
+}
+int f_track=-1;
+int f_stop=-1;
+if (allow_tracking and plist.length()>0)
+{
+f_track=f.create_button("&Track");
+f_stop=f.create_button("&Stop Tracking");
 }
 int f_close=f.create_button("&Close", true, true);
 f.focus(f_list);
@@ -296,7 +313,36 @@ while(true)
 {
 wait(5);
 f.monitor();
+if (connected)
+{
 lobby_form_netcheck();
+netloop();
+if (allow_tracking) fallloop();
+}
+if (f_track>-1 and f.is_pressed(f_track))
+{
+int sel=f.get_list_position(f_list);
+if(sel>=0 and sel<int(plist.length()))
+{
+string sel_name=plist[sel];
+int dash=string_contains(sel_name, " - ", 1);
+if(dash>0)
+sel_name=string_left(sel_name, dash);
+int space=string_contains(sel_name, " (", 1);
+if(space>0)
+sel_name=string_left(sel_name, space);
+p.play_stationary("trackingnew.ogg", false);
+speak("You are now tracking "+sel_name);
+tracking=sel_name;
+return;
+}
+}
+if (f_stop>-1 and f.is_pressed(f_stop))
+{
+speak("Stopped tracking.");
+tracking="";
+return;
+}
 if (f.is_pressed(f_close))
 return;
 }
@@ -374,6 +420,8 @@ void lobby()
 send_reliable(0, "enter_lobby "+name+" "+comp, 0);
 if(SCRIPT_COMPILED==false)
 send_reliable(0, "lobby_is_dev", 0);
+lobby_keepalive_timer.restart();
+last_server_msg.restart();
 speak("Welcome to the lobby, "+name
 +". Use Tab to navigate and press Enter to select. Press F1 to view the player list.");
 while(true)

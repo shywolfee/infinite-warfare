@@ -835,7 +835,23 @@ body_label += "empty";
 f.add_list_item(f_list, body_label);
 f.add_list_item(f_list, "Holster 1: "+get_holster_slot_label(1));
 f.add_list_item(f_list, "Holster 2: "+get_holster_slot_label(2));
-bool has_equipment=(equip_body!="" or equip_holster1!="" or equip_holster2!="");
+string bracelet_label = "Bracelet: ";
+if (equip_bracelet != "")
+bracelet_label += string_replace(equip_bracelet, "_", " ", true);
+else
+bracelet_label += "empty";
+f.add_list_item(f_list, bracelet_label);
+string medical_label = "Medical: ";
+if (equip_medical != "")
+{
+medical_label += string_replace(equip_medical, "_", " ", true);
+if (equip_medical == "wirenet")
+medical_label += " (" + wirenet_charges + " charges, " + (wirenet_active ? "active" : "inactive") + ")";
+}
+else
+medical_label += "empty";
+f.add_list_item(f_list, medical_label);
+bool has_equipment=(equip_body!="" or equip_holster1!="" or equip_holster2!="" or equip_bracelet!="" or equip_medical!="");
 int f_remove=-1;
 if(has_equipment)
 f_remove=f.create_button("&Remove selected");
@@ -865,6 +881,18 @@ return;
 else if (sel == 2 and equip_holster2 != "")
 {
 unequip_holster(2);
+equipment_menu();
+return;
+}
+else if (sel == 3 and equip_bracelet != "")
+{
+unequip_item("bracelet");
+equipment_menu();
+return;
+}
+else if (sel == 4 and equip_medical != "")
+{
+unequip_item("medical");
 equipment_menu();
 return;
 }

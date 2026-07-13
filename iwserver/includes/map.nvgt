@@ -8,12 +8,22 @@ if(file_exists(path)) return path;
 }
 return "";
 }
+// A bunker control panel declared on a map. These are the source of truth for
+// bunker locations; /bunkers reads from the spawned bunkers array.
+class bunkerdef
+{
+int x;
+int y;
+int z;
+string name;
+}
 mapdata@[] maps(0);
 class mapdata
 {
 string name;
 maptile@[] maptiles;
 mapispawn@[] mapispawns;
+bunkerdef@[] bunkerdefs;
 string rawdata;
 mapdata(string loadname)
 {
@@ -107,6 +117,19 @@ temp.mapitems.insert_last(parsed[x]);
 }
 temp.imap=name;
 mapispawns.insert_last(temp);
+}
+else if(parsed[0]=="bunker" and parsed.length()>4)
+{
+bunkerdef bd;
+bd.x=string_to_number(parsed[1]);
+bd.y=string_to_number(parsed[2]);
+bd.z=string_to_number(parsed[3]);
+// Join any remaining fields so bunker names may contain spaces.
+string bname=parsed[4];
+for(uint p=5; p<parsed.length(); p++)
+bname+=":"+parsed[p];
+bd.name=bname;
+bunkerdefs.insert_last(bd);
 }
 }
 }
@@ -283,6 +306,34 @@ maps.insert_last(temp);
 }
 }
 }
+// Remove all bunkers belonging to a given map from the global bunkers array.
+void clear_bunkers_for_map(string mapname)
+{
+for(int i=int(bunkers.length())-1; i>=0; i--)
+{
+if(bunkers[i].map==mapname)
+bunkers.remove_at(i);
+}
+}
+// Spawn the bunkers declared on a single loaded map, replacing any existing
+// bunkers for that map so reloads do not create duplicates.
+void spawn_bunkers_for_map(int mi)
+{
+if(mi<0 or mi>=int(maps.length())) return;
+clear_bunkers_for_map(maps[mi].name);
+for(uint i=0; i<maps[mi].bunkerdefs.length(); i++)
+{
+bunkerdef@ bd=maps[mi].bunkerdefs[i];
+spawn_bunker(bd.x, bd.y, bd.z, maps[mi].name, "", bd.name);
+}
+}
+// Spawn bunkers for every loaded map. Called once at startup after the map
+// system is initialized.
+void spawn_all_map_bunkers()
+{
+for(uint i=0; i<maps.length(); i++)
+spawn_bunkers_for_map(i);
+}
 int get_map_index(string name)
 {
 for(uint i=0; i<maps.length(); i++)
@@ -312,6 +363,7 @@ if(mi>=0)
 maps.remove_at(mi);
 }
 maps.insert_last(temp);
+spawn_bunkers_for_map(int(maps.length())-1);
 file mf;
 mf.open(path, "rb");
 string mdata=mf.read();

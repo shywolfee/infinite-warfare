@@ -99,9 +99,9 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.5041;
-int build_number=65;
-string build_date="2026-07-11";
+double version=0.5042;
+int build_number=66;
+string build_date="2026-07-13";
 string name;
 string mate;
 double facing=0;
@@ -1316,6 +1316,154 @@ netloop();
 if (f.is_pressed(f_close))
 break;
 }
+}
+
+// ---------------------------------------------------------------------------
+// Inventory menu (I key).
+// A self-voicing menu for browsing the inventory. Up and down arrows scroll
+// between items; Enter closes and moves the cycle inventory (Tab/Shift+Tab) to
+// the focused item; Shift+Enter closes and uses the focused item; Alt+Enter
+// opens the help entry for the focused item.
+// ---------------------------------------------------------------------------
+
+// Human-readable label for the inventory entry at the given filtered position,
+// mirroring the wording used by cycle_inv.
+string inv_menu_label(string[] keys, int pos)
+{
+	int total = int(keys.length());
+	string key = keys[pos];
+	if (string_contains(key, "__partial__", 1) == 0)
+	{
+		int pidx = string_to_number(string_replace(key, "__partial__", "", false));
+		if (pidx >= 0 and pidx < int(partial_items.length()))
+		{
+			string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
+			int pct = get_ammo_percentage(partial_items[pidx].remaining, partial_items[pidx].max_capacity);
+			return base_name + " (" + pct + "%). " + (pos+1) + " of " + total;
+		}
+		return "unknown item. " + (pos+1) + " of " + total;
+	}
+	int a;
+	inv.get(key, a);
+	string display_name;
+	if (is_weapon(key))
+		display_name = get_weapon_display_name(key);
+	else
+		display_name = string_replace(key, "_", " ", true);
+	if (is_ammo_container(key))
+		return display_name + " (" + a + "). " + (pos+1) + " of " + total;
+	else if (a == 1)
+		return display_name + ". " + (pos+1) + " of " + total;
+	else
+		return a + " " + display_name + "s. " + (pos+1) + " of " + total;
+}
+
+// The underlying item id for a filtered key (resolving partial ammo entries to
+// their base item), used for help lookups and using items.
+string inv_menu_item_id(string key)
+{
+	if (string_contains(key, "__partial__", 1) == 0)
+	{
+		int pidx = string_to_number(string_replace(key, "__partial__", "", false));
+		if (pidx >= 0 and pidx < int(partial_items.length()))
+			return partial_items[pidx].base_item;
+		return "";
+	}
+	return key;
+}
+
+// Use the focused inventory item, matching the behavior of the in-game use key.
+void inv_menu_use(string key)
+{
+	if (string_contains(key, "__partial__", 1) == 0)
+	{
+		speak("You can't use a partial ammo item directly. Reload to consume it.");
+		return;
+	}
+	usetimer.restart();
+	if (is_weapon(key))
+		draw_weapon(key);
+	else
+	{
+		on_item_used(key);
+		if (string_contains(key, "energetic_potion", 1) < 0 and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "waypoint_marker" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key))
+			send_reliable(0, "use " + key, 0);
+	}
+}
+
+void inventory_menu()
+{
+	string[] keys = get_filtered_keys();
+	if (keys.length() == 0)
+	{
+		speak("Your inventory is empty.");
+		return;
+	}
+	int pos = invpos;
+	if (pos < 0 or pos >= int(keys.length())) pos = 0;
+	speak("Inventory. " + inv_menu_label(keys, pos) + ". Up and down arrows to browse, enter to select, shift enter to use, alt enter for help, escape to close.");
+	// Wait for the opening key to release so it is not read immediately.
+	int open_key = kb("inventory");
+	while (key_down(open_key) or key_down(KEY_RETURN)) { wait(5); if (connected == true) netloop(); }
+	while (true)
+	{
+		wait(5);
+		if (connected == true) netloop();
+		if (key_pressed(KEY_ESCAPE))
+		{
+			speak("Closed inventory.");
+			return;
+		}
+		if (key_pressed(KEY_UP))
+		{
+			pos--;
+			if (pos < 0) pos = int(keys.length()) - 1;
+			p.play_stationary("invmove.ogg", false);
+			speak(inv_menu_label(keys, pos));
+		}
+		else if (key_pressed(KEY_DOWN))
+		{
+			pos++;
+			if (pos >= int(keys.length())) pos = 0;
+			p.play_stationary("invmove.ogg", false);
+			speak(inv_menu_label(keys, pos));
+		}
+		else if (key_pressed(KEY_RETURN))
+		{
+			string key = keys[pos];
+			if (MENU_is_down())
+			{
+				// Alt+Enter: open the help entry, keeping the menu open.
+				string item_id = inv_menu_item_id(key);
+				if (item_id != "")
+					show_item_help(item_id);
+				else
+					speak("No help available.");
+				while (key_down(KEY_RETURN)) { wait(5); if (connected == true) netloop(); }
+			}
+			else if (shift_is_down())
+			{
+				// Shift+Enter: close and use the item.
+				inv_menu_use(key);
+				return;
+			}
+			else
+			{
+				// Enter: close and move the cycle inventory to this item.
+				invpos = pos;
+				string item_id = inv_menu_item_id(key);
+				string display_name;
+				if (item_id != "" and is_weapon(item_id))
+					display_name = get_weapon_display_name(item_id);
+				else if (item_id != "")
+					display_name = string_replace(item_id, "_", " ", true);
+				else
+					display_name = "item";
+				speak(display_name + " selected.");
+				return;
+			}
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2774,9 +2922,22 @@ if (key_pressed(kb("options_menu")))
 {
 optionsmenu();
 }
-if (key_pressed(kb("quickbar_view")) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
+// Quickbar view (Shift + key) and inventory menu (plain key) share the same
+// default key, so the press is read once and dispatched by modifier. key_pressed
+// consumes the press, so reading it twice for the same key would drop the second.
+bool quickbar_key_pressed = key_pressed(kb("quickbar_view"));
+if (quickbar_key_pressed and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)))
 {
 show_quickbar_weapons();
+}
+bool inventory_key_pressed;
+if (kb("inventory") == kb("quickbar_view"))
+inventory_key_pressed = quickbar_key_pressed;
+else
+inventory_key_pressed = key_pressed(kb("inventory"));
+if (inventory_key_pressed and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and can_move==true)
+{
+inventory_menu();
 }
 if (SCRIPT_COMPILED==false and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_D))
 {
@@ -3709,6 +3870,9 @@ p.play_stationary(parsed[1],false);
 else if (parsed[0]=="target_hp" and parsed.length()>=2)
 {
 string hp_msg="";
+bool was_headshot=(parsed.length()>=4 and parsed[3]=="headshot");
+if (was_headshot)
+hp_msg+="Headshot! ";
 if (show_damage_readout and parsed.length()>=3)
 hp_msg+="Damage: "+parsed[2]+". ";
 if (show_target_hp)

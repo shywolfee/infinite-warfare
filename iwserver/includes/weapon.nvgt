@@ -86,6 +86,43 @@ int si=find_wpn_stats(type);
 if(si>=0) return wpn_stats_cache[si].walktime;
 return 200;
 }
+// Compute the damage a weapon deals to a player it just hit, applying
+// shotgun distance dropoff and vertical headshot bonuses.
+// Shotguns deal full damage within the first half of their range, then scale
+// down slightly toward a floor at maximum range, rewarding close-quarters play
+// without punishing longer shots too harshly.
+// Headshots (aiming down at a target five or more tiles below the shooter)
+// deal 1.5x damage, or 1.75x for sniper rifles.
+int compute_hit_damage(weapon@ w, int target_z, bool &out headshot)
+{
+double dmg=random(w.mindammage, w.maxdammage);
+headshot=false;
+if(w.wclass=="shotgun" and w.range>0)
+{
+double half=w.range/2.0;
+if(w.distance>half)
+{
+double t=(w.distance-half)/(w.range-half);
+if(t>1.0) t=1.0;
+if(t<0.0) t=0.0;
+double factor=1.0-0.25*t;
+dmg*=factor;
+}
+}
+// Headshot: shot was aimed downward (facing < 45) and the target is at least
+// five tiles below where the shot was fired from.
+if(w.facing<45 and (w.start_z-target_z)>=5)
+{
+headshot=true;
+if(w.wclass=="sniper_rifle")
+dmg*=1.75;
+else
+dmg*=1.5;
+}
+int final_dmg=int(dmg);
+if(final_dmg<1) final_dmg=1;
+return final_dmg;
+}
 weapon@[] weapons(0);
 class weapon
 {
@@ -93,8 +130,10 @@ int facing;
 double x;
 double y;
 double z;
+int start_z;
 int dir;
 string type;
+string wclass;
 timer speedtimer;
 int speedtime;
 int range;
@@ -110,10 +149,12 @@ facing=wfacing;
 x=wx;
 y=wy;
 z=wz;
+start_z=int(wz);
 dir=wdir;
 type=wtype;
 cn=wcn;
 map=wmap;
+wclass="";
 speedtime=5;
 range=10;
 mindammage=50;
@@ -127,6 +168,7 @@ range=wpn_stats_cache[si].range;
 mindammage=wpn_stats_cache[si].mindammage;
 maxdammage=wpn_stats_cache[si].maxdammage;
 spread=wpn_stats_cache[si].spread;
+wclass=wpn_stats_cache[si].wclass;
 }
 }
 }
@@ -242,9 +284,10 @@ spawn_mortarbomb(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map,weapons[i
 send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 players[e].hitby=weapons[i].cn+"s "+weapons[i].type;
 play(weapons[i].type+"hit"+random(1,3),players[e].x,players[e].y,players[e].z,players[e].map);
-int dmg=random(weapons[i].mindammage,weapons[i].maxdammage);
+bool headshot=false;
+int dmg=compute_hit_damage(weapons[i], players[e].z, headshot);
 players[e].health-=dmg;
-send_reliable(players[index].peer_id, "target_hp "+players[e].health+" "+dmg, 0);
+send_reliable(players[index].peer_id, "target_hp "+players[e].health+" "+dmg+" "+(headshot ? "headshot" : "body"), 0);
 weapons.remove_at(i);
 return;
 }

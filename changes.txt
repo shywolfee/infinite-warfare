@@ -1,3 +1,9 @@
+New in 0.5.0.4.2, build 66 (2026-07-13)
+Shotguns now have damage drop off. A shotgun deals full damage within the first half of its range, then loses a small amount of damage the farther the shot travels, reaching its lowest damage at maximum range (a 25% reduction at the very edge). This rewards close-quarters fighting without harshly punishing longer shots.
+Added a headshot mechanic. Shooting a player while aiming down (half down or straight down) when that player is five or more tiles below you deals 1.5x damage. Sniper rifles deal 1.75x damage on a headshot. The shooter hears a "Headshot!" callout when one lands.
+Bunker control panels are now declared directly in the map data with bunker lines instead of being hardcoded in the server. The /bunkers command now reads from these declarations as its source of truth and only lists bunkers on your current map. The four bunkers have been ported to this system and are now correctly part of the Archipelago map.
+Added an inventory menu. Press I to open your inventory. Use the up and down arrows to browse items. Press Enter to close the inventory and move your Tab and Shift+Tab cycle selection to the focused item, Shift+Enter to close the inventory and use the focused item, and Alt+Enter to open the help entry for the focused item.
+
 New in 0.5.0.4.1, build 65 (2026-07-11)
 Fixed a bug where all players were assigned the name "for" when entering Free for All mode. The map name "Free for All City" contained spaces, which broke the space-delimited spawn_player message and caused the map name fragment "for" to be used as the player name instead of their actual account name. This also prevented developer commands from working since "for" is not a recognized developer account. The map's internal name has been changed to "freeforall" to match the naming convention used by other maps.
 

@@ -108,10 +108,7 @@ nf.close();
 n.setup_server(port, 20, 500);
 load_wpn_stats();
 init_mapsystem();
-spawn_bunker(35,250,-5,"main","","bunker A");
-spawn_bunker(305,250,-5,"main","","bunker B");
-spawn_bunker(300,10,-5,"main","","bunker C");
-spawn_bunker(300,490,-5,"main","","bunker D");
+spawn_all_map_bunkers();
 init_bunker_alarms();
 spawn_ballista(45,250,0,"main");
 spawn_ballista(295,250,0,"main");
@@ -219,10 +216,15 @@ send_reliable(players[index].peer_id, "You are AFK.", 2);
 }
 else if(parsed[0]=="/bunkers")
 {
-send_reliable(players[index].peer_id, "bunker A is at :35: 250: -5", 2);
-send_reliable(players[index].peer_id, "bunker B is at: 305: 250: -5", 2);
-send_reliable(players[index].peer_id, "bunker C is at: 300: 10: -5", 2);
-send_reliable(players[index].peer_id, "bunker D is at: 300: 490: -5", 2);
+int shown=0;
+for(uint i=0; i<bunkers.length(); i++)
+{
+if(bunkers[i].map!=players[index].map) continue;
+send_reliable(players[index].peer_id, bunkers[i].name+" is at: "+bunkers[i].x+": "+bunkers[i].y+": "+bunkers[i].z, 2);
+shown++;
+}
+if(shown==0)
+send_reliable(players[index].peer_id, "There are no bunkers on this map.", 2);
 }
 else if(parsed[0]=="/getmyshit" and players[index].dev)
 {

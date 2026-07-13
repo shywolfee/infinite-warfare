@@ -1,3 +1,12 @@
+New in 0.5.0.4.3, build 67 (2026-07-13)
+The inventory menu now supports categories. Press the left and right arrows while the inventory menu is open to cycle through categories (All, Weapons, Ammo, Consumables, and Equipment). When you are in a specific category, only the items in that category are shown, and items are grouped by category in the All view. Categories use the same assignments as the K and Shift+K in-game category switcher.
+Fixed a bug where several ammunition items were placed in the Equipment category instead of Ammunition. The M249 SAW belt box, RPK drum magazine, and KS-23 cartridge box are now correctly categorized as ammunition. Ammo categorization is now based on the weapon reserve data itself, so any ammo item is always sorted correctly.
+Each laser weapon now uses its own dedicated power cell instead of a shared energy cell. The Volt Sidearm uses volt cells, the Pulse Repeater uses pulse cells, the Photon Carbine uses photon cells, the Particle Lance uses lance capacitors, and the Nova Cannon uses nova cores. These cells are not interchangeable between weapons.
+Drastically reduced the number of shots per charge on laser weapons. Charge is still displayed as a percentage, but the underlying capacity is far lower and more sensible. For example, the Nova Cannon's capacity dropped from 200 to 10.
+Fixed a bug that allowed you to track yourself in the tracking menu. Because the tracking menu shares its player list with the standard player list, your own name could appear as a tracking target. Your own name is now filtered out of the tracking menu.
+The builder menu can now only be opened by developers. It is available when running from source or when a developer has unlocked developer features with a valid key.
+Bunkers can now be added through the builder menu. Selecting Bunker prompts for a coordinate and a name, then writes a bunker declaration to the map data.
+
 New in 0.5.0.4.2, build 66 (2026-07-13)
 Shotguns now have damage drop off. A shotgun deals full damage within the first half of its range, then loses a small amount of damage the farther the shot travels, reaching its lowest damage at maximum range (a 25% reduction at the very edge). This rewards close-quarters fighting without harshly punishing longer shots.
 Added a headshot mechanic. Shooting a player while aiming down (half down or straight down) when that player is five or more tiles below you deals 1.5x damage. Sniper rifles deal 1.75x damage on a headshot. The shooter hears a "Headshot!" callout when one lands.

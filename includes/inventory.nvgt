@@ -11,9 +11,19 @@ int inv_category_index = 0;
 string get_item_category(string item)
 {
 if (is_weapon(item)) return "Weapons";
+// Any registered weapon reserve item is ammunition, regardless of its name.
+if (is_ammo_reserve_item(item)) return "Ammo";
 if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
 if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="waypoint_marker" or item=="nanomatic_multitool" or item=="nanomatic_components") return "Consumables";
 return "Equipment";
+}
+
+// Category for a filtered key, resolving virtual partial-ammo keys (which are
+// always ammunition) to a real category.
+string get_key_category(string key)
+{
+if (string_contains(key, "__partial__", 1) == 0) return "Ammo";
+return get_item_category(key);
 }
 
 // Get filtered inventory keys based on current category.
@@ -24,20 +34,21 @@ string[] all_keys = inv.get_keys();
 // Append virtual keys for each partial ammo item.
 for (uint i = 0; i < partial_items.length(); i++)
 all_keys.insert_last("__partial__" + i);
-if (inv_category_index == 0) return all_keys;
-string cat = inv_categories[inv_category_index];
+// Target category ("" means the All view, which shows everything).
+string target = (inv_category_index == 0) ? "" : inv_categories[inv_category_index];
+// Walk the categories in display order so items are grouped by category.
+// In the All view this produces Weapons, then Ammo, then Consumables, then
+// Equipment; in a single category only that category's items are returned.
+string[] order = {"Weapons", "Ammo", "Consumables", "Equipment"};
 string[] filtered;
+for (uint c = 0; c < order.length(); c++)
+{
+if (target != "" and order[c] != target) continue;
 for (uint i = 0; i < all_keys.length(); i++)
 {
-string key = all_keys[i];
-if (string_contains(key, "__partial__", 1) == 0)
-{
-// Partial items are always in the Ammo category.
-if (cat == "Ammo")
-filtered.insert_last(key);
+if (get_key_category(all_keys[i]) == order[c])
+filtered.insert_last(all_keys[i]);
 }
-else if (get_item_category(key) == cat)
-filtered.insert_last(key);
 }
 return filtered;
 }

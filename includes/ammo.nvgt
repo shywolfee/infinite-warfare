@@ -578,7 +578,7 @@ return false;
 // ---------------------------------------------------------------------------
 class partial_ammo_item
 {
-string base_item;    // inventory key (e.g. "glock_17_magazine", "laser_energy_cell")
+string base_item;    // inventory key (e.g. "glock_17_magazine", "volt_cell")
 int remaining;       // units left in this item
 int max_capacity;    // full capacity (for percentage calculation)
 partial_ammo_item(string bi, int rem, int mc)
@@ -712,6 +712,19 @@ if (gun_ammos[i].weapon_name==wname) return i;
 return -1;
 }
 
+// Returns true if the item is a spare-ammo reserve for any registered weapon
+// (magazine, belt, box, drum, energy cell, fuel canister, etc.). This is the
+// authoritative source for ammo categorization so that reserve items with
+// unusual names still classify correctly.
+bool is_ammo_reserve_item(string item)
+{
+for (uint i=0; i<gun_ammos.length(); i++)
+{
+if (gun_ammos[i].reserve_item==item) return true;
+}
+return false;
+}
+
 // Return rounds loaded in the weapon. -1 means melee / no ammo system.
 int ammo_check(string wname)
 {
@@ -785,7 +798,7 @@ g.mag_loaded=g.mag_capacity;
 g.reloading=false;
 g.reload_from_partial=-1;
 if (g.ammo_display=="charge")
-speak("Reloaded. 100% charge. "+get_item_count(g.reserve_item)+" spare energy cells.");
+speak("Reloaded. 100% charge. "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
 else if (g.ammo_display=="fuel")
 speak("Reloaded. 100% fuel. "+get_item_count(g.reserve_item)+" spare fuel canisters.");
 else
@@ -841,7 +854,7 @@ if (g.ammo_display=="charge")
 int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
 string reserve_str=reserve+" full";
 if (partials>0) reserve_str+=", "+partials+" partial";
-speak(pct+"% charge remaining. "+reserve_str+" energy cells in reserve."+mode_str);
+speak(pct+"% charge remaining. "+reserve_str+" "+g.reserve_label+"s in reserve."+mode_str);
 }
 else if (g.ammo_display=="fuel")
 {
@@ -893,7 +906,7 @@ g.reload_timer.restart();
 if (g.is_magazine)
 {
 if (g.ammo_display=="charge")
-speak("Swapping energy cell.");
+speak("Swapping "+g.reserve_label+".");
 else if (g.ammo_display=="fuel")
 speak("Swapping fuel canister.");
 else
@@ -916,7 +929,7 @@ g.reload_from_partial=partial_index;
 g.reloading=true;
 g.reload_timer.restart();
 if (g.ammo_display=="charge")
-speak("Swapping energy cell.");
+speak("Swapping "+g.reserve_label+".");
 else if (g.ammo_display=="fuel")
 speak("Swapping fuel canister.");
 else
@@ -950,7 +963,7 @@ g.mag_loaded=0;
 int full_count=get_item_count(g.reserve_item);
 int partial_count=count_partials_for(g.reserve_item);
 if (g.ammo_display=="charge")
-speak("Partial energy cell removed ("+pct+"% charge). "+full_count+" full, "+partial_count+" partial energy cells.");
+speak("Partial "+g.reserve_label+" removed ("+pct+"% charge). "+full_count+" full, "+partial_count+" partial "+g.reserve_label+"s.");
 else if (g.ammo_display=="fuel")
 speak("Partial fuel canister removed ("+pct+"% fuel). "+full_count+" full, "+partial_count+" partial fuel canisters.");
 else

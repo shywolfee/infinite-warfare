@@ -290,19 +290,36 @@ return result;
 // ---------------------------------------------------------------------------
 void show_player_list_form(string title, string[] plist, bool allow_tracking=false)
 {
+// Failsafe: never let players track themselves. The tracking menu shares its
+// player list with the plain player list, so when tracking is enabled we
+// drop the local player's own entry before displaying the list.
+string[] shown;
+for(uint i=0; i<plist.length(); i++)
+{
+if (allow_tracking)
+{
+string pn=plist[i];
+int dash=string_contains(pn, " - ", 1);
+if(dash>0) pn=string_left(pn, dash);
+int sp=string_contains(pn, " (", 1);
+if(sp>0) pn=string_left(pn, sp);
+if(string_to_lower_case(pn)==string_to_lower_case(name)) continue;
+}
+shown.insert_last(plist[i]);
+}
 audio_form f;
 f.create_window(title, false, true);
 int f_list=f.create_list("Players", 0, false);
-if (plist.length()==0)
+if (shown.length()==0)
 f.add_list_item(f_list, "No players are currently online.");
 else
 {
-for(uint i=0; i<plist.length(); i++)
-f.add_list_item(f_list, plist[i]);
+for(uint i=0; i<shown.length(); i++)
+f.add_list_item(f_list, shown[i]);
 }
 int f_track=-1;
 int f_stop=-1;
-if (allow_tracking and plist.length()>0)
+if (allow_tracking and shown.length()>0)
 {
 f_track=f.create_button("&Track");
 f_stop=f.create_button("&Stop Tracking");
@@ -322,9 +339,9 @@ if (allow_tracking) fallloop();
 if (f_track>-1 and f.is_pressed(f_track))
 {
 int sel=f.get_list_position(f_list);
-if(sel>=0 and sel<int(plist.length()))
+if(sel>=0 and sel<int(shown.length()))
 {
-string sel_name=plist[sel];
+string sel_name=shown[sel];
 int dash=string_contains(sel_name, " - ", 1);
 if(dash>0)
 sel_name=string_left(sel_name, dash);

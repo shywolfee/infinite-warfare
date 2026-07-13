@@ -99,8 +99,8 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.5042;
-int build_number=66;
+double version=0.5043;
+int build_number=67;
 string build_date="2026-07-13";
 string name;
 string mate;
@@ -606,6 +606,7 @@ f.add_list_item(f_list, "Zone");
 f.add_list_item(f_list, "Ambient Sound Source");
 f.add_list_item(f_list, "Point of Interest");
 f.add_list_item(f_list, "Item Spawn");
+f.add_list_item(f_list, "Bunker");
 f.add_list_item(f_list, "Map Name");
 f.add_list_item(f_list, "Map Max X");
 f.add_list_item(f_list, "Map Max Y");
@@ -723,6 +724,29 @@ line="ispawn:"+coords+":"+istime+":"+ismax+":"+items_colon;
 }
 else if(sel==5)
 {
+// Bunker control point: a single coordinate plus a name, written as a
+// bunker line the server reads as the source of truth for /bunkers.
+string coords=builder_coord_form("Bunker Coordinates", false, false, "");
+if(coords=="") return;
+audio_form bf;
+bf.create_window("Bunker Name", false, true);
+bf.create_input_box("Bunker name");
+int bok=bf.create_button("OK", true);
+int bcancel=bf.create_button("Cancel", false, true);
+bf.focus(0);
+string bname="";
+while(true)
+{
+wait(5);
+bf.monitor();
+if(bf.is_pressed(bcancel)) return;
+if(bf.is_pressed(bok)){bname=bf.get_text(0);break;}
+}
+if(bname=="") return;
+line="bunker:"+coords+":"+bname;
+}
+else if(sel==6)
+{
 audio_form nf;
 nf.create_window("Map Name", false, true);
 nf.create_input_box("Map name");
@@ -737,7 +761,7 @@ if(nf.is_pressed(ncancel)) return;
 if(nf.is_pressed(nok)){line="mapname:"+nf.get_text(0);break;}
 }
 }
-else if(sel==6)
+else if(sel==7)
 {
 audio_form vf;
 vf.create_window("Map Max X", false, true);
@@ -753,7 +777,7 @@ if(vf.is_pressed(vcancel)) return;
 if(vf.is_pressed(vok)){line="maxx:"+vf.get_text(0);break;}
 }
 }
-else if(sel==7)
+else if(sel==8)
 {
 audio_form vf;
 vf.create_window("Map Max Y", false, true);
@@ -769,7 +793,7 @@ if(vf.is_pressed(vcancel)) return;
 if(vf.is_pressed(vok)){line="maxy:"+vf.get_text(0);break;}
 }
 }
-else if(sel==8)
+else if(sel==9)
 {
 audio_form vf;
 vf.create_window("Map Max Z", false, true);
@@ -1401,7 +1425,7 @@ void inventory_menu()
 	}
 	int pos = invpos;
 	if (pos < 0 or pos >= int(keys.length())) pos = 0;
-	speak("Inventory. " + inv_menu_label(keys, pos) + ". Up and down arrows to browse, enter to select, shift enter to use, alt enter for help, escape to close.");
+	speak("Inventory, " + inv_categories[inv_category_index] + ". " + inv_menu_label(keys, pos) + ". Up and down arrows to browse, left and right arrows to change category, enter to select, shift enter to use, alt enter for help, escape to close.");
 	// Wait for the opening key to release so it is not read immediately.
 	int open_key = kb("inventory");
 	while (key_down(open_key) or key_down(KEY_RETURN)) { wait(5); if (connected == true) netloop(); }
@@ -1414,8 +1438,30 @@ void inventory_menu()
 			speak("Closed inventory.");
 			return;
 		}
-		if (key_pressed(KEY_UP))
+		if (key_pressed(KEY_LEFT) or key_pressed(KEY_RIGHT))
 		{
+			// Left/right arrows cycle inventory categories. The filtered list is
+			// rebuilt for the new category and browsing restarts at the top. The
+			// shared category/position state is updated so Tab cycling stays in
+			// sync after the menu closes.
+			bool forward = key_pressed(KEY_RIGHT);
+			if (forward) inv_category_index++;
+			else inv_category_index--;
+			if (inv_category_index >= int(inv_categories.length())) inv_category_index = 0;
+			else if (inv_category_index < 0) inv_category_index = int(inv_categories.length()) - 1;
+			invpos = 0;
+			keys = get_filtered_keys();
+			pos = 0;
+			p.play_stationary("invmove.ogg", false);
+			// Single announcement: category name, then the first item (or empty).
+			if (keys.length() > 0)
+				speak(inv_categories[inv_category_index] + ". " + inv_menu_label(keys, pos));
+			else
+				speak(inv_categories[inv_category_index] + ". No items.");
+		}
+		else if (key_pressed(KEY_UP))
+		{
+			if (keys.length() == 0) continue;
 			pos--;
 			if (pos < 0) pos = int(keys.length()) - 1;
 			p.play_stationary("invmove.ogg", false);
@@ -1423,6 +1469,7 @@ void inventory_menu()
 		}
 		else if (key_pressed(KEY_DOWN))
 		{
+			if (keys.length() == 0) continue;
 			pos++;
 			if (pos >= int(keys.length())) pos = 0;
 			p.play_stationary("invmove.ogg", false);
@@ -1430,6 +1477,7 @@ void inventory_menu()
 		}
 		else if (key_pressed(KEY_RETURN))
 		{
+			if (keys.length() == 0) continue;
 			string key = keys[pos];
 			if (MENU_is_down())
 			{
@@ -2835,7 +2883,7 @@ can_fire=false;
 burst_firing = false;
 int empty_gi=find_gun(weapons[w]);
 if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="charge")
-speak("Energy cell depleted. Press R to reload.");
+speak(gun_ammos[empty_gi].reserve_label+" depleted. Press R to reload.");
 else if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="fuel")
 speak("Fuel canister empty. Press R to reload.");
 else
@@ -2864,7 +2912,7 @@ int full_count=get_item_count(rg.reserve_item);
 if (full_count>0)
 {
 if (rg.ammo_display=="charge")
-m.add_item_tts("Full energy cell ("+full_count+" available)","full");
+m.add_item_tts("Full "+rg.reserve_label+" ("+full_count+" available)","full");
 else if (rg.ammo_display=="fuel")
 m.add_item_tts("Full fuel canister ("+full_count+" available)","full");
 else
@@ -2876,7 +2924,7 @@ for (uint pi=0; pi<pindices.length(); pi++)
 int pct=get_ammo_percentage(partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
 string pct_label;
 if (rg.ammo_display=="charge")
-pct_label="Partial energy cell ("+pct+"% charge)";
+pct_label="Partial "+rg.reserve_label+" ("+pct+"% charge)";
 else if (rg.ammo_display=="fuel")
 pct_label="Partial fuel canister ("+pct+"% fuel)";
 else
@@ -2943,7 +2991,10 @@ if (SCRIPT_COMPILED==false and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) an
 {
 dev_suite();
 }
-if (SCRIPT_COMPILED==false and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
+// Builder menu is dev-only: available when running from source (which the
+// server restricts to developer accounts) or when a developer has unlocked
+// dev features with a valid key on a compiled build.
+if ((SCRIPT_COMPILED==false or dev_unlocked) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
 {
 builder_menu();
 }

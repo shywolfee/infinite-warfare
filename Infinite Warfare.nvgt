@@ -99,9 +99,9 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.5043;
-int build_number=67;
-string build_date="2026-07-13";
+double version=0.5044;
+int build_number=68;
+string build_date="2026-07-14";
 string name;
 string mate;
 double facing=0;
@@ -1438,14 +1438,18 @@ void inventory_menu()
 			speak("Closed inventory.");
 			return;
 		}
-		if (key_pressed(KEY_LEFT) or key_pressed(KEY_RIGHT))
+		// Read each arrow exactly once: key_pressed is edge-triggered and clears
+		// the press when read, so reading KEY_RIGHT a second time would always
+		// come back false and make both arrows cycle the same direction.
+		bool cat_prev = key_pressed(KEY_LEFT);
+		bool cat_next = key_pressed(KEY_RIGHT);
+		if (cat_prev or cat_next)
 		{
 			// Left/right arrows cycle inventory categories. The filtered list is
 			// rebuilt for the new category and browsing restarts at the top. The
 			// shared category/position state is updated so Tab cycling stays in
 			// sync after the menu closes.
-			bool forward = key_pressed(KEY_RIGHT);
-			if (forward) inv_category_index++;
+			if (cat_next) inv_category_index++;
 			else inv_category_index--;
 			if (inv_category_index >= int(inv_categories.length())) inv_category_index = 0;
 			else if (inv_category_index < 0) inv_category_index = int(inv_categories.length()) - 1;
@@ -3003,11 +3007,11 @@ else if (key_pressed(kb("zone")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 if (get_zone_at(mr.x,mr.y,me.z)!="")
 {
 string locate=get_zone_at(mr.x,mr.y,me.z);
-speak("Current zone: "+locate+" of "+mapname);
+speak("Current zone: "+locate+" of "+map_display_name(mapname));
 }
 else
 {
-speak("Current zone: unknown area of "+mapname);
+speak("Current zone: unknown area of "+map_display_name(mapname));
 }
 }
 if (key_pressed(kb("player_list")))
@@ -4319,11 +4323,11 @@ string get_location()
 if (get_zone_at(mr.x,mr.y,me.z)!="")
 {
 string locate=get_zone_at(mr.x,mr.y,me.z);
-return locate+" of "+mapname;
+return locate+" of "+map_display_name(mapname);
 }
 else
 {
-return "uncharted area on "+mapname;
+return "uncharted area on "+map_display_name(mapname);
 }
 }
 void playcamera()

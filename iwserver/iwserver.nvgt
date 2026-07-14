@@ -577,7 +577,11 @@ else if(parsed[0]=="enter_mode" and parsed.length()>1)
 int li=get_lobby_client_index(e.peer_id);
 if(li>-1)
 {
-send_reliable(0, lobby_clients[li].name+" has entered "+parsed[1], 2);
+string mode_display=parsed[1];
+if(parsed[1]=="freeforall") mode_display="Ghost Town";
+else if(parsed[1]=="habitat_alpha") mode_display="Habitat Alpha";
+else if(parsed[1]=="battlegrounds") mode_display="Battlegrounds";
+send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
 if(parsed[1]=="habitat_alpha")
 {
 file mf;

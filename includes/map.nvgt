@@ -1,3 +1,14 @@
+// Player-facing display name for a map identifier. Map identifiers must stay
+// single tokens (no spaces) because they travel inside space-delimited network
+// messages such as spawn_player, so a friendly name with spaces is mapped here
+// instead of being stored on the map itself.
+string map_display_name(string id)
+{
+if (id=="freeforall") return "Ghost Town";
+if (id=="habitat_alpha") return "Habitat Alpha";
+return id;
+}
+
 string oldzone="";
 void checkzone()
 {

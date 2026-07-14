@@ -115,16 +115,29 @@ if(got_map and got_x and got_y and got_z) break;
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Modes
-// Lists available game modes. Selecting one enters the world via game().
+// Deploy into a mode: request the map, wait for it, and enter the world.
 // ---------------------------------------------------------------------------
-void modes_tab()
+void deploy_to_mode(string mode_id, string announce)
+{
+send_reliable(0, "enter_mode "+mode_id, 0);
+speak(announce);
+lobby_wait_for_map();
+game(1);
+}
+
+// ---------------------------------------------------------------------------
+// Free for All map picker.
+// Every map is a free for all map; this submenu chooses which one to play.
+// Returns true if the player deployed (the caller should close), false if the
+// player backed out.
+// ---------------------------------------------------------------------------
+bool freeforall_map_select()
 {
 audio_form f;
-f.create_window("Modes", false, true);
-int f_bg=f.create_button("&Battlegrounds - Fight for survival on a war-torn island archipelago", true);
-int f_ha=f.create_button("&Habitat Alpha - Fight for survival in an abandoned alien colony");
-int f_ffa=f.create_button("&Free for All - Fight for survival in a sprawling city");
+f.create_window("Select a Free for All Map", false, true);
+int f_bg=f.create_button("&Battlegrounds - a war-torn island archipelago", true);
+int f_ha=f.create_button("&Habitat Alpha - an abandoned alien colony");
+int f_gt=f.create_button("&Ghost Town - a sprawling abandoned city");
 int f_back=f.create_button("Go &back", false, true);
 f.focus(f_bg);
 while(true)
@@ -134,26 +147,46 @@ f.monitor();
 lobby_form_netcheck();
 if (f.is_pressed(f_bg))
 {
-send_reliable(0, "enter_mode battlegrounds", 0);
-speak("Deploying to Battlegrounds. Good luck.");
-lobby_wait_for_map();
-game(1);
-return;
+deploy_to_mode("battlegrounds", "Deploying to Battlegrounds. Good luck.");
+return true;
 }
 else if (f.is_pressed(f_ha))
 {
-send_reliable(0, "enter_mode habitat_alpha", 0);
-speak("Deploying to Habitat Alpha. Survive the colony.");
-lobby_wait_for_map();
-game(1);
-return;
+deploy_to_mode("habitat_alpha", "Deploying to Habitat Alpha. Survive the colony.");
+return true;
 }
-else if (f.is_pressed(f_ffa))
+else if (f.is_pressed(f_gt))
 {
-send_reliable(0, "enter_mode freeforall", 0);
-speak("Deploying to Free for All. Fight for yourself.");
-lobby_wait_for_map();
-game(1);
+deploy_to_mode("freeforall", "Deploying to Ghost Town. Fight for yourself.");
+return true;
+}
+else if (f.is_pressed(f_back))
+{
+return false;
+}
+}
+return false;
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Modes
+// Free for All is the only mode; picking it opens the map selection submenu.
+// ---------------------------------------------------------------------------
+void modes_tab()
+{
+audio_form f;
+f.create_window("Modes", false, true);
+int f_ffa=f.create_button("&Free for All - Battle everyone across a choice of maps", true);
+int f_back=f.create_button("Go &back", false, true);
+f.focus(f_ffa);
+while(true)
+{
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (f.is_pressed(f_ffa))
+{
+if (freeforall_map_select())
 return;
 }
 else if (f.is_pressed(f_back))
@@ -278,7 +311,7 @@ if(string_contains(parts[1], "d", 1)>-1)
 label+=" (dev)";
 if(string_contains(parts[1], "a", 1)>-1)
 label+=" (admin)";
-label+=" - "+parts[2];
+label+=" - "+map_display_name(parts[2]);
 result.insert_last(label);
 }
 return result;

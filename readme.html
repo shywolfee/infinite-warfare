@@ -7,7 +7,7 @@
 <style>
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  max-width: 960px;
+  max-width: 1040px;
   margin: 0 auto;
   padding: 24px;
   background: #0d1117;
@@ -18,447 +18,754 @@ h1 { color: #58a6ff; border-bottom: 2px solid #21262d; padding-bottom: 8px; }
 h2 { color: #79c0ff; margin-top: 40px; border-bottom: 1px solid #21262d; padding-bottom: 6px; }
 h3 { color: #a5d6ff; margin-top: 28px; }
 h4 { color: #d2a8ff; margin-top: 20px; }
-table { border-collapse: collapse; width: 100%; margin: 12px 0 20px 0; }
-th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; }
+.table-wrap { overflow-x: auto; margin: 12px 0 20px 0; }
+table { border-collapse: collapse; width: 100%; min-width: 520px; }
+th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; vertical-align: top; }
 th { background: #161b22; color: #58a6ff; }
 tr:nth-child(even) { background: #161b22; }
 tr:nth-child(odd) { background: #0d1117; }
 code { background: #161b22; padding: 2px 6px; border-radius: 3px; color: #f0883e; }
-kbd { background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 2px 6px; color: #e6edf3; font-family: monospace; }
+kbd { background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 2px 6px; color: #e6edf3; font-family: monospace; white-space: nowrap; }
 a { color: #58a6ff; }
 ul, ol { padding-left: 24px; }
 li { margin: 4px 0; }
 .version-badge { background: #1f6feb; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 14px; }
-.category-label { background: #21262d; display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 13px; color: #8b949e; margin-bottom: 4px; }
+.note { background: #161b22; border-left: 3px solid #1f6feb; padding: 10px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; }
+.toc { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px 12px 12px 8px; columns: 2; }
+.toc ol { margin: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 
 <h1>Infinite Warfare &mdash; Game Manual</h1>
 <p>
-  <span class="version-badge">Version 0.4982 &bull; Build 40</span><br>
+  <span class="version-badge">Version 0.5.0.4.3 &bull; Build 67</span><br>
   Created by <strong>Firegaming</strong><br>
-  Coded by Max Vrenken &bull; Sound design by Jonan Smid
+  Coded by Max Vrenken &bull; Sound design by Jonan Smid &bull; Manual by Jesse Janssen
 </p>
 
+<div class="note">
+  All numbers in this manual (damage, healing, ranges, capacities, timers) are taken directly from
+  the current game data. Damage figures are the raw amount subtracted from a target's health.
+  Your maximum health is <strong>1000</strong>, so a weapon listing 250 damage removes a quarter of a
+  full health bar per hit before any bonuses.
+</div>
+
+<div class="toc">
+<ol>
+  <li><a href="#about">About the Game</a></li>
+  <li><a href="#start">Getting Started</a></li>
+  <li><a href="#modes">Game Modes</a></li>
+  <li><a href="#controls">Controls &amp; Keybinds</a></li>
+  <li><a href="#combat">Combat Mechanics</a></li>
+  <li><a href="#weapons">Weapon Index (with damage)</a></li>
+  <li><a href="#attachments">Attachments &amp; Holsters</a></li>
+  <li><a href="#items">Item Index (with values)</a></li>
+  <li><a href="#vehicles">Vehicles</a></li>
+  <li><a href="#stamina">Stamina System</a></li>
+  <li><a href="#buffs">Buffs &amp; Debuffs</a></li>
+  <li><a href="#rewards">Kill Rewards &amp; Credits</a></li>
+  <li><a href="#bunkers">Bunkers &amp; HyperComp</a></li>
+  <li><a href="#chests">Chests</a></li>
+  <li><a href="#commands">Commands &amp; Support</a></li>
+  <li><a href="#credits">Credits</a></li>
+</ol>
+</div>
+
 <!-- ================================================================ -->
-<h2>1. About the Game</h2>
+<h2 id="about">1. About the Game</h2>
 <p>
-  Infinite Warfare is an online first-person shooter built for audio gameplay.
-  Your goal is to survive, eliminate other players, and control territory.
-  Team up with a duo partner to capture bunkers, share vehicles, and coordinate strikes.
-  The game features an accessible audio-form interface, 3D positional audio, and a deep weapon and item system.
+  Infinite Warfare is an online first-person shooter built for audio gameplay. Everything is
+  conveyed through 3D positional audio and a self-voicing menu interface &mdash; no visuals required.
+  Your goal is to survive, eliminate other players, capture territory, and climb the kill milestones.
+</p>
+<p>
+  You can play solo or pair with a duo partner to revive each other, share vehicles, and coordinate.
+  The game features a deep weapon system with fire modes, attachments, holsters, and durability;
+  a full item and equipment economy; drivable vehicles; and capturable underground bunkers.
 </p>
 
 <!-- ================================================================ -->
-<h2>2. Getting Started</h2>
+<h2 id="start">2. Getting Started</h2>
 
 <h3>2.1. Main Menu</h3>
 <ul>
-  <li><strong>Connect to the server</strong> &mdash; Enter the lobby and start playing.</li>
-  <li><strong>Register a new account</strong> &mdash; Create a username, password, and provide an email.</li>
-  <li><strong>Account management</strong> &mdash; Log in, authorize your account, or reset your password (visible once registered).</li>
-  <li><strong>View the changelog</strong> &mdash; See what has changed in recent updates.</li>
-  <li><strong>Learn game sounds</strong> &mdash; Listen to and familiarize yourself with important in-game sounds.</li>
-  <li><strong>Change some options</strong> &mdash; Open the tabbed options menu.</li>
-  <li><strong>Check for new updates</strong> &mdash; Download the latest version if available.</li>
+  <li><strong>Connect to the server</strong> &mdash; Log in and enter the lobby.</li>
+  <li><strong>Register a new account</strong> &mdash; Create a username, password, and email.</li>
+  <li><strong>Account management</strong> &mdash; Log in, authorize your account, or reset your password.</li>
+  <li><strong>View the changelog</strong> &mdash; See what changed in recent builds.</li>
+  <li><strong>Learn game sounds</strong> &mdash; Listen to and memorize key in-game sounds.</li>
+  <li><strong>Options</strong> &mdash; Open the options menu (see below).</li>
+  <li><strong>Check for updates</strong> &mdash; Download the latest version if one is available.</li>
   <li><strong>Exit the game</strong> &mdash; Quit to desktop.</li>
 </ul>
 
 <h3>2.2. Options Menu</h3>
-<p>Options are organized into three tabs:</p>
+<p>
+  The options menu is a single scrollable form (it is no longer split into tabs). Toggles are
+  checkboxes, values are typed into input boxes, and there is a dedicated button that opens the
+  key&nbsp;binding editor. Press <kbd>Save</kbd> to apply and store your settings, or
+  <kbd>Cancel</kbd> to discard changes.
+</p>
+<div class="table-wrap">
 <table>
-  <tr><th>Tab</th><th>Settings</th></tr>
-  <tr><td>Gameplay</td><td>Duo mate name</td></tr>
-  <tr><td>Controls</td><td>Right control detection, Camera speed (1&ndash;200)</td></tr>
-  <tr><td>Audio</td><td>Master volume (-60&ndash;0 dB)</td></tr>
+  <tr><th>Setting</th><th>Type</th><th>Range / Values</th><th>What it does</th></tr>
+  <tr><td>Duo mate</td><td>Text</td><td>A player name (no spaces)</td><td>Sets your duo partner. Leave blank to clear.</td></tr>
+  <tr><td>Remember me</td><td>Checkbox</td><td>On / Off</td><td>Saves your account on exit so you skip the login next time.</td></tr>
+  <tr><td>Show target HP on hit</td><td>Checkbox</td><td>On / Off</td><td>Announces a hit target's remaining health.</td></tr>
+  <tr><td>Show damage readout on hit</td><td>Checkbox</td><td>On / Off</td><td>Announces the damage number you dealt on each hit.</td></tr>
+  <tr><td>Right control detection</td><td>Checkbox</td><td>On / Off</td><td>Allows Right&nbsp;Ctrl to fire in addition to your bound fire key.</td></tr>
+  <tr><td>Menu wrapping</td><td>Checkbox</td><td>On / Off</td><td>Whether lists wrap around from the last item back to the first.</td></tr>
+  <tr><td>Auto-log buffers on exit</td><td>Checkbox</td><td>On / Off</td><td>Automatically saves your message buffers when you quit.</td></tr>
+  <tr><td>Camera speed</td><td>Number</td><td>1 &ndash; 200</td><td>How fast the exploration/ghost camera and movement repeat.</td></tr>
+  <tr><td>Master volume</td><td>Number</td><td>-60 &ndash; 0 dB</td><td>Overall output volume.</td></tr>
+  <tr><td>Key binding editor</td><td>Button</td><td>&mdash;</td><td>Opens the rebinding screen (see 2.3).</td></tr>
 </table>
+</div>
 
-<h3>2.3. The Lobby</h3>
-<p>After connecting and logging in you land in the lobby. From here you can:</p>
+<h3>2.3. Key Binding Editor</h3>
+<p>
+  Open it from the options menu. It lists every rebindable action alongside its current key. Select
+  an action, press <kbd>Rebind selected</kbd>, then press the new key. If that key is already used by
+  another action, the two actions swap keys automatically so you never end up with a conflict.
+  <kbd>Reset all to defaults</kbd> restores every binding. Bindings are saved to
+  <code>keyconfig.json</code>; if that file is missing or corrupted the game rebuilds it from the
+  defaults on launch. The default keys for every action are listed in
+  <a href="#controls">Section&nbsp;4</a>.
+</p>
+
+<h3>2.4. The Lobby</h3>
+<p>After logging in you land in the lobby. From here you can:</p>
 <ul>
-  <li><strong>Modes</strong> &mdash; Choose a game mode to enter.</li>
+  <li><strong>Modes</strong> &mdash; Choose a game mode and deploy.</li>
   <li><strong>Account Info</strong> &mdash; View your account details.</li>
   <li><strong>Players</strong> &mdash; See who is online.</li>
-  <li><strong>Rewards</strong> &mdash; View kill-milestone rewards.</li>
-  <li><strong>Leave Lobby</strong> &mdash; Disconnect and return to the main menu.</li>
-  <li>Press <kbd>F1</kbd> at any time to view the detailed player list.</li>
+  <li><strong>Killstreak Rewards</strong> &mdash; Review the kill-milestone rewards.</li>
+  <li><strong>Leave Lobby</strong> &mdash; Disconnect to the main menu.</li>
+  <li>Press <kbd>F1</kbd> at any time for the detailed player list.</li>
 </ul>
-
-<!-- ================================================================ -->
-<h2>3. Game Modes</h2>
-
-<h3>3.1. Battlegrounds</h3>
 <p>
-  Fast-paced combat on the Archipelago map (1000&times;1000 tiles).
-  Features a central city with a plaza, city hall, market, armory, barracks, watchtower, hospital, warehouse, and park.
-  Surrounding islands include a fishing village (north), a town (south), a residential area (east), and a mine (west),
-  all connected by four bridges. Five underground bunkers (Alpha through Echo) are linked by a tunnel network.
-</p>
-
-<h3>3.2. Habitat Alpha</h3>
-<p>
-  An abandoned alien colony environment (1200&times;1200 tiles).
-  Multiple domes connected by underground tunnels and airlocks for surface travel.
+  When you deploy you receive a fresh random loadout: 1 melee weapon, 1 sidearm, and 1 primary,
+  plus 2 health potions and 3 frag grenades, auto-assigned to quickbar slots 1&ndash;5.
 </p>
 
 <!-- ================================================================ -->
-<h2>4. Controls</h2>
+<h2 id="modes">3. Game Modes</h2>
+<p>Three modes are available from the Modes tab. Each loads a different map and gives a fresh loadout.</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Mode</th><th>Map</th><th>Size (tiles)</th><th>Description</th></tr>
+  <tr>
+    <td><strong>Battlegrounds</strong></td>
+    <td>Archipelago</td>
+    <td class="num">1000 &times; 1000 &times; 100</td>
+    <td>Fight for survival on a war-torn island archipelago. A central city (plaza, city hall,
+        market, armory, barracks, watchtower, hospital, warehouse, park) is ringed by outlying
+        islands &mdash; a fishing village, a town, a residential district, and a mine &mdash;
+        joined by four bridges. Five underground bunkers linked by a tunnel network sit beneath the islands.</td>
+  </tr>
+  <tr>
+    <td><strong>Habitat Alpha</strong></td>
+    <td>Habitat Alpha</td>
+    <td class="num">1200 &times; 1200 &times; 60</td>
+    <td>Fight for survival in an abandoned alien colony. A large sci-fi map of pressurized domes
+        connected by underground tunnels and airlocks, with surface paths between them.</td>
+  </tr>
+  <tr>
+    <td><strong>Free for All</strong></td>
+    <td>Free for All City</td>
+    <td class="num">1100 &times; 700 &times; 100</td>
+    <td>Every player for themselves in a sprawling city. No duos, no teams &mdash; just you against everyone.</td>
+  </tr>
+</table>
+</div>
 
-<h3>4.1. Movement</h3>
+<!-- ================================================================ -->
+<h2 id="controls">4. Controls &amp; Keybinds</h2>
+<div class="note">
+  Every key in the tables below is the <strong>default</strong>. All of these actions can be
+  remapped from the key binding editor (Options &rarr; Open key binding editor). The modifier
+  combinations in 4.4&ndash;4.6 (anything using Shift, Alt, or Ctrl together with a key) are fixed
+  and not rebindable.
+</div>
+
+<h3>4.1. Movement &amp; Aiming</h3>
+<div class="table-wrap">
 <table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>Arrow Keys</kbd></td><td>Move in the facing direction</td></tr>
-  <tr><td><kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>Move up / down levels</td></tr>
+  <tr><td><kbd>Arrow Keys</kbd></td><td>Move in your facing direction</td></tr>
+  <tr><td><kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>Move up / down a level</td></tr>
+  <tr><td><kbd>Space</kbd></td><td>Jump</td></tr>
   <tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>Turn left / right 90 degrees</td></tr>
   <tr><td><kbd>Shift+Q</kbd> / <kbd>Shift+E</kbd></td><td>Turn 1 degree (hold to repeat)</td></tr>
   <tr><td><kbd>S</kbd> / <kbd>X</kbd></td><td>Aim up / down</td></tr>
   <tr><td><kbd>Shift+S</kbd> / <kbd>Shift+X</kbd></td><td>Aim 1 degree (hold to repeat)</td></tr>
-  <tr><td><kbd>F</kbd></td><td>Announce current facing</td></tr>
+  <tr><td><kbd>F</kbd></td><td>Announce your current facing</td></tr>
+  <tr><td><kbd>G</kbd> + <kbd>Arrows</kbd></td><td>Ghost camera &mdash; explore your surroundings without moving</td></tr>
 </table>
+</div>
 
 <h3>4.2. Combat</h3>
+<div class="table-wrap">
 <table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>Left Ctrl</kbd> or <kbd>Right Ctrl</kbd></td><td>Fire weapon</td></tr>
-  <tr><td><kbd>R</kbd></td><td>Reload</td></tr>
-  <tr><td><kbd>Shift+R</kbd></td><td>Unload magazine</td></tr>
-  <tr><td><kbd>A</kbd></td><td>Announce ammo status</td></tr>
+  <tr><td><kbd>Left Ctrl</kbd> (or <kbd>Right Ctrl</kbd>)</td><td>Fire weapon</td></tr>
+  <tr><td><kbd>R</kbd></td><td>Reload (opens a menu when partial magazines are available)</td></tr>
+  <tr><td><kbd>Shift+R</kbd></td><td>Unload the current magazine back into your inventory</td></tr>
+  <tr><td><kbd>A</kbd></td><td>Announce ammo status, ammo type, reserves, and current fire mode</td></tr>
   <tr><td><kbd>Shift+A</kbd></td><td>Cycle fire mode (semi / burst / auto / scattershot / focused)</td></tr>
 </table>
+</div>
 
 <h3>4.3. Inventory &amp; Items</h3>
+<div class="table-wrap">
 <table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd></td><td>Cycle through inventory</td></tr>
-  <tr><td><kbd>J</kbd> / <kbd>K</kbd></td><td>Cycle inventory category (All, Weapons, Ammo, Consumables, Equipment)</td></tr>
-  <tr><td><kbd>Enter</kbd></td><td>Use or draw selected item</td></tr>
-  <tr><td><kbd>Alt+1</kbd>&ndash;<kbd>Alt+0</kbd></td><td>Bind selected item to quickbar slot</td></tr>
-  <tr><td><kbd>1</kbd>&ndash;<kbd>0</kbd></td><td>Use quickbar slot</td></tr>
-  <tr><td><kbd>Shift+I</kbd></td><td>View weapons in quickbar</td></tr>
-  <tr><td><kbd>Alt+Enter</kbd></td><td>View help entry for selected item</td></tr>
+  <tr><td><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd></td><td>Cycle forward / backward through your inventory</td></tr>
+  <tr><td><kbd>K</kbd> / <kbd>Shift+K</kbd></td><td>Cycle inventory category forward / backward (All, Weapons, Ammo, Consumables, Equipment)</td></tr>
+  <tr><td><kbd>I</kbd></td><td>Open the full inventory menu (see below)</td></tr>
+  <tr><td><kbd>Enter</kbd></td><td>Use or draw the selected item</td></tr>
+  <tr><td><kbd>1</kbd>&ndash;<kbd>0</kbd></td><td>Activate quickbar slot 1&ndash;10</td></tr>
+  <tr><td><kbd>Alt+1</kbd>&ndash;<kbd>Alt+0</kbd></td><td>Bind the selected item to a quickbar slot</td></tr>
+  <tr><td><kbd>Shift+I</kbd></td><td>View the weapons currently in your quickbar</td></tr>
+  <tr><td><kbd>Shift+Enter</kbd> (on a weapon)</td><td>Open the weapon info panel (stats with attachment modifiers)</td></tr>
+  <tr><td><kbd>Alt+Enter</kbd> (on any item)</td><td>Read the item's help entry</td></tr>
 </table>
-
-<h3>4.4. Information</h3>
-<table>
-  <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>H</kbd></td><td>Announce current health (and vehicle status if in a vehicle)</td></tr>
-  <tr><td><kbd>Shift+V</kbd></td><td>Announce stamina and active buffs/debuffs</td></tr>
-  <tr><td><kbd>B</kbd></td><td>Announce current zone</td></tr>
-  <tr><td><kbd>C</kbd></td><td>Announce coordinates</td></tr>
-  <tr><td><kbd>M</kbd></td><td>Announce nearby areas / items</td></tr>
-  <tr><td><kbd>P</kbd></td><td>Announce nearby players</td></tr>
-  <tr><td><kbd>T</kbd></td><td>Open player tracking menu</td></tr>
-  <tr><td><kbd>W</kbd></td><td>Get direction to tracked player</td></tr>
-  <tr><td><kbd>F1</kbd></td><td>View online players list</td></tr>
-  <tr><td><kbd>F2</kbd></td><td>View Message of the Day</td></tr>
-  <tr><td><kbd>F3</kbd></td><td>Ping the server</td></tr>
-  <tr><td><kbd>/</kbd></td><td>Type a chat message or slash command</td></tr>
-  <tr><td><kbd>Alt+C</kbd></td><td>Open command menu</td></tr>
-  <tr><td><kbd>Escape</kbd></td><td>Open in-game menu (equipment, changes, rules, etc.)</td></tr>
-  <tr><td><kbd>Shift+H</kbd></td><td>Browse all help topics</td></tr>
-  <tr><td><kbd>Shift+D</kbd></td><td>Developer suite (dev builds only)</td></tr>
-  <tr><td><kbd>Shift+B</kbd></td><td>Builder (dev builds only)</td></tr>
-</table>
-
-<h3>4.5. Vehicle Controls</h3>
-<table>
-  <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>O</kbd></td><td>Open / close vehicle door (within 5 tiles)</td></tr>
-  <tr><td><kbd>V</kbd></td><td>Enter / exit vehicle</td></tr>
-  <tr><td><kbd>Up</kbd> / <kbd>Down</kbd></td><td>Increase / decrease speed (5 levels)</td></tr>
-  <tr><td><kbd>Shift+Down</kbd></td><td>Gradual deceleration</td></tr>
-  <tr><td><kbd>Left</kbd> / <kbd>Right</kbd></td><td>Turn vehicle 90 degrees</td></tr>
-  <tr><td><kbd>Shift+Left</kbd> / <kbd>Shift+Right</kbd></td><td>Turn vehicle 1 degree</td></tr>
-  <tr><td><kbd>Space</kbd></td><td>Roll window up / down at current seat</td></tr>
-  <tr><td><kbd>Alt+Left</kbd> / <kbd>Alt+Right</kbd></td><td>Switch passenger seat</td></tr>
-</table>
-
-<h3>4.6. Audio</h3>
-<table>
-  <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>Home</kbd></td><td>Increase volume</td></tr>
-  <tr><td><kbd>End</kbd></td><td>Decrease volume</td></tr>
-  <tr><td><kbd>G</kbd> + Arrow keys</td><td>Ghost camera (explore surroundings)</td></tr>
-</table>
-
-<!-- ================================================================ -->
-<h2>5. Weapon Index</h2>
+</div>
 <p>
-  All weapons are assigned to quickbar slots. Press <kbd>Shift+A</kbd> to cycle fire modes on supported weapons.
-  Weapons marked <em>semi</em> fire one shot per trigger pull; <em>burst</em> fires a 3-round burst; <em>auto</em> fires continuously while held.
+  <strong>Inventory menu (<kbd>I</kbd>):</strong> a self-voicing browser. Use
+  <kbd>Up</kbd>/<kbd>Down</kbd> to move between items and <kbd>Left</kbd>/<kbd>Right</kbd> to switch
+  category. Outside the "All" category only that category's items are shown, and in every view items
+  are grouped by category. <kbd>Enter</kbd> closes the menu and moves your Tab selection to the
+  focused item; <kbd>Shift+Enter</kbd> closes and uses it; <kbd>Alt+Enter</kbd> reads its help;
+  <kbd>Escape</kbd> closes. When you die, your whole inventory drops as a lootable corpse.
 </p>
 
-<h3>5.1. Pistols</h3>
+<h3>4.4. Equipment, Holsters &amp; Attachments</h3>
+<div class="table-wrap">
 <table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Glock 17</td><td>9x19mm Parabellum</td><td>17-round magazine</td><td>17</td><td>10 magazines</td><td>2000</td><td>Semi</td></tr>
-  <tr><td>Beretta 92FS</td><td>9x19mm Parabellum</td><td>15-round magazine</td><td>15</td><td>10 magazines</td><td>2000</td><td>Semi</td></tr>
-  <tr><td>Desert Eagle</td><td>.50 Action Express</td><td>7-round magazine</td><td>7</td><td>8 magazines</td><td>2000</td><td>Semi</td></tr>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>Alt+E</kbd></td><td>Open the equipment menu (Body, Bracelet, Medical, and two Holster slots)</td></tr>
+  <tr><td><kbd>Shift+Backspace</kbd></td><td>Holster your drawn weapon, or draw a holstered weapon if none is drawn</td></tr>
+  <tr><td><kbd>Alt+Backspace</kbd></td><td>Unequip a holster, returning its weapon and stored ammo</td></tr>
+  <tr><td><kbd>Shift+U</kbd></td><td>Activate a Biomonitor Bracelet scan (if equipped)</td></tr>
+  <tr><td><kbd>Alt+U</kbd></td><td>Toggle the WireNet auto-heal on or off (if equipped)</td></tr>
 </table>
+</div>
 
-<h3>5.2. Revolvers</h3>
+<h3>4.5. Information &amp; Interface</h3>
+<div class="table-wrap">
 <table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Taurus Model 66</td><td>.357 Magnum</td><td>6-round cylinder</td><td>6</td><td>72 rounds (belt)</td><td>3500</td><td>Semi</td></tr>
-  <tr><td>Smith &amp; Wesson Model 29</td><td>.44 Magnum</td><td>6-round cylinder</td><td>6</td><td>72 rounds (belt)</td><td>3500</td><td>Semi</td></tr>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>H</kbd></td><td>Announce health, stamina, and active buffs/debuffs (vehicle status when driving)</td></tr>
+  <tr><td><kbd>Shift+V</kbd></td><td>Announce stamina and effects</td></tr>
+  <tr><td><kbd>B</kbd></td><td>Announce your current zone</td></tr>
+  <tr><td><kbd>C</kbd></td><td>Announce your coordinates</td></tr>
+  <tr><td><kbd>J</kbd></td><td>List nearby points of interest</td></tr>
+  <tr><td><kbd>M</kbd></td><td>Announce nearby items / vehicles</td></tr>
+  <tr><td><kbd>P</kbd></td><td>Announce nearby players</td></tr>
+  <tr><td><kbd>T</kbd></td><td>Open the player tracking menu (your own name is never shown)</td></tr>
+  <tr><td><kbd>W</kbd></td><td>Get the direction and distance to your tracked player</td></tr>
+  <tr><td><kbd>F1</kbd></td><td>View the online player list</td></tr>
+  <tr><td><kbd>F2</kbd></td><td>View the Message of the Day</td></tr>
+  <tr><td><kbd>F3</kbd></td><td>Ping the server (times out after 20 seconds)</td></tr>
+  <tr><td><kbd>/</kbd></td><td>Type a chat message or slash command</td></tr>
+  <tr><td><kbd>Alt+C</kbd></td><td>Open the command menu (run any slash command without typing)</td></tr>
+  <tr><td><kbd>Alt+S</kbd></td><td>Open the support ticket menu</td></tr>
+  <tr><td><kbd>Alt+F</kbd></td><td>Open the feedback menu</td></tr>
+  <tr><td><kbd>Shift+H</kbd></td><td>Browse all in-game help topics</td></tr>
+  <tr><td><kbd>Escape</kbd></td><td>Open the in-game menu (Stats, Equipment, Changes, Rules, Account, Developers, Exit)</td></tr>
+  <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Increase / decrease volume</td></tr>
 </table>
+</div>
 
-<h3>5.3. Sub-Machine Guns</h3>
+<h3>4.6. Message Buffers</h3>
+<p>Chat, kills, and system messages are stored in scrollable buffers.</p>
+<div class="table-wrap">
 <table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>P90</td><td>5.7x28mm</td><td>50-round magazine</td><td>50</td><td>6 magazines</td><td>2000</td><td>Semi / Auto</td></tr>
-  <tr><td>MP5</td><td>9x19mm Parabellum</td><td>30-round magazine</td><td>30</td><td>8 magazines</td><td>2000</td><td>Semi / Burst / Auto</td></tr>
-  <tr><td>UZI</td><td>9x19mm Parabellum</td><td>32-round magazine</td><td>32</td><td>8 magazines</td><td>2000</td><td>Semi / Auto</td></tr>
-  <tr><td>MP7</td><td>4.6x30mm</td><td>40-round magazine</td><td>40</td><td>7 magazines</td><td>2000</td><td>Semi / Burst / Auto</td></tr>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Switch to the previous / next buffer</td></tr>
+  <tr><td><kbd>Alt+B</kbd></td><td>Open the buffer management menu</td></tr>
+  <tr><td><kbd>Delete</kbd></td><td>Open the buffer item action menu</td></tr>
+  <tr><td><kbd>Alt+Shift+C</kbd></td><td>Review the focused buffer item</td></tr>
+  <tr><td><kbd>Shift+\</kbd></td><td>Export buffers to a file</td></tr>
 </table>
+</div>
 
-<h3>5.4. Assault Rifles</h3>
+<h3>4.7. Vehicle Controls</h3>
+<div class="table-wrap">
 <table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>HK G36</td><td>5.56x45mm NATO</td><td>30-round magazine</td><td>30</td><td>8 magazines</td><td>2500</td><td>Semi / Burst / Auto</td></tr>
-  <tr><td>AK-47</td><td>7.62x39mm</td><td>30-round magazine</td><td>30</td><td>8 magazines</td><td>2500</td><td>Semi / Burst / Auto</td></tr>
-  <tr><td>TAR-21</td><td>5.56x45mm NATO</td><td>30-round magazine</td><td>30</td><td>8 magazines</td><td>2500</td><td>Semi / Burst / Auto</td></tr>
-  <tr><td>FAMAS F1</td><td>5.56x45mm NATO</td><td>25-round magazine</td><td>25</td><td>8 magazines</td><td>2500</td><td>Semi / Burst / Auto</td></tr>
-  <tr><td>M4A1</td><td>5.56x45mm NATO</td><td>30-round magazine</td><td>30</td><td>8 magazines</td><td>2500</td><td>Semi / Burst / Auto</td></tr>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>O</kbd></td><td>Open / close a vehicle door (within 5 tiles)</td></tr>
+  <tr><td><kbd>V</kbd></td><td>Enter / exit the vehicle</td></tr>
+  <tr><td><kbd>Up</kbd> / <kbd>Down</kbd></td><td>Increase / decrease speed (5 speed levels)</td></tr>
+  <tr><td><kbd>Shift+Down</kbd></td><td>Gradual deceleration</td></tr>
+  <tr><td><kbd>Left</kbd> / <kbd>Right</kbd></td><td>Turn the vehicle 90 degrees</td></tr>
+  <tr><td><kbd>Shift+Left</kbd> / <kbd>Shift+Right</kbd></td><td>Turn the vehicle 1 degree</td></tr>
+  <tr><td><kbd>Alt+Left</kbd> / <kbd>Alt+Right</kbd></td><td>Switch between driver and passenger seats</td></tr>
+  <tr><td><kbd>Space</kbd></td><td>Roll your seat's window up / down</td></tr>
 </table>
-
-<h3>5.5. Battle Rifles</h3>
-<table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>M1 Garand</td><td>.30-06 Springfield</td><td>8-round en-bloc clip</td><td>8</td><td>8 clips</td><td>2000</td><td>Semi</td></tr>
-  <tr><td>SCAR-H</td><td>7.62x51mm NATO</td><td>20-round magazine</td><td>20</td><td>6 magazines</td><td>2500</td><td>Semi / Auto</td></tr>
-  <tr><td>FN FAL</td><td>7.62x51mm NATO</td><td>20-round magazine</td><td>20</td><td>6 magazines</td><td>2500</td><td>Semi / Auto</td></tr>
-</table>
-
-<h3>5.6. Light Machine Guns</h3>
-<table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>RPK</td><td>7.62x39mm</td><td>75-round drum magazine</td><td>75</td><td>3 drums</td><td>4000</td><td>Auto only</td></tr>
-  <tr><td>M249 SAW</td><td>5.56x45mm NATO</td><td>200-round belt box</td><td>200</td><td>2 belt boxes</td><td>6000</td><td>Auto only</td></tr>
-</table>
-
-<h3>5.7. Shotguns</h3>
-<table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Benelli M4</td><td>12-gauge buckshot</td><td>8-round tube magazine</td><td>8</td><td>40 shells (box)</td><td>5000</td><td>Semi / Scattershot</td></tr>
-  <tr><td>KS-23</td><td>23x75mm R</td><td>5-round tube magazine</td><td>5</td><td>40 rounds (box)</td><td>5000</td><td>Semi / Scattershot</td></tr>
-  <tr><td>SPAS-12</td><td>12-gauge buckshot</td><td>8-round tube magazine</td><td>8</td><td>40 shells (box)</td><td>5000</td><td>Semi / Scattershot</td></tr>
-</table>
-
-<h3>5.8. Sniper Rifles</h3>
-<table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Steyr SSG 08</td><td>.308 Winchester</td><td>10-round magazine</td><td>10</td><td>5 magazines</td><td>3000</td><td>Semi</td></tr>
-  <tr><td>AWP</td><td>.338 Lapua Magnum</td><td>5-round magazine</td><td>5</td><td>4 magazines</td><td>3500</td><td>Semi</td></tr>
-  <tr><td>Dragunov SVD</td><td>7.62x54mm R</td><td>10-round magazine</td><td>10</td><td>5 magazines</td><td>3000</td><td>Semi</td></tr>
-</table>
-
-<h3>5.9. Crossbow</h3>
-<table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Crossbow</td><td>Crossbow bolt</td><td>Single bolt</td><td>1</td><td>20 bolts (quiver)</td><td>4000</td><td>Semi</td></tr>
-</table>
-
-<h3>5.10. Energy Weapons</h3>
-<p>Energy weapons use energy cells and display ammo as a charge percentage.</p>
-<table>
-  <tr><th>Weapon</th><th>Beam Type</th><th>Cell Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Volt Sidearm</td><td>Energy bolt</td><td>40 charge</td><td>8 cells</td><td>2000</td><td>Semi / Focused</td></tr>
-  <tr><td>Pulse Repeater</td><td>Energy pulse</td><td>60 charge</td><td>6 cells</td><td>1800</td><td>Semi / Auto / Focused</td></tr>
-  <tr><td>Photon Carbine</td><td>Energy beam</td><td>80 charge</td><td>5 cells</td><td>2500</td><td>Semi / Burst / Auto / Focused</td></tr>
-  <tr><td>Particle Lance</td><td>Charged energy beam</td><td>120 charge</td><td>3 cells</td><td>3500</td><td>Semi / Focused</td></tr>
-  <tr><td>Nova Cannon</td><td>Supercharged beam</td><td>200 charge</td><td>2 cells</td><td>5000</td><td>Auto / Focused</td></tr>
-</table>
-
-<h3>5.11. Special Weapons</h3>
-<p>These weapons use fuel canisters and display ammo as a fuel percentage.</p>
-<table>
-  <tr><th>Weapon</th><th>Type</th><th>Fuel Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>Flamethrower</td><td>Pressurized flame</td><td>100 fuel</td><td>4 canisters</td><td>3000</td><td>Auto only</td></tr>
-  <tr><td>Chainsaw</td><td>Gas-powered chain</td><td>80 fuel</td><td>4 canisters</td><td>2500</td><td>Auto only</td></tr>
-</table>
-
-<h3>5.12. Heavy Ordnance</h3>
-<table>
-  <tr><th>Weapon</th><th>Ammo Type</th><th>Feed Device</th><th>Capacity</th><th>Starting Reserves</th><th>Reload (ms)</th><th>Fire Modes</th></tr>
-  <tr><td>120mm Mortar</td><td>120mm HE mortar shell</td><td>Single-load barrel</td><td>1</td><td>5 shells</td><td>8000</td><td>Semi</td></tr>
-</table>
-
-<h3>5.13. Melee Weapons</h3>
-<p>Melee weapons cost 5 stamina per swing and do not use ammunition.</p>
-<table>
-  <tr><th>Weapon</th><th>Notes</th></tr>
-  <tr><td>Katana</td><td>Melee, cannot be used from vehicles</td></tr>
-  <tr><td>Baseball Bat</td><td>Melee, cannot be used from vehicles</td></tr>
-  <tr><td>Machete</td><td>Melee, cannot be used from vehicles</td></tr>
-  <tr><td>Combat Knife</td><td>Melee, cannot be used from vehicles</td></tr>
-</table>
+</div>
 
 <!-- ================================================================ -->
-<h2>6. Item Index</h2>
+<h2 id="combat">5. Combat Mechanics</h2>
 
-<h3>6.1. Healing &amp; Stamina</h3>
+<h3>5.1. Fire Modes</h3>
+<p>Press <kbd>Shift+A</kbd> to cycle a weapon's available fire modes.</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Mode</th><th>Available on</th><th>Effect</th></tr>
+  <tr><td>Semi-automatic</td><td>Most weapons</td><td>One shot per trigger pull.</td></tr>
+  <tr><td>Burst</td><td>Many SMGs / rifles</td><td>Fires a 3-round burst per pull.</td></tr>
+  <tr><td>Full automatic</td><td>SMGs, rifles, LMGs, some energy</td><td>Fires continuously while held.</td></tr>
+  <tr><td>Scattershot</td><td>Shotguns</td><td>Wider pellet spread (+1 spread) at <strong>0.7&times;</strong> damage per pellet.</td></tr>
+  <tr><td>Focused</td><td>Energy weapons</td><td><strong>1.5&times;</strong> damage and <strong>1.3&times;</strong> range, but consumes <strong>3</strong> charge per shot and can wear down durability (see 5.4).</td></tr>
+</table>
+</div>
+
+<h3>5.2. Headshots</h3>
+<p>
+  If you fire while aiming downward and your target is <strong>five or more tiles below</strong> you,
+  the shot is a headshot: <strong>1.5&times;</strong> damage, or <strong>1.75&times;</strong> for
+  sniper rifles. A "Headshot!" callout plays when one lands.
+</p>
+
+<h3>5.3. Shotgun Damage Dropoff</h3>
+<p>
+  Shotguns deal full damage within the first half of their range. Past that, damage scales down
+  smoothly to a floor of <strong>0.75&times;</strong> (a 25% reduction) at maximum range &mdash;
+  rewarding close-quarters fighting without hard-cutting longer shots.
+</p>
+
+<h3>5.4. Weapon Durability</h3>
+<p>
+  Only energy weapons have durability, and they start at <strong>100%</strong>. Each shot fired in
+  <em>focused</em> mode has a <strong>20%</strong> chance to lose <strong>1&ndash;10%</strong>
+  durability. At 0% the weapon breaks and is salvaged into <strong>1&ndash;5 Nanomatic Components</strong>.
+  Repair with a Nanomatic Multitool (see the Item Index). Firing in normal modes does not damage durability.
+</p>
+
+<h3>5.5. Melee</h3>
+<p>
+  Melee weapons use no ammunition, cost <strong>5 stamina</strong> per swing, and cannot be used from
+  inside a vehicle. They hit hard at very short range &mdash; see the melee table in the Weapon Index.
+</p>
+
+<!-- ================================================================ -->
+<h2 id="weapons">6. Weapon Index</h2>
+<p>
+  Damage is the raw health removed per hit (before headshot, focused, or dropoff modifiers).
+  <em>Range</em> is in tiles. <em>Fire delay</em> is the minimum milliseconds between shots &mdash;
+  lower is faster. Weapons of the same caliber and magazine size share magazine items (e.g. the
+  Glock&nbsp;17 and Beretta&nbsp;92FS both draw from 9x19mm magazines).
+</p>
+
+<h3>6.1. Pistols</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Glock 17</td><td class="num">255</td><td class="num">28</td><td class="num">800</td><td>9x19mm Parabellum</td><td class="num">17</td><td>10 magazines</td><td class="num">2000</td><td>Semi</td></tr>
+  <tr><td>Beretta 92FS</td><td class="num">270</td><td class="num">27</td><td class="num">600</td><td>9x19mm Parabellum</td><td class="num">15</td><td>10 magazines</td><td class="num">2000</td><td>Semi</td></tr>
+  <tr><td>Desert Eagle</td><td class="num">300</td><td class="num">25</td><td class="num">900</td><td>.50 Action Express</td><td class="num">7</td><td>8 magazines</td><td class="num">2000</td><td>Semi</td></tr>
+</table>
+</div>
+
+<h3>6.2. Revolvers</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Taurus Model 66</td><td class="num">240</td><td class="num">29</td><td class="num">790</td><td>.357 Magnum</td><td class="num">6</td><td>72 rounds (belt)</td><td class="num">3500</td><td>Semi</td></tr>
+  <tr><td>Smith &amp; Wesson Model 29</td><td class="num">285</td><td class="num">26</td><td class="num">800</td><td>.44 Magnum</td><td class="num">6</td><td>72 rounds (belt)</td><td class="num">3500</td><td>Semi</td></tr>
+</table>
+</div>
+
+<h3>6.3. Sub-Machine Guns</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>P90</td><td class="num">102</td><td class="num">29</td><td class="num">90</td><td>5.7x28mm</td><td class="num">50</td><td>6 magazines</td><td class="num">2000</td><td>Semi / Auto</td></tr>
+  <tr><td>MP5</td><td class="num">110</td><td class="num">25</td><td class="num">100</td><td>9x19mm Parabellum</td><td class="num">30</td><td>8 magazines</td><td class="num">2000</td><td>Semi / Burst / Auto</td></tr>
+  <tr><td>UZI</td><td class="num">108</td><td class="num">26</td><td class="num">75</td><td>9x19mm Parabellum</td><td class="num">32</td><td>8 magazines</td><td class="num">2000</td><td>Semi / Auto</td></tr>
+  <tr><td>MP7</td><td class="num">106</td><td class="num">27</td><td class="num">85</td><td>4.6x30mm</td><td class="num">40</td><td>7 magazines</td><td class="num">2000</td><td>Semi / Burst / Auto</td></tr>
+</table>
+</div>
+
+<h3>6.4. Assault Rifles</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>HK G36</td><td class="num">146</td><td class="num">41</td><td class="num">150</td><td>5.56x45mm NATO</td><td class="num">30</td><td>8 magazines</td><td class="num">2500</td><td>Semi / Burst / Auto</td></tr>
+  <tr><td>AK-47</td><td class="num">142</td><td class="num">42</td><td class="num">150</td><td>7.62x39mm</td><td class="num">30</td><td>8 magazines</td><td class="num">2500</td><td>Semi / Burst / Auto</td></tr>
+  <tr><td>TAR-21</td><td class="num">134</td><td class="num">44</td><td class="num">180</td><td>5.56x45mm NATO</td><td class="num">30</td><td>8 magazines</td><td class="num">2500</td><td>Semi / Burst / Auto</td></tr>
+  <tr><td>FAMAS F1</td><td class="num">150</td><td class="num">40</td><td class="num">750</td><td>5.56x45mm NATO</td><td class="num">25</td><td>8 magazines</td><td class="num">2500</td><td>Semi / Burst / Auto</td></tr>
+  <tr><td>M4A1</td><td class="num">138</td><td class="num">43</td><td class="num">140</td><td>5.56x45mm NATO</td><td class="num">30</td><td>8 magazines</td><td class="num">2500</td><td>Semi / Burst / Auto</td></tr>
+</table>
+</div>
+
+<h3>6.5. Battle Rifles</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>M1 Garand</td><td class="num">130</td><td class="num">45</td><td class="num">1200</td><td>.30-06 Springfield</td><td class="num">8</td><td>8 clips</td><td class="num">2000</td><td>Semi</td></tr>
+  <tr><td>SCAR-H</td><td class="num">130</td><td class="num">45</td><td class="num">300</td><td>7.62x51mm NATO</td><td class="num">20</td><td>6 magazines</td><td class="num">2500</td><td>Semi / Auto</td></tr>
+  <tr><td>FN FAL</td><td class="num">134</td><td class="num">44</td><td class="num">280</td><td>7.62x51mm NATO</td><td class="num">20</td><td>6 magazines</td><td class="num">2500</td><td>Semi / Auto</td></tr>
+</table>
+</div>
+
+<h3>6.6. Light Machine Guns</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>RPK</td><td class="num">108</td><td class="num">38</td><td class="num">120</td><td>7.62x39mm</td><td class="num">75</td><td>3 drum magazines</td><td class="num">4000</td><td>Auto</td></tr>
+  <tr><td>M249 SAW</td><td class="num">120</td><td class="num">35</td><td class="num">100</td><td>5.56x45mm NATO</td><td class="num">200</td><td>2 belt boxes</td><td class="num">6000</td><td>Auto</td></tr>
+</table>
+</div>
+
+<h3>6.7. Shotguns</h3>
+<p>Shotguns support a Scattershot mode and lose up to 25% damage past half range (see 5.3).</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Benelli M4</td><td class="num">685</td><td class="num">17</td><td class="num">1500</td><td>12-gauge buckshot</td><td class="num">8</td><td>40 shells (box)</td><td class="num">5000</td><td>Semi / Scattershot</td></tr>
+  <tr><td>KS-23</td><td class="num">750</td><td class="num">15</td><td class="num">850</td><td>23x75mm R</td><td class="num">5</td><td>40 rounds (box)</td><td class="num">5000</td><td>Semi / Scattershot</td></tr>
+  <tr><td>SPAS-12</td><td class="num">650</td><td class="num">18</td><td class="num">1000</td><td>12-gauge buckshot</td><td class="num">8</td><td>40 shells (box)</td><td class="num">5000</td><td>Semi / Scattershot</td></tr>
+</table>
+</div>
+
+<h3>6.8. Sniper Rifles</h3>
+<p>Snipers deal 1.75&times; damage on a headshot instead of the usual 1.5&times;.</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Steyr SSG 08</td><td class="num">790</td><td class="num">70</td><td class="num">3000</td><td>.308 Winchester</td><td class="num">10</td><td>5 magazines</td><td class="num">3000</td><td>Semi</td></tr>
+  <tr><td>AWP</td><td class="num">675</td><td class="num">90</td><td class="num">3500</td><td>.338 Lapua Magnum</td><td class="num">5</td><td>4 magazines</td><td class="num">3500</td><td>Semi</td></tr>
+  <tr><td>Dragunov SVD</td><td class="num">850</td><td class="num">60</td><td class="num">1500</td><td>7.62x54mm R</td><td class="num">10</td><td>5 magazines</td><td class="num">3000</td><td>Semi</td></tr>
+</table>
+</div>
+
+<h3>6.9. Archery</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Crossbow</td><td class="num">735</td><td class="num">80</td><td class="num">2000</td><td>Crossbow bolt</td><td class="num">1</td><td>20 bolts (quiver)</td><td class="num">4000</td><td>Semi</td></tr>
+</table>
+</div>
+
+<h3>6.10. Energy Weapons</h3>
+<p>
+  Energy weapons show ammo as a <strong>charge percentage</strong>. Each laser now uses its own,
+  non-interchangeable power cell &mdash; you cannot share cells between different lasers. Their
+  charge capacities are deliberately small, so a "full" reload is only a handful of shots.
+  Energy weapons also support a <em>focused</em> mode (1.5&times; damage, 1.3&times; range, 3 charge
+  per shot) and are the only weapons with durability.
+</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Power cell</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Volt Sidearm</td><td class="num">245</td><td class="num">31</td><td class="num">700</td><td>Volt cell</td><td class="num">12</td><td>8 cells</td><td class="num">2000</td><td>Semi / Focused</td></tr>
+  <tr><td>Pulse Repeater</td><td class="num">104</td><td class="num">30</td><td class="num">80</td><td>Pulse cell</td><td class="num">20</td><td>6 cells</td><td class="num">1800</td><td>Semi / Auto / Focused</td></tr>
+  <tr><td>Photon Carbine</td><td class="num">135</td><td class="num">46</td><td class="num">160</td><td>Photon cell</td><td class="num">18</td><td>5 cells</td><td class="num">2500</td><td>Semi / Burst / Auto / Focused</td></tr>
+  <tr><td>Particle Lance</td><td class="num">780</td><td class="num">73</td><td class="num">2500</td><td>Lance capacitor</td><td class="num">5</td><td>3 capacitors</td><td class="num">3500</td><td>Semi / Focused</td></tr>
+  <tr><td>Nova Cannon</td><td class="num">600</td><td class="num">48</td><td class="num">90</td><td>Nova core</td><td class="num">10</td><td>2 cores</td><td class="num">5000</td><td>Auto / Focused</td></tr>
+</table>
+</div>
+
+<h3>6.11. Incendiary &amp; Tools</h3>
+<p>These use fuel canisters and show ammo as a <strong>fuel percentage</strong>.</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Fuel capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>Flamethrower</td><td class="num">25</td><td class="num">15</td><td class="num">50</td><td>100 fuel</td><td>4 canisters</td><td class="num">3000</td><td>Auto</td></tr>
+  <tr><td>Chainsaw</td><td class="num">60</td><td class="num">4</td><td class="num">100</td><td>80 fuel</td><td>4 canisters</td><td class="num">2500</td><td>Semi</td></tr>
+</table>
+</div>
+
+<h3>6.12. Heavy Ordnance</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Ammo</th><th class="num">Capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><td>120mm Mortar</td><td class="num">500</td><td class="num">100</td><td class="num">4000</td><td>120mm HE shell</td><td class="num">1</td><td>5 shells</td><td class="num">8000</td><td>Semi</td></tr>
+</table>
+</div>
+<p>The mortar's shell explodes on impact, dealing its 500 damage to everyone within a 20-tile radius.</p>
+
+<h3>6.13. Melee Weapons</h3>
+<p>No ammunition; 5 stamina per swing; cannot be used from vehicles.</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Swing delay</th></tr>
+  <tr><td>Combat Knife</td><td class="num">200</td><td class="num">3</td><td class="num">500</td></tr>
+  <tr><td>Machete</td><td class="num">310</td><td class="num">4</td><td class="num">1000</td></tr>
+  <tr><td>Baseball Bat</td><td class="num">425</td><td class="num">5</td><td class="num">600</td></tr>
+  <tr><td>Pitchfork</td><td class="num">540</td><td class="num">6</td><td class="num">900</td></tr>
+  <tr><td>Tractor Plow</td><td class="num">600</td><td class="num">7</td><td class="num">1100</td></tr>
+  <tr><td>Katana</td><td class="num">650</td><td class="num">7</td><td class="num">800</td></tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="attachments">7. Attachments &amp; Holsters</h2>
+
+<h3>7.1. Suppressors</h3>
+<p>
+  Use a suppressor item from your inventory to fit it to your drawn weapon if compatible. A suppressed
+  weapon shows a "silenced" prefix in the inventory and reduces its firing sound, at the cost of a
+  slightly longer fire delay. Each weapon holds one muzzle attachment. Press <kbd>Shift+Enter</kbd> on
+  a weapon to view its stats and remove attachments. Revolvers, shotguns, LMGs, energy, and special
+  weapons cannot be suppressed.
+</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Suppressor</th><th class="num">Fire delay penalty</th><th>Fits</th></tr>
+  <tr><td>Compact Suppressor</td><td class="num">+10%</td><td>Glock 17, Beretta 92FS, Desert Eagle</td></tr>
+  <tr><td>Tactical Suppressor</td><td class="num">+5%</td><td>MP5, UZI, MP7, P90</td></tr>
+  <tr><td>Rifle Suppressor</td><td class="num">+10%</td><td>HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, FN FAL</td></tr>
+  <tr><td>Precision Suppressor</td><td class="num">+15%</td><td>Steyr SSG 08, AWP, Dragunov SVD</td></tr>
+</table>
+</div>
+
+<h3>7.2. Holsters</h3>
+<p>
+  Holsters carry extra weapons in two dedicated equipment slots (Holster&nbsp;1 and Holster&nbsp;2).
+  Some belts also store ammunition: load them by using a matching ammo belt or shell box from your
+  inventory while the belt is equipped. Drawing a weapon from a belt that holds ammo auto-reloads it.
+</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Holster</th><th>Holds</th><th>Ammo storage</th></tr>
+  <tr><td>Pistol Holster</td><td>Glock 17, Beretta 92FS, Desert Eagle</td><td>&mdash;</td></tr>
+  <tr><td>.357 Gun Belt</td><td>Taurus Model 66</td><td>24 rounds .357 Magnum</td></tr>
+  <tr><td>.44 Gun Belt</td><td>Smith &amp; Wesson Model 29</td><td>24 rounds .44 Magnum</td></tr>
+  <tr><td>SMG Sling</td><td>MP5, UZI, MP7, P90</td><td>&mdash;</td></tr>
+  <tr><td>Rifle Strap</td><td>HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, FN FAL</td><td>&mdash;</td></tr>
+  <tr><td>Sniper Carry Case</td><td>Steyr SSG 08, AWP, Dragunov SVD</td><td>&mdash;</td></tr>
+  <tr><td>Shotgun Bandoleer</td><td>Benelli M4, SPAS-12</td><td>16 shells 12-gauge</td></tr>
+  <tr><td>Knife Sheath</td><td>Combat Knife</td><td>&mdash;</td></tr>
+  <tr><td>Sword Scabbard</td><td>Machete, Katana</td><td>&mdash;</td></tr>
+  <tr><td>Bat Holster</td><td>Baseball Bat</td><td>&mdash;</td></tr>
+</table>
+</div>
+<p>Use <kbd>Shift+Backspace</kbd> to holster/draw and <kbd>Alt+Backspace</kbd> to unequip a holster.</p>
+
+<!-- ================================================================ -->
+<h2 id="items">8. Item Index</h2>
+
+<h3>8.1. Healing</h3>
+<div class="table-wrap">
 <table>
   <tr><th>Item</th><th>Effect</th><th>Notes</th></tr>
-  <tr><td>Health Potion</td><td>Restores health; grants <em>Residual Healing</em> buff (500 HP every 15s for 2 minutes)</td><td>Starting item (2x)</td></tr>
-  <tr><td>Ultra Health Potion</td><td>Fully restores health to 10,000; grants <em>Residual Healing</em> buff (1,500 HP every 25s for 5 minutes)</td><td>Reward for 5 kills</td></tr>
-  <tr><td>Red Energetic Potion</td><td>Restores 15&ndash;25 stamina</td><td></td></tr>
-  <tr><td>Blue Energetic Potion</td><td>Restores 25&ndash;40 stamina</td><td></td></tr>
-  <tr><td>Green Energetic Potion</td><td>Restores 40&ndash;60 stamina</td><td></td></tr>
-  <tr><td>Rainbow Energetic Potion</td><td>Restores 75&ndash;100 stamina</td><td></td></tr>
-  <tr><td>Fortified Ration</td><td>Restores 35&ndash;50 stamina and some health</td><td></td></tr>
-  <tr><td>Adrenaline Syringe</td><td>Doubles movement speed for 30 seconds (<em>Adrenaline Rush</em> buff)</td><td></td></tr>
-  <tr><td>Life Injection</td><td>Revives your duo mate after death</td><td></td></tr>
+  <tr><td>Health Potion</td><td>Restores <strong>200</strong> health instantly, plus a <em>Residual Healing</em> buff that tops you up every 15s for 2 minutes.</td><td>20-second cooldown; can't use at full health. Start with 2.</td></tr>
+  <tr><td>Ultra Health Potion</td><td>Restores <strong>500&ndash;600</strong> health instantly, plus stronger <em>Residual Healing</em> every 25s for 5 minutes.</td><td>Rare. Also the reward for 5 kills.</td></tr>
+  <tr><td>Life Injection</td><td>Revives a dead duo mate to <strong>500</strong> health.</td><td>Must be within 4 tiles of their body. Auto-granted when your duo mate dies.</td></tr>
 </table>
+</div>
 
-<h3>6.2. Explosives &amp; Throwables</h3>
+<h3>8.2. Stamina</h3>
+<div class="table-wrap">
 <table>
-  <tr><th>Item</th><th>Effect</th><th>Notes</th></tr>
-  <tr><td>Frag Grenade</td><td>Throw at players; explodes after a short delay, dealing area damage</td><td>Starting item (3x); also 5x at 3 kills</td></tr>
-  <tr><td>Semtex</td><td>Place on the ground, then detonate remotely with a Semtex controller</td><td>Found as a Semtex pack (bomb + controller)</td></tr>
-  <tr><td>Torpedo</td><td>Launch at players on water tiles</td><td></td></tr>
-  <tr><td>Fake Item</td><td>Place on the ground; looks like an item. Explodes when another player picks it up</td><td></td></tr>
-  <tr><td>Bunker Bomb</td><td>Place at a bunker control panel to trigger a wide-area explosion on a timer</td><td>Must own the bunker</td></tr>
+  <tr><th>Item</th><th>Effect</th></tr>
+  <tr><td>Red Energetic Potion</td><td>Restores <strong>15&ndash;25</strong> stamina</td></tr>
+  <tr><td>Blue Energetic Potion</td><td>Restores <strong>25&ndash;40</strong> stamina</td></tr>
+  <tr><td>Green Energetic Potion</td><td>Restores <strong>40&ndash;60</strong> stamina</td></tr>
+  <tr><td>Rainbow Energetic Potion</td><td>Restores <strong>75&ndash;100</strong> stamina</td></tr>
+  <tr><td>Adrenaline Syringe</td><td>Applies <em>Adrenaline Rush</em> for <strong>30 seconds</strong>, doubling movement speed</td></tr>
 </table>
+</div>
 
-<h3>6.3. Tactical</h3>
+<h3>8.3. Explosives &amp; Throwables</h3>
+<div class="table-wrap">
 <table>
-  <tr><th>Item</th><th>Effect</th><th>Notes</th></tr>
-  <tr><td>Smoke Bomb</td><td>Prevents tracking to and from you; applies <em>Blinded</em> debuff (15 seconds)</td><td></td></tr>
-  <tr><td>Weapon Suppressor</td><td>Attach to a weapon to reduce its firing sound</td><td>Weapon-specific</td></tr>
-  <tr><td>Waypoint Marker</td><td>Saves your current position; use again to check distance to the saved point</td><td>Reusable</td></tr>
-  <tr><td>Binoculars</td><td>Announces position, current zone, and 5 nearest points of interest</td><td></td></tr>
-  <tr><td>Nanomatic Multitool</td><td>Repairs energy weapon durability by 5-15% per use</td><td>5 uses per tool</td></tr>
-  <tr><td>Nanomatic Components</td><td>Use 5 components on a multitool to add 1 extra use</td><td>Salvaged from broken energy weapons</td></tr>
+  <tr><th>Item</th><th class="num">Damage</th><th class="num">Radius</th><th>Notes</th></tr>
+  <tr><td>Frag Grenade</td><td class="num">500</td><td class="num">16</td><td>Thrown; 5-second cooldown between throws. Start with 3.</td></tr>
+  <tr><td>Semtex</td><td class="num">650</td><td class="num">30</td><td>Placed, then detonated remotely. A Semtex Pack gives one bomb + one controller.</td></tr>
+  <tr><td>Torpedo</td><td class="num">700</td><td class="num">10</td><td>Launched from shallow-water tiles only; 3-second cooldown.</td></tr>
+  <tr><td>Bomb Vest</td><td class="num">1500</td><td class="num">25</td><td>Worn on the Body slot; detonates <strong>30 seconds</strong> after equipping, killing you and everyone nearby. Remove it from the equipment menu before the timer expires.</td></tr>
+  <tr><td>C4</td><td class="num">700</td><td class="num">25</td><td>Placed, then detonated remotely through a HyperComp (which you need to own).</td></tr>
+  <tr><td>Bunker Bomb</td><td class="num">2000</td><td class="num">150</td><td>Placed at a bunker control panel you own; explodes on a 14-second timer.</td></tr>
+  <tr><td>Fake Item</td><td class="num">&mdash;</td><td class="num">&mdash;</td><td>Placed on the ground disguised as loot; explodes on the player who picks it up. 2-second placement cooldown.</td></tr>
 </table>
+</div>
 
-<h3>6.4. Equipment</h3>
+<h3>8.4. Tactical &amp; Utility</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Item</th><th>Effect</th></tr>
+  <tr><td>Smoke Bomb</td><td>Applies the <em>Blinded</em> debuff (15 seconds) to players within a 25-tile radius, disabling their tracking to and from you.</td></tr>
+  <tr><td>Waypoint Marker</td><td>Saves your position. Use again to hear the direction and distance back to it; a third use overwrites the saved point.</td></tr>
+  <tr><td>Translocator</td><td>Teleports you to a chosen point of interest after a 5-second power-up. Consumes 1 cell per 50 tiles traveled (rounded up). Recharge with Translocator Cells.</td></tr>
+  <tr><td>Nanomatic Multitool</td><td>Repairs a damaged energy weapon by <strong>5&ndash;15%</strong> durability per use. Holds <strong>5 uses</strong>, then is consumed.</td></tr>
+  <tr><td>Nanomatic Components</td><td>Salvaged from broken energy weapons (1&ndash;5 per break). Use 5 on a multitool that still has uses to add 1 extra use.</td></tr>
+</table>
+</div>
+
+<h3>8.5. Equipment</h3>
+<p>Manage equipment from the equipment menu (<kbd>Alt+E</kbd>). Each item occupies a specific slot.</p>
+<div class="table-wrap">
 <table>
   <tr><th>Item</th><th>Slot</th><th>Effect</th></tr>
-  <tr><td>Bomb Vest</td><td>Body</td><td>After 30 seconds, detonates and kills you and everyone nearby. Can be removed via Equipment menu.</td></tr>
+  <tr><td>Bomb Vest</td><td>Body</td><td>Self-destruct vest (see 8.3). Removable before it detonates.</td></tr>
+  <tr><td>Biomonitor Bracelet</td><td>Bracelet</td><td>Press <kbd>Shift+U</kbd> to scan all living players within 150 tiles on your map and hear their names and health percentages. 15-second cooldown.</td></tr>
+  <tr><td>WireNet</td><td>Medical</td><td>Automatically restores 20% of max health (200 HP) when your health drops below 20%. Has <strong>3 charges</strong>, then is removed. Toggle on/off with <kbd>Alt+U</kbd> to conserve charges.</td></tr>
 </table>
+</div>
 
-<h3>6.5. Bunker &amp; Structure Items</h3>
+<h3>8.6. Bunker &amp; Structure Items</h3>
+<div class="table-wrap">
 <table>
   <tr><th>Item</th><th>Effect</th></tr>
-  <tr><td>Bunker Key</td><td>Use at a bunker control panel to capture it</td></tr>
-  <tr><td>Rocks</td><td>Ammunition for the ballista mounted in front of a bunker</td></tr>
-  <tr><td>Empty Bucket</td><td>Fill at a water tile; 10 filled buckets flood the bunker tunnels beneath you</td></tr>
+  <tr><td>Bunker Key</td><td>Used at a bunker control panel to capture the bunker.</td></tr>
+  <tr><td>HyperComp</td><td>Structure-management device, auto-awarded when you capture your <strong>second</strong> bunker. Manages bunker status, monitor alerts, alarms, and remote C4 detonation. Lost when you die.</td></tr>
+  <tr><td>Rocks</td><td>Ammunition for the ballista mounted in front of a bunker (760 damage per bolt).</td></tr>
+  <tr><td>Empty Bucket</td><td>Fill at a water tile; 10 filled buckets poured into the tunnel water tank flood the bunker tunnels beneath you.</td></tr>
 </table>
+</div>
 
-<h3>6.6. Duo Items</h3>
+<h3>8.7. Duo Items</h3>
+<div class="table-wrap">
 <table>
   <tr><th>Item</th><th>Effect</th></tr>
-  <tr><td>Duo Plane</td><td>A two-seat aircraft. One player pilots (Space to release brakes; Up/Down to ascend/descend; Left/Right to turn). The second player drops bombs (Space to drop within 20 tiles; Enter to reload).</td></tr>
+  <tr><td>Duo Plane</td><td>A two-seat aircraft. The pilot uses <kbd>Space</kbd> to release the brakes, <kbd>Up</kbd>/<kbd>Down</kbd> to climb/descend, and <kbd>Left</kbd>/<kbd>Right</kbd> to turn. The second seat drops bombs (<strong>650 damage</strong>, 20-tile radius) with <kbd>Space</kbd> within 20 tiles, reloading with <kbd>Enter</kbd>.</td></tr>
 </table>
+</div>
 
 <!-- ================================================================ -->
-<h2>7. Vehicles</h2>
+<h2 id="vehicles">9. Vehicles</h2>
 <p>
-  Vehicles spawn randomly across the map (5&ndash;10 per match).
-  Press <kbd>O</kbd> near a vehicle to open its door, then <kbd>V</kbd> to enter.
-  Only passengers with their window down can fire weapons. Melee cannot be used from vehicles.
-  Vehicles take 50 damage when crashing into walls. When destroyed, passengers are ejected and take 25% health damage.
-  Stamina regenerates at +5 every 15 seconds while inside a vehicle.
+  Vehicles spawn randomly around the map. Press <kbd>O</kbd> within 5 tiles to open a door, then
+  <kbd>V</kbd> to enter. Only passengers with their window down can fire; melee cannot be used from a
+  vehicle. Vehicles take damage crashing into walls. When a vehicle is destroyed everyone inside is
+  ejected and takes <strong>25% health</strong> damage. Armor absorbs incoming damage fully, but each
+  absorbed hit also chips the vehicle's own health by a quarter of that damage. Sitting in a vehicle
+  restores <strong>+5 stamina every 15 seconds</strong>. Speed is listed in milliseconds per tile &mdash;
+  lower is faster.
 </p>
+<div class="table-wrap">
 <table>
-  <tr><th>Vehicle</th><th>Health</th><th>Armor</th><th>Passengers</th><th>Speed (ms/tile)</th><th>Windowed Seats</th></tr>
-  <tr><td>Buggy</td><td>400</td><td>0</td><td>2</td><td>65</td><td>Both</td></tr>
-  <tr><td>Sedan</td><td>600</td><td>0</td><td>4</td><td>85</td><td>Driver + 2</td></tr>
-  <tr><td>Pickup Truck</td><td>700</td><td>0</td><td>2</td><td>100</td><td>Driver + 1</td></tr>
-  <tr><td>Jeep</td><td>800</td><td>0</td><td>3</td><td>90</td><td>Driver + 1</td></tr>
-  <tr><td>Van</td><td>900</td><td>0</td><td>5</td><td>130</td><td>Driver only</td></tr>
-  <tr><td>Humvee</td><td>1200</td><td>400</td><td>4</td><td>110</td><td>Driver + 2</td></tr>
-  <tr><td>APC</td><td>2500</td><td>1000</td><td>6</td><td>160</td><td>Driver only</td></tr>
-  <tr><td>Tank</td><td>4000</td><td>2000</td><td>2</td><td>200</td><td>Driver only</td></tr>
+  <tr><th>Vehicle</th><th class="num">Health</th><th class="num">Armor</th><th class="num">Passengers</th><th class="num">Speed (ms/tile)</th></tr>
+  <tr><td>Buggy</td><td class="num">400</td><td class="num">0</td><td class="num">2</td><td class="num">65</td></tr>
+  <tr><td>Sedan</td><td class="num">600</td><td class="num">0</td><td class="num">4</td><td class="num">85</td></tr>
+  <tr><td>Pickup Truck</td><td class="num">700</td><td class="num">0</td><td class="num">2</td><td class="num">100</td></tr>
+  <tr><td>Jeep</td><td class="num">800</td><td class="num">0</td><td class="num">3</td><td class="num">90</td></tr>
+  <tr><td>Van</td><td class="num">900</td><td class="num">0</td><td class="num">5</td><td class="num">130</td></tr>
+  <tr><td>Humvee</td><td class="num">1200</td><td class="num">400</td><td class="num">4</td><td class="num">110</td></tr>
+  <tr><td>APC</td><td class="num">2500</td><td class="num">1000</td><td class="num">6</td><td class="num">160</td></tr>
+  <tr><td>Tank</td><td class="num">4000</td><td class="num">2000</td><td class="num">2</td><td class="num">200</td></tr>
 </table>
+</div>
 
 <!-- ================================================================ -->
-<h2>8. Stamina System</h2>
+<h2 id="stamina">10. Stamina System</h2>
+<p>Low stamina (below 40) gradually slows your movement and attack speed. Press <kbd>H</kbd> or <kbd>Shift+V</kbd> to check it.</p>
+<div class="table-wrap">
 <table>
   <tr><th>Property</th><th>Value</th></tr>
   <tr><td>Maximum stamina</td><td>100</td></tr>
   <tr><td>Natural regeneration</td><td>+5 every 5 seconds</td></tr>
-  <tr><td>Heavy weapon movement drain</td><td>-1 per step (weapons with walk time &ge; 300 ms)</td></tr>
   <tr><td>Melee swing cost</td><td>-5 per swing</td></tr>
-  <tr><td>Excessive jumping cost</td><td>-8 per jump (after 3 jumps within 25 seconds)</td></tr>
-  <tr><td>Movement penalty</td><td>Gradually scales as stamina drops below 40</td></tr>
-  <tr><td>Vehicle resting bonus</td><td>+5 every 15 seconds while in a vehicle</td></tr>
+  <tr><td>Excessive jumping</td><td>-8 per jump, after more than 3 jumps within 25 seconds</td></tr>
+  <tr><td>Heavy-weapon movement drain</td><td>-1 per step while carrying a weapon with a walk time of 300 ms or more</td></tr>
+  <tr><td>Vehicle resting bonus</td><td>+5 every 15 seconds while seated</td></tr>
 </table>
+</div>
 
 <!-- ================================================================ -->
-<h2>9. Buffs &amp; Debuffs</h2>
-
-<h3>9.1. Buffs</h3>
+<h2 id="buffs">11. Buffs &amp; Debuffs</h2>
+<p>Active effects are announced after your health when you press <kbd>H</kbd>.</p>
+<div class="table-wrap">
 <table>
-  <tr><th>Buff</th><th>Source</th><th>Duration</th><th>Effect</th></tr>
-  <tr><td>Residual Healing</td><td>Health Potion</td><td>2 minutes</td><td>+500 HP every 15 seconds</td></tr>
-  <tr><td>Residual Healing</td><td>Ultra Health Potion</td><td>5 minutes</td><td>+1,500 HP every 25 seconds</td></tr>
-  <tr><td>Adrenaline Rush</td><td>Adrenaline Syringe</td><td>30 seconds</td><td>Double movement speed</td></tr>
+  <tr><th>Effect</th><th>Type</th><th>Source</th><th>Duration</th><th>Effect</th></tr>
+  <tr><td>Residual Healing</td><td>Buff</td><td>Health Potion</td><td>2 minutes</td><td>Restores health every 15 seconds</td></tr>
+  <tr><td>Residual Healing</td><td>Buff</td><td>Ultra Health Potion</td><td>5 minutes</td><td>Restores more health every 25 seconds</td></tr>
+  <tr><td>Adrenaline Rush</td><td>Buff</td><td>Adrenaline Syringe</td><td>30 seconds</td><td>Double movement speed</td></tr>
+  <tr><td>Blinded</td><td>Debuff</td><td>Smoke Bomb</td><td>15 seconds</td><td>Tracking disabled</td></tr>
 </table>
-
-<h3>9.2. Debuffs</h3>
-<table>
-  <tr><th>Debuff</th><th>Source</th><th>Duration</th><th>Effect</th></tr>
-  <tr><td>Blinded</td><td>Smoke Bomb</td><td>15 seconds</td><td>Tracking disabled</td></tr>
-</table>
+</div>
 
 <!-- ================================================================ -->
-<h2>10. Kill Rewards</h2>
-<p>Rewards are granted automatically the first time you reach each milestone per session.</p>
+<h2 id="rewards">12. Kill Rewards &amp; Credits</h2>
+
+<h3>12.1. Killstreak Rewards</h3>
+<p>Granted once per session the first time you reach each milestone; they reset when you reconnect or die.</p>
+<div class="table-wrap">
 <table>
-  <tr><th>Kills</th><th>Reward</th></tr>
-  <tr><td>3</td><td>5 frag grenades</td></tr>
-  <tr><td>5</td><td>Ultra health potion (fully restores health)</td></tr>
+  <tr><th class="num">Kills</th><th>Reward</th></tr>
+  <tr><td class="num">3</td><td>5 frag grenades</td></tr>
+  <tr><td class="num">5</td><td>1 ultra health potion + 40 bonus credits</td></tr>
+  <tr><td class="num">10</td><td>75 bonus credits</td></tr>
 </table>
+</div>
+
+<h3>12.2. Credits</h3>
+<p>
+  Credits are the in-game currency earned through combat. You earn <strong>10&ndash;20 credits per
+  kill</strong>, plus the milestone bonuses above. Credits are saved to your account and persist
+  between sessions, but are lost and reset when you die. Check your balance from the lobby with the
+  <code>lobby_credits</code> command.
+</p>
 
 <!-- ================================================================ -->
-<h2>11. Chests</h2>
-<p>Chests are rare objects on the map. Stand on the chest's tile and press <kbd>O</kbd> to open.</p>
-<table>
-  <tr><th>Chest Type</th><th>Contents</th></tr>
-  <tr><td>Ammo Chest</td><td>Assorted ammunition</td></tr>
-  <tr><td>Grenades &amp; Bombs Chest</td><td>Bomb vest + 5 frag grenades</td></tr>
-  <tr><td>Duo Plane Chest</td><td>Duo plane</td></tr>
-  <tr><td>Rocks Chest</td><td>Rocks for ballista use</td></tr>
-</table>
-
-<!-- ================================================================ -->
-<h2>12. Bunkers</h2>
+<h2 id="bunkers">13. Bunkers &amp; HyperComp</h2>
+<p>Bunkers are capturable underground strongholds. Type <code>/bunkers</code> in chat to hear the locations on your current map.</p>
 <ol>
-  <li>Find a bunker (type <code>/bunkers</code> for locations).</li>
-  <li>Locate the control panel and use a <strong>Bunker Key</strong> to capture it.</li>
-  <li>Once captured, you can:
+  <li>Find a bunker and its control panel (each has a ladder entrance and item spawns).</li>
+  <li>Use a <strong>Bunker Key</strong> at the control panel to capture it.</li>
+  <li>Once you own a bunker you can:
     <ul>
-      <li>Use the <strong>ballista</strong> in front of the bunker to launch rocks at enemies.</li>
-      <li>Place a <strong>Bunker Bomb</strong> at the control panel for a wide-area explosion.</li>
-      <li>Flood the tunnels: fill 10 buckets at a water tile, find the water tank in the tunnel, fill it, then press <kbd>O</kbd> to flood.</li>
+      <li>Fire the <strong>ballista</strong> in front of the bunker using <strong>Rocks</strong> (760 damage per bolt).</li>
+      <li>Place a <strong>Bunker Bomb</strong> at the control panel for a 2000-damage, 150-tile blast on a 14-second timer.</li>
+      <li>Flood the tunnels: fill 10 buckets at a water tile, pour them into the tunnel water tank, then press <kbd>O</kbd>.</li>
     </ul>
   </li>
+  <li>Capture a <strong>second</strong> bunker to receive a <strong>HyperComp</strong>, which lets you monitor intruders, toggle bunker alarms, and remotely detonate placed C4. You lose the HyperComp and release your bunkers when you die.</li>
 </ol>
 
 <!-- ================================================================ -->
-<h2>13. Slash Commands</h2>
+<h2 id="chests">14. Chests</h2>
+<p>Chests are rare containers on the map. Stand on the chest's tile and press <kbd>O</kbd> to open one.</p>
+<div class="table-wrap">
 <table>
-  <tr><th>Command</th><th>Description</th></tr>
-  <tr><td><code>/pm &lt;name&gt; &lt;message&gt;</code></td><td>Send a private message</td></tr>
-  <tr><td><code>/d &lt;message&gt;</code></td><td>Send a duo chat message</td></tr>
-  <tr><td><code>/duomate &lt;name&gt;</code></td><td>Set your duo mate</td></tr>
-  <tr><td><code>/bunkers</code></td><td>Show bunker locations</td></tr>
-  <tr><td><code>/feedback &lt;message&gt;</code></td><td>Submit feedback to developers</td></tr>
-  <tr><td><code>/afk</code></td><td>Toggle AFK mode (10-second countdown, 5-minute cooldown)</td></tr>
-  <tr><td><code>/bug</code></td><td>Submit a bug report (title and description)</td></tr>
-  <tr><td><code>/bugs</code></td><td>View your bug reports and their status</td></tr>
-  <tr><td><code>/start_admin</code></td><td>Activate admin privileges (if authorized)</td></tr>
+  <tr><th>Chest</th><th>Typical contents</th></tr>
+  <tr><td>Ammunition Chest</td><td>Loaded rounds for a spread of common weapons (shotgun, pistol, AK, G36, FAMAS, sniper, and Garand)</td></tr>
+  <tr><td>Grenades &amp; Bombs Chest</td><td>5 frag grenades, 5 torpedoes, 5 bomb vests, 2 semtex packs, and 5 fake items</td></tr>
+  <tr><td>Duo Plane Chest</td><td>A duo plane</td></tr>
+  <tr><td>Chest of Rocks</td><td>50 rocks for the bunker ballista</td></tr>
 </table>
+</div>
 
 <!-- ================================================================ -->
-<h2>14. Credits</h2>
+<h2 id="commands">15. Commands &amp; Support</h2>
+<p>
+  Press <kbd>/</kbd> to open the chat input; messages that start with <code>/</code> are treated as
+  commands. You can also press <kbd>Alt+C</kbd> to run any command from a menu without typing it.
+</p>
+<div class="table-wrap">
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><code>/pm &lt;name&gt; &lt;message&gt;</code></td><td>Send a private message to another player</td></tr>
+  <tr><td><code>/d &lt;message&gt;</code></td><td>Send a private message to your duo mate</td></tr>
+  <tr><td><code>/duomate &lt;name&gt;</code></td><td>Check a player's duo mate</td></tr>
+  <tr><td><code>/bunkers</code></td><td>Announce bunker locations on your current map</td></tr>
+  <tr><td><code>/changes</code></td><td>View the changelog</td></tr>
+  <tr><td><code>/feedback &lt;message&gt;</code></td><td>Submit feedback to the developers</td></tr>
+  <tr><td><code>/bug</code></td><td>Submit a bug report (title and description)</td></tr>
+  <tr><td><code>/bugs</code></td><td>View your submitted bug reports and their status</td></tr>
+  <tr><td><code>/afk</code></td><td>Toggle AFK mode (10-second countdown, 5-minute cooldown)</td></tr>
+  <tr><td><code>/start_admin</code></td><td>Activate admin privileges (authorized accounts only)</td></tr>
+</table>
+</div>
+<p>
+  <strong>Support tickets:</strong> press <kbd>Alt+S</kbd> to open a ticket, view your open and closed
+  tickets, and (for staff) review all open tickets.
+</p>
+
+<!-- ================================================================ -->
+<h2 id="credits">16. Credits</h2>
 <p>
   <strong>Created by Firegaming</strong><br>
   Coded by Max Vrenken<br>
   Sound design by Jonan Smid (Djonan-music-official on YouTube)<br>
+  Manual written by Jesse Janssen<br>
   For feedback, use the <code>/feedback</code> command in-game or visit
   <a href="https://www.firegaming.nl">firegaming.nl</a>.
 </p>

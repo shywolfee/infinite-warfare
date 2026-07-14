@@ -99,8 +99,8 @@ bool connected;
 bool show_damage_readout=false;
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.5044;
-int build_number=68;
+double version=0.5045;
+int build_number=69;
 string build_date="2026-07-14";
 string name;
 string mate;
@@ -1362,8 +1362,8 @@ string inv_menu_label(string[] keys, int pos)
 		if (pidx >= 0 and pidx < int(partial_items.length()))
 		{
 			string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
-			int pct = get_ammo_percentage(partial_items[pidx].remaining, partial_items[pidx].max_capacity);
-			return base_name + " (" + pct + "%). " + (pos+1) + " of " + total;
+			string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity);
+			return base_name + " (" + amt + "). " + (pos+1) + " of " + total;
 		}
 		return "unknown item. " + (pos+1) + " of " + total;
 	}
@@ -1410,7 +1410,7 @@ void inv_menu_use(string key)
 	else
 	{
 		on_item_used(key);
-		if (string_contains(key, "energetic_potion", 1) < 0 and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "waypoint_marker" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key))
+		if (string_contains(key, "energetic_potion", 1) < 0 and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "waypoint_marker" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key) and !is_ammo_reserve_item(key))
 			send_reliable(0, "use " + key, 0);
 	}
 }
@@ -1633,11 +1633,103 @@ else if (is_holster_item(item))
 equip_holster_item(item);
 return;
 }
-else if (is_ammo_container(item) or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "shell_box", 1)>-1)
+else if (is_ammo_reserve_item(item))
 {
-if(try_store_ammo_in_belt(item)) return;
+use_ammo_item(item);
+return;
 }
 }
+
+// ---------------------------------------------------------------------------
+// Using an ammunition item.
+// Container-style ammo (ammo belts, shell boxes, loose shells, bolt quivers)
+// loads a chosen number of rounds into the drawn weapon. Fuel canisters fill
+// the drawn fuel weapon to a chosen percentage. Anything else (magazines,
+// clips, energy cells, or ammo with no matching weapon drawn) explains itself.
+// ---------------------------------------------------------------------------
+void use_ammo_item(string item)
+{
+string disp = ammo_display_for_reserve(item);
+string drawn = weapons[w];
+int gi = find_gun(drawn);
+bool drawn_uses = (gi>=0 and gun_ammos[gi].reserve_item==item);
+string pretty = string_replace(item, "_", " ", true);
+// Fuel canister: fill the drawn fuel weapon to a chosen percentage.
+if (disp=="fuel")
+{
+if (drawn_uses)
+ammo_prompt_fuel(drawn);
+else
+speak("This is a "+pretty+". Draw your flamethrower or chainsaw, then press R to refuel or use a canister to fill to a set level.");
+return;
+}
+// Individual bullet / shell / bolt reserve: load rounds into the drawn weapon.
+if (drawn_uses and !gun_ammos[gi].is_magazine)
+{
+ammo_prompt_rounds(drawn);
+return;
+}
+// Loose rounds with no matching weapon drawn: try topping off an equipped belt.
+if (is_individual_reserve(item) and try_store_ammo_in_belt(item))
+return;
+// A magazine or energy cell for the weapon you already have drawn.
+if (drawn_uses)
+{
+speak("Press R to reload your "+get_weapon_display_name(drawn)+" with this "+pretty+".");
+return;
+}
+// Magazines, clips, energy cells, or no compatible weapon drawn.
+if (disp=="charge")
+speak("This is a "+pretty+". Draw the matching energy weapon and press R to swap it in.");
+else if (is_individual_reserve(item))
+speak("This is "+pretty+". Draw the weapon it feeds, then use it or press R to load rounds.");
+else
+speak("This is a "+pretty+". Draw the weapon it feeds and press R to reload.");
+}
+
+// Prompt for how many rounds to load into an individual-reload weapon.
+void ammo_prompt_rounds(string wname)
+{
+int gi=find_gun(wname);
+if (gi<0) return;
+gun_ammo@ g=gun_ammos[gi];
+if (g.reloading) { speak("Already reloading."); return; }
+int need=g.mag_capacity-g.mag_loaded;
+if (need<=0) { speak(g.feed_device+" is already full."); return; }
+int have=get_item_count(g.reserve_item);
+if (have<=0) { speak("No spare "+g.reserve_label+" remaining."); return; }
+int maxload=need;
+if (maxload>have) maxload=have;
+int count=maxload;
+if (maxload>1)
+{
+string resp=af_input("Load how many rounds into the "+g.feed_device+"? (1 to "+maxload+")", ""+maxload, true);
+if (resp=="") return;
+count=string_to_number(resp);
+if (count<1) count=1;
+if (count>maxload) count=maxload;
+}
+start_reload_rounds(wname, count);
+}
+
+// Prompt for a fuel percentage to fill a drawn fuel weapon to.
+void ammo_prompt_fuel(string wname)
+{
+int gi=find_gun(wname);
+if (gi<0) return;
+gun_ammo@ g=gun_ammos[gi];
+if (g.reloading) { speak("Already reloading."); return; }
+if (g.mag_loaded>=g.mag_capacity) { speak("Fuel tank is already full."); return; }
+if (fuel_available(g.reserve_item)<=0) { speak("No fuel remaining in your "+g.reserve_label+"s."); return; }
+int cur=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
+string resp=af_input("Fill fuel to what percent? (currently "+cur+"%, up to 100)", "100", true);
+if (resp=="") return;
+int pct=string_to_number(resp);
+if (pct<0) pct=0;
+if (pct>100) pct=100;
+start_reload_fuel_to(wname, pct);
+}
+
 void use_attachment_item(string item)
 {
 string current_weapon=weapons[w];
@@ -2593,7 +2685,7 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "waypoint_marker" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item))
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "waypoint_marker" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item) and !is_ammo_reserve_item(item))
 send_reliable(0, "use "+item, 0);
 }
 }
@@ -2889,7 +2981,7 @@ int empty_gi=find_gun(weapons[w]);
 if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="charge")
 speak(gun_ammos[empty_gi].reserve_label+" depleted. Press R to reload.");
 else if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="fuel")
-speak("Fuel canister empty. Press R to reload.");
+speak("Fuel tank empty. Press R to refuel.");
 else
 speak("Magazine empty. Press R to reload.");
 }
@@ -2925,15 +3017,8 @@ m.add_item_tts("Full "+rg.reserve_label+" ("+full_count+" available)","full");
 int[] pindices=get_partial_indices_for(rg.reserve_item);
 for (uint pi=0; pi<pindices.length(); pi++)
 {
-int pct=get_ammo_percentage(partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
-string pct_label;
-if (rg.ammo_display=="charge")
-pct_label="Partial "+rg.reserve_label+" ("+pct+"% charge)";
-else if (rg.ammo_display=="fuel")
-pct_label="Partial fuel canister ("+pct+"% fuel)";
-else
-pct_label="Partial "+rg.reserve_label+" ("+pct+"%, "+partial_items[pindices[pi]].remaining+" rounds)";
-m.add_item_tts(pct_label, "partial_"+pindices[pi]);
+string amt=partial_amount_label(rg.reserve_item, partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
+m.add_item_tts("Partial "+rg.reserve_label+" ("+amt+")", "partial_"+pindices[pi]);
 }
 int mres=m.run("Select ammunition to load",true);
 string choice=m.get_item_name(mres);
@@ -3201,19 +3286,18 @@ if((key_pressed(kb("use_item")) or mouse_pressed(2)) and usetimer.elapsed>n.get_
 {
 usetimer.restart();
 string sel_item = get_selected_item();
-if (sel_item != "")
-{
-if (is_weapon(sel_item))
+if (sel_item == "")
+speak("Your inventory is empty.");
+else if (string_contains(sel_item, "__partial__", 1) == 0)
+speak("You can't use a partial ammo item directly. Reload the matching weapon to consume it.");
+else if (is_weapon(sel_item))
 draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "waypoint_marker" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item))
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "waypoint_marker" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item) and !is_ammo_reserve_item(sel_item))
 send_reliable(0, "use " + sel_item, 0);
 }
-}
-else
-speak("Your inventory is empty.");
 }
 if(key_pressed(kb("vehicle_door")) and can_move==true)
 {

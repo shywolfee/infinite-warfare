@@ -40,7 +40,7 @@ li { margin: 4px 0; }
 
 <h1>Infinite Warfare &mdash; Game Manual</h1>
 <p>
-  <span class="version-badge">Version 0.5.0.4.4 &bull; Build 68</span><br>
+  <span class="version-badge">Version 0.5.0.4.5 &bull; Build 69</span><br>
   Created by <strong>Firegaming</strong><br>
   Coded by Max Vrenken &bull; Sound design by Jonan Smid &bull; Manual by Jesse Janssen
 </p>
@@ -353,6 +353,29 @@ li { margin: 4px 0; }
   inside a vehicle. They hit hard at very short range &mdash; see the melee table in the Weapon Index.
 </p>
 
+<h3>5.6. Reloading &amp; Ammunition</h3>
+<p>
+  Press <kbd>R</kbd> to reload the drawn weapon and <kbd>Shift+R</kbd> to unload it. How ammunition
+  behaves depends on the weapon:
+</p>
+<ul>
+  <li><strong>Magazine weapons</strong> (pistols, rifles, SMGs) swap a whole magazine or clip on reload.
+      A partially spent magazine you unload is kept as a <em>partial</em> and reads as capacity remaining
+      &mdash; for example a partly used 9x19mm magazine shows as <code>15/17</code>.</li>
+  <li><strong>Individual-load weapons</strong> (revolvers, shotguns, the mortar, the crossbow) feed rounds
+      from a belt, box, or quiver. <strong>Using the ammo item</strong> (Enter on it, or a quickbar slot)
+      while the matching weapon is drawn asks how many rounds to load and scales the reload time to
+      match &mdash; loading one shell is far quicker than loading a full tube.</li>
+  <li><strong>Energy weapons</strong> swap power cells like magazines and show a charge percentage.</li>
+  <li><strong>Fuel weapons</strong> (flamethrower, chainsaw) siphon fuel rather than swapping canisters.
+      <kbd>R</kbd> tops the tank up to 100%, drawing only the fuel it needs and leaving any partly used
+      canister as a partial. Using a fuel canister directly lets you fill the tank to a chosen percentage.</li>
+</ul>
+<p>
+  Using ammunition with no matching weapon drawn (or a magazine, which can't be hand-loaded) simply tells
+  you which weapon it feeds and to press <kbd>R</kbd>.
+</p>
+
 <!-- ================================================================ -->
 <h2 id="weapons">6. Weapon Index</h2>
 <p>
@@ -473,10 +496,15 @@ li { margin: 4px 0; }
 </div>
 
 <h3>6.11. Incendiary &amp; Tools</h3>
-<p>These use fuel canisters and show ammo as a <strong>fuel percentage</strong>.</p>
+<p>
+  These show ammo as a <strong>fuel percentage</strong>. Fuel is siphoned from your canisters (each
+  holds 100 fuel) rather than swapped: <kbd>R</kbd> tops the tank to full using only the fuel it needs,
+  and using a canister directly fills to a chosen percentage. The full-reload time listed is for filling
+  an empty tank; partial fills are proportionally quicker.
+</p>
 <div class="table-wrap">
 <table>
-  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Fuel capacity</th><th>Reserves</th><th class="num">Reload</th><th>Modes</th></tr>
+  <tr><th>Weapon</th><th class="num">Damage</th><th class="num">Range</th><th class="num">Fire delay</th><th>Tank</th><th>Reserves</th><th class="num">Full reload</th><th>Modes</th></tr>
   <tr><td>Flamethrower</td><td class="num">25</td><td class="num">15</td><td class="num">50</td><td>100 fuel</td><td>4 canisters</td><td class="num">3000</td><td>Auto</td></tr>
   <tr><td>Chainsaw</td><td class="num">60</td><td class="num">4</td><td class="num">100</td><td>80 fuel</td><td>4 canisters</td><td class="num">2500</td><td>Semi</td></tr>
 </table>

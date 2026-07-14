@@ -113,13 +113,13 @@ invpos=int(filtered.length())-1;
 string key = filtered[invpos];
 if (string_contains(key, "__partial__", 1) == 0)
 {
-// Partial ammo item — show base name with percentage.
+// Partial ammo item — magazines show capacity remaining, energy/fuel show percent.
 int pidx = string_to_number(string_replace(key, "__partial__", "", false));
 if (pidx >= 0 and pidx < int(partial_items.length()))
 {
 string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
-int pct = get_ammo_percentage(partial_items[pidx].remaining, partial_items[pidx].max_capacity);
-speak(base_name + " (" + pct + "%). " + (invpos+1) + " of " + filtered.length());
+string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity);
+speak(base_name + " (" + amt + "). " + (invpos+1) + " of " + filtered.length());
 }
 }
 else

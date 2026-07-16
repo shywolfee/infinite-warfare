@@ -580,7 +580,7 @@ if(li>-1)
 string mode_display=parsed[1];
 if(parsed[1]=="freeforall") mode_display="Ghost Town";
 else if(parsed[1]=="habitat_alpha") mode_display="Habitat Alpha";
-else if(parsed[1]=="battlegrounds") mode_display="Battlegrounds";
+else if(parsed[1]=="battlegrounds") mode_display="Shattersea";
 send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
 if(parsed[1]=="habitat_alpha")
 {
@@ -598,8 +598,9 @@ file mf;
 mf.open("content/maps/battlegrounds/main.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
-send_reliable(e.peer_id, "x "+random(0, 400), 0);
-send_reliable(e.peer_id, "y "+random(0, 499), 0);
+// Deploy into Meridian Plaza in North Meridian (guaranteed walkable ground).
+send_reliable(e.peer_id, "x "+random(662, 700), 0);
+send_reliable(e.peer_id, "y "+random(988, 1010), 0);
 send_reliable(e.peer_id, "z 0", 0);
 }
 else if(parsed[1]=="freeforall")

@@ -135,7 +135,7 @@ bool freeforall_map_select()
 {
 audio_form f;
 f.create_window("Select a Free for All Map", false, true);
-int f_bg=f.create_button("&Battlegrounds - a war-torn island archipelago", true);
+int f_bg=f.create_button("&Shattersea - the coastal city of Meridian", true);
 int f_ha=f.create_button("&Habitat Alpha - an abandoned alien colony");
 int f_gt=f.create_button("&Ghost Town - a sprawling abandoned city");
 int f_back=f.create_button("Go &back", false, true);
@@ -147,7 +147,7 @@ f.monitor();
 lobby_form_netcheck();
 if (f.is_pressed(f_bg))
 {
-deploy_to_mode("battlegrounds", "Deploying to Battlegrounds. Good luck.");
+deploy_to_mode("battlegrounds", "Deploying to Shattersea. Good luck in Meridian.");
 return true;
 }
 else if (f.is_pressed(f_ha))

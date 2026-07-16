@@ -1,597 +1,3175 @@
-mapname:Archipelago
-maxx:1000
-maxy:1000
-maxz:100
+mapname:Shattersea
+maxx:1300
+maxy:1300
+maxz:120
 
-// ===========================
-// BASE LAYER: Ocean everywhere
-// ===========================
-tile:0:1000:0:1000:0:0:shallow
-tile:0:1000:0:1000:-100:-1:wallrock
-src:0:1000:0:1000:0:5:ocean1.ogg:-8
-zone:0:1000:0:1000:0:5:the ocean
+// ============================================================
+// BASE LAYER: The Shattersea (open water everywhere)
+// ============================================================
+tile:0:1300:0:1300:0:0:shallow
+tile:0:1300:0:1300:-100:-1:wallrock
+zone:0:1300:0:1300:0:8:the open water of the Shattersea
+src:0:1300:0:1300:0:8:ocean1.ogg:-10
 
-// ===========================
-// CENTRAL ISLAND (350-650, 350-650)
-// The city
-// ===========================
-// Beach ring
-tile:340:660:340:660:0:0:sand
-zone:340:660:340:660:0:5:the beach of the central island
-src:340:660:340:350:0:5:beach.ogg:-3
-src:340:660:650:660:0:5:beach.ogg:-3
-src:340:350:340:660:0:5:beach.ogg:-3
-src:650:660:340:660:0:5:beach.ogg:-3
-// Main island surface
-tile:360:640:360:640:0:0:concrete2
-zone:360:640:360:640:0:50:the city on the central island
+// ============================================================
+// MERIDIAN ISLAND: beach ring and district base ground
+// ============================================================
+tile:116:1184:116:1184:0:0:sand
+zone:116:1184:116:1184:0:8:the beach ringing Meridian island
+zone:116:149:116:1184:0:8:the western beach of Meridian
+zone:1151:1184:116:1184:0:8:the eastern beach of Meridian
+zone:116:1184:1151:1184:0:8:the northern beach of Meridian
+zone:116:1184:116:149:0:8:the southern beach of Meridian
+src:116:1184:1150:1184:0:8:beach.ogg:-6
+src:116:1184:116:150:0:8:beach.ogg:-6
+// West Meridian base ground
+tile:150:468:150:1150:0:0:concrete2
+zone:150:468:150:1150:0:8:the waterfront flats of West Meridian
+// South Meridian base ground
+tile:472:828:150:610:0:0:concrete2
+zone:472:828:150:610:0:8:the streets of South Meridian
+// North Meridian base ground
+tile:472:828:690:1150:0:0:concrete2
+zone:472:828:690:1150:0:8:the streets of North Meridian
+// East Meridian base ground
+tile:832:1150:150:1150:0:0:concrete2
+zone:832:1150:150:1150:0:8:the eastern reaches of East Meridian
 
-// --- City streets ---
-tile:360:640:498:502:0:0:concrete5
-zone:360:640:498:502:0:5:main street running east to west
-tile:498:502:360:640:0:0:concrete5
-zone:498:502:360:640:0:5:main street running north to south
+// ============================================================
+// THE OLD ANCHORHOLD CANAL and the four bridges
+// ============================================================
+tile:150:1150:612:688:0:0:water1
+zone:150:1150:612:688:0:8:the Old Anchorhold Canal
+src:150:1150:612:688:0:8:stream2.ogg:-6
+tile:150:1150:689:691:0:0:stone
+zone:150:1150:689:691:0:8:the north quay of the Anchorhold Canal
+tile:150:1150:609:611:0:0:stone
+zone:150:1150:609:611:0:8:the south quay of the Anchorhold Canal
+tile:232:260:608:692:0:0:bridge
+zone:232:260:608:692:0:8:the Ivory Bridge
+tile:232:232:608:692:0:3:wallfence
+tile:260:260:608:692:0:3:wallfence
+zone:231:231:608:692:0:8:the Ivory Bridge west railing
+zone:261:261:608:692:0:8:the Ivory Bridge east railing
+src:232:260:608:692:0:8:stream2.ogg:-7
+poi:246:650:0:the Ivory Bridge
+tile:548:576:608:692:0:0:bridge
+zone:548:576:608:692:0:8:the Redmyr Bridge
+tile:548:548:608:692:0:3:wallfence
+tile:576:576:608:692:0:3:wallfence
+zone:547:547:608:692:0:8:the Redmyr Bridge west railing
+zone:577:577:608:692:0:8:the Redmyr Bridge east railing
+src:548:576:608:692:0:8:stream2.ogg:-7
+poi:562:650:0:the Redmyr Bridge
+tile:724:752:608:692:0:0:bridge
+zone:724:752:608:692:0:8:the Old Smith's Bridge
+tile:724:724:608:692:0:3:wallfence
+tile:752:752:608:692:0:3:wallfence
+zone:723:723:608:692:0:8:the Old Smith's Bridge west railing
+zone:753:753:608:692:0:8:the Old Smith's Bridge east railing
+src:724:752:608:692:0:8:stream2.ogg:-7
+poi:738:650:0:the Old Smith's Bridge
+tile:966:994:608:692:0:0:bridge
+zone:966:994:608:692:0:8:the Anchorhold Bridge
+tile:966:966:608:692:0:3:wallfence
+tile:994:994:608:692:0:3:wallfence
+zone:965:965:608:692:0:8:the Anchorhold Bridge west railing
+zone:995:995:608:692:0:8:the Anchorhold Bridge east railing
+src:966:994:608:692:0:8:stream2.ogg:-7
+poi:980:650:0:the Anchorhold Bridge
+poi:650:650:0:the heart of Meridian
 
-// --- Central plaza ---
-tile:480:520:480:520:0:0:concrete12
-zone:480:520:480:520:0:10:the central plaza
-tile:498:502:498:502:0:0:water1
-zone:497:503:497:503:0:5:the fountain in the central plaza
-src:498:502:498:502:0:5:waves2.ogg:-5
+// ============================================================
+// NORTH MERIDIAN - streets, plaza and civic core
+// ============================================================
+tile:520:527:696:1144:0:0:concrete5
+zone:520:527:696:1144:0:8:Kingsway
+tile:519:519:696:1144:0:0:stone
+zone:519:519:696:1144:0:8:west curb of Kingsway
+tile:528:528:696:1144:0:0:stone
+zone:528:528:696:1144:0:8:east curb of Kingsway
+tile:516:518:696:1144:0:0:concrete2
+zone:516:518:696:1144:0:8:west sidewalk of Kingsway
+tile:529:531:696:1144:0:0:concrete2
+zone:529:531:696:1144:0:8:east sidewalk of Kingsway
+tile:636:643:696:1144:0:0:concrete5
+zone:636:643:696:1144:0:8:Meridian Avenue
+tile:635:635:696:1144:0:0:stone
+zone:635:635:696:1144:0:8:west curb of Meridian Avenue
+tile:644:644:696:1144:0:0:stone
+zone:644:644:696:1144:0:8:east curb of Meridian Avenue
+tile:632:634:696:1144:0:0:concrete2
+zone:632:634:696:1144:0:8:west sidewalk of Meridian Avenue
+tile:645:647:696:1144:0:0:concrete2
+zone:645:647:696:1144:0:8:east sidewalk of Meridian Avenue
+tile:748:755:696:1144:0:0:concrete5
+zone:748:755:696:1144:0:8:Beacon Street
+tile:747:747:696:1144:0:0:stone
+zone:747:747:696:1144:0:8:west curb of Beacon Street
+tile:756:756:696:1144:0:0:stone
+zone:756:756:696:1144:0:8:east curb of Beacon Street
+tile:744:746:696:1144:0:0:concrete2
+zone:744:746:696:1144:0:8:west sidewalk of Beacon Street
+tile:757:759:696:1144:0:0:concrete2
+zone:757:759:696:1144:0:8:east sidewalk of Beacon Street
+tile:476:824:760:767:0:0:concrete5
+zone:476:824:760:767:0:8:Cathedral Row
+tile:476:824:759:759:0:0:stone
+zone:476:824:759:759:0:8:south curb of Cathedral Row
+tile:476:824:768:768:0:0:stone
+zone:476:824:768:768:0:8:north curb of Cathedral Row
+tile:476:824:756:758:0:0:concrete2
+zone:476:824:756:758:0:8:south sidewalk of Cathedral Row
+tile:476:824:769:771:0:0:concrete2
+zone:476:824:769:771:0:8:north sidewalk of Cathedral Row
+tile:476:824:896:903:0:0:concrete5
+zone:476:824:896:903:0:8:Plaza Street
+tile:476:824:895:895:0:0:stone
+zone:476:824:895:895:0:8:south curb of Plaza Street
+tile:476:824:904:904:0:0:stone
+zone:476:824:904:904:0:8:north curb of Plaza Street
+tile:476:824:892:894:0:0:concrete2
+zone:476:824:892:894:0:8:south sidewalk of Plaza Street
+tile:476:824:905:907:0:0:concrete2
+zone:476:824:905:907:0:8:north sidewalk of Plaza Street
+tile:476:824:1032:1039:0:0:concrete5
+zone:476:824:1032:1039:0:8:Northgate Road
+tile:476:824:1031:1031:0:0:stone
+zone:476:824:1031:1031:0:8:south curb of Northgate Road
+tile:476:824:1040:1040:0:0:stone
+zone:476:824:1040:1040:0:8:north curb of Northgate Road
+tile:476:824:1028:1030:0:0:concrete2
+zone:476:824:1028:1030:0:8:south sidewalk of Northgate Road
+tile:476:824:1041:1043:0:0:concrete2
+zone:476:824:1041:1043:0:8:north sidewalk of Northgate Road
+tile:520:527:760:767:0:0:concrete5
+zone:520:527:760:767:0:8:intersection of Kingsway and Cathedral Row
+tile:520:527:896:903:0:0:concrete5
+zone:520:527:896:903:0:8:intersection of Kingsway and Plaza Street
+tile:520:527:1032:1039:0:0:concrete5
+zone:520:527:1032:1039:0:8:intersection of Kingsway and Northgate Road
+tile:636:643:760:767:0:0:concrete5
+zone:636:643:760:767:0:8:intersection of Meridian Avenue and Cathedral Row
+tile:636:643:896:903:0:0:concrete5
+zone:636:643:896:903:0:8:intersection of Meridian Avenue and Plaza Street
+tile:636:643:1032:1039:0:0:concrete5
+zone:636:643:1032:1039:0:8:intersection of Meridian Avenue and Northgate Road
+tile:748:755:760:767:0:0:concrete5
+zone:748:755:760:767:0:8:intersection of Beacon Street and Cathedral Row
+tile:748:755:896:903:0:0:concrete5
+zone:748:755:896:903:0:8:intersection of Beacon Street and Plaza Street
+tile:748:755:1032:1039:0:0:concrete5
+zone:748:755:1032:1039:0:8:intersection of Beacon Street and Northgate Road
+// Meridian Plaza
+tile:580:712:916:1024:0:0:concrete12
+zone:580:712:916:1024:0:8:Meridian Plaza
+src:580:712:916:1024:0:8:calm.ogg:-8
+tile:636:656:962:982:0:0:water1
+zone:636:656:962:982:0:8:the fountain at the centre of Meridian Plaza
+src:636:656:962:982:0:8:waves2.ogg:-8
+poi:646:972:0:the Meridian Plaza fountain
+tile:596:602:930:931:0:2:hardwood
+zone:596:602:930:931:0:6:plaza bench
+zone:596:602:930:931:3:9:on top of plaza bench
+tile:596:602:1010:1011:0:2:hardwood
+zone:596:602:1010:1011:0:6:plaza bench
+zone:596:602:1010:1011:3:9:on top of plaza bench
+tile:690:696:930:931:0:2:hardwood
+zone:690:696:930:931:0:6:plaza bench
+zone:690:696:930:931:3:9:on top of plaza bench
+tile:690:696:1010:1011:0:2:hardwood
+zone:690:696:1010:1011:0:6:plaza bench
+zone:690:696:1010:1011:3:9:on top of plaza bench
+ispawn:584:708:920:1020:0:0:4000:4:health_potion:energetic_potion_blue:smoke_bomb:frag_grenade
+// First Meridian Bank
+tile:548:622:786:878:0:0:tile1
+tile:548:622:878:878:0:12:wallbrick
+tile:548:580:786:786:0:12:wallbrick
+tile:590:622:786:786:0:12:wallbrick
+tile:581:589:786:786:6:12:wallbrick
+tile:548:548:786:878:0:12:wallbrick
+tile:622:622:786:878:0:12:wallbrick
+tile:548:622:786:878:12:12:wallbrick
+tile:548:622:786:878:13:13:concrete2
+zone:548:622:786:878:13:20:roof of First Meridian Bank
+zone:547:547:786:878:0:8:First Meridian Bank west wall
+zone:623:623:786:878:0:8:First Meridian Bank east wall
+zone:548:622:785:785:0:8:First Meridian Bank south wall
+zone:548:622:879:879:0:8:First Meridian Bank north wall
+zone:581:589:786:788:0:8:First Meridian Bank entrance
+tile:584:586:879:879:0:13:ladder1
+zone:584:586:879:879:0:13:a ladder to First Meridian Bank roof
+zone:549:621:787:877:0:11:First Meridian Bank interior
+zone:549:621:787:797:0:11:the bank lobby
+tile:573:597:792:793:0:3:hardwood
+zone:573:597:792:793:0:6:First Meridian Bank service counter
+zone:573:597:792:793:4:10:on top of First Meridian Bank service counter
+tile:549:583:797:797:0:11:wallbrick
+tile:587:621:797:797:0:11:wallbrick
+tile:584:586:797:797:6:11:wallbrick
+zone:584:586:797:797:0:8:First Meridian Bank inner door
+zone:584:586:798:877:0:11:First Meridian Bank main corridor
+zone:549:582:798:823:0:11:First Meridian Bank office 101
+zone:583:583:809:811:0:8:First Meridian Bank office 101 doorway
+tile:551:556:809:811:0:3:hardwood
+zone:551:556:809:811:0:6:First Meridian Bank office 101 desk
+zone:551:556:809:811:4:10:on top of First Meridian Bank office 101 desk
+tile:553:554:812:813:0:2:hardwood
+zone:553:554:812:813:0:6:First Meridian Bank office 101 chair
+zone:553:554:812:813:3:9:on top of First Meridian Bank office 101 chair
+zone:588:621:798:823:0:11:First Meridian Bank office 102
+zone:587:587:809:811:0:8:First Meridian Bank office 102 doorway
+tile:614:619:809:811:0:3:hardwood
+zone:614:619:809:811:0:6:First Meridian Bank office 102 desk
+zone:614:619:809:811:4:10:on top of First Meridian Bank office 102 desk
+tile:616:617:812:813:0:2:hardwood
+zone:616:617:812:813:0:6:First Meridian Bank office 102 chair
+zone:616:617:812:813:3:9:on top of First Meridian Bank office 102 chair
+tile:549:582:823:823:0:11:wallbrick
+tile:588:621:823:823:0:11:wallbrick
+zone:549:582:824:849:0:11:First Meridian Bank office 103
+zone:583:583:835:837:0:8:First Meridian Bank office 103 doorway
+tile:551:556:835:837:0:3:hardwood
+zone:551:556:835:837:0:6:First Meridian Bank office 103 desk
+zone:551:556:835:837:4:10:on top of First Meridian Bank office 103 desk
+tile:553:554:838:839:0:2:hardwood
+zone:553:554:838:839:0:6:First Meridian Bank office 103 chair
+zone:553:554:838:839:3:9:on top of First Meridian Bank office 103 chair
+zone:588:621:824:849:0:11:First Meridian Bank office 104
+zone:587:587:835:837:0:8:First Meridian Bank office 104 doorway
+tile:614:619:835:837:0:3:hardwood
+zone:614:619:835:837:0:6:First Meridian Bank office 104 desk
+zone:614:619:835:837:4:10:on top of First Meridian Bank office 104 desk
+tile:616:617:838:839:0:2:hardwood
+zone:616:617:838:839:0:6:First Meridian Bank office 104 chair
+zone:616:617:838:839:3:9:on top of First Meridian Bank office 104 chair
+tile:549:582:849:849:0:11:wallbrick
+tile:588:621:849:849:0:11:wallbrick
+zone:549:582:850:877:0:11:First Meridian Bank office 105
+zone:583:583:862:864:0:8:First Meridian Bank office 105 doorway
+tile:551:556:862:864:0:3:hardwood
+zone:551:556:862:864:0:6:First Meridian Bank office 105 desk
+zone:551:556:862:864:4:10:on top of First Meridian Bank office 105 desk
+tile:553:554:865:866:0:2:hardwood
+zone:553:554:865:866:0:6:First Meridian Bank office 105 chair
+zone:553:554:865:866:3:9:on top of First Meridian Bank office 105 chair
+zone:588:621:850:877:0:11:First Meridian Bank office 106
+zone:587:587:862:864:0:8:First Meridian Bank office 106 doorway
+tile:614:619:862:864:0:3:hardwood
+zone:614:619:862:864:0:6:First Meridian Bank office 106 desk
+zone:614:619:862:864:4:10:on top of First Meridian Bank office 106 desk
+tile:616:617:865:866:0:2:hardwood
+zone:616:617:865:866:0:6:First Meridian Bank office 106 chair
+zone:616:617:865:866:3:9:on top of First Meridian Bank office 106 chair
+tile:583:583:798:808:0:11:wallbrick
+tile:583:583:812:834:0:11:wallbrick
+tile:583:583:838:861:0:11:wallbrick
+tile:583:583:865:877:0:11:wallbrick
+tile:583:583:809:811:6:11:wallbrick
+tile:583:583:835:837:6:11:wallbrick
+tile:583:583:862:864:6:11:wallbrick
+tile:587:587:798:808:0:11:wallbrick
+tile:587:587:812:834:0:11:wallbrick
+tile:587:587:838:861:0:11:wallbrick
+tile:587:587:865:877:0:11:wallbrick
+tile:587:587:809:811:6:11:wallbrick
+tile:587:587:835:837:6:11:wallbrick
+tile:587:587:862:864:6:11:wallbrick
+ispawn:552:618:790:800:0:0:5000:3:health_potion:frag_grenade:smoke_bomb:bunker_key
+// Meridian City Hall
+tile:662:736:786:880:0:0:hardwood
+tile:662:736:880:880:0:12:wallstone
+tile:662:694:786:786:0:12:wallstone
+tile:704:736:786:786:0:12:wallstone
+tile:695:703:786:786:6:12:wallstone
+tile:662:662:786:880:0:12:wallstone
+tile:736:736:786:880:0:12:wallstone
+tile:662:736:786:880:12:12:wallstone
+tile:662:736:786:880:13:13:concrete2
+zone:662:736:786:880:13:20:roof of Meridian City Hall
+zone:661:661:786:880:0:8:Meridian City Hall west wall
+zone:737:737:786:880:0:8:Meridian City Hall east wall
+zone:662:736:785:785:0:8:Meridian City Hall south wall
+zone:662:736:881:881:0:8:Meridian City Hall north wall
+zone:695:703:786:788:0:8:Meridian City Hall entrance
+zone:663:735:787:879:0:11:Meridian City Hall interior
+zone:663:735:787:797:0:11:the city hall rotunda
+tile:663:697:797:797:0:11:wallstone
+tile:701:735:797:797:0:11:wallstone
+tile:698:700:797:797:6:11:wallstone
+zone:698:700:797:797:0:8:Meridian City Hall inner door
+zone:698:700:798:879:0:11:Meridian City Hall main corridor
+zone:663:696:798:824:0:11:Meridian City Hall office 101
+zone:697:697:810:812:0:8:Meridian City Hall office 101 doorway
+tile:665:670:810:812:0:3:hardwood
+zone:665:670:810:812:0:6:Meridian City Hall office 101 desk
+zone:665:670:810:812:4:10:on top of Meridian City Hall office 101 desk
+tile:667:668:813:814:0:2:hardwood
+zone:667:668:813:814:0:6:Meridian City Hall office 101 chair
+zone:667:668:813:814:3:9:on top of Meridian City Hall office 101 chair
+zone:702:735:798:824:0:11:Meridian City Hall office 102
+zone:701:701:810:812:0:8:Meridian City Hall office 102 doorway
+tile:728:733:810:812:0:3:hardwood
+zone:728:733:810:812:0:6:Meridian City Hall office 102 desk
+zone:728:733:810:812:4:10:on top of Meridian City Hall office 102 desk
+tile:730:731:813:814:0:2:hardwood
+zone:730:731:813:814:0:6:Meridian City Hall office 102 chair
+zone:730:731:813:814:3:9:on top of Meridian City Hall office 102 chair
+tile:663:696:824:824:0:11:wallstone
+tile:702:735:824:824:0:11:wallstone
+zone:663:696:825:851:0:11:Meridian City Hall office 103
+zone:697:697:837:839:0:8:Meridian City Hall office 103 doorway
+tile:665:670:837:839:0:3:hardwood
+zone:665:670:837:839:0:6:Meridian City Hall office 103 desk
+zone:665:670:837:839:4:10:on top of Meridian City Hall office 103 desk
+tile:667:668:840:841:0:2:hardwood
+zone:667:668:840:841:0:6:Meridian City Hall office 103 chair
+zone:667:668:840:841:3:9:on top of Meridian City Hall office 103 chair
+zone:702:735:825:851:0:11:Meridian City Hall office 104
+zone:701:701:837:839:0:8:Meridian City Hall office 104 doorway
+tile:728:733:837:839:0:3:hardwood
+zone:728:733:837:839:0:6:Meridian City Hall office 104 desk
+zone:728:733:837:839:4:10:on top of Meridian City Hall office 104 desk
+tile:730:731:840:841:0:2:hardwood
+zone:730:731:840:841:0:6:Meridian City Hall office 104 chair
+zone:730:731:840:841:3:9:on top of Meridian City Hall office 104 chair
+tile:663:696:851:851:0:11:wallstone
+tile:702:735:851:851:0:11:wallstone
+zone:663:696:852:879:0:11:Meridian City Hall office 105
+zone:697:697:864:866:0:8:Meridian City Hall office 105 doorway
+tile:665:670:864:866:0:3:hardwood
+zone:665:670:864:866:0:6:Meridian City Hall office 105 desk
+zone:665:670:864:866:4:10:on top of Meridian City Hall office 105 desk
+tile:667:668:867:868:0:2:hardwood
+zone:667:668:867:868:0:6:Meridian City Hall office 105 chair
+zone:667:668:867:868:3:9:on top of Meridian City Hall office 105 chair
+zone:702:735:852:879:0:11:Meridian City Hall office 106
+zone:701:701:864:866:0:8:Meridian City Hall office 106 doorway
+tile:728:733:864:866:0:3:hardwood
+zone:728:733:864:866:0:6:Meridian City Hall office 106 desk
+zone:728:733:864:866:4:10:on top of Meridian City Hall office 106 desk
+tile:730:731:867:868:0:2:hardwood
+zone:730:731:867:868:0:6:Meridian City Hall office 106 chair
+zone:730:731:867:868:3:9:on top of Meridian City Hall office 106 chair
+tile:697:697:798:809:0:11:wallstone
+tile:697:697:813:836:0:11:wallstone
+tile:697:697:840:863:0:11:wallstone
+tile:697:697:867:879:0:11:wallstone
+tile:697:697:810:812:6:11:wallstone
+tile:697:697:837:839:6:11:wallstone
+tile:697:697:864:866:6:11:wallstone
+tile:701:701:798:809:0:11:wallstone
+tile:701:701:813:836:0:11:wallstone
+tile:701:701:840:863:0:11:wallstone
+tile:701:701:867:879:0:11:wallstone
+tile:701:701:810:812:6:11:wallstone
+tile:701:701:837:839:6:11:wallstone
+tile:701:701:864:866:6:11:wallstone
+poi:699:786:0:Meridian City Hall
+// Meridian Cathedral
+tile:486:512:712:748:0:0:tile2
+tile:486:495:748:748:0:20:wallstone
+tile:503:512:748:748:0:20:wallstone
+tile:496:502:748:748:6:20:wallstone
+tile:486:512:712:712:0:20:wallstone
+tile:486:486:712:748:0:20:wallstone
+tile:512:512:712:748:0:20:wallstone
+tile:486:512:712:748:20:20:wallstone
+tile:486:512:712:748:21:21:concrete2
+zone:486:512:712:748:21:28:roof of Meridian Cathedral
+zone:485:485:712:748:0:8:Meridian Cathedral west wall
+zone:513:513:712:748:0:8:Meridian Cathedral east wall
+zone:486:512:711:711:0:8:Meridian Cathedral south wall
+zone:486:512:749:749:0:8:Meridian Cathedral north wall
+zone:496:502:746:748:0:8:Meridian Cathedral entrance
+zone:487:511:713:747:0:11:the cathedral nave
+zone:487:511:713:739:0:11:the cathedral nave
+tile:488:491:716:717:0:2:hardwood
+zone:488:491:716:717:0:6:cathedral pew
+zone:488:491:716:717:3:9:on top of cathedral pew
+tile:507:510:716:717:0:2:hardwood
+zone:507:510:716:717:0:6:cathedral pew
+zone:507:510:716:717:3:9:on top of cathedral pew
+tile:488:491:721:722:0:2:hardwood
+zone:488:491:721:722:0:6:cathedral pew
+zone:488:491:721:722:3:9:on top of cathedral pew
+tile:507:510:721:722:0:2:hardwood
+zone:507:510:721:722:0:6:cathedral pew
+zone:507:510:721:722:3:9:on top of cathedral pew
+tile:488:491:726:727:0:2:hardwood
+zone:488:491:726:727:0:6:cathedral pew
+zone:488:491:726:727:3:9:on top of cathedral pew
+tile:507:510:726:727:0:2:hardwood
+zone:507:510:726:727:0:6:cathedral pew
+zone:507:510:726:727:3:9:on top of cathedral pew
+tile:488:491:731:732:0:2:hardwood
+zone:488:491:731:732:0:6:cathedral pew
+zone:488:491:731:732:3:9:on top of cathedral pew
+tile:507:510:731:732:0:2:hardwood
+zone:507:510:731:732:0:6:cathedral pew
+zone:507:510:731:732:3:9:on top of cathedral pew
+tile:488:491:736:737:0:2:hardwood
+zone:488:491:736:737:0:6:cathedral pew
+zone:488:491:736:737:3:9:on top of cathedral pew
+tile:507:510:736:737:0:2:hardwood
+zone:507:510:736:737:0:6:cathedral pew
+zone:507:510:736:737:3:9:on top of cathedral pew
+tile:487:497:739:739:0:11:wallstone
+tile:501:511:739:739:0:11:wallstone
+tile:498:500:739:739:6:11:wallstone
+zone:498:500:739:739:0:8:cathedral chancel doorway
+zone:487:511:740:747:0:11:the cathedral chancel
+tile:490:508:744:745:0:3:hardwood
+zone:490:508:744:745:0:6:the cathedral altar
+zone:490:508:744:745:4:10:on top of the cathedral altar
+src:487:511:713:747:0:20:calm.ogg:-10
+// Northside Apartments
+tile:486:560:928:1020:0:0:carpet1
+tile:486:560:1020:1020:0:12:wallbrick
+tile:486:518:928:928:0:12:wallbrick
+tile:528:560:928:928:0:12:wallbrick
+tile:519:527:928:928:6:12:wallbrick
+tile:486:486:928:1020:0:12:wallbrick
+tile:560:560:928:1020:0:12:wallbrick
+tile:486:560:928:1020:12:12:wallbrick
+tile:486:560:928:1020:13:13:concrete2
+zone:486:560:928:1020:13:20:roof of Northside Apartments
+zone:485:485:928:1020:0:8:Northside Apartments west wall
+zone:561:561:928:1020:0:8:Northside Apartments east wall
+zone:486:560:927:927:0:8:Northside Apartments south wall
+zone:486:560:1021:1021:0:8:Northside Apartments north wall
+zone:519:527:928:930:0:8:Northside Apartments entrance
+tile:485:485:973:975:0:13:ladder1
+zone:485:485:973:975:0:13:a ladder to Northside Apartments roof
+zone:487:559:929:1019:0:11:Northside Apartments interior
+zone:487:559:929:939:0:11:the apartment lobby
+tile:487:521:939:939:0:11:wallbrick
+tile:525:559:939:939:0:11:wallbrick
+tile:522:524:939:939:6:11:wallbrick
+zone:522:524:939:939:0:8:Northside Apartments inner door
+zone:522:524:940:1019:0:11:Northside Apartments main corridor
+zone:487:520:940:965:0:11:Northside Apartments office 1
+zone:521:521:951:953:0:8:Northside Apartments office 1 doorway
+tile:489:494:951:953:0:3:hardwood
+zone:489:494:951:953:0:6:Northside Apartments office 1 desk
+zone:489:494:951:953:4:10:on top of Northside Apartments office 1 desk
+tile:491:492:954:955:0:2:hardwood
+zone:491:492:954:955:0:6:Northside Apartments office 1 chair
+zone:491:492:954:955:3:9:on top of Northside Apartments office 1 chair
+zone:526:559:940:965:0:11:Northside Apartments office 2
+zone:525:525:951:953:0:8:Northside Apartments office 2 doorway
+tile:552:557:951:953:0:3:hardwood
+zone:552:557:951:953:0:6:Northside Apartments office 2 desk
+zone:552:557:951:953:4:10:on top of Northside Apartments office 2 desk
+tile:554:555:954:955:0:2:hardwood
+zone:554:555:954:955:0:6:Northside Apartments office 2 chair
+zone:554:555:954:955:3:9:on top of Northside Apartments office 2 chair
+tile:487:520:965:965:0:11:wallbrick
+tile:526:559:965:965:0:11:wallbrick
+zone:487:520:966:991:0:11:Northside Apartments office 3
+zone:521:521:977:979:0:8:Northside Apartments office 3 doorway
+tile:489:494:977:979:0:3:hardwood
+zone:489:494:977:979:0:6:Northside Apartments office 3 desk
+zone:489:494:977:979:4:10:on top of Northside Apartments office 3 desk
+tile:491:492:980:981:0:2:hardwood
+zone:491:492:980:981:0:6:Northside Apartments office 3 chair
+zone:491:492:980:981:3:9:on top of Northside Apartments office 3 chair
+zone:526:559:966:991:0:11:Northside Apartments office 4
+zone:525:525:977:979:0:8:Northside Apartments office 4 doorway
+tile:552:557:977:979:0:3:hardwood
+zone:552:557:977:979:0:6:Northside Apartments office 4 desk
+zone:552:557:977:979:4:10:on top of Northside Apartments office 4 desk
+tile:554:555:980:981:0:2:hardwood
+zone:554:555:980:981:0:6:Northside Apartments office 4 chair
+zone:554:555:980:981:3:9:on top of Northside Apartments office 4 chair
+tile:487:520:991:991:0:11:wallbrick
+tile:526:559:991:991:0:11:wallbrick
+zone:487:520:992:1019:0:11:Northside Apartments office 5
+zone:521:521:1004:1006:0:8:Northside Apartments office 5 doorway
+tile:489:494:1004:1006:0:3:hardwood
+zone:489:494:1004:1006:0:6:Northside Apartments office 5 desk
+zone:489:494:1004:1006:4:10:on top of Northside Apartments office 5 desk
+tile:491:492:1007:1008:0:2:hardwood
+zone:491:492:1007:1008:0:6:Northside Apartments office 5 chair
+zone:491:492:1007:1008:3:9:on top of Northside Apartments office 5 chair
+zone:526:559:992:1019:0:11:Northside Apartments office 6
+zone:525:525:1004:1006:0:8:Northside Apartments office 6 doorway
+tile:552:557:1004:1006:0:3:hardwood
+zone:552:557:1004:1006:0:6:Northside Apartments office 6 desk
+zone:552:557:1004:1006:4:10:on top of Northside Apartments office 6 desk
+tile:554:555:1007:1008:0:2:hardwood
+zone:554:555:1007:1008:0:6:Northside Apartments office 6 chair
+zone:554:555:1007:1008:3:9:on top of Northside Apartments office 6 chair
+tile:521:521:940:950:0:11:wallbrick
+tile:521:521:954:976:0:11:wallbrick
+tile:521:521:980:1003:0:11:wallbrick
+tile:521:521:1007:1019:0:11:wallbrick
+tile:521:521:951:953:6:11:wallbrick
+tile:521:521:977:979:6:11:wallbrick
+tile:521:521:1004:1006:6:11:wallbrick
+tile:525:525:940:950:0:11:wallbrick
+tile:525:525:954:976:0:11:wallbrick
+tile:525:525:980:1003:0:11:wallbrick
+tile:525:525:1007:1019:0:11:wallbrick
+tile:525:525:951:953:6:11:wallbrick
+tile:525:525:977:979:6:11:wallbrick
+tile:525:525:1004:1006:6:11:wallbrick
+// Meridian Library
+tile:726:800:928:1010:0:0:hardwood2
+tile:726:800:1010:1010:0:12:wallbrick
+tile:726:800:928:928:0:12:wallbrick
+tile:726:726:928:961:0:12:wallbrick
+tile:726:726:971:1010:0:12:wallbrick
+tile:726:726:962:970:6:12:wallbrick
+tile:800:800:928:1010:0:12:wallbrick
+tile:726:800:928:1010:12:12:wallbrick
+tile:726:800:928:1010:13:13:concrete2
+zone:726:800:928:1010:13:20:roof of Meridian Library
+zone:725:725:928:1010:0:8:Meridian Library west wall
+zone:801:801:928:1010:0:8:Meridian Library east wall
+zone:726:800:927:927:0:8:Meridian Library south wall
+zone:726:800:1011:1011:0:8:Meridian Library north wall
+zone:726:728:962:970:0:8:Meridian Library entrance
+zone:727:799:929:1009:0:11:the library reading room
+zone:727:799:929:1009:0:11:the library reading room
+tile:730:734:932:1006:0:3:hardwood
+zone:730:734:932:1006:0:6:library bookshelves
+zone:730:734:932:1006:4:10:on top of library bookshelves
+tile:739:743:932:1006:0:3:hardwood
+zone:739:743:932:1006:0:6:library bookshelves
+zone:739:743:932:1006:4:10:on top of library bookshelves
+tile:748:752:932:1006:0:3:hardwood
+zone:748:752:932:1006:0:6:library bookshelves
+zone:748:752:932:1006:4:10:on top of library bookshelves
+tile:757:761:932:1006:0:3:hardwood
+zone:757:761:932:1006:0:6:library bookshelves
+zone:757:761:932:1006:4:10:on top of library bookshelves
+tile:766:770:932:1006:0:3:hardwood
+zone:766:770:932:1006:0:6:library bookshelves
+zone:766:770:932:1006:4:10:on top of library bookshelves
+tile:775:779:932:1006:0:3:hardwood
+zone:775:779:932:1006:0:6:library bookshelves
+zone:775:779:932:1006:4:10:on top of library bookshelves
+tile:784:788:932:1006:0:3:hardwood
+zone:784:788:932:1006:0:6:library bookshelves
+zone:784:788:932:1006:4:10:on top of library bookshelves
+tile:793:797:932:1006:0:3:hardwood
+zone:793:797:932:1006:0:6:library bookshelves
+zone:793:797:932:1006:4:10:on top of library bookshelves
+tile:729:735:1006:1007:0:3:hardwood
+zone:729:735:1006:1007:0:6:the library front desk
+zone:729:735:1006:1007:4:10:on top of the library front desk
+ispawn:729:797:931:1007:0:0:6000:2:health_potion:energetic_potion_green
+// Cathedral Row shops
+tile:545:605:700:748:0:0:tile2
+tile:545:571:748:748:0:12:wallbrick
+tile:579:605:748:748:0:12:wallbrick
+tile:572:578:748:748:6:12:wallbrick
+tile:545:605:700:700:0:12:wallbrick
+tile:545:545:700:748:0:12:wallbrick
+tile:605:605:700:748:0:12:wallbrick
+tile:545:605:700:748:12:12:wallbrick
+tile:545:605:700:748:13:13:concrete2
+zone:545:605:700:748:13:20:roof of Meridian Pharmacy
+zone:544:544:700:748:0:8:Meridian Pharmacy west wall
+zone:606:606:700:748:0:8:Meridian Pharmacy east wall
+zone:545:605:699:699:0:8:Meridian Pharmacy south wall
+zone:545:605:749:749:0:8:Meridian Pharmacy north wall
+zone:572:578:746:748:0:8:Meridian Pharmacy entrance
+zone:546:604:701:747:0:11:Meridian Pharmacy interior
+zone:546:604:701:731:0:11:Meridian Pharmacy sales floor
+tile:548:598:716:717:0:3:hardwood
+zone:548:598:716:717:0:6:Meridian Pharmacy counter
+zone:548:598:716:717:4:10:on top of Meridian Pharmacy counter
+tile:547:549:703:730:0:3:hardwood
+zone:547:549:703:730:0:6:Meridian Pharmacy pharmacy shelves
+zone:547:549:703:730:4:10:on top of Meridian Pharmacy pharmacy shelves
+tile:601:603:703:730:0:3:hardwood
+zone:601:603:703:730:0:6:Meridian Pharmacy pharmacy shelves
+zone:601:603:703:730:4:10:on top of Meridian Pharmacy pharmacy shelves
+tile:546:573:732:732:0:11:wallbrick
+tile:577:604:732:732:0:11:wallbrick
+tile:574:576:732:732:6:11:wallbrick
+zone:574:576:732:732:0:8:Meridian Pharmacy stockroom door
+zone:546:604:733:747:0:11:Meridian Pharmacy stockroom
+tile:547:549:734:746:0:3:hardwood
+zone:547:549:734:746:0:6:Meridian Pharmacy stock shelves
+zone:547:549:734:746:4:10:on top of Meridian Pharmacy stock shelves
+tile:662:730:700:748:0:0:tile1
+tile:662:692:748:748:0:12:wallbrick
+tile:700:730:748:748:0:12:wallbrick
+tile:693:699:748:748:6:12:wallbrick
+tile:662:730:700:700:0:12:wallbrick
+tile:662:662:700:748:0:12:wallbrick
+tile:730:730:700:748:0:12:wallbrick
+tile:662:730:700:748:12:12:wallbrick
+tile:662:730:700:748:13:13:concrete2
+zone:662:730:700:748:13:20:roof of Beacon Grocery
+zone:661:661:700:748:0:8:Beacon Grocery west wall
+zone:731:731:700:748:0:8:Beacon Grocery east wall
+zone:662:730:699:699:0:8:Beacon Grocery south wall
+zone:662:730:749:749:0:8:Beacon Grocery north wall
+zone:693:699:746:748:0:8:Beacon Grocery entrance
+zone:663:729:701:747:0:11:Beacon Grocery interior
+zone:663:729:701:731:0:11:Beacon Grocery sales floor
+tile:665:723:716:717:0:3:hardwood
+zone:665:723:716:717:0:6:Beacon Grocery counter
+zone:665:723:716:717:4:10:on top of Beacon Grocery counter
+tile:664:666:703:730:0:3:hardwood
+zone:664:666:703:730:0:6:Beacon Grocery grocery shelves
+zone:664:666:703:730:4:10:on top of Beacon Grocery grocery shelves
+tile:726:728:703:730:0:3:hardwood
+zone:726:728:703:730:0:6:Beacon Grocery grocery shelves
+zone:726:728:703:730:4:10:on top of Beacon Grocery grocery shelves
+tile:663:694:732:732:0:11:wallbrick
+tile:698:729:732:732:0:11:wallbrick
+tile:695:697:732:732:6:11:wallbrick
+zone:695:697:732:732:0:8:Beacon Grocery stockroom door
+zone:663:729:733:747:0:11:Beacon Grocery stockroom
+tile:664:666:734:746:0:3:hardwood
+zone:664:666:734:746:0:6:Beacon Grocery stock shelves
+zone:664:666:734:746:4:10:on top of Beacon Grocery stock shelves
+tile:766:820:700:750:0:0:concrete10
+tile:766:820:750:750:0:12:wallbrick
+tile:766:820:700:700:0:12:wallbrick
+tile:766:766:700:721:0:12:wallbrick
+tile:766:766:729:750:0:12:wallbrick
+tile:766:766:722:728:6:12:wallbrick
+tile:820:820:700:750:0:12:wallbrick
+tile:766:820:700:750:12:12:wallbrick
+tile:766:820:700:750:13:13:concrete2
+zone:766:820:700:750:13:20:roof of Northgate Hardware
+zone:765:765:700:750:0:8:Northgate Hardware west wall
+zone:821:821:700:750:0:8:Northgate Hardware east wall
+zone:766:820:699:699:0:8:Northgate Hardware south wall
+zone:766:820:751:751:0:8:Northgate Hardware north wall
+zone:766:768:722:728:0:8:Northgate Hardware entrance
+zone:767:819:701:749:0:11:Northgate Hardware interior
+zone:767:819:701:732:0:11:Northgate Hardware sales floor
+tile:769:813:717:718:0:3:hardwood
+zone:769:813:717:718:0:6:Northgate Hardware counter
+zone:769:813:717:718:4:10:on top of Northgate Hardware counter
+tile:768:770:703:731:0:3:hardwood
+zone:768:770:703:731:0:6:Northgate Hardware tool racks
+zone:768:770:703:731:4:10:on top of Northgate Hardware tool racks
+tile:816:818:703:731:0:3:hardwood
+zone:816:818:703:731:0:6:Northgate Hardware tool racks
+zone:816:818:703:731:4:10:on top of Northgate Hardware tool racks
+tile:767:791:733:733:0:11:wallbrick
+tile:795:819:733:733:0:11:wallbrick
+tile:792:794:733:733:6:11:wallbrick
+zone:792:794:733:733:0:8:Northgate Hardware stockroom door
+zone:767:819:734:749:0:11:Northgate Hardware stockroom
+tile:768:770:735:748:0:3:hardwood
+zone:768:770:735:748:0:6:Northgate Hardware stock shelves
+zone:768:770:735:748:4:10:on top of Northgate Hardware stock shelves
+src:476:824:690:1150:0:8:wind1.ogg:-14
 
-// --- City Hall (north side of plaza) ---
-tile:475:525:460:478:0:0:hardwood
-tile:475:475:460:478:0:30:wallbrick
-tile:525:525:460:478:0:30:wallbrick
-tile:475:525:460:460:0:30:wallbrick
-tile:475:525:478:478:0:30:wallbrick
-tile:475:525:460:478:30:30:wallbrick
-tile:475:525:460:478:31:31:concrete2
-zone:475:525:460:478:0:30:city hall
-zone:475:525:460:478:31:50:roof of city hall
-src:476:524:461:477:0:30:calm.ogg:-10
-// City hall entrance (gap in south wall)
-tile:495:505:478:478:6:30:wallbrick
+// ============================================================
+// SOUTH MERIDIAN - streets, alleys, cul-de-sacs and houses
+// ============================================================
+tile:512:519:156:606:0:0:concrete5
+zone:512:519:156:606:0:8:Harlow Street
+tile:511:511:156:606:0:0:stone
+zone:511:511:156:606:0:8:west curb of Harlow Street
+tile:520:520:156:606:0:0:stone
+zone:520:520:156:606:0:8:east curb of Harlow Street
+tile:508:510:156:606:0:0:concrete2
+zone:508:510:156:606:0:8:west sidewalk of Harlow Street
+tile:521:523:156:606:0:0:concrete2
+zone:521:523:156:606:0:8:east sidewalk of Harlow Street
+tile:636:643:156:606:0:0:concrete5
+zone:636:643:156:606:0:8:Sutton Street
+tile:635:635:156:606:0:0:stone
+zone:635:635:156:606:0:8:west curb of Sutton Street
+tile:644:644:156:606:0:0:stone
+zone:644:644:156:606:0:8:east curb of Sutton Street
+tile:632:634:156:606:0:0:concrete2
+zone:632:634:156:606:0:8:west sidewalk of Sutton Street
+tile:645:647:156:606:0:0:concrete2
+zone:645:647:156:606:0:8:east sidewalk of Sutton Street
+tile:752:759:156:606:0:0:concrete5
+zone:752:759:156:606:0:8:Marsh Lane
+tile:751:751:156:606:0:0:stone
+zone:751:751:156:606:0:8:west curb of Marsh Lane
+tile:760:760:156:606:0:0:stone
+zone:760:760:156:606:0:8:east curb of Marsh Lane
+tile:748:750:156:606:0:0:concrete2
+zone:748:750:156:606:0:8:west sidewalk of Marsh Lane
+tile:761:763:156:606:0:0:concrete2
+zone:761:763:156:606:0:8:east sidewalk of Marsh Lane
+tile:476:824:300:307:0:0:concrete5
+zone:476:824:300:307:0:8:Foundry Street
+tile:476:824:299:299:0:0:stone
+zone:476:824:299:299:0:8:south curb of Foundry Street
+tile:476:824:308:308:0:0:stone
+zone:476:824:308:308:0:8:north curb of Foundry Street
+tile:476:824:296:298:0:0:concrete2
+zone:476:824:296:298:0:8:south sidewalk of Foundry Street
+tile:476:824:309:311:0:0:concrete2
+zone:476:824:309:311:0:8:north sidewalk of Foundry Street
+tile:476:824:452:459:0:0:concrete5
+zone:476:824:452:459:0:8:Elm Road
+tile:476:824:451:451:0:0:stone
+zone:476:824:451:451:0:8:south curb of Elm Road
+tile:476:824:460:460:0:0:stone
+zone:476:824:460:460:0:8:north curb of Elm Road
+tile:476:824:448:450:0:0:concrete2
+zone:476:824:448:450:0:8:south sidewalk of Elm Road
+tile:476:824:461:463:0:0:concrete2
+zone:476:824:461:463:0:8:north sidewalk of Elm Road
+tile:512:519:300:307:0:0:concrete5
+zone:512:519:300:307:0:8:intersection of Harlow Street and Foundry Street
+tile:512:519:452:459:0:0:concrete5
+zone:512:519:452:459:0:8:intersection of Harlow Street and Elm Road
+tile:636:643:300:307:0:0:concrete5
+zone:636:643:300:307:0:8:intersection of Sutton Street and Foundry Street
+tile:636:643:452:459:0:0:concrete5
+zone:636:643:452:459:0:8:intersection of Sutton Street and Elm Road
+tile:752:759:300:307:0:0:concrete5
+zone:752:759:300:307:0:8:intersection of Marsh Lane and Foundry Street
+tile:752:759:452:459:0:0:concrete5
+zone:752:759:452:459:0:8:intersection of Marsh Lane and Elm Road
+// Alleyways
+tile:522:575:360:363:0:0:gravel1
+zone:522:575:360:363:0:8:Tanner's Alley
+tile:590:634:500:503:0:0:gravel1
+zone:590:634:500:503:0:8:Cinder Alley
+src:590:634:498:505:0:8:wind2.ogg:-13
+tile:762:815:250:253:0:0:gravel1
+zone:762:815:250:253:0:8:Copper Alley
+// Wren Court cul-de-sac
+tile:556:563:200:296:0:0:concrete5
+zone:556:563:200:296:0:8:Wren Court
+tile:553:555:200:296:0:0:concrete2
+zone:553:555:200:296:0:8:west sidewalk of Wren Court
+tile:564:566:200:296:0:0:concrete2
+zone:564:566:200:296:0:8:east sidewalk of Wren Court
+tile:542:577:180:199:0:0:concrete5
+zone:542:577:180:199:0:8:the turning circle at the end of Wren Court
+poi:559:200:0:Wren Court
+tile:498:534:208:258:0:0:carpet1
+tile:498:534:258:258:0:12:wallwood
+tile:498:534:208:208:0:12:wallwood
+tile:498:498:208:258:0:12:wallwood
+tile:534:534:208:230:0:12:wallwood
+tile:534:534:236:258:0:12:wallwood
+tile:534:534:231:235:6:12:wallwood
+tile:498:534:208:258:12:12:wallwood
+tile:498:534:208:258:13:13:concrete2
+zone:498:534:208:258:13:20:roof of 14 Wren Court
+zone:497:497:208:258:0:8:14 Wren Court west wall
+zone:535:535:208:258:0:8:14 Wren Court east wall
+zone:498:534:207:207:0:8:14 Wren Court south wall
+zone:498:534:259:259:0:8:14 Wren Court north wall
+zone:532:534:231:235:0:8:14 Wren Court entrance
+zone:499:533:209:257:0:11:14 Wren Court interior
+zone:514:518:209:257:0:11:14 Wren Court hallway
+tile:513:513:209:211:0:11:wallwood
+tile:513:513:215:251:0:11:wallwood
+tile:513:513:255:257:0:11:wallwood
+tile:513:513:212:214:6:11:wallwood
+tile:513:513:252:254:6:11:wallwood
+zone:513:513:212:214:0:8:14 Wren Court living room doorway
+zone:513:513:252:254:0:8:14 Wren Court kitchen doorway
+tile:499:513:233:233:0:11:wallwood
+zone:499:512:209:232:0:11:14 Wren Court living room
+tile:500:504:210:212:0:2:hardwood2
+zone:500:504:210:212:0:6:14 Wren Court sofa
+zone:500:504:210:212:3:9:on top of 14 Wren Court sofa
+tile:501:504:229:231:0:2:hardwood
+zone:501:504:229:231:0:6:14 Wren Court coffee table
+zone:501:504:229:231:3:9:on top of 14 Wren Court coffee table
+zone:499:512:234:257:0:11:14 Wren Court kitchen
+tile:500:511:255:256:0:3:hardwood
+zone:500:511:255:256:0:6:14 Wren Court kitchen counter
+zone:500:511:255:256:4:10:on top of 14 Wren Court kitchen counter
+tile:519:519:209:211:0:11:wallwood
+tile:519:519:215:251:0:11:wallwood
+tile:519:519:255:257:0:11:wallwood
+tile:519:519:212:214:6:11:wallwood
+tile:519:519:252:254:6:11:wallwood
+zone:519:519:212:214:0:8:14 Wren Court bedroom doorway
+zone:519:519:252:254:0:8:14 Wren Court back room doorway
+tile:519:533:233:233:0:11:wallwood
+zone:520:533:209:232:0:11:14 Wren Court bedroom
+tile:529:532:210:213:0:2:hardwood2
+zone:529:532:210:213:0:6:14 Wren Court bed
+zone:529:532:210:213:3:9:on top of 14 Wren Court bed
+zone:520:533:234:257:0:11:14 Wren Court back bedroom
+tile:529:532:253:256:0:2:hardwood2
+zone:529:532:253:256:0:6:14 Wren Court bed
+zone:529:532:253:256:3:9:on top of 14 Wren Court bed
+tile:499:533:209:257:-14:-14:concrete10
+tile:498:498:209:257:-14:-1:wallstone
+tile:534:534:209:257:-14:-1:wallstone
+tile:499:533:208:208:-14:-1:wallstone
+tile:499:533:258:258:-14:-1:wallstone
+zone:499:533:209:257:-14:-3:14 Wren Court basement
+tile:500:501:232:234:-14:0:ladder1
+zone:500:501:232:234:-14:0:14 Wren Court basement stairs
+tile:499:499:232:234:-14:-12:wallfence
+tile:502:502:232:234:-14:-12:wallfence
+tile:536:537:210:212:-14:0:ladder1
+zone:536:537:210:212:-14:0:14 Wren Court basement bulkhead
+zone:536:537:209:209:0:8:cellar bulkhead doors
+zone:513:513:232:234:0:8:14 Wren Court cellar door
+tile:535:545:220:246:0:0:concrete10
+zone:535:545:220:246:0:8:14 Wren Court driveway
+tile:588:624:208:258:0:0:carpet1
+tile:588:624:258:258:0:24:wallwood
+tile:588:624:208:208:0:24:wallwood
+tile:588:588:208:230:0:24:wallwood
+tile:588:588:236:258:0:24:wallwood
+tile:588:588:231:235:6:24:wallwood
+tile:624:624:208:258:0:24:wallwood
+tile:588:624:208:258:24:24:wallwood
+tile:588:624:208:258:25:25:concrete2
+zone:588:624:208:258:25:32:roof of 17 Wren Court
+zone:587:587:208:258:0:8:17 Wren Court west wall
+zone:625:625:208:258:0:8:17 Wren Court east wall
+zone:588:624:207:207:0:8:17 Wren Court south wall
+zone:588:624:259:259:0:8:17 Wren Court north wall
+zone:588:590:231:235:0:8:17 Wren Court entrance
+zone:589:623:209:257:0:11:17 Wren Court interior
+zone:604:608:209:257:0:11:17 Wren Court hallway
+tile:603:603:209:211:0:11:wallwood
+tile:603:603:215:251:0:11:wallwood
+tile:603:603:255:257:0:11:wallwood
+tile:603:603:212:214:6:11:wallwood
+tile:603:603:252:254:6:11:wallwood
+zone:603:603:212:214:0:8:17 Wren Court living room doorway
+zone:603:603:252:254:0:8:17 Wren Court kitchen doorway
+tile:589:603:233:233:0:11:wallwood
+zone:589:602:209:232:0:11:17 Wren Court living room
+tile:590:594:210:212:0:2:hardwood2
+zone:590:594:210:212:0:6:17 Wren Court sofa
+zone:590:594:210:212:3:9:on top of 17 Wren Court sofa
+tile:591:594:229:231:0:2:hardwood
+zone:591:594:229:231:0:6:17 Wren Court coffee table
+zone:591:594:229:231:3:9:on top of 17 Wren Court coffee table
+zone:589:602:234:257:0:11:17 Wren Court kitchen
+tile:590:601:255:256:0:3:hardwood
+zone:590:601:255:256:0:6:17 Wren Court kitchen counter
+zone:590:601:255:256:4:10:on top of 17 Wren Court kitchen counter
+tile:609:609:209:211:0:11:wallwood
+tile:609:609:215:251:0:11:wallwood
+tile:609:609:255:257:0:11:wallwood
+tile:609:609:212:214:6:11:wallwood
+tile:609:609:252:254:6:11:wallwood
+zone:609:609:212:214:0:8:17 Wren Court bedroom doorway
+zone:609:609:252:254:0:8:17 Wren Court back room doorway
+tile:609:623:233:233:0:11:wallwood
+zone:610:623:209:232:0:11:17 Wren Court bedroom
+tile:619:622:210:213:0:2:hardwood2
+zone:619:622:210:213:0:6:17 Wren Court bed
+zone:619:622:210:213:3:9:on top of 17 Wren Court bed
+zone:610:623:234:257:0:11:17 Wren Court back bedroom
+tile:619:622:253:256:0:2:hardwood2
+zone:619:622:253:256:0:6:17 Wren Court bed
+zone:619:622:253:256:3:9:on top of 17 Wren Court bed
+tile:603:603:253:257:0:12:ladder1
+zone:603:604:253:257:0:12:17 Wren Court staircase
+tile:603:603:253:257:0:2:wallfence
+zone:603:603:253:257:0:7:17 Wren Court staircase west railing
+tile:604:604:253:257:0:2:wallfence
+zone:604:604:253:257:0:7:17 Wren Court staircase east railing
+tile:589:623:209:257:12:12:hardwood
+zone:589:623:209:257:12:23:17 Wren Court upstairs landing
+tile:577:587:220:246:0:0:concrete10
+zone:577:587:220:246:0:8:17 Wren Court driveway
+// Sparrow Close cul-de-sac
+tile:700:707:360:448:0:0:concrete5
+zone:700:707:360:448:0:8:Sparrow Close
+tile:697:699:360:448:0:0:concrete2
+zone:697:699:360:448:0:8:west sidewalk of Sparrow Close
+tile:708:710:360:448:0:0:concrete2
+zone:708:710:360:448:0:8:east sidewalk of Sparrow Close
+tile:686:721:340:359:0:0:concrete5
+zone:686:721:340:359:0:8:the turning circle at the end of Sparrow Close
+poi:703:360:0:Sparrow Close
+tile:642:678:368:418:0:0:carpet1
+tile:642:678:418:418:0:12:wallwood
+tile:642:678:368:368:0:12:wallwood
+tile:642:642:368:418:0:12:wallwood
+tile:678:678:368:390:0:12:wallwood
+tile:678:678:396:418:0:12:wallwood
+tile:678:678:391:395:6:12:wallwood
+tile:642:678:368:418:12:12:wallwood
+tile:642:678:368:418:13:13:concrete2
+zone:642:678:368:418:13:20:roof of 3 Sparrow Close
+zone:641:641:368:418:0:8:3 Sparrow Close west wall
+zone:679:679:368:418:0:8:3 Sparrow Close east wall
+zone:642:678:367:367:0:8:3 Sparrow Close south wall
+zone:642:678:419:419:0:8:3 Sparrow Close north wall
+zone:676:678:391:395:0:8:3 Sparrow Close entrance
+zone:643:677:369:417:0:11:3 Sparrow Close interior
+zone:658:662:369:417:0:11:3 Sparrow Close hallway
+tile:657:657:369:371:0:11:wallwood
+tile:657:657:375:411:0:11:wallwood
+tile:657:657:415:417:0:11:wallwood
+tile:657:657:372:374:6:11:wallwood
+tile:657:657:412:414:6:11:wallwood
+zone:657:657:372:374:0:8:3 Sparrow Close living room doorway
+zone:657:657:412:414:0:8:3 Sparrow Close kitchen doorway
+tile:643:657:393:393:0:11:wallwood
+zone:643:656:369:392:0:11:3 Sparrow Close living room
+tile:644:648:370:372:0:2:hardwood2
+zone:644:648:370:372:0:6:3 Sparrow Close sofa
+zone:644:648:370:372:3:9:on top of 3 Sparrow Close sofa
+tile:645:648:389:391:0:2:hardwood
+zone:645:648:389:391:0:6:3 Sparrow Close coffee table
+zone:645:648:389:391:3:9:on top of 3 Sparrow Close coffee table
+zone:643:656:394:417:0:11:3 Sparrow Close kitchen
+tile:644:655:415:416:0:3:hardwood
+zone:644:655:415:416:0:6:3 Sparrow Close kitchen counter
+zone:644:655:415:416:4:10:on top of 3 Sparrow Close kitchen counter
+tile:663:663:369:371:0:11:wallwood
+tile:663:663:375:411:0:11:wallwood
+tile:663:663:415:417:0:11:wallwood
+tile:663:663:372:374:6:11:wallwood
+tile:663:663:412:414:6:11:wallwood
+zone:663:663:372:374:0:8:3 Sparrow Close bedroom doorway
+zone:663:663:412:414:0:8:3 Sparrow Close back room doorway
+tile:663:677:393:393:0:11:wallwood
+zone:664:677:369:392:0:11:3 Sparrow Close bedroom
+tile:673:676:370:373:0:2:hardwood2
+zone:673:676:370:373:0:6:3 Sparrow Close bed
+zone:673:676:370:373:3:9:on top of 3 Sparrow Close bed
+zone:664:677:394:417:0:11:3 Sparrow Close back bedroom
+tile:673:676:413:416:0:2:hardwood2
+zone:673:676:413:416:0:6:3 Sparrow Close bed
+zone:673:676:413:416:3:9:on top of 3 Sparrow Close bed
+tile:660:660:414:417:0:12:ladder1
+zone:660:660:414:417:0:12:3 Sparrow Close attic ladder
+tile:643:677:369:417:12:12:plank
+zone:643:677:369:417:13:23:3 Sparrow Close attic
+tile:644:646:370:372:13:15:plank
+zone:644:646:370:372:16:22:on top of 3 Sparrow Close attic crates
+tile:679:689:380:406:0:0:concrete10
+zone:679:689:380:406:0:8:3 Sparrow Close driveway
+tile:732:768:368:418:0:0:carpet1
+tile:732:768:418:418:0:12:wallwood
+tile:732:768:368:368:0:12:wallwood
+tile:732:732:368:390:0:12:wallwood
+tile:732:732:396:418:0:12:wallwood
+tile:732:732:391:395:6:12:wallwood
+tile:768:768:368:418:0:12:wallwood
+tile:732:768:368:418:12:12:wallwood
+tile:732:768:368:418:13:13:concrete2
+zone:732:768:368:418:13:20:roof of 6 Sparrow Close
+zone:731:731:368:418:0:8:6 Sparrow Close west wall
+zone:769:769:368:418:0:8:6 Sparrow Close east wall
+zone:732:768:367:367:0:8:6 Sparrow Close south wall
+zone:732:768:419:419:0:8:6 Sparrow Close north wall
+zone:732:734:391:395:0:8:6 Sparrow Close entrance
+zone:733:767:369:417:0:11:6 Sparrow Close interior
+zone:748:752:369:417:0:11:6 Sparrow Close hallway
+tile:747:747:369:371:0:11:wallwood
+tile:747:747:375:411:0:11:wallwood
+tile:747:747:415:417:0:11:wallwood
+tile:747:747:372:374:6:11:wallwood
+tile:747:747:412:414:6:11:wallwood
+zone:747:747:372:374:0:8:6 Sparrow Close living room doorway
+zone:747:747:412:414:0:8:6 Sparrow Close kitchen doorway
+tile:733:747:393:393:0:11:wallwood
+zone:733:746:369:392:0:11:6 Sparrow Close living room
+tile:734:738:370:372:0:2:hardwood2
+zone:734:738:370:372:0:6:6 Sparrow Close sofa
+zone:734:738:370:372:3:9:on top of 6 Sparrow Close sofa
+tile:735:738:389:391:0:2:hardwood
+zone:735:738:389:391:0:6:6 Sparrow Close coffee table
+zone:735:738:389:391:3:9:on top of 6 Sparrow Close coffee table
+zone:733:746:394:417:0:11:6 Sparrow Close kitchen
+tile:734:745:415:416:0:3:hardwood
+zone:734:745:415:416:0:6:6 Sparrow Close kitchen counter
+zone:734:745:415:416:4:10:on top of 6 Sparrow Close kitchen counter
+tile:753:753:369:371:0:11:wallwood
+tile:753:753:375:411:0:11:wallwood
+tile:753:753:415:417:0:11:wallwood
+tile:753:753:372:374:6:11:wallwood
+tile:753:753:412:414:6:11:wallwood
+zone:753:753:372:374:0:8:6 Sparrow Close bedroom doorway
+zone:753:753:412:414:0:8:6 Sparrow Close back room doorway
+tile:753:767:393:393:0:11:wallwood
+zone:754:767:369:392:0:11:6 Sparrow Close bedroom
+tile:763:766:370:373:0:2:hardwood2
+zone:763:766:370:373:0:6:6 Sparrow Close bed
+zone:763:766:370:373:3:9:on top of 6 Sparrow Close bed
+zone:754:767:394:417:0:11:6 Sparrow Close back bedroom
+tile:763:766:413:416:0:2:hardwood2
+zone:763:766:413:416:0:6:6 Sparrow Close bed
+zone:763:766:413:416:3:9:on top of 6 Sparrow Close bed
+tile:733:767:369:417:-14:-14:concrete10
+tile:732:732:369:417:-14:-1:wallstone
+tile:768:768:369:417:-14:-1:wallstone
+tile:733:767:368:368:-14:-1:wallstone
+tile:733:767:418:418:-14:-1:wallstone
+zone:733:767:369:417:-14:-3:6 Sparrow Close basement
+tile:734:735:392:394:-14:0:ladder1
+zone:734:735:392:394:-14:0:6 Sparrow Close basement stairs
+tile:736:736:392:394:-14:-12:wallfence
+zone:747:747:392:394:0:8:6 Sparrow Close cellar door
+tile:721:731:380:406:0:0:concrete10
+zone:721:731:380:406:0:8:6 Sparrow Close driveway
+// Southgate Diner
+tile:545:605:322:360:0:0:tile2
+tile:545:605:360:360:0:12:wallbrick
+tile:545:569:322:322:0:12:wallbrick
+tile:579:605:322:322:0:12:wallbrick
+tile:570:578:322:322:6:12:wallbrick
+tile:545:545:322:360:0:12:wallbrick
+tile:605:605:322:360:0:12:wallbrick
+tile:545:605:322:360:12:12:wallbrick
+tile:545:605:322:360:13:13:concrete2
+zone:545:605:322:360:13:20:roof of Southgate Diner
+zone:544:544:322:360:0:8:Southgate Diner west wall
+zone:606:606:322:360:0:8:Southgate Diner east wall
+zone:545:605:321:321:0:8:Southgate Diner south wall
+zone:545:605:361:361:0:8:Southgate Diner north wall
+zone:570:578:322:324:0:8:Southgate Diner entrance
+zone:546:604:323:359:0:11:the diner floor
+zone:546:604:323:359:0:11:the diner floor
+tile:548:596:355:356:0:3:hardwood
+zone:548:596:355:356:0:6:the diner counter
+zone:548:596:355:356:4:10:on top of the diner counter
+tile:549:553:326:328:0:2:hardwood
+zone:549:553:326:328:0:6:diner booth
+zone:549:553:326:328:3:9:on top of diner booth
+tile:557:561:326:328:0:2:hardwood
+zone:557:561:326:328:0:6:diner booth
+zone:557:561:326:328:3:9:on top of diner booth
+tile:565:569:326:328:0:2:hardwood
+zone:565:569:326:328:0:6:diner booth
+zone:565:569:326:328:3:9:on top of diner booth
+tile:573:577:326:328:0:2:hardwood
+zone:573:577:326:328:0:6:diner booth
+zone:573:577:326:328:3:9:on top of diner booth
+tile:581:585:326:328:0:2:hardwood
+zone:581:585:326:328:0:6:diner booth
+zone:581:585:326:328:3:9:on top of diner booth
+tile:589:593:326:328:0:2:hardwood
+zone:589:593:326:328:0:6:diner booth
+zone:589:593:326:328:3:9:on top of diner booth
+tile:597:601:326:328:0:2:hardwood
+zone:597:601:326:328:0:6:diner booth
+zone:597:601:326:328:3:9:on top of diner booth
+ispawn:548:602:325:357:0:0:5000:2:health_potion:energetic_potion_red
+// Meridian Fire Station
+tile:662:730:322:372:0:0:concrete10
+tile:662:730:372:372:0:12:wallbrick
+tile:662:685:322:322:0:12:wallbrick
+tile:707:730:322:322:0:12:wallbrick
+tile:686:706:322:322:6:12:wallbrick
+tile:662:662:322:372:0:12:wallbrick
+tile:730:730:322:372:0:12:wallbrick
+tile:662:730:322:372:12:12:wallbrick
+tile:662:730:322:372:13:13:concrete2
+zone:662:730:322:372:13:20:roof of Meridian Fire Station
+zone:661:661:322:372:0:8:Meridian Fire Station west wall
+zone:731:731:322:372:0:8:Meridian Fire Station east wall
+zone:662:730:321:321:0:8:Meridian Fire Station south wall
+zone:662:730:373:373:0:8:Meridian Fire Station north wall
+zone:686:706:322:324:0:8:Meridian Fire Station entrance
+tile:731:731:346:348:0:13:ladder1
+zone:731:731:346:348:0:13:a ladder to Meridian Fire Station roof
+zone:663:729:323:371:0:11:the engine bay
+zone:663:729:323:357:0:11:the engine bay
+tile:663:694:357:357:0:11:wallbrick
+tile:698:729:357:357:0:11:wallbrick
+tile:695:697:357:357:6:11:wallbrick
+zone:695:697:357:357:0:8:fire station rear door
+zone:663:729:358:371:0:11:the firefighters' common room
+tile:665:671:369:370:0:3:hardwood
+zone:665:671:369:370:0:6:the common room kitchenette
+zone:665:671:369:370:4:10:on top of the common room kitchenette
+// Southbank School
+tile:545:620:476:566:0:0:tile1
+tile:545:577:566:566:0:12:wallbrick
+tile:587:620:566:566:0:12:wallbrick
+tile:578:586:566:566:6:12:wallbrick
+tile:545:620:476:476:0:12:wallbrick
+tile:545:545:476:566:0:12:wallbrick
+tile:620:620:476:566:0:12:wallbrick
+tile:545:620:476:566:12:12:wallbrick
+tile:545:620:476:566:13:13:concrete2
+zone:545:620:476:566:13:20:roof of Southbank School
+zone:544:544:476:566:0:8:Southbank School west wall
+zone:621:621:476:566:0:8:Southbank School east wall
+zone:545:620:475:475:0:8:Southbank School south wall
+zone:545:620:567:567:0:8:Southbank School north wall
+zone:578:586:564:566:0:8:Southbank School entrance
+zone:546:619:477:565:0:11:Southbank School interior
+zone:546:619:555:565:0:11:the school entrance hall
+tile:546:580:476:476:0:11:wallbrick
+tile:584:619:476:476:0:11:wallbrick
+tile:581:583:476:476:6:11:wallbrick
+zone:581:583:476:476:0:8:Southbank School inner door
+zone:581:583:477:554:0:11:Southbank School main corridor
+zone:546:579:477:502:0:11:Southbank School office 1
+zone:580:580:488:490:0:8:Southbank School office 1 doorway
+tile:548:553:488:490:0:3:hardwood
+zone:548:553:488:490:0:6:Southbank School office 1 desk
+zone:548:553:488:490:4:10:on top of Southbank School office 1 desk
+tile:550:551:491:492:0:2:hardwood
+zone:550:551:491:492:0:6:Southbank School office 1 chair
+zone:550:551:491:492:3:9:on top of Southbank School office 1 chair
+zone:585:619:477:502:0:11:Southbank School office 2
+zone:584:584:488:490:0:8:Southbank School office 2 doorway
+tile:612:617:488:490:0:3:hardwood
+zone:612:617:488:490:0:6:Southbank School office 2 desk
+zone:612:617:488:490:4:10:on top of Southbank School office 2 desk
+tile:614:615:491:492:0:2:hardwood
+zone:614:615:491:492:0:6:Southbank School office 2 chair
+zone:614:615:491:492:3:9:on top of Southbank School office 2 chair
+tile:546:579:502:502:0:11:wallbrick
+tile:585:619:502:502:0:11:wallbrick
+zone:546:579:503:528:0:11:Southbank School office 3
+zone:580:580:514:516:0:8:Southbank School office 3 doorway
+tile:548:553:514:516:0:3:hardwood
+zone:548:553:514:516:0:6:Southbank School office 3 desk
+zone:548:553:514:516:4:10:on top of Southbank School office 3 desk
+tile:550:551:517:518:0:2:hardwood
+zone:550:551:517:518:0:6:Southbank School office 3 chair
+zone:550:551:517:518:3:9:on top of Southbank School office 3 chair
+zone:585:619:503:528:0:11:Southbank School office 4
+zone:584:584:514:516:0:8:Southbank School office 4 doorway
+tile:612:617:514:516:0:3:hardwood
+zone:612:617:514:516:0:6:Southbank School office 4 desk
+zone:612:617:514:516:4:10:on top of Southbank School office 4 desk
+tile:614:615:517:518:0:2:hardwood
+zone:614:615:517:518:0:6:Southbank School office 4 chair
+zone:614:615:517:518:3:9:on top of Southbank School office 4 chair
+tile:546:579:528:528:0:11:wallbrick
+tile:585:619:528:528:0:11:wallbrick
+zone:546:579:529:554:0:11:Southbank School office 5
+zone:580:580:540:542:0:8:Southbank School office 5 doorway
+tile:548:553:540:542:0:3:hardwood
+zone:548:553:540:542:0:6:Southbank School office 5 desk
+zone:548:553:540:542:4:10:on top of Southbank School office 5 desk
+tile:550:551:543:544:0:2:hardwood
+zone:550:551:543:544:0:6:Southbank School office 5 chair
+zone:550:551:543:544:3:9:on top of Southbank School office 5 chair
+zone:585:619:529:554:0:11:Southbank School office 6
+zone:584:584:540:542:0:8:Southbank School office 6 doorway
+tile:612:617:540:542:0:3:hardwood
+zone:612:617:540:542:0:6:Southbank School office 6 desk
+zone:612:617:540:542:4:10:on top of Southbank School office 6 desk
+tile:614:615:543:544:0:2:hardwood
+zone:614:615:543:544:0:6:Southbank School office 6 chair
+zone:614:615:543:544:3:9:on top of Southbank School office 6 chair
+tile:580:580:477:487:0:11:wallbrick
+tile:580:580:491:513:0:11:wallbrick
+tile:580:580:517:539:0:11:wallbrick
+tile:580:580:543:554:0:11:wallbrick
+tile:580:580:488:490:6:11:wallbrick
+tile:580:580:514:516:6:11:wallbrick
+tile:580:580:540:542:6:11:wallbrick
+tile:584:584:477:487:0:11:wallbrick
+tile:584:584:491:513:0:11:wallbrick
+tile:584:584:517:539:0:11:wallbrick
+tile:584:584:543:554:0:11:wallbrick
+tile:584:584:488:490:6:11:wallbrick
+tile:584:584:514:516:6:11:wallbrick
+tile:584:584:540:542:6:11:wallbrick
+tile:545:620:568:588:0:0:concrete5
+zone:545:620:568:588:0:8:the Southbank School yard
+ispawn:548:616:570:586:0:0:6000:2:health_potion:empty_bucket
+src:476:824:150:610:0:8:wind1.ogg:-14
 
-// --- Market building (east side of plaza) ---
-tile:522:550:485:515:0:0:tile1
-tile:522:522:485:515:0:20:wallbrick
-tile:550:550:485:515:0:20:wallbrick
-tile:522:550:485:485:0:20:wallbrick
-tile:522:550:515:515:0:20:wallbrick
-tile:522:550:485:515:20:20:wallbrick
-tile:522:550:485:515:21:21:concrete2
-zone:522:550:485:515:0:20:the market
-zone:522:550:485:515:21:50:roof of the market
-// Market entrance
-tile:522:522:498:502:6:20:wallbrick
+// ============================================================
+// EAST MERIDIAN - main streets, minor roads and alleys
+// ============================================================
+tile:868:875:160:952:0:0:concrete5
+zone:868:875:160:952:0:8:Half-Moon Way
+tile:867:867:160:952:0:0:stone
+zone:867:867:160:952:0:8:west curb of Half-Moon Way
+tile:876:876:160:952:0:0:stone
+zone:876:876:160:952:0:8:east curb of Half-Moon Way
+tile:864:866:160:952:0:0:concrete2
+zone:864:866:160:952:0:8:west sidewalk of Half-Moon Way
+tile:877:879:160:952:0:0:concrete2
+zone:877:879:160:952:0:8:east sidewalk of Half-Moon Way
+tile:1100:1107:160:952:0:0:concrete5
+zone:1100:1107:160:952:0:8:Kensington Drive
+tile:1099:1099:160:952:0:0:stone
+zone:1099:1099:160:952:0:8:west curb of Kensington Drive
+tile:1108:1108:160:952:0:0:stone
+zone:1108:1108:160:952:0:8:east curb of Kensington Drive
+tile:1096:1098:160:952:0:0:concrete2
+zone:1096:1098:160:952:0:8:west sidewalk of Kensington Drive
+tile:1109:1111:160:952:0:0:concrete2
+zone:1109:1111:160:952:0:8:east sidewalk of Kensington Drive
+tile:836:1146:960:967:0:0:concrete5
+zone:836:1146:960:967:0:8:Albeon Way
+tile:836:1146:959:959:0:0:stone
+zone:836:1146:959:959:0:8:south curb of Albeon Way
+tile:836:1146:968:968:0:0:stone
+zone:836:1146:968:968:0:8:north curb of Albeon Way
+tile:836:1146:956:958:0:0:concrete2
+zone:836:1146:956:958:0:8:south sidewalk of Albeon Way
+tile:836:1146:969:971:0:0:concrete2
+zone:836:1146:969:971:0:8:north sidewalk of Albeon Way
+tile:884:1090:250:257:0:0:concrete5
+zone:884:1090:250:257:0:8:Darkstone Ramble
+tile:884:1090:249:249:0:0:stone
+zone:884:1090:249:249:0:8:south curb of Darkstone Ramble
+tile:884:1090:258:258:0:0:stone
+zone:884:1090:258:258:0:8:north curb of Darkstone Ramble
+tile:884:1090:247:248:0:0:concrete2
+zone:884:1090:247:248:0:8:south sidewalk of Darkstone Ramble
+tile:884:1090:259:260:0:0:concrete2
+zone:884:1090:259:260:0:8:north sidewalk of Darkstone Ramble
+tile:980:985:300:468:0:0:concrete5
+zone:980:985:300:468:0:8:Jameson Close
+tile:979:979:300:468:0:0:stone
+zone:979:979:300:468:0:8:west curb of Jameson Close
+tile:986:986:300:468:0:0:stone
+zone:986:986:300:468:0:8:east curb of Jameson Close
+tile:977:978:300:468:0:0:concrete2
+zone:977:978:300:468:0:8:west sidewalk of Jameson Close
+tile:987:988:300:468:0:0:concrete2
+zone:987:988:300:468:0:8:east sidewalk of Jameson Close
+tile:868:875:960:967:0:0:concrete5
+zone:868:875:960:967:0:8:intersection of Half-Moon Way and Albeon Way
+tile:868:875:250:257:0:0:concrete5
+zone:868:875:250:257:0:8:intersection of Half-Moon Way and Darkstone Ramble
+tile:1100:1107:960:967:0:0:concrete5
+zone:1100:1107:960:967:0:8:intersection of Kensington Drive and Albeon Way
+tile:1100:1107:250:257:0:0:concrete5
+zone:1100:1107:250:257:0:8:intersection of Kensington Drive and Darkstone Ramble
+tile:980:985:250:257:0:0:concrete5
+zone:980:985:250:257:0:8:intersection of Jameson Close and Darkstone Ramble
+// Alleys
+tile:902:978:360:363:0:0:gravel1
+zone:902:978:360:363:0:8:Gutter Lane
+tile:940:943:400:452:0:0:gravel1
+zone:940:943:400:452:0:8:Ash Alley
+src:895:985:300:440:0:8:wind2.ogg:-12
 
-// --- Armory (west side of plaza) ---
-tile:450:478:485:515:0:0:concrete10
-tile:450:450:485:515:0:20:wallbrick
-tile:478:478:485:515:0:20:wallbrick
-tile:450:478:485:485:0:20:wallbrick
-tile:450:478:515:515:0:20:wallbrick
-tile:450:478:485:515:20:20:wallbrick
-tile:450:478:485:515:21:21:metal2
-zone:450:478:485:515:0:20:the armory
-zone:450:478:485:515:21:50:roof of the armory
-// Armory entrance
-tile:478:478:498:502:6:20:wallbrick
-ispawn:451:477:486:514:0:0:3000:3:frag_grenade:semtex_pack:smoke_bomb:bomb_vest:bunker_key
+// ============================================================
+// MERIDIAN INTERNATIONAL AIRPORT (off Albeon Way)
+// ============================================================
+// Airport terminal building
+tile:898:1082:980:1076:0:0:tile1
+tile:898:1082:1076:1076:0:18:wallbrick
+tile:898:977:980:980:0:18:wallbrick
+tile:985:995:980:980:0:18:wallbrick
+tile:1003:1082:980:980:0:18:wallbrick
+tile:978:984:980:980:6:18:wallbrick
+tile:996:1002:980:980:6:18:wallbrick
+tile:898:898:980:1076:0:18:wallbrick
+tile:1082:1082:980:1076:0:18:wallbrick
+tile:898:1082:980:1076:18:18:wallbrick
+tile:898:1082:980:1076:19:19:concrete2
+zone:898:1082:980:1076:19:26:roof of Meridian International Airport
+zone:897:897:980:1076:0:8:Meridian International Airport west wall
+zone:1083:1083:980:1076:0:8:Meridian International Airport east wall
+zone:898:1082:979:979:0:8:Meridian International Airport south wall
+zone:898:1082:1077:1077:0:8:Meridian International Airport north wall
+zone:978:984:980:982:0:8:Meridian International Airport entrance
+zone:996:1002:980:982:0:8:Meridian International Airport entrance
+zone:899:1081:981:1075:0:11:the terminal concourse
+zone:899:1081:981:1005:0:11:the airport check-in hall
+tile:905:917:987:988:0:3:hardwood
+zone:905:917:987:988:0:6:an airport check-in desk
+zone:905:917:987:988:4:10:on top of an airport check-in desk
+tile:925:937:987:988:0:3:hardwood
+zone:925:937:987:988:0:6:an airport check-in desk
+zone:925:937:987:988:4:10:on top of an airport check-in desk
+tile:945:957:987:988:0:3:hardwood
+zone:945:957:987:988:0:6:an airport check-in desk
+zone:945:957:987:988:4:10:on top of an airport check-in desk
+tile:965:977:987:988:0:3:hardwood
+zone:965:977:987:988:0:6:an airport check-in desk
+zone:965:977:987:988:4:10:on top of an airport check-in desk
+tile:985:997:987:988:0:3:hardwood
+zone:985:997:987:988:0:6:an airport check-in desk
+zone:985:997:987:988:4:10:on top of an airport check-in desk
+tile:1005:1017:987:988:0:3:hardwood
+zone:1005:1017:987:988:0:6:an airport check-in desk
+zone:1005:1017:987:988:4:10:on top of an airport check-in desk
+tile:1025:1037:987:988:0:3:hardwood
+zone:1025:1037:987:988:0:6:an airport check-in desk
+zone:1025:1037:987:988:4:10:on top of an airport check-in desk
+tile:1045:1057:987:988:0:3:hardwood
+zone:1045:1057:987:988:0:6:an airport check-in desk
+zone:1045:1057:987:988:4:10:on top of an airport check-in desk
+tile:1065:1077:987:988:0:3:hardwood
+zone:1065:1077:987:988:0:6:an airport check-in desk
+zone:1065:1077:987:988:4:10:on top of an airport check-in desk
+zone:984:985:981:982:0:8:Meridian International Airport north door
+tile:899:986:1005:1005:0:11:wallbrick
+tile:994:1081:1005:1005:0:11:wallbrick
+tile:987:993:1005:1005:6:11:wallbrick
+zone:987:993:1005:1005:0:8:the airport security checkpoint
+zone:899:1081:1006:1075:0:11:the departures concourse
+tile:902:911:1010:1020:0:3:metal2
+zone:902:911:1010:1020:0:6:the baggage claim carousel
+zone:902:911:1010:1020:4:10:on top of the baggage claim carousel
+tile:899:910:1055:1055:0:11:wallbrick
+tile:915:953:1055:1055:0:11:wallbrick
+tile:958:1022:1055:1055:0:11:wallbrick
+tile:1027:1065:1055:1055:0:11:wallbrick
+tile:1070:1081:1055:1055:0:11:wallbrick
+tile:911:914:1055:1055:6:11:wallbrick
+tile:954:957:1055:1055:6:11:wallbrick
+tile:1023:1026:1055:1055:6:11:wallbrick
+tile:1066:1069:1055:1055:6:11:wallbrick
+tile:941:941:1056:1075:0:11:wallbrick
+tile:990:990:1056:1075:0:11:wallbrick
+tile:1039:1039:1056:1075:0:11:wallbrick
+zone:900:939:1056:1075:0:11:the airport Gate A1 lounge
+zone:911:914:1055:1055:0:8:the airport Gate A1 doorway
+tile:902:905:1072:1073:0:2:hardwood
+zone:902:905:1072:1073:0:6:Gate A1 seating
+zone:902:905:1072:1073:3:9:on top of Gate A1 seating
+tile:908:911:1072:1073:0:2:hardwood
+zone:908:911:1072:1073:0:6:Gate A1 seating
+zone:908:911:1072:1073:3:9:on top of Gate A1 seating
+tile:914:917:1072:1073:0:2:hardwood
+zone:914:917:1072:1073:0:6:Gate A1 seating
+zone:914:917:1072:1073:3:9:on top of Gate A1 seating
+tile:920:923:1072:1073:0:2:hardwood
+zone:920:923:1072:1073:0:6:Gate A1 seating
+zone:920:923:1072:1073:3:9:on top of Gate A1 seating
+tile:926:929:1072:1073:0:2:hardwood
+zone:926:929:1072:1073:0:6:Gate A1 seating
+zone:926:929:1072:1073:3:9:on top of Gate A1 seating
+tile:932:935:1072:1073:0:2:hardwood
+zone:932:935:1072:1073:0:6:Gate A1 seating
+zone:932:935:1072:1073:3:9:on top of Gate A1 seating
+zone:943:988:1056:1075:0:11:the airport Gate A2 lounge
+zone:954:957:1055:1055:0:8:the airport Gate A2 doorway
+tile:945:948:1072:1073:0:2:hardwood
+zone:945:948:1072:1073:0:6:Gate A2 seating
+zone:945:948:1072:1073:3:9:on top of Gate A2 seating
+tile:951:954:1072:1073:0:2:hardwood
+zone:951:954:1072:1073:0:6:Gate A2 seating
+zone:951:954:1072:1073:3:9:on top of Gate A2 seating
+tile:957:960:1072:1073:0:2:hardwood
+zone:957:960:1072:1073:0:6:Gate A2 seating
+zone:957:960:1072:1073:3:9:on top of Gate A2 seating
+tile:963:966:1072:1073:0:2:hardwood
+zone:963:966:1072:1073:0:6:Gate A2 seating
+zone:963:966:1072:1073:3:9:on top of Gate A2 seating
+tile:969:972:1072:1073:0:2:hardwood
+zone:969:972:1072:1073:0:6:Gate A2 seating
+zone:969:972:1072:1073:3:9:on top of Gate A2 seating
+tile:975:978:1072:1073:0:2:hardwood
+zone:975:978:1072:1073:0:6:Gate A2 seating
+zone:975:978:1072:1073:3:9:on top of Gate A2 seating
+tile:981:984:1072:1073:0:2:hardwood
+zone:981:984:1072:1073:0:6:Gate A2 seating
+zone:981:984:1072:1073:3:9:on top of Gate A2 seating
+zone:992:1037:1056:1075:0:11:the airport Gate B1 lounge
+zone:1023:1026:1055:1055:0:8:the airport Gate B1 doorway
+tile:994:997:1072:1073:0:2:hardwood
+zone:994:997:1072:1073:0:6:Gate B1 seating
+zone:994:997:1072:1073:3:9:on top of Gate B1 seating
+tile:1000:1003:1072:1073:0:2:hardwood
+zone:1000:1003:1072:1073:0:6:Gate B1 seating
+zone:1000:1003:1072:1073:3:9:on top of Gate B1 seating
+tile:1006:1009:1072:1073:0:2:hardwood
+zone:1006:1009:1072:1073:0:6:Gate B1 seating
+zone:1006:1009:1072:1073:3:9:on top of Gate B1 seating
+tile:1012:1015:1072:1073:0:2:hardwood
+zone:1012:1015:1072:1073:0:6:Gate B1 seating
+zone:1012:1015:1072:1073:3:9:on top of Gate B1 seating
+tile:1018:1021:1072:1073:0:2:hardwood
+zone:1018:1021:1072:1073:0:6:Gate B1 seating
+zone:1018:1021:1072:1073:3:9:on top of Gate B1 seating
+tile:1024:1027:1072:1073:0:2:hardwood
+zone:1024:1027:1072:1073:0:6:Gate B1 seating
+zone:1024:1027:1072:1073:3:9:on top of Gate B1 seating
+tile:1030:1033:1072:1073:0:2:hardwood
+zone:1030:1033:1072:1073:0:6:Gate B1 seating
+zone:1030:1033:1072:1073:3:9:on top of Gate B1 seating
+zone:1041:1080:1056:1075:0:11:the airport Gate B2 lounge
+zone:1066:1069:1055:1055:0:8:the airport Gate B2 doorway
+tile:1043:1046:1072:1073:0:2:hardwood
+zone:1043:1046:1072:1073:0:6:Gate B2 seating
+zone:1043:1046:1072:1073:3:9:on top of Gate B2 seating
+tile:1049:1052:1072:1073:0:2:hardwood
+zone:1049:1052:1072:1073:0:6:Gate B2 seating
+zone:1049:1052:1072:1073:3:9:on top of Gate B2 seating
+tile:1055:1058:1072:1073:0:2:hardwood
+zone:1055:1058:1072:1073:0:6:Gate B2 seating
+zone:1055:1058:1072:1073:3:9:on top of Gate B2 seating
+tile:1061:1064:1072:1073:0:2:hardwood
+zone:1061:1064:1072:1073:0:6:Gate B2 seating
+zone:1061:1064:1072:1073:3:9:on top of Gate B2 seating
+tile:1067:1070:1072:1073:0:2:hardwood
+zone:1067:1070:1072:1073:0:6:Gate B2 seating
+zone:1067:1070:1072:1073:3:9:on top of Gate B2 seating
+tile:1073:1076:1072:1073:0:2:hardwood
+zone:1073:1076:1072:1073:0:6:Gate B2 seating
+zone:1073:1076:1072:1073:3:9:on top of Gate B2 seating
+src:899:1081:981:1075:0:18:calm.ogg:-12
+ispawn:901:1079:1008:1053:0:0:5000:4:health_potion:energetic_potion_blue:frag_grenade:smoke_bomb
+poi:990:981:0:Meridian International Airport
+// Airport control tower
+tile:1092:1112:1000:1020:0:0:concrete2
+tile:1092:1112:1020:1020:0:48:wallbrick
+tile:1092:1098:1000:1000:0:48:wallbrick
+tile:1106:1112:1000:1000:0:48:wallbrick
+tile:1099:1105:1000:1000:6:48:wallbrick
+tile:1092:1092:1000:1020:0:48:wallbrick
+tile:1112:1112:1000:1020:0:48:wallbrick
+tile:1092:1112:1000:1020:48:48:wallbrick
+tile:1092:1112:1000:1020:49:49:concrete2
+zone:1092:1112:1000:1020:49:56:roof of the airport control tower
+zone:1091:1091:1000:1020:0:8:the airport control tower west wall
+zone:1113:1113:1000:1020:0:8:the airport control tower east wall
+zone:1092:1112:999:999:0:8:the airport control tower south wall
+zone:1092:1112:1021:1021:0:8:the airport control tower north wall
+zone:1099:1105:1000:1002:0:8:the airport control tower entrance
+tile:1093:1094:1001:1019:0:49:ladder1
+zone:1093:1094:1001:1019:0:49:the control tower stairs
+tile:1095:1095:1001:1019:0:2:wallfence
+tile:1093:1111:1001:1019:49:49:concrete2
+zone:1093:1111:1001:1019:49:56:the control tower cab
+tile:1096:1110:1002:1003:0:3:hardwood
+zone:1096:1110:1002:1003:0:6:the control tower console
+zone:1096:1110:1002:1003:4:10:on top of the control tower console
+poi:1102:1010:49:the airport control tower cab
+// Airport hangar
+tile:850:894:1000:1072:0:0:concrete10
+tile:850:894:1072:1072:0:30:metal2
+tile:850:863:1000:1000:0:30:metal2
+tile:881:894:1000:1000:0:30:metal2
+tile:864:880:1000:1000:6:30:metal2
+tile:850:850:1000:1072:0:30:metal2
+tile:894:894:1000:1072:0:30:metal2
+tile:850:894:1000:1072:30:30:metal2
+tile:850:894:1000:1072:31:31:concrete2
+zone:850:894:1000:1072:31:38:roof of the airport hangar
+zone:849:849:1000:1072:0:8:the airport hangar west wall
+zone:895:895:1000:1072:0:8:the airport hangar east wall
+zone:850:894:999:999:0:8:the airport hangar south wall
+zone:850:894:1073:1073:0:8:the airport hangar north wall
+zone:864:880:1000:1002:0:8:the airport hangar entrance
+tile:849:849:1035:1037:0:31:ladder1
+zone:849:849:1035:1037:0:31:scaffolding to the airport hangar roof
+zone:851:893:1001:1071:0:11:the hangar floor
+zone:851:893:1001:1071:0:11:the hangar floor
+tile:853:857:1005:1067:0:3:metal2
+zone:853:857:1005:1067:0:6:a hangar tool bench
+zone:853:857:1005:1067:4:10:on top of a hangar tool bench
+ispawn:853:891:1003:1069:0:0:6000:2:repair_kit:empty_bucket
+// Runway, taxiway and apron
+tile:852:1146:1078:1090:0:0:concrete10
+zone:852:1146:1078:1090:0:8:the airport apron
+tile:852:1146:1091:1094:0:0:concrete5
+zone:852:1146:1091:1094:0:8:the airport taxiway
+tile:852:1146:1096:1140:0:0:concrete5
+zone:852:1146:1096:1140:0:8:the airport runway
+zone:852:900:1096:1140:0:8:the west threshold of the runway
+zone:1100:1146:1096:1140:0:8:the east threshold of the runway
+src:852:1146:1078:1140:0:8:wind1.ogg:-10
+poi:999:1118:0:the airport runway
+ispawn:860:1140:1098:1138:0:0:7000:3:frag_grenade:smoke_bomb:health_potion
 
-// --- Barracks (south side of plaza) ---
-tile:475:525:522:550:0:0:hardwood2
-tile:475:475:522:550:0:25:wallbrick
-tile:525:525:522:550:0:25:wallbrick
-tile:475:525:522:522:0:25:wallbrick
-tile:475:525:550:550:0:25:wallbrick
-tile:475:525:522:550:25:25:wallbrick
-tile:475:525:522:550:26:26:plank
-zone:475:525:522:550:0:25:the barracks
-zone:475:525:522:550:26:50:roof of the barracks
-// Barracks entrance
-tile:495:505:522:522:6:25:wallbrick
+// ============================================================
+// THE HOLLOWS - a run-down neighbourhood off Jameson Close
+// ============================================================
+tile:902:978:400:407:0:0:cement
+zone:902:978:400:407:0:8:Hollow Row (cracked and potholed)
+src:895:990:380:470:0:8:wind2.ogg:-11
+tile:902:936:412:458:0:0:hardwood
+tile:902:916:458:458:0:12:wallwood
+tile:922:936:458:458:0:12:wallwood
+tile:917:921:458:458:6:12:wallwood
+tile:902:936:412:412:0:12:wallwood
+tile:902:902:412:458:0:12:wallwood
+tile:936:936:412:458:0:12:wallwood
+tile:902:936:412:458:12:12:wallwood
+tile:902:936:412:458:13:13:concrete2
+zone:902:936:412:458:13:20:roof of 2 Hollow Row
+zone:901:901:412:458:0:8:2 Hollow Row west wall
+zone:937:937:412:458:0:8:2 Hollow Row east wall
+zone:902:936:411:411:0:8:2 Hollow Row south wall
+zone:902:936:459:459:0:8:2 Hollow Row north wall
+zone:917:921:456:458:0:8:2 Hollow Row entrance
+zone:903:935:413:457:0:11:2 Hollow Row interior
+zone:917:921:413:457:0:11:2 Hollow Row hallway
+tile:916:916:413:415:0:11:wallwood
+tile:916:916:419:451:0:11:wallwood
+tile:916:916:455:457:0:11:wallwood
+tile:916:916:416:418:6:11:wallwood
+tile:916:916:452:454:6:11:wallwood
+zone:916:916:416:418:0:8:2 Hollow Row living room doorway
+zone:916:916:452:454:0:8:2 Hollow Row kitchen doorway
+tile:903:916:435:435:0:11:wallwood
+zone:903:915:413:434:0:11:2 Hollow Row living room
+tile:904:908:414:416:0:2:hardwood2
+zone:904:908:414:416:0:6:2 Hollow Row sofa
+zone:904:908:414:416:3:9:on top of 2 Hollow Row sofa
+tile:905:908:431:433:0:2:hardwood
+zone:905:908:431:433:0:6:2 Hollow Row coffee table
+zone:905:908:431:433:3:9:on top of 2 Hollow Row coffee table
+zone:903:915:436:457:0:11:2 Hollow Row kitchen
+tile:904:914:455:456:0:3:hardwood
+zone:904:914:455:456:0:6:2 Hollow Row kitchen counter
+zone:904:914:455:456:4:10:on top of 2 Hollow Row kitchen counter
+tile:922:922:413:415:0:11:wallwood
+tile:922:922:419:451:0:11:wallwood
+tile:922:922:455:457:0:11:wallwood
+tile:922:922:416:418:6:11:wallwood
+tile:922:922:452:454:6:11:wallwood
+zone:922:922:416:418:0:8:2 Hollow Row bedroom doorway
+zone:922:922:452:454:0:8:2 Hollow Row back room doorway
+tile:922:935:435:435:0:11:wallwood
+zone:923:935:413:434:0:11:2 Hollow Row bedroom
+tile:931:934:414:417:0:2:hardwood2
+zone:931:934:414:417:0:6:2 Hollow Row bed
+zone:931:934:414:417:3:9:on top of 2 Hollow Row bed
+zone:923:935:436:457:0:11:2 Hollow Row back bedroom
+tile:931:934:453:456:0:2:hardwood2
+zone:931:934:453:456:0:6:2 Hollow Row bed
+zone:931:934:453:456:3:9:on top of 2 Hollow Row bed
+tile:903:935:413:457:-14:-14:concrete10
+tile:902:902:413:457:-14:-1:wallstone
+tile:936:936:413:457:-14:-1:wallstone
+tile:903:935:412:412:-14:-1:wallstone
+tile:903:935:458:458:-14:-1:wallstone
+zone:903:935:413:457:-14:-3:2 Hollow Row basement
+tile:904:905:434:436:-14:0:ladder1
+zone:904:905:434:436:-14:0:2 Hollow Row basement stairs
+zone:916:916:434:436:0:8:2 Hollow Row cellar door
+tile:944:976:412:458:0:0:hardwood
+tile:944:957:458:458:0:12:wallwood
+tile:963:976:458:458:0:12:wallwood
+tile:958:962:458:458:6:12:wallwood
+tile:944:976:412:412:0:12:wallwood
+tile:944:944:412:458:0:12:wallwood
+tile:976:976:412:458:0:12:wallwood
+tile:944:976:412:458:12:12:wallwood
+tile:944:976:412:458:13:13:concrete2
+zone:944:976:412:458:13:20:roof of 4 Hollow Row
+zone:943:943:412:458:0:8:4 Hollow Row west wall
+zone:977:977:412:458:0:8:4 Hollow Row east wall
+zone:944:976:411:411:0:8:4 Hollow Row south wall
+zone:944:976:459:459:0:8:4 Hollow Row north wall
+zone:958:962:456:458:0:8:4 Hollow Row entrance
+zone:945:975:413:457:0:11:4 Hollow Row interior
+zone:958:962:413:457:0:11:4 Hollow Row hallway
+tile:957:957:413:415:0:11:wallwood
+tile:957:957:419:451:0:11:wallwood
+tile:957:957:455:457:0:11:wallwood
+tile:957:957:416:418:6:11:wallwood
+tile:957:957:452:454:6:11:wallwood
+zone:957:957:416:418:0:8:4 Hollow Row living room doorway
+zone:957:957:452:454:0:8:4 Hollow Row kitchen doorway
+tile:945:957:435:435:0:11:wallwood
+zone:945:956:413:434:0:11:4 Hollow Row living room
+tile:946:950:414:416:0:2:hardwood2
+zone:946:950:414:416:0:6:4 Hollow Row sofa
+zone:946:950:414:416:3:9:on top of 4 Hollow Row sofa
+tile:947:950:431:433:0:2:hardwood
+zone:947:950:431:433:0:6:4 Hollow Row coffee table
+zone:947:950:431:433:3:9:on top of 4 Hollow Row coffee table
+zone:945:956:436:457:0:11:4 Hollow Row kitchen
+tile:946:955:455:456:0:3:hardwood
+zone:946:955:455:456:0:6:4 Hollow Row kitchen counter
+zone:946:955:455:456:4:10:on top of 4 Hollow Row kitchen counter
+tile:963:963:413:415:0:11:wallwood
+tile:963:963:419:451:0:11:wallwood
+tile:963:963:455:457:0:11:wallwood
+tile:963:963:416:418:6:11:wallwood
+tile:963:963:452:454:6:11:wallwood
+zone:963:963:416:418:0:8:4 Hollow Row bedroom doorway
+zone:963:963:452:454:0:8:4 Hollow Row back room doorway
+tile:963:975:435:435:0:11:wallwood
+zone:964:975:413:434:0:11:4 Hollow Row bedroom
+tile:971:974:414:417:0:2:hardwood2
+zone:971:974:414:417:0:6:4 Hollow Row bed
+zone:971:974:414:417:3:9:on top of 4 Hollow Row bed
+zone:964:975:436:457:0:11:4 Hollow Row back bedroom
+tile:971:974:453:456:0:2:hardwood2
+zone:971:974:453:456:0:6:4 Hollow Row bed
+zone:971:974:453:456:3:9:on top of 4 Hollow Row bed
+tile:960:960:454:457:0:12:ladder1
+zone:960:960:454:457:0:12:4 Hollow Row attic ladder
+tile:945:975:413:457:12:12:plank
+zone:945:975:413:457:13:23:4 Hollow Row attic
+tile:946:948:414:416:13:15:plank
+zone:946:948:414:416:16:22:on top of 4 Hollow Row attic crates
+tile:902:936:340:386:0:0:hardwood
+tile:902:936:386:386:0:12:wallwood
+tile:902:916:340:340:0:12:wallwood
+tile:922:936:340:340:0:12:wallwood
+tile:917:921:340:340:6:12:wallwood
+tile:902:902:340:386:0:12:wallwood
+tile:936:936:340:386:0:12:wallwood
+tile:902:936:340:386:12:12:wallwood
+tile:902:936:340:386:13:13:concrete2
+zone:902:936:340:386:13:20:roof of 1 Hollow Row
+zone:901:901:340:386:0:8:1 Hollow Row west wall
+zone:937:937:340:386:0:8:1 Hollow Row east wall
+zone:902:936:339:339:0:8:1 Hollow Row south wall
+zone:902:936:387:387:0:8:1 Hollow Row north wall
+zone:917:921:340:342:0:8:1 Hollow Row entrance
+zone:903:935:341:385:0:11:1 Hollow Row interior
+zone:917:921:341:385:0:11:1 Hollow Row hallway
+tile:916:916:341:343:0:11:wallwood
+tile:916:916:347:379:0:11:wallwood
+tile:916:916:383:385:0:11:wallwood
+tile:916:916:344:346:6:11:wallwood
+tile:916:916:380:382:6:11:wallwood
+zone:916:916:344:346:0:8:1 Hollow Row living room doorway
+zone:916:916:380:382:0:8:1 Hollow Row kitchen doorway
+tile:903:916:363:363:0:11:wallwood
+zone:903:915:341:362:0:11:1 Hollow Row living room
+tile:904:908:342:344:0:2:hardwood2
+zone:904:908:342:344:0:6:1 Hollow Row sofa
+zone:904:908:342:344:3:9:on top of 1 Hollow Row sofa
+tile:905:908:359:361:0:2:hardwood
+zone:905:908:359:361:0:6:1 Hollow Row coffee table
+zone:905:908:359:361:3:9:on top of 1 Hollow Row coffee table
+zone:903:915:364:385:0:11:1 Hollow Row kitchen
+tile:904:914:383:384:0:3:hardwood
+zone:904:914:383:384:0:6:1 Hollow Row kitchen counter
+zone:904:914:383:384:4:10:on top of 1 Hollow Row kitchen counter
+tile:922:922:341:343:0:11:wallwood
+tile:922:922:347:379:0:11:wallwood
+tile:922:922:383:385:0:11:wallwood
+tile:922:922:344:346:6:11:wallwood
+tile:922:922:380:382:6:11:wallwood
+zone:922:922:344:346:0:8:1 Hollow Row bedroom doorway
+zone:922:922:380:382:0:8:1 Hollow Row back room doorway
+tile:922:935:363:363:0:11:wallwood
+zone:923:935:341:362:0:11:1 Hollow Row bedroom
+tile:931:934:342:345:0:2:hardwood2
+zone:931:934:342:345:0:6:1 Hollow Row bed
+zone:931:934:342:345:3:9:on top of 1 Hollow Row bed
+zone:923:935:364:385:0:11:1 Hollow Row back bedroom
+tile:931:934:381:384:0:2:hardwood2
+zone:931:934:381:384:0:6:1 Hollow Row bed
+zone:931:934:381:384:3:9:on top of 1 Hollow Row bed
+ispawn:905:975:415:455:0:0:4000:3:frag_grenade:smoke_bomb:empty_bucket:rock
+// Kensington Drive businesses
+tile:1040:1092:300:350:0:0:concrete10
+tile:1040:1092:350:350:0:12:wallbrick
+tile:1040:1062:300:300:0:12:wallbrick
+tile:1070:1092:300:300:0:12:wallbrick
+tile:1063:1069:300:300:6:12:wallbrick
+tile:1040:1040:300:350:0:12:wallbrick
+tile:1092:1092:300:350:0:12:wallbrick
+tile:1040:1092:300:350:12:12:wallbrick
+tile:1040:1092:300:350:13:13:concrete2
+zone:1040:1092:300:350:13:20:roof of Darkstone Auto Garage
+zone:1039:1039:300:350:0:8:Darkstone Auto Garage west wall
+zone:1093:1093:300:350:0:8:Darkstone Auto Garage east wall
+zone:1040:1092:299:299:0:8:Darkstone Auto Garage south wall
+zone:1040:1092:351:351:0:8:Darkstone Auto Garage north wall
+zone:1063:1069:300:302:0:8:Darkstone Auto Garage entrance
+zone:1041:1091:301:349:0:11:Darkstone Auto Garage interior
+zone:1041:1091:301:332:0:11:Darkstone Auto Garage sales floor
+tile:1043:1085:317:318:0:3:hardwood
+zone:1043:1085:317:318:0:6:Darkstone Auto Garage counter
+zone:1043:1085:317:318:4:10:on top of Darkstone Auto Garage counter
+tile:1042:1044:303:331:0:3:hardwood
+zone:1042:1044:303:331:0:6:Darkstone Auto Garage tool racks
+zone:1042:1044:303:331:4:10:on top of Darkstone Auto Garage tool racks
+tile:1088:1090:303:331:0:3:hardwood
+zone:1088:1090:303:331:0:6:Darkstone Auto Garage tool racks
+zone:1088:1090:303:331:4:10:on top of Darkstone Auto Garage tool racks
+tile:1041:1064:333:333:0:11:wallbrick
+tile:1068:1091:333:333:0:11:wallbrick
+tile:1065:1067:333:333:6:11:wallbrick
+zone:1065:1067:333:333:0:8:Darkstone Auto Garage stockroom door
+zone:1041:1091:334:349:0:11:Darkstone Auto Garage stockroom
+tile:1042:1044:335:348:0:3:hardwood
+zone:1042:1044:335:348:0:6:Darkstone Auto Garage stock shelves
+zone:1042:1044:335:348:4:10:on top of Darkstone Auto Garage stock shelves
+tile:1040:1092:700:790:0:0:carpet1
+tile:1040:1092:790:790:0:12:wallbrick
+tile:1040:1061:700:700:0:12:wallbrick
+tile:1071:1092:700:700:0:12:wallbrick
+tile:1062:1070:700:700:6:12:wallbrick
+tile:1040:1040:700:790:0:12:wallbrick
+tile:1092:1092:700:790:0:12:wallbrick
+tile:1040:1092:700:790:12:12:wallbrick
+tile:1040:1092:700:790:13:13:concrete2
+zone:1040:1092:700:790:13:20:roof of Kensington Motel
+zone:1039:1039:700:790:0:8:Kensington Motel west wall
+zone:1093:1093:700:790:0:8:Kensington Motel east wall
+zone:1040:1092:699:699:0:8:Kensington Motel south wall
+zone:1040:1092:791:791:0:8:Kensington Motel north wall
+zone:1062:1070:700:702:0:8:Kensington Motel entrance
+zone:1041:1091:701:789:0:11:Kensington Motel interior
+zone:1041:1091:701:711:0:11:the motel front desk
+tile:1041:1064:711:711:0:11:wallbrick
+tile:1068:1091:711:711:0:11:wallbrick
+tile:1065:1067:711:711:6:11:wallbrick
+zone:1065:1067:711:711:0:8:Kensington Motel inner door
+zone:1065:1067:712:789:0:11:Kensington Motel main corridor
+zone:1041:1063:712:737:0:11:Kensington Motel office 1
+zone:1064:1064:723:725:0:8:Kensington Motel office 1 doorway
+tile:1043:1048:723:725:0:3:hardwood
+zone:1043:1048:723:725:0:6:Kensington Motel office 1 desk
+zone:1043:1048:723:725:4:10:on top of Kensington Motel office 1 desk
+tile:1045:1046:726:727:0:2:hardwood
+zone:1045:1046:726:727:0:6:Kensington Motel office 1 chair
+zone:1045:1046:726:727:3:9:on top of Kensington Motel office 1 chair
+zone:1069:1091:712:737:0:11:Kensington Motel office 2
+zone:1068:1068:723:725:0:8:Kensington Motel office 2 doorway
+tile:1084:1089:723:725:0:3:hardwood
+zone:1084:1089:723:725:0:6:Kensington Motel office 2 desk
+zone:1084:1089:723:725:4:10:on top of Kensington Motel office 2 desk
+tile:1086:1087:726:727:0:2:hardwood
+zone:1086:1087:726:727:0:6:Kensington Motel office 2 chair
+zone:1086:1087:726:727:3:9:on top of Kensington Motel office 2 chair
+tile:1041:1063:737:737:0:11:wallbrick
+tile:1069:1091:737:737:0:11:wallbrick
+zone:1041:1063:738:763:0:11:Kensington Motel office 3
+zone:1064:1064:749:751:0:8:Kensington Motel office 3 doorway
+tile:1043:1048:749:751:0:3:hardwood
+zone:1043:1048:749:751:0:6:Kensington Motel office 3 desk
+zone:1043:1048:749:751:4:10:on top of Kensington Motel office 3 desk
+tile:1045:1046:752:753:0:2:hardwood
+zone:1045:1046:752:753:0:6:Kensington Motel office 3 chair
+zone:1045:1046:752:753:3:9:on top of Kensington Motel office 3 chair
+zone:1069:1091:738:763:0:11:Kensington Motel office 4
+zone:1068:1068:749:751:0:8:Kensington Motel office 4 doorway
+tile:1084:1089:749:751:0:3:hardwood
+zone:1084:1089:749:751:0:6:Kensington Motel office 4 desk
+zone:1084:1089:749:751:4:10:on top of Kensington Motel office 4 desk
+tile:1086:1087:752:753:0:2:hardwood
+zone:1086:1087:752:753:0:6:Kensington Motel office 4 chair
+zone:1086:1087:752:753:3:9:on top of Kensington Motel office 4 chair
+tile:1041:1063:763:763:0:11:wallbrick
+tile:1069:1091:763:763:0:11:wallbrick
+zone:1041:1063:764:789:0:11:Kensington Motel office 5
+zone:1064:1064:775:777:0:8:Kensington Motel office 5 doorway
+tile:1043:1048:775:777:0:3:hardwood
+zone:1043:1048:775:777:0:6:Kensington Motel office 5 desk
+zone:1043:1048:775:777:4:10:on top of Kensington Motel office 5 desk
+tile:1045:1046:778:779:0:2:hardwood
+zone:1045:1046:778:779:0:6:Kensington Motel office 5 chair
+zone:1045:1046:778:779:3:9:on top of Kensington Motel office 5 chair
+zone:1069:1091:764:789:0:11:Kensington Motel office 6
+zone:1068:1068:775:777:0:8:Kensington Motel office 6 doorway
+tile:1084:1089:775:777:0:3:hardwood
+zone:1084:1089:775:777:0:6:Kensington Motel office 6 desk
+zone:1084:1089:775:777:4:10:on top of Kensington Motel office 6 desk
+tile:1086:1087:778:779:0:2:hardwood
+zone:1086:1087:778:779:0:6:Kensington Motel office 6 chair
+zone:1086:1087:778:779:3:9:on top of Kensington Motel office 6 chair
+tile:1064:1064:712:722:0:11:wallbrick
+tile:1064:1064:726:748:0:11:wallbrick
+tile:1064:1064:752:774:0:11:wallbrick
+tile:1064:1064:778:789:0:11:wallbrick
+tile:1064:1064:723:725:6:11:wallbrick
+tile:1064:1064:749:751:6:11:wallbrick
+tile:1064:1064:775:777:6:11:wallbrick
+tile:1068:1068:712:722:0:11:wallbrick
+tile:1068:1068:726:748:0:11:wallbrick
+tile:1068:1068:752:774:0:11:wallbrick
+tile:1068:1068:778:789:0:11:wallbrick
+tile:1068:1068:723:725:6:11:wallbrick
+tile:1068:1068:749:751:6:11:wallbrick
+tile:1068:1068:775:777:6:11:wallbrick
+src:836:1146:160:950:0:8:wind1.ogg:-14
 
-// --- Watchtower (NE corner of city) ---
-tile:600:610:370:380:0:0:concrete2
-tile:600:600:370:380:0:40:wallbrick
-tile:610:610:370:380:0:40:wallbrick
-tile:600:610:370:370:0:40:wallbrick
-tile:600:610:380:380:0:40:wallbrick
-tile:601:601:371:379:0:10:cement
-tile:602:609:371:379:10:10:concrete2
-tile:602:609:370:380:9:9:wallbrick
-tile:609:609:371:379:10:20:cement
-tile:601:608:371:379:20:20:concrete2
-tile:601:608:370:380:19:19:wallbrick
-tile:601:601:371:379:20:40:cement
-tile:602:609:371:379:40:40:concrete2
-zone:600:610:370:380:0:40:the watchtower
-zone:601:601:371:379:0:40:watchtower staircase
-zone:600:610:370:380:40:50:top of the watchtower
+// ============================================================
+// WEST MERIDIAN - the waterfront
+// ============================================================
+tile:296:305:200:606:0:0:concrete5
+zone:296:305:200:606:0:8:Oceanfront Drive
+tile:295:295:200:606:0:0:stone
+zone:295:295:200:606:0:8:west curb of Oceanfront Drive
+tile:306:306:200:606:0:0:stone
+zone:306:306:200:606:0:8:east curb of Oceanfront Drive
+tile:292:294:200:606:0:0:concrete2
+zone:292:294:200:606:0:8:west sidewalk of Oceanfront Drive
+tile:307:309:200:606:0:0:concrete2
+zone:307:309:200:606:0:8:east sidewalk of Oceanfront Drive
+tile:176:292:250:257:0:0:concrete5
+zone:176:292:250:257:0:8:Wharf Street
+tile:176:292:249:249:0:0:stone
+zone:176:292:249:249:0:8:south curb of Wharf Street
+tile:176:292:258:258:0:0:stone
+zone:176:292:258:258:0:8:north curb of Wharf Street
+tile:176:292:247:248:0:0:concrete2
+zone:176:292:247:248:0:8:south sidewalk of Wharf Street
+tile:176:292:259:260:0:0:concrete2
+zone:176:292:259:260:0:8:north sidewalk of Wharf Street
+tile:176:292:350:357:0:0:concrete5
+zone:176:292:350:357:0:8:Netmaker Row
+tile:176:292:349:349:0:0:stone
+zone:176:292:349:349:0:8:south curb of Netmaker Row
+tile:176:292:358:358:0:0:stone
+zone:176:292:358:358:0:8:north curb of Netmaker Row
+tile:176:292:347:348:0:0:concrete2
+zone:176:292:347:348:0:8:south sidewalk of Netmaker Row
+tile:176:292:359:360:0:0:concrete2
+zone:176:292:359:360:0:8:north sidewalk of Netmaker Row
+tile:176:292:450:457:0:0:concrete5
+zone:176:292:450:457:0:8:Saltgrass Street
+tile:176:292:449:449:0:0:stone
+zone:176:292:449:449:0:8:south curb of Saltgrass Street
+tile:176:292:458:458:0:0:stone
+zone:176:292:458:458:0:8:north curb of Saltgrass Street
+tile:176:292:447:448:0:0:concrete2
+zone:176:292:447:448:0:8:south sidewalk of Saltgrass Street
+tile:176:292:459:460:0:0:concrete2
+zone:176:292:459:460:0:8:north sidewalk of Saltgrass Street
+tile:200:292:540:547:0:0:concrete5
+zone:200:292:540:547:0:8:Gull Street
+tile:200:292:539:539:0:0:stone
+zone:200:292:539:539:0:8:south curb of Gull Street
+tile:200:292:548:548:0:0:stone
+zone:200:292:548:548:0:8:north curb of Gull Street
+tile:200:292:537:538:0:0:concrete2
+zone:200:292:537:538:0:8:south sidewalk of Gull Street
+tile:200:292:549:550:0:0:concrete2
+zone:200:292:549:550:0:8:north sidewalk of Gull Street
+tile:296:305:250:257:0:0:concrete5
+zone:296:305:250:257:0:8:intersection of Oceanfront Drive and Wharf Street
+tile:296:305:350:357:0:0:concrete5
+zone:296:305:350:357:0:8:intersection of Oceanfront Drive and Netmaker Row
+tile:296:305:450:457:0:0:concrete5
+zone:296:305:450:457:0:8:intersection of Oceanfront Drive and Saltgrass Street
+tile:296:305:540:547:0:0:concrete5
+zone:296:305:540:547:0:8:intersection of Oceanfront Drive and Gull Street
+poi:300:606:0:the Ivory Bridge landing on Oceanfront Drive
 
-// --- Hospital (SW area of city) ---
-tile:380:420:560:600:0:0:tile2
-tile:380:380:560:600:0:25:wallbrick
-tile:420:420:560:600:0:25:wallbrick
-tile:380:420:560:560:0:25:wallbrick
-tile:380:420:600:600:0:25:wallbrick
-tile:380:420:560:600:25:25:wallbrick
-tile:380:420:560:600:26:26:concrete2
-zone:380:420:560:600:0:25:the hospital
-zone:380:420:560:600:26:50:roof of the hospital
-// Hospital entrance
-tile:398:402:560:560:6:25:wallbrick
-ispawn:381:419:561:599:0:0:5000:3:health_potion:ultra_health_potion:life_injection:energetic_potion_red:energetic_potion_blue
+// ============================================================
+// Meridian Harbour, the docks and the fishing piers
+// ============================================================
+tile:60:179:180:340:0:0:water1
+zone:60:179:180:340:0:8:Meridian Harbour
+src:60:179:180:340:0:8:ocean.ogg:-7
+tile:182:292:196:244:0:0:plank
+zone:182:292:196:244:0:8:the Meridian Docks
+src:182:292:196:244:0:8:waves2.ogg:-6
+poi:237:220:0:the Meridian Docks
+ispawn:186:288:200:240:0:0:5000:3:empty_bucket:health_potion:rock:bag
+tile:70:180:206:212:0:0:plank
+zone:70:180:206:212:0:8:the North Fishing Pier
+tile:70:180:205:205:0:3:wallfence
+tile:70:180:213:213:0:3:wallfence
+zone:70:180:204:204:0:8:the North Fishing Pier south railing
+zone:70:180:214:214:0:8:the North Fishing Pier north railing
+src:70:180:206:212:0:8:waves2.ogg:-6
+poi:76:209:0:the North Fishing Pier
+tile:70:180:258:264:0:0:plank
+zone:70:180:258:264:0:8:the Central Fishing Pier
+tile:70:180:257:257:0:3:wallfence
+tile:70:180:265:265:0:3:wallfence
+zone:70:180:256:256:0:8:the Central Fishing Pier south railing
+zone:70:180:266:266:0:8:the Central Fishing Pier north railing
+src:70:180:258:264:0:8:waves2.ogg:-6
+poi:76:261:0:the Central Fishing Pier
+tile:70:180:310:316:0:0:plank
+zone:70:180:310:316:0:8:the South Fishing Pier
+tile:70:180:309:309:0:3:wallfence
+tile:70:180:317:317:0:3:wallfence
+zone:70:180:308:308:0:8:the South Fishing Pier south railing
+zone:70:180:318:318:0:8:the South Fishing Pier north railing
+src:70:180:310:316:0:8:waves2.ogg:-6
+poi:76:313:0:the South Fishing Pier
+// The Fishing Bureau
+tile:196:252:262:312:0:0:hardwood2
+tile:196:252:312:312:0:12:wallwood
+tile:196:252:262:262:0:12:wallwood
+tile:196:196:262:312:0:12:wallwood
+tile:252:252:262:281:0:12:wallwood
+tile:252:252:291:312:0:12:wallwood
+tile:252:252:282:290:6:12:wallwood
+tile:196:252:262:312:12:12:wallwood
+tile:196:252:262:312:13:13:concrete2
+zone:196:252:262:312:13:20:roof of the Fishing Bureau
+zone:195:195:262:312:0:8:the Fishing Bureau west wall
+zone:253:253:262:312:0:8:the Fishing Bureau east wall
+zone:196:252:261:261:0:8:the Fishing Bureau south wall
+zone:196:252:313:313:0:8:the Fishing Bureau north wall
+zone:250:252:282:290:0:8:the Fishing Bureau entrance
+zone:197:251:263:311:0:11:the Fishing Bureau office
+zone:197:251:263:311:0:11:the Fishing Bureau office
+tile:199:200:265:309:0:3:hardwood
+zone:199:200:265:309:0:6:the licence counter
+zone:199:200:265:309:4:10:on top of the licence counter
+tile:244:249:287:288:0:3:hardwood
+zone:244:249:287:288:0:6:the harbourmaster's desk
+zone:244:249:287:288:4:10:on top of the harbourmaster's desk
+ispawn:199:249:265:309:0:0:6000:2:health_potion:empty_bucket
 
-// --- Warehouse (SE area of city) ---
-tile:560:620:560:610:0:0:concrete10
-tile:560:560:560:610:0:30:wallbrick
-tile:620:620:560:610:0:30:wallbrick
-tile:560:620:560:560:0:30:wallbrick
-tile:560:620:610:610:0:30:wallbrick
-tile:560:620:560:610:30:30:wallbrick
-tile:560:620:560:610:31:31:metal2
-zone:560:620:560:610:0:30:the warehouse
-zone:560:620:560:610:31:50:roof of the warehouse
-// Warehouse entrance
-tile:588:592:560:560:6:30:wallbrick
-ispawn:561:619:561:609:0:0:2000:5:empty_bucket:hayvork:trector_plow:rock:bag:box
+// ============================================================
+// The Crescent Market
+// ============================================================
+tile:330:448:360:474:0:0:concrete12
+tile:330:385:474:474:0:20:wallbrick
+tile:393:448:474:474:0:20:wallbrick
+tile:386:392:474:474:6:20:wallbrick
+tile:330:385:360:360:0:20:wallbrick
+tile:393:448:360:360:0:20:wallbrick
+tile:386:392:360:360:6:20:wallbrick
+tile:330:330:360:474:0:20:wallbrick
+tile:448:448:360:412:0:20:wallbrick
+tile:448:448:422:474:0:20:wallbrick
+tile:448:448:413:421:6:20:wallbrick
+tile:330:448:360:474:20:20:wallbrick
+tile:330:448:360:474:21:21:concrete2
+zone:330:448:360:474:21:28:roof of the Crescent Market
+zone:329:329:360:474:0:8:the Crescent Market west wall
+zone:449:449:360:474:0:8:the Crescent Market east wall
+zone:330:448:359:359:0:8:the Crescent Market south wall
+zone:330:448:475:475:0:8:the Crescent Market north wall
+zone:446:448:413:421:0:8:the Crescent Market entrance
+zone:386:392:360:362:0:8:the Crescent Market entrance
+zone:386:392:472:474:0:8:the Crescent Market entrance
+tile:329:329:416:418:0:21:ladder1
+zone:329:329:416:418:0:21:a ladder to the Crescent Market roof
+zone:331:447:361:473:0:11:the market hall
+zone:385:393:361:473:0:11:the central aisle of the Crescent Market
+src:331:447:361:473:0:20:farm.ogg:-9
+tile:333:383:365:368:0:3:hardwood
+zone:333:383:365:368:0:6:market stall 1
+zone:333:383:365:368:4:10:on top of market stall 1
+tile:395:445:365:368:0:3:hardwood
+zone:395:445:365:368:0:6:market stall 2
+zone:395:445:365:368:4:10:on top of market stall 2
+tile:333:383:381:384:0:3:hardwood
+zone:333:383:381:384:0:6:market stall 3
+zone:333:383:381:384:4:10:on top of market stall 3
+tile:395:445:381:384:0:3:hardwood
+zone:395:445:381:384:0:6:market stall 4
+zone:395:445:381:384:4:10:on top of market stall 4
+tile:333:383:397:400:0:3:hardwood
+zone:333:383:397:400:0:6:market stall 5
+zone:333:383:397:400:4:10:on top of market stall 5
+tile:395:445:397:400:0:3:hardwood
+zone:395:445:397:400:0:6:market stall 6
+zone:395:445:397:400:4:10:on top of market stall 6
+tile:333:383:413:416:0:3:hardwood
+zone:333:383:413:416:0:6:market stall 7
+zone:333:383:413:416:4:10:on top of market stall 7
+tile:395:445:413:416:0:3:hardwood
+zone:395:445:413:416:0:6:market stall 8
+zone:395:445:413:416:4:10:on top of market stall 8
+tile:333:383:429:432:0:3:hardwood
+zone:333:383:429:432:0:6:market stall 9
+zone:333:383:429:432:4:10:on top of market stall 9
+tile:395:445:429:432:0:3:hardwood
+zone:395:445:429:432:0:6:market stall 10
+zone:395:445:429:432:4:10:on top of market stall 10
+tile:333:383:445:448:0:3:hardwood
+zone:333:383:445:448:0:6:market stall 11
+zone:333:383:445:448:4:10:on top of market stall 11
+tile:395:445:445:448:0:3:hardwood
+zone:395:445:445:448:0:6:market stall 12
+zone:395:445:445:448:4:10:on top of market stall 12
+tile:333:383:461:464:0:3:hardwood
+zone:333:383:461:464:0:6:market stall 13
+zone:333:383:461:464:4:10:on top of market stall 13
+tile:395:445:461:464:0:3:hardwood
+zone:395:445:461:464:0:6:market stall 14
+zone:395:445:461:464:4:10:on top of market stall 14
+poi:389:361:0:the Crescent Market
+ispawn:333:445:363:471:0:0:4000:5:health_potion:energetic_potion_red:energetic_potion_green:empty_bucket:bag:box
 
-// --- Small park in NW city ---
-tile:370:410:370:410:0:0:grass
-zone:370:410:370:410:0:10:the park
-src:370:410:370:410:0:10:forest.ogg:-6
+// ============================================================
+// Old Mill's Park (dilapidated)
+// ============================================================
+tile:330:446:196:336:0:0:grass
+zone:330:446:196:336:0:8:Old Mill's Park (overgrown and dilapidated)
+src:330:446:196:336:0:8:forest.ogg:-9
+tile:340:344:196:336:0:0:cement
+zone:340:344:196:336:0:8:the cracked park path
+tile:360:360:226:226:0:8:tree
+zone:360:360:226:226:0:8:an overgrown tree in Old Mill's Park
+tile:400:400:286:286:0:8:tree
+zone:400:400:286:286:0:8:an overgrown tree in Old Mill's Park
+tile:425:425:236:236:0:8:tree
+zone:425:425:236:236:0:8:an overgrown tree in Old Mill's Park
+tile:375:375:306:306:0:8:tree
+zone:375:375:306:306:0:8:an overgrown tree in Old Mill's Park
+tile:350:356:256:257:0:2:hardwood
+zone:350:356:256:257:0:6:a broken park bench
+zone:350:356:256:257:3:9:on top of a broken park bench
+tile:406:442:296:332:0:0:plank
+tile:406:442:332:332:0:14:wallstone
+tile:406:419:296:296:0:14:wallstone
+tile:429:442:296:296:0:14:wallstone
+tile:420:428:296:296:6:14:wallstone
+tile:406:406:296:332:0:14:wallstone
+tile:442:442:296:332:0:14:wallstone
+tile:406:442:296:332:14:14:wallstone
+tile:406:442:296:332:15:15:concrete2
+zone:406:442:296:332:15:22:roof of the ruined old mill
+zone:405:405:296:332:0:8:the ruined old mill west wall
+zone:443:443:296:332:0:8:the ruined old mill east wall
+zone:406:442:295:295:0:8:the ruined old mill south wall
+zone:406:442:333:333:0:8:the ruined old mill north wall
+zone:420:428:296:298:0:8:the ruined old mill entrance
+zone:407:441:297:331:0:11:the ruined mill floor
+zone:407:441:297:331:0:11:the ruined mill floor
+tile:407:441:297:331:-14:-14:concrete10
+tile:406:406:297:331:-14:-1:wallstone
+tile:442:442:297:331:-14:-1:wallstone
+tile:407:441:296:296:-14:-1:wallstone
+tile:407:441:332:332:-14:-1:wallstone
+zone:407:441:297:331:-14:-3:the old mill cellar
+tile:408:409:313:315:-14:0:ladder1
+zone:408:409:313:315:-14:0:the old mill cellar stairs
+zone:408:409:313:315:0:8:the mill cellar hatch
+poi:388:266:0:Old Mill's Park
 
-// ===========================
-// NORTH ISLAND (430-570, 80-200)
-// A fishing village
-// ===========================
-tile:420:580:70:210:0:0:sand
-zone:420:580:70:80:0:5:the beach of the north island
-zone:420:430:70:210:0:5:the beach of the north island
-zone:570:580:70:210:0:5:the beach of the north island
-tile:440:560:90:190:0:0:grass
-zone:440:560:90:190:0:50:the fishing village on the north island
-src:440:560:90:190:0:20:farm.ogg:-8
+// ============================================================
+// The Gilded Perch (a closed restaurant)
+// ============================================================
+tile:336:404:500:556:0:0:tile2
+tile:336:341:556:556:0:14:wallbrick
+tile:347:404:556:556:0:14:wallbrick
+tile:342:346:556:556:6:14:wallbrick
+tile:336:404:500:500:0:14:wallbrick
+tile:336:336:500:556:0:14:wallbrick
+tile:404:404:500:556:0:14:wallbrick
+tile:336:404:500:556:14:14:wallbrick
+tile:336:404:500:556:15:15:concrete2
+zone:336:404:500:556:15:22:roof of the Gilded Perch
+zone:335:335:500:556:0:8:the Gilded Perch west wall
+zone:405:405:500:556:0:8:the Gilded Perch east wall
+zone:336:404:499:499:0:8:the Gilded Perch south wall
+zone:336:404:557:557:0:8:the Gilded Perch north wall
+zone:342:346:554:556:0:8:the Gilded Perch entrance
+zone:337:403:501:555:0:11:the shuttered dining room
+zone:356:398:499:499:0:8:the boarded-up front of the Gilded Perch
+zone:342:346:557:557:0:8:the restaurant service entrance
+zone:337:403:529:555:0:11:the shuttered dining room
+tile:340:344:532:534:0:2:hardwood
+zone:340:344:532:534:0:6:a dust-covered table
+zone:340:344:532:534:3:9:on top of a dust-covered table
+tile:350:354:532:534:0:2:hardwood
+zone:350:354:532:534:0:6:a dust-covered table
+zone:350:354:532:534:3:9:on top of a dust-covered table
+tile:360:364:532:534:0:2:hardwood
+zone:360:364:532:534:0:6:a dust-covered table
+zone:360:364:532:534:3:9:on top of a dust-covered table
+tile:370:374:532:534:0:2:hardwood
+zone:370:374:532:534:0:6:a dust-covered table
+zone:370:374:532:534:3:9:on top of a dust-covered table
+tile:380:384:532:534:0:2:hardwood
+zone:380:384:532:534:0:6:a dust-covered table
+zone:380:384:532:534:3:9:on top of a dust-covered table
+tile:390:394:532:534:0:2:hardwood
+zone:390:394:532:534:0:6:a dust-covered table
+zone:390:394:532:534:3:9:on top of a dust-covered table
+tile:337:368:528:528:0:11:wallbrick
+tile:372:403:528:528:0:11:wallbrick
+tile:369:371:528:528:6:11:wallbrick
+zone:369:371:528:528:0:8:the kitchen doorway
+zone:337:403:501:527:0:11:the restaurant kitchen
+tile:339:395:503:504:0:3:hardwood
+zone:339:395:503:504:0:6:the kitchen line
+zone:339:395:503:504:4:10:on top of the kitchen line
+tile:337:403:501:555:-14:-14:concrete10
+tile:336:336:501:555:-14:-1:wallstone
+tile:404:404:501:555:-14:-1:wallstone
+tile:337:403:500:500:-14:-1:wallstone
+tile:337:403:556:556:-14:-1:wallstone
+zone:337:403:501:555:-14:-3:the restaurant basement
+tile:401:402:503:506:-14:0:ladder1
+zone:401:402:503:506:-14:0:the restaurant basement stairs
+tile:400:400:503:506:-14:-12:wallfence
+tile:403:403:503:506:-14:-12:wallfence
+tile:339:343:503:509:-14:-12:hardwood
+zone:339:343:503:509:-14:-8:the wine racks
+zone:339:343:503:509:-11:-5:on top of the wine racks
+src:337:403:501:555:0:14:wind2.ogg:-12
+ispawn:339:401:503:553:-14:-14:6000:3:health_potion:frag_grenade:smoke_bomb
+poi:370:556:0:the Gilded Perch (closed)
 
-// Village house 1
-tile:460:490:110:130:0:0:hardwood
-tile:460:460:110:130:0:15:wallwood
-tile:490:490:110:130:0:15:wallwood
-tile:460:490:110:110:0:15:wallwood
-tile:460:490:130:130:0:15:wallwood
-tile:460:490:110:130:15:15:wallwood
-tile:460:490:110:130:16:16:plank
-zone:460:490:110:130:0:15:village cottage
-zone:460:490:110:130:16:30:roof of the village cottage
-tile:473:477:130:130:6:15:wallwood
+// ============================================================
+// Harbourview - warehouses north of the canal
+// ============================================================
+tile:300:307:700:1140:0:0:concrete5
+zone:300:307:700:1140:0:8:Harbourview Road
+tile:299:299:700:1140:0:0:stone
+zone:299:299:700:1140:0:8:west curb of Harbourview Road
+tile:308:308:700:1140:0:0:stone
+zone:308:308:700:1140:0:8:east curb of Harbourview Road
+tile:296:298:700:1140:0:0:concrete2
+zone:296:298:700:1140:0:8:west sidewalk of Harbourview Road
+tile:309:311:700:1140:0:0:concrete2
+zone:309:311:700:1140:0:8:east sidewalk of Harbourview Road
+// Harbourview warehouses
+tile:196:286:760:860:0:0:concrete10
+tile:196:286:860:860:0:24:metal2
+tile:196:286:760:760:0:24:metal2
+tile:196:196:760:805:0:24:metal2
+tile:196:196:815:860:0:24:metal2
+tile:196:196:806:814:6:24:metal2
+tile:286:286:760:860:0:24:metal2
+tile:196:286:760:860:24:24:metal2
+tile:196:286:760:860:25:25:concrete2
+zone:196:286:760:860:25:32:roof of the North Harbour Warehouse
+zone:195:195:760:860:0:8:the North Harbour Warehouse west wall
+zone:287:287:760:860:0:8:the North Harbour Warehouse east wall
+zone:196:286:759:759:0:8:the North Harbour Warehouse south wall
+zone:196:286:861:861:0:8:the North Harbour Warehouse north wall
+zone:196:198:806:814:0:8:the North Harbour Warehouse entrance
+tile:240:242:861:861:0:25:ladder1
+zone:240:242:861:861:0:25:a ladder to the North Harbour Warehouse roof
+zone:197:285:761:859:0:11:the North Harbour Warehouse floor
+zone:197:285:761:859:0:11:the North Harbour Warehouse floor
+tile:201:209:765:855:0:4:plank
+zone:201:209:765:855:0:6:stacked cargo crates
+zone:201:209:765:855:5:11:on top of stacked cargo crates
+tile:215:223:765:855:0:4:plank
+zone:215:223:765:855:0:6:stacked cargo crates
+zone:215:223:765:855:5:11:on top of stacked cargo crates
+tile:229:237:765:855:0:4:plank
+zone:229:237:765:855:0:6:stacked cargo crates
+zone:229:237:765:855:5:11:on top of stacked cargo crates
+tile:243:251:765:855:0:4:plank
+zone:243:251:765:855:0:6:stacked cargo crates
+zone:243:251:765:855:5:11:on top of stacked cargo crates
+tile:257:265:765:855:0:4:plank
+zone:257:265:765:855:0:6:stacked cargo crates
+zone:257:265:765:855:5:11:on top of stacked cargo crates
+tile:271:279:765:855:0:4:plank
+zone:271:279:765:855:0:6:stacked cargo crates
+zone:271:279:765:855:5:11:on top of stacked cargo crates
+ispawn:199:283:763:857:0:0:6000:3:box:bag:empty_bucket:rock
+tile:196:286:900:1000:0:0:concrete10
+tile:196:286:1000:1000:0:24:metal2
+tile:196:286:900:900:0:24:metal2
+tile:196:196:900:945:0:24:metal2
+tile:196:196:955:1000:0:24:metal2
+tile:196:196:946:954:6:24:metal2
+tile:286:286:900:1000:0:24:metal2
+tile:196:286:900:1000:24:24:metal2
+tile:196:286:900:1000:25:25:concrete2
+zone:196:286:900:1000:25:32:roof of the Saltworks Warehouse
+zone:195:195:900:1000:0:8:the Saltworks Warehouse west wall
+zone:287:287:900:1000:0:8:the Saltworks Warehouse east wall
+zone:196:286:899:899:0:8:the Saltworks Warehouse south wall
+zone:196:286:1001:1001:0:8:the Saltworks Warehouse north wall
+zone:196:198:946:954:0:8:the Saltworks Warehouse entrance
+tile:240:242:1001:1001:0:25:ladder1
+zone:240:242:1001:1001:0:25:a ladder to the Saltworks Warehouse roof
+zone:197:285:901:999:0:11:the Saltworks Warehouse floor
+zone:197:285:901:999:0:11:the Saltworks Warehouse floor
+tile:201:209:905:995:0:4:plank
+zone:201:209:905:995:0:6:stacked cargo crates
+zone:201:209:905:995:5:11:on top of stacked cargo crates
+tile:215:223:905:995:0:4:plank
+zone:215:223:905:995:0:6:stacked cargo crates
+zone:215:223:905:995:5:11:on top of stacked cargo crates
+tile:229:237:905:995:0:4:plank
+zone:229:237:905:995:0:6:stacked cargo crates
+zone:229:237:905:995:5:11:on top of stacked cargo crates
+tile:243:251:905:995:0:4:plank
+zone:243:251:905:995:0:6:stacked cargo crates
+zone:243:251:905:995:5:11:on top of stacked cargo crates
+tile:257:265:905:995:0:4:plank
+zone:257:265:905:995:0:6:stacked cargo crates
+zone:257:265:905:995:5:11:on top of stacked cargo crates
+tile:271:279:905:995:0:4:plank
+zone:271:279:905:995:0:6:stacked cargo crates
+zone:271:279:905:995:5:11:on top of stacked cargo crates
+ispawn:199:283:903:997:0:0:6000:3:box:bag:empty_bucket:rock
+tile:330:392:780:830:0:0:hardwood
+tile:330:392:830:830:0:12:wallwood
+tile:330:392:780:780:0:12:wallwood
+tile:330:330:780:801:0:12:wallwood
+tile:330:330:809:830:0:12:wallwood
+tile:330:330:802:808:6:12:wallwood
+tile:392:392:780:830:0:12:wallwood
+tile:330:392:780:830:12:12:wallwood
+tile:330:392:780:830:13:13:concrete2
+zone:330:392:780:830:13:20:roof of the Harbourview Chandlery
+zone:329:329:780:830:0:8:the Harbourview Chandlery west wall
+zone:393:393:780:830:0:8:the Harbourview Chandlery east wall
+zone:330:392:779:779:0:8:the Harbourview Chandlery south wall
+zone:330:392:831:831:0:8:the Harbourview Chandlery north wall
+zone:330:332:802:808:0:8:the Harbourview Chandlery entrance
+zone:331:391:781:829:0:11:the Harbourview Chandlery interior
+zone:331:391:781:812:0:11:the Harbourview Chandlery sales floor
+tile:333:385:797:798:0:3:hardwood
+zone:333:385:797:798:0:6:the Harbourview Chandlery counter
+zone:333:385:797:798:4:10:on top of the Harbourview Chandlery counter
+tile:332:334:783:811:0:3:hardwood
+zone:332:334:783:811:0:6:the Harbourview Chandlery chandlery shelves
+zone:332:334:783:811:4:10:on top of the Harbourview Chandlery chandlery shelves
+tile:388:390:783:811:0:3:hardwood
+zone:388:390:783:811:0:6:the Harbourview Chandlery chandlery shelves
+zone:388:390:783:811:4:10:on top of the Harbourview Chandlery chandlery shelves
+tile:331:359:813:813:0:11:wallwood
+tile:363:391:813:813:0:11:wallwood
+tile:360:362:813:813:6:11:wallwood
+zone:360:362:813:813:0:8:the Harbourview Chandlery stockroom door
+zone:331:391:814:829:0:11:the Harbourview Chandlery stockroom
+tile:332:334:815:828:0:3:hardwood
+zone:332:334:815:828:0:6:the Harbourview Chandlery stock shelves
+zone:332:334:815:828:4:10:on top of the Harbourview Chandlery stock shelves
+// Cape Meridian Lighthouse
+tile:170:190:1080:1100:0:0:stone
+tile:170:190:1100:1100:0:60:wallstone
+tile:170:190:1080:1080:0:60:wallstone
+tile:170:170:1080:1100:0:60:wallstone
+tile:190:190:1080:1087:0:60:wallstone
+tile:190:190:1094:1100:0:60:wallstone
+tile:190:190:1088:1093:6:60:wallstone
+tile:170:190:1080:1100:60:60:wallstone
+tile:170:190:1080:1100:61:61:concrete2
+zone:170:190:1080:1100:61:68:roof of Cape Meridian Lighthouse
+zone:169:169:1080:1100:0:8:Cape Meridian Lighthouse west wall
+zone:191:191:1080:1100:0:8:Cape Meridian Lighthouse east wall
+zone:170:190:1079:1079:0:8:Cape Meridian Lighthouse south wall
+zone:170:190:1101:1101:0:8:Cape Meridian Lighthouse north wall
+zone:188:190:1088:1093:0:8:Cape Meridian Lighthouse entrance
+tile:171:172:1081:1099:0:61:ladder1
+zone:171:172:1081:1099:0:61:the lighthouse stairs
+tile:173:173:1081:1099:0:2:wallfence
+tile:171:189:1081:1099:61:61:metal2
+zone:171:189:1081:1099:61:68:the lighthouse lantern room
+src:170:190:1080:1100:0:68:wind2.ogg:-8
+poi:180:1090:61:Cape Meridian Lighthouse
+src:150:468:150:1150:0:8:ocean.ogg:-13
 
-// Village house 2
-tile:510:540:110:130:0:0:hardwood
-tile:510:510:110:130:0:15:wallwood
-tile:540:540:110:130:0:15:wallwood
-tile:510:540:110:110:0:15:wallwood
-tile:510:540:130:130:0:15:wallwood
-tile:510:540:110:130:15:15:wallwood
-tile:510:540:110:130:16:16:plank
-zone:510:540:110:130:0:15:fishermans hut
-zone:510:540:110:130:16:30:roof of the fishermans hut
-tile:523:527:130:130:6:15:wallwood
+// ============================================================
+// NORTH MERIDIAN - additional buildings
+// ============================================================
+tile:770:820:786:876:0:0:concrete10
+tile:770:820:876:876:0:12:wallstone
+tile:770:790:786:786:0:12:wallstone
+tile:800:820:786:786:0:12:wallstone
+tile:791:799:786:786:6:12:wallstone
+tile:770:770:786:876:0:12:wallstone
+tile:820:820:786:876:0:12:wallstone
+tile:770:820:786:876:12:12:wallstone
+tile:770:820:786:876:13:13:concrete2
+zone:770:820:786:876:13:20:roof of Meridian Police Station
+zone:769:769:786:876:0:8:Meridian Police Station west wall
+zone:821:821:786:876:0:8:Meridian Police Station east wall
+zone:770:820:785:785:0:8:Meridian Police Station south wall
+zone:770:820:877:877:0:8:Meridian Police Station north wall
+zone:791:799:786:788:0:8:Meridian Police Station entrance
+zone:771:819:787:875:0:11:Meridian Police Station interior
+zone:771:819:787:797:0:11:the police front desk
+tile:771:793:797:797:0:11:wallstone
+tile:797:819:797:797:0:11:wallstone
+tile:794:796:797:797:6:11:wallstone
+zone:794:796:797:797:0:8:Meridian Police Station inner door
+zone:794:796:798:875:0:11:Meridian Police Station main corridor
+zone:771:792:798:836:0:11:Meridian Police Station office 1
+zone:793:793:816:818:0:8:Meridian Police Station office 1 doorway
+tile:773:778:816:818:0:3:hardwood
+zone:773:778:816:818:0:6:Meridian Police Station office 1 desk
+zone:773:778:816:818:4:10:on top of Meridian Police Station office 1 desk
+tile:775:776:819:820:0:2:hardwood
+zone:775:776:819:820:0:6:Meridian Police Station office 1 chair
+zone:775:776:819:820:3:9:on top of Meridian Police Station office 1 chair
+zone:798:819:798:836:0:11:Meridian Police Station office 2
+zone:797:797:816:818:0:8:Meridian Police Station office 2 doorway
+tile:812:817:816:818:0:3:hardwood
+zone:812:817:816:818:0:6:Meridian Police Station office 2 desk
+zone:812:817:816:818:4:10:on top of Meridian Police Station office 2 desk
+tile:814:815:819:820:0:2:hardwood
+zone:814:815:819:820:0:6:Meridian Police Station office 2 chair
+zone:814:815:819:820:3:9:on top of Meridian Police Station office 2 chair
+tile:771:792:836:836:0:11:wallstone
+tile:798:819:836:836:0:11:wallstone
+zone:771:792:837:875:0:11:Meridian Police Station office 3
+zone:793:793:855:857:0:8:Meridian Police Station office 3 doorway
+tile:773:778:855:857:0:3:hardwood
+zone:773:778:855:857:0:6:Meridian Police Station office 3 desk
+zone:773:778:855:857:4:10:on top of Meridian Police Station office 3 desk
+tile:775:776:858:859:0:2:hardwood
+zone:775:776:858:859:0:6:Meridian Police Station office 3 chair
+zone:775:776:858:859:3:9:on top of Meridian Police Station office 3 chair
+zone:798:819:837:875:0:11:Meridian Police Station office 4
+zone:797:797:855:857:0:8:Meridian Police Station office 4 doorway
+tile:812:817:855:857:0:3:hardwood
+zone:812:817:855:857:0:6:Meridian Police Station office 4 desk
+zone:812:817:855:857:4:10:on top of Meridian Police Station office 4 desk
+tile:814:815:858:859:0:2:hardwood
+zone:814:815:858:859:0:6:Meridian Police Station office 4 chair
+zone:814:815:858:859:3:9:on top of Meridian Police Station office 4 chair
+tile:793:793:798:815:0:11:wallstone
+tile:793:793:819:854:0:11:wallstone
+tile:793:793:858:875:0:11:wallstone
+tile:793:793:816:818:6:11:wallstone
+tile:793:793:855:857:6:11:wallstone
+tile:797:797:798:815:0:11:wallstone
+tile:797:797:819:854:0:11:wallstone
+tile:797:797:858:875:0:11:wallstone
+tile:797:797:816:818:6:11:wallstone
+tile:797:797:855:857:6:11:wallstone
+tile:656:744:1058:1130:0:0:carpet1
+tile:656:744:1130:1130:0:22:wallbrick
+tile:656:691:1058:1058:0:22:wallbrick
+tile:709:744:1058:1058:0:22:wallbrick
+tile:692:708:1058:1058:6:22:wallbrick
+tile:656:656:1058:1130:0:22:wallbrick
+tile:744:744:1058:1130:0:22:wallbrick
+tile:656:744:1058:1130:22:22:wallbrick
+tile:656:744:1058:1130:23:23:concrete2
+zone:656:744:1058:1130:23:30:roof of the Meridian Theatre
+zone:655:655:1058:1130:0:8:the Meridian Theatre west wall
+zone:745:745:1058:1130:0:8:the Meridian Theatre east wall
+zone:656:744:1057:1057:0:8:the Meridian Theatre south wall
+zone:656:744:1131:1131:0:8:the Meridian Theatre north wall
+zone:692:708:1058:1060:0:8:the Meridian Theatre entrance
+zone:657:743:1059:1129:0:11:the theatre lobby
+zone:657:743:1059:1071:0:11:the theatre lobby
+tile:660:669:1063:1064:0:3:hardwood
+zone:660:669:1063:1064:0:6:the box office
+zone:660:669:1063:1064:4:10:on top of the box office
+tile:657:697:1071:1071:0:11:wallbrick
+tile:703:743:1071:1071:0:11:wallbrick
+tile:698:702:1071:1071:6:11:wallbrick
+zone:698:702:1071:1071:0:8:the auditorium doors
+zone:657:743:1072:1117:0:11:the theatre auditorium
+tile:659:741:1075:1076:0:2:hardwood
+zone:659:741:1075:1076:0:6:a row of theatre seats
+zone:659:741:1075:1076:3:9:on top of a row of theatre seats
+tile:659:741:1079:1080:0:2:hardwood
+zone:659:741:1079:1080:0:6:a row of theatre seats
+zone:659:741:1079:1080:3:9:on top of a row of theatre seats
+tile:659:741:1083:1084:0:2:hardwood
+zone:659:741:1083:1084:0:6:a row of theatre seats
+zone:659:741:1083:1084:3:9:on top of a row of theatre seats
+tile:659:741:1087:1088:0:2:hardwood
+zone:659:741:1087:1088:0:6:a row of theatre seats
+zone:659:741:1087:1088:3:9:on top of a row of theatre seats
+tile:659:741:1091:1092:0:2:hardwood
+zone:659:741:1091:1092:0:6:a row of theatre seats
+zone:659:741:1091:1092:3:9:on top of a row of theatre seats
+tile:659:741:1095:1096:0:2:hardwood
+zone:659:741:1095:1096:0:6:a row of theatre seats
+zone:659:741:1095:1096:3:9:on top of a row of theatre seats
+tile:659:741:1099:1100:0:2:hardwood
+zone:659:741:1099:1100:0:6:a row of theatre seats
+zone:659:741:1099:1100:3:9:on top of a row of theatre seats
+tile:659:741:1103:1104:0:2:hardwood
+zone:659:741:1103:1104:0:6:a row of theatre seats
+zone:659:741:1103:1104:3:9:on top of a row of theatre seats
+tile:659:741:1107:1108:0:2:hardwood
+zone:659:741:1107:1108:0:6:a row of theatre seats
+zone:659:741:1107:1108:3:9:on top of a row of theatre seats
+tile:659:741:1111:1112:0:2:hardwood
+zone:659:741:1111:1112:0:6:a row of theatre seats
+zone:659:741:1111:1112:3:9:on top of a row of theatre seats
+zone:657:743:1118:1129:0:11:the theatre stage
+src:657:743:1059:1129:0:22:calm.ogg:-11
+tile:486:560:1058:1140:0:0:carpet1
+tile:486:560:1140:1140:0:12:wallbrick
+tile:486:518:1058:1058:0:12:wallbrick
+tile:528:560:1058:1058:0:12:wallbrick
+tile:519:527:1058:1058:6:12:wallbrick
+tile:486:486:1058:1140:0:12:wallbrick
+tile:560:560:1058:1140:0:12:wallbrick
+tile:486:560:1058:1140:12:12:wallbrick
+tile:486:560:1058:1140:13:13:concrete2
+zone:486:560:1058:1140:13:20:roof of the Kingsway Hotel
+zone:485:485:1058:1140:0:8:the Kingsway Hotel west wall
+zone:561:561:1058:1140:0:8:the Kingsway Hotel east wall
+zone:486:560:1057:1057:0:8:the Kingsway Hotel south wall
+zone:486:560:1141:1141:0:8:the Kingsway Hotel north wall
+zone:519:527:1058:1060:0:8:the Kingsway Hotel entrance
+tile:485:485:1098:1100:0:13:ladder1
+zone:485:485:1098:1100:0:13:a ladder to the Kingsway Hotel roof
+zone:487:559:1059:1139:0:11:the Kingsway Hotel interior
+zone:487:559:1059:1069:0:11:the hotel lobby
+tile:487:521:1069:1069:0:11:wallbrick
+tile:525:559:1069:1069:0:11:wallbrick
+tile:522:524:1069:1069:6:11:wallbrick
+zone:522:524:1069:1069:0:8:the Kingsway Hotel inner door
+zone:522:524:1070:1139:0:11:the Kingsway Hotel main corridor
+zone:487:520:1070:1092:0:11:the Kingsway Hotel office 1
+zone:521:521:1080:1082:0:8:the Kingsway Hotel office 1 doorway
+tile:489:494:1080:1082:0:3:hardwood
+zone:489:494:1080:1082:0:6:the Kingsway Hotel office 1 desk
+zone:489:494:1080:1082:4:10:on top of the Kingsway Hotel office 1 desk
+tile:491:492:1083:1084:0:2:hardwood
+zone:491:492:1083:1084:0:6:the Kingsway Hotel office 1 chair
+zone:491:492:1083:1084:3:9:on top of the Kingsway Hotel office 1 chair
+zone:526:559:1070:1092:0:11:the Kingsway Hotel office 2
+zone:525:525:1080:1082:0:8:the Kingsway Hotel office 2 doorway
+tile:552:557:1080:1082:0:3:hardwood
+zone:552:557:1080:1082:0:6:the Kingsway Hotel office 2 desk
+zone:552:557:1080:1082:4:10:on top of the Kingsway Hotel office 2 desk
+tile:554:555:1083:1084:0:2:hardwood
+zone:554:555:1083:1084:0:6:the Kingsway Hotel office 2 chair
+zone:554:555:1083:1084:3:9:on top of the Kingsway Hotel office 2 chair
+tile:487:520:1092:1092:0:11:wallbrick
+tile:526:559:1092:1092:0:11:wallbrick
+zone:487:520:1093:1115:0:11:the Kingsway Hotel office 3
+zone:521:521:1103:1105:0:8:the Kingsway Hotel office 3 doorway
+tile:489:494:1103:1105:0:3:hardwood
+zone:489:494:1103:1105:0:6:the Kingsway Hotel office 3 desk
+zone:489:494:1103:1105:4:10:on top of the Kingsway Hotel office 3 desk
+tile:491:492:1106:1107:0:2:hardwood
+zone:491:492:1106:1107:0:6:the Kingsway Hotel office 3 chair
+zone:491:492:1106:1107:3:9:on top of the Kingsway Hotel office 3 chair
+zone:526:559:1093:1115:0:11:the Kingsway Hotel office 4
+zone:525:525:1103:1105:0:8:the Kingsway Hotel office 4 doorway
+tile:552:557:1103:1105:0:3:hardwood
+zone:552:557:1103:1105:0:6:the Kingsway Hotel office 4 desk
+zone:552:557:1103:1105:4:10:on top of the Kingsway Hotel office 4 desk
+tile:554:555:1106:1107:0:2:hardwood
+zone:554:555:1106:1107:0:6:the Kingsway Hotel office 4 chair
+zone:554:555:1106:1107:3:9:on top of the Kingsway Hotel office 4 chair
+tile:487:520:1115:1115:0:11:wallbrick
+tile:526:559:1115:1115:0:11:wallbrick
+zone:487:520:1116:1139:0:11:the Kingsway Hotel office 5
+zone:521:521:1126:1128:0:8:the Kingsway Hotel office 5 doorway
+tile:489:494:1126:1128:0:3:hardwood
+zone:489:494:1126:1128:0:6:the Kingsway Hotel office 5 desk
+zone:489:494:1126:1128:4:10:on top of the Kingsway Hotel office 5 desk
+tile:491:492:1129:1130:0:2:hardwood
+zone:491:492:1129:1130:0:6:the Kingsway Hotel office 5 chair
+zone:491:492:1129:1130:3:9:on top of the Kingsway Hotel office 5 chair
+zone:526:559:1116:1139:0:11:the Kingsway Hotel office 6
+zone:525:525:1126:1128:0:8:the Kingsway Hotel office 6 doorway
+tile:552:557:1126:1128:0:3:hardwood
+zone:552:557:1126:1128:0:6:the Kingsway Hotel office 6 desk
+zone:552:557:1126:1128:4:10:on top of the Kingsway Hotel office 6 desk
+tile:554:555:1129:1130:0:2:hardwood
+zone:554:555:1129:1130:0:6:the Kingsway Hotel office 6 chair
+zone:554:555:1129:1130:3:9:on top of the Kingsway Hotel office 6 chair
+tile:521:521:1070:1079:0:11:wallbrick
+tile:521:521:1083:1102:0:11:wallbrick
+tile:521:521:1106:1125:0:11:wallbrick
+tile:521:521:1129:1139:0:11:wallbrick
+tile:521:521:1080:1082:6:11:wallbrick
+tile:521:521:1103:1105:6:11:wallbrick
+tile:521:521:1126:1128:6:11:wallbrick
+tile:525:525:1070:1079:0:11:wallbrick
+tile:525:525:1083:1102:0:11:wallbrick
+tile:525:525:1106:1125:0:11:wallbrick
+tile:525:525:1129:1139:0:11:wallbrick
+tile:525:525:1080:1082:6:11:wallbrick
+tile:525:525:1103:1105:6:11:wallbrick
+tile:525:525:1126:1128:6:11:wallbrick
 
-// Village house 3
-tile:470:500:155:175:0:0:hardwood
-tile:470:470:155:175:0:15:wallwood
-tile:500:500:155:175:0:15:wallwood
-tile:470:500:155:155:0:15:wallwood
-tile:470:500:175:175:0:15:wallwood
-tile:470:500:155:175:15:15:wallwood
-tile:470:500:155:175:16:16:plank
-zone:470:500:155:175:0:15:village lodge
-zone:470:500:155:175:16:30:roof of the village lodge
-tile:483:487:175:175:6:15:wallwood
+// ============================================================
+// SOUTH MERIDIAN - additional buildings
+// ============================================================
+tile:664:718:474:540:0:0:tile2
+tile:664:718:540:540:0:18:wallstone
+tile:664:685:474:474:0:18:wallstone
+tile:693:718:474:474:0:18:wallstone
+tile:686:692:474:474:6:18:wallstone
+tile:664:664:474:540:0:18:wallstone
+tile:718:718:474:540:0:18:wallstone
+tile:664:718:474:540:18:18:wallstone
+tile:664:718:474:540:19:19:concrete2
+zone:664:718:474:540:19:26:roof of St. Mark's Chapel
+zone:663:663:474:540:0:8:St. Mark's Chapel west wall
+zone:719:719:474:540:0:8:St. Mark's Chapel east wall
+zone:664:718:473:473:0:8:St. Mark's Chapel south wall
+zone:664:718:541:541:0:8:St. Mark's Chapel north wall
+zone:686:692:474:476:0:8:St. Mark's Chapel entrance
+zone:665:717:475:539:0:11:the chapel
+zone:665:717:475:539:0:11:the chapel
+tile:666:669:479:480:0:2:hardwood
+zone:666:669:479:480:0:6:chapel pew
+zone:666:669:479:480:3:9:on top of chapel pew
+tile:713:716:479:480:0:2:hardwood
+zone:713:716:479:480:0:6:chapel pew
+zone:713:716:479:480:3:9:on top of chapel pew
+tile:666:669:484:485:0:2:hardwood
+zone:666:669:484:485:0:6:chapel pew
+zone:666:669:484:485:3:9:on top of chapel pew
+tile:713:716:484:485:0:2:hardwood
+zone:713:716:484:485:0:6:chapel pew
+zone:713:716:484:485:3:9:on top of chapel pew
+tile:666:669:489:490:0:2:hardwood
+zone:666:669:489:490:0:6:chapel pew
+zone:666:669:489:490:3:9:on top of chapel pew
+tile:713:716:489:490:0:2:hardwood
+zone:713:716:489:490:0:6:chapel pew
+zone:713:716:489:490:3:9:on top of chapel pew
+tile:666:669:494:495:0:2:hardwood
+zone:666:669:494:495:0:6:chapel pew
+zone:666:669:494:495:3:9:on top of chapel pew
+tile:713:716:494:495:0:2:hardwood
+zone:713:716:494:495:0:6:chapel pew
+zone:713:716:494:495:3:9:on top of chapel pew
+tile:666:669:499:500:0:2:hardwood
+zone:666:669:499:500:0:6:chapel pew
+zone:666:669:499:500:3:9:on top of chapel pew
+tile:713:716:499:500:0:2:hardwood
+zone:713:716:499:500:0:6:chapel pew
+zone:713:716:499:500:3:9:on top of chapel pew
+tile:666:669:504:505:0:2:hardwood
+zone:666:669:504:505:0:6:chapel pew
+zone:666:669:504:505:3:9:on top of chapel pew
+tile:713:716:504:505:0:2:hardwood
+zone:713:716:504:505:0:6:chapel pew
+zone:713:716:504:505:3:9:on top of chapel pew
+tile:666:669:509:510:0:2:hardwood
+zone:666:669:509:510:0:6:chapel pew
+zone:666:669:509:510:3:9:on top of chapel pew
+tile:713:716:509:510:0:2:hardwood
+zone:713:716:509:510:0:6:chapel pew
+zone:713:716:509:510:3:9:on top of chapel pew
+tile:666:669:514:515:0:2:hardwood
+zone:666:669:514:515:0:6:chapel pew
+zone:666:669:514:515:3:9:on top of chapel pew
+tile:713:716:514:515:0:2:hardwood
+zone:713:716:514:515:0:6:chapel pew
+zone:713:716:514:515:3:9:on top of chapel pew
+tile:666:669:519:520:0:2:hardwood
+zone:666:669:519:520:0:6:chapel pew
+zone:666:669:519:520:3:9:on top of chapel pew
+tile:713:716:519:520:0:2:hardwood
+zone:713:716:519:520:0:6:chapel pew
+zone:713:716:519:520:3:9:on top of chapel pew
+tile:666:669:524:525:0:2:hardwood
+zone:666:669:524:525:0:6:chapel pew
+zone:666:669:524:525:3:9:on top of chapel pew
+tile:713:716:524:525:0:2:hardwood
+zone:713:716:524:525:0:6:chapel pew
+zone:713:716:524:525:3:9:on top of chapel pew
+tile:666:669:529:530:0:2:hardwood
+zone:666:669:529:530:0:6:chapel pew
+zone:666:669:529:530:3:9:on top of chapel pew
+tile:713:716:529:530:0:2:hardwood
+zone:713:716:529:530:0:6:chapel pew
+zone:713:716:529:530:3:9:on top of chapel pew
+tile:671:711:536:537:0:3:hardwood
+zone:671:711:536:537:0:6:the chapel altar
+zone:671:711:536:537:4:10:on top of the chapel altar
+tile:545:620:474:560:0:0:tile1
+tile:545:620:560:560:0:12:wallbrick
+tile:545:577:474:474:0:12:wallbrick
+tile:587:620:474:474:0:12:wallbrick
+tile:578:586:474:474:6:12:wallbrick
+tile:545:545:474:560:0:12:wallbrick
+tile:620:620:474:560:0:12:wallbrick
+tile:545:620:474:560:12:12:wallbrick
+tile:545:620:474:560:13:13:concrete2
+zone:545:620:474:560:13:20:roof of the Southbank Clinic
+zone:544:544:474:560:0:8:the Southbank Clinic west wall
+zone:621:621:474:560:0:8:the Southbank Clinic east wall
+zone:545:620:473:473:0:8:the Southbank Clinic south wall
+zone:545:620:561:561:0:8:the Southbank Clinic north wall
+zone:578:586:474:476:0:8:the Southbank Clinic entrance
+zone:546:619:475:559:0:11:the Southbank Clinic interior
+zone:546:619:475:485:0:11:the clinic waiting room
+tile:546:580:485:485:0:11:wallbrick
+tile:584:619:485:485:0:11:wallbrick
+tile:581:583:485:485:6:11:wallbrick
+zone:581:583:485:485:0:8:the Southbank Clinic inner door
+zone:581:583:486:559:0:11:the Southbank Clinic main corridor
+zone:546:579:486:509:0:11:the Southbank Clinic office 1
+zone:580:580:496:498:0:8:the Southbank Clinic office 1 doorway
+tile:548:553:496:498:0:3:hardwood
+zone:548:553:496:498:0:6:the Southbank Clinic office 1 desk
+zone:548:553:496:498:4:10:on top of the Southbank Clinic office 1 desk
+tile:550:551:499:500:0:2:hardwood
+zone:550:551:499:500:0:6:the Southbank Clinic office 1 chair
+zone:550:551:499:500:3:9:on top of the Southbank Clinic office 1 chair
+zone:585:619:486:509:0:11:the Southbank Clinic office 2
+zone:584:584:496:498:0:8:the Southbank Clinic office 2 doorway
+tile:612:617:496:498:0:3:hardwood
+zone:612:617:496:498:0:6:the Southbank Clinic office 2 desk
+zone:612:617:496:498:4:10:on top of the Southbank Clinic office 2 desk
+tile:614:615:499:500:0:2:hardwood
+zone:614:615:499:500:0:6:the Southbank Clinic office 2 chair
+zone:614:615:499:500:3:9:on top of the Southbank Clinic office 2 chair
+tile:546:579:509:509:0:11:wallbrick
+tile:585:619:509:509:0:11:wallbrick
+zone:546:579:510:533:0:11:the Southbank Clinic office 3
+zone:580:580:520:522:0:8:the Southbank Clinic office 3 doorway
+tile:548:553:520:522:0:3:hardwood
+zone:548:553:520:522:0:6:the Southbank Clinic office 3 desk
+zone:548:553:520:522:4:10:on top of the Southbank Clinic office 3 desk
+tile:550:551:523:524:0:2:hardwood
+zone:550:551:523:524:0:6:the Southbank Clinic office 3 chair
+zone:550:551:523:524:3:9:on top of the Southbank Clinic office 3 chair
+zone:585:619:510:533:0:11:the Southbank Clinic office 4
+zone:584:584:520:522:0:8:the Southbank Clinic office 4 doorway
+tile:612:617:520:522:0:3:hardwood
+zone:612:617:520:522:0:6:the Southbank Clinic office 4 desk
+zone:612:617:520:522:4:10:on top of the Southbank Clinic office 4 desk
+tile:614:615:523:524:0:2:hardwood
+zone:614:615:523:524:0:6:the Southbank Clinic office 4 chair
+zone:614:615:523:524:3:9:on top of the Southbank Clinic office 4 chair
+tile:546:579:533:533:0:11:wallbrick
+tile:585:619:533:533:0:11:wallbrick
+zone:546:579:534:559:0:11:the Southbank Clinic office 5
+zone:580:580:545:547:0:8:the Southbank Clinic office 5 doorway
+tile:548:553:545:547:0:3:hardwood
+zone:548:553:545:547:0:6:the Southbank Clinic office 5 desk
+zone:548:553:545:547:4:10:on top of the Southbank Clinic office 5 desk
+tile:550:551:548:549:0:2:hardwood
+zone:550:551:548:549:0:6:the Southbank Clinic office 5 chair
+zone:550:551:548:549:3:9:on top of the Southbank Clinic office 5 chair
+zone:585:619:534:559:0:11:the Southbank Clinic office 6
+zone:584:584:545:547:0:8:the Southbank Clinic office 6 doorway
+tile:612:617:545:547:0:3:hardwood
+zone:612:617:545:547:0:6:the Southbank Clinic office 6 desk
+zone:612:617:545:547:4:10:on top of the Southbank Clinic office 6 desk
+tile:614:615:548:549:0:2:hardwood
+zone:614:615:548:549:0:6:the Southbank Clinic office 6 chair
+zone:614:615:548:549:3:9:on top of the Southbank Clinic office 6 chair
+tile:580:580:486:495:0:11:wallbrick
+tile:580:580:499:519:0:11:wallbrick
+tile:580:580:523:544:0:11:wallbrick
+tile:580:580:548:559:0:11:wallbrick
+tile:580:580:496:498:6:11:wallbrick
+tile:580:580:520:522:6:11:wallbrick
+tile:580:580:545:547:6:11:wallbrick
+tile:584:584:486:495:0:11:wallbrick
+tile:584:584:499:519:0:11:wallbrick
+tile:584:584:523:544:0:11:wallbrick
+tile:584:584:548:559:0:11:wallbrick
+tile:584:584:496:498:6:11:wallbrick
+tile:584:584:520:522:6:11:wallbrick
+tile:584:584:545:547:6:11:wallbrick
+ispawn:548:616:478:500:0:0:5000:3:health_potion:ultra_health_potion:life_injection
+tile:476:508:176:220:0:0:carpet1
+tile:476:508:220:220:0:12:wallwood
+tile:476:508:176:176:0:12:wallwood
+tile:476:476:176:220:0:12:wallwood
+tile:508:508:176:195:0:12:wallwood
+tile:508:508:201:220:0:12:wallwood
+tile:508:508:196:200:6:12:wallwood
+tile:476:508:176:220:12:12:wallwood
+tile:476:508:176:220:13:13:concrete2
+zone:476:508:176:220:13:20:roof of 8 Harlow Street
+zone:475:475:176:220:0:8:8 Harlow Street west wall
+zone:509:509:176:220:0:8:8 Harlow Street east wall
+zone:476:508:175:175:0:8:8 Harlow Street south wall
+zone:476:508:221:221:0:8:8 Harlow Street north wall
+zone:506:508:196:200:0:8:8 Harlow Street entrance
+zone:477:507:177:219:0:11:8 Harlow Street interior
+zone:490:494:177:219:0:11:8 Harlow Street hallway
+tile:489:489:177:179:0:11:wallwood
+tile:489:489:183:213:0:11:wallwood
+tile:489:489:217:219:0:11:wallwood
+tile:489:489:180:182:6:11:wallwood
+tile:489:489:214:216:6:11:wallwood
+zone:489:489:180:182:0:8:8 Harlow Street living room doorway
+zone:489:489:214:216:0:8:8 Harlow Street kitchen doorway
+tile:477:489:198:198:0:11:wallwood
+zone:477:488:177:197:0:11:8 Harlow Street living room
+tile:478:482:178:180:0:2:hardwood2
+zone:478:482:178:180:0:6:8 Harlow Street sofa
+zone:478:482:178:180:3:9:on top of 8 Harlow Street sofa
+tile:479:482:194:196:0:2:hardwood
+zone:479:482:194:196:0:6:8 Harlow Street coffee table
+zone:479:482:194:196:3:9:on top of 8 Harlow Street coffee table
+zone:477:488:199:219:0:11:8 Harlow Street kitchen
+tile:478:487:217:218:0:3:hardwood
+zone:478:487:217:218:0:6:8 Harlow Street kitchen counter
+zone:478:487:217:218:4:10:on top of 8 Harlow Street kitchen counter
+tile:495:495:177:179:0:11:wallwood
+tile:495:495:183:213:0:11:wallwood
+tile:495:495:217:219:0:11:wallwood
+tile:495:495:180:182:6:11:wallwood
+tile:495:495:214:216:6:11:wallwood
+zone:495:495:180:182:0:8:8 Harlow Street bedroom doorway
+zone:495:495:214:216:0:8:8 Harlow Street back room doorway
+tile:495:507:198:198:0:11:wallwood
+zone:496:507:177:197:0:11:8 Harlow Street bedroom
+tile:503:506:178:181:0:2:hardwood2
+zone:503:506:178:181:0:6:8 Harlow Street bed
+zone:503:506:178:181:3:9:on top of 8 Harlow Street bed
+zone:496:507:199:219:0:11:8 Harlow Street back bedroom
+tile:503:506:215:218:0:2:hardwood2
+zone:503:506:215:218:0:6:8 Harlow Street bed
+zone:503:506:215:218:3:9:on top of 8 Harlow Street bed
+tile:492:492:216:219:0:12:ladder1
+zone:492:492:216:219:0:12:8 Harlow Street attic ladder
+tile:477:507:177:219:12:12:plank
+zone:477:507:177:219:13:23:8 Harlow Street attic
+tile:478:480:178:180:13:15:plank
+zone:478:480:178:180:16:22:on top of 8 Harlow Street attic crates
+tile:476:508:232:276:0:0:carpet1
+tile:476:508:276:276:0:12:wallwood
+tile:476:508:232:232:0:12:wallwood
+tile:476:476:232:276:0:12:wallwood
+tile:508:508:232:251:0:12:wallwood
+tile:508:508:257:276:0:12:wallwood
+tile:508:508:252:256:6:12:wallwood
+tile:476:508:232:276:12:12:wallwood
+tile:476:508:232:276:13:13:concrete2
+zone:476:508:232:276:13:20:roof of 10 Harlow Street
+zone:475:475:232:276:0:8:10 Harlow Street west wall
+zone:509:509:232:276:0:8:10 Harlow Street east wall
+zone:476:508:231:231:0:8:10 Harlow Street south wall
+zone:476:508:277:277:0:8:10 Harlow Street north wall
+zone:506:508:252:256:0:8:10 Harlow Street entrance
+zone:477:507:233:275:0:11:10 Harlow Street interior
+zone:490:494:233:275:0:11:10 Harlow Street hallway
+tile:489:489:233:235:0:11:wallwood
+tile:489:489:239:269:0:11:wallwood
+tile:489:489:273:275:0:11:wallwood
+tile:489:489:236:238:6:11:wallwood
+tile:489:489:270:272:6:11:wallwood
+zone:489:489:236:238:0:8:10 Harlow Street living room doorway
+zone:489:489:270:272:0:8:10 Harlow Street kitchen doorway
+tile:477:489:254:254:0:11:wallwood
+zone:477:488:233:253:0:11:10 Harlow Street living room
+tile:478:482:234:236:0:2:hardwood2
+zone:478:482:234:236:0:6:10 Harlow Street sofa
+zone:478:482:234:236:3:9:on top of 10 Harlow Street sofa
+tile:479:482:250:252:0:2:hardwood
+zone:479:482:250:252:0:6:10 Harlow Street coffee table
+zone:479:482:250:252:3:9:on top of 10 Harlow Street coffee table
+zone:477:488:255:275:0:11:10 Harlow Street kitchen
+tile:478:487:273:274:0:3:hardwood
+zone:478:487:273:274:0:6:10 Harlow Street kitchen counter
+zone:478:487:273:274:4:10:on top of 10 Harlow Street kitchen counter
+tile:495:495:233:235:0:11:wallwood
+tile:495:495:239:269:0:11:wallwood
+tile:495:495:273:275:0:11:wallwood
+tile:495:495:236:238:6:11:wallwood
+tile:495:495:270:272:6:11:wallwood
+zone:495:495:236:238:0:8:10 Harlow Street bedroom doorway
+zone:495:495:270:272:0:8:10 Harlow Street back room doorway
+tile:495:507:254:254:0:11:wallwood
+zone:496:507:233:253:0:11:10 Harlow Street bedroom
+tile:503:506:234:237:0:2:hardwood2
+zone:503:506:234:237:0:6:10 Harlow Street bed
+zone:503:506:234:237:3:9:on top of 10 Harlow Street bed
+zone:496:507:255:275:0:11:10 Harlow Street back bedroom
+tile:503:506:271:274:0:2:hardwood2
+zone:503:506:271:274:0:6:10 Harlow Street bed
+zone:503:506:271:274:3:9:on top of 10 Harlow Street bed
+tile:477:507:233:275:-14:-14:concrete10
+tile:476:476:233:275:-14:-1:wallstone
+tile:508:508:233:275:-14:-1:wallstone
+tile:477:507:232:232:-14:-1:wallstone
+tile:477:507:276:276:-14:-1:wallstone
+zone:477:507:233:275:-14:-3:10 Harlow Street basement
+tile:478:479:253:255:-14:0:ladder1
+zone:478:479:253:255:-14:0:10 Harlow Street basement stairs
+tile:477:477:253:255:-14:-12:wallfence
+tile:480:480:253:255:-14:-12:wallfence
+zone:489:489:253:255:0:8:10 Harlow Street cellar door
 
-// Village dock
-tile:498:502:70:90:0:0:plank
-zone:498:502:70:90:0:5:the village dock
-src:498:502:70:80:0:5:waves2.ogg:-3
+// ============================================================
+// EAST MERIDIAN - additional buildings
+// ============================================================
+tile:836:862:500:560:0:0:tile2
+tile:836:862:560:560:0:12:wallbrick
+tile:836:862:500:500:0:12:wallbrick
+tile:836:836:500:560:0:12:wallbrick
+tile:862:862:500:526:0:12:wallbrick
+tile:862:862:534:560:0:12:wallbrick
+tile:862:862:527:533:6:12:wallbrick
+tile:836:862:500:560:12:12:wallbrick
+tile:836:862:500:560:13:13:concrete2
+zone:836:862:500:560:13:20:roof of the Half-Moon Diner
+zone:835:835:500:560:0:8:the Half-Moon Diner west wall
+zone:863:863:500:560:0:8:the Half-Moon Diner east wall
+zone:836:862:499:499:0:8:the Half-Moon Diner south wall
+zone:836:862:561:561:0:8:the Half-Moon Diner north wall
+zone:860:862:527:533:0:8:the Half-Moon Diner entrance
+zone:837:861:501:559:0:11:the Half-Moon Diner interior
+zone:837:861:501:539:0:11:the Half-Moon Diner sales floor
+tile:839:855:520:521:0:3:hardwood
+zone:839:855:520:521:0:6:the Half-Moon Diner counter
+zone:839:855:520:521:4:10:on top of the Half-Moon Diner counter
+tile:838:840:503:538:0:3:hardwood
+zone:838:840:503:538:0:6:the Half-Moon Diner diner supplies
+zone:838:840:503:538:4:10:on top of the Half-Moon Diner diner supplies
+tile:858:860:503:538:0:3:hardwood
+zone:858:860:503:538:0:6:the Half-Moon Diner diner supplies
+zone:858:860:503:538:4:10:on top of the Half-Moon Diner diner supplies
+tile:837:847:540:540:0:11:wallbrick
+tile:851:861:540:540:0:11:wallbrick
+tile:848:850:540:540:6:11:wallbrick
+zone:848:850:540:540:0:8:the Half-Moon Diner stockroom door
+zone:837:861:541:559:0:11:the Half-Moon Diner stockroom
+tile:838:840:542:558:0:3:hardwood
+zone:838:840:542:558:0:6:the Half-Moon Diner stock shelves
+zone:838:840:542:558:4:10:on top of the Half-Moon Diner stock shelves
+tile:836:862:600:660:0:0:concrete10
+tile:836:862:660:660:0:12:wallbrick
+tile:836:862:600:600:0:12:wallbrick
+tile:836:836:600:660:0:12:wallbrick
+tile:862:862:600:626:0:12:wallbrick
+tile:862:862:634:660:0:12:wallbrick
+tile:862:862:627:633:6:12:wallbrick
+tile:836:862:600:660:12:12:wallbrick
+tile:836:862:600:660:13:13:concrete2
+zone:836:862:600:660:13:20:roof of East Meridian Post Office
+zone:835:835:600:660:0:8:East Meridian Post Office west wall
+zone:863:863:600:660:0:8:East Meridian Post Office east wall
+zone:836:862:599:599:0:8:East Meridian Post Office south wall
+zone:836:862:661:661:0:8:East Meridian Post Office north wall
+zone:860:862:627:633:0:8:East Meridian Post Office entrance
+zone:837:861:601:659:0:11:East Meridian Post Office interior
+zone:837:861:601:639:0:11:East Meridian Post Office sales floor
+tile:839:855:620:621:0:3:hardwood
+zone:839:855:620:621:0:6:East Meridian Post Office counter
+zone:839:855:620:621:4:10:on top of East Meridian Post Office counter
+tile:838:840:603:638:0:3:hardwood
+zone:838:840:603:638:0:6:East Meridian Post Office sorting shelves
+zone:838:840:603:638:4:10:on top of East Meridian Post Office sorting shelves
+tile:858:860:603:638:0:3:hardwood
+zone:858:860:603:638:0:6:East Meridian Post Office sorting shelves
+zone:858:860:603:638:4:10:on top of East Meridian Post Office sorting shelves
+tile:837:847:640:640:0:11:wallbrick
+tile:851:861:640:640:0:11:wallbrick
+tile:848:850:640:640:6:11:wallbrick
+zone:848:850:640:640:0:8:East Meridian Post Office stockroom door
+zone:837:861:641:659:0:11:East Meridian Post Office stockroom
+tile:838:840:642:658:0:3:hardwood
+zone:838:840:642:658:0:6:East Meridian Post Office stock shelves
+zone:838:840:642:658:4:10:on top of East Meridian Post Office stock shelves
+tile:890:964:500:590:0:0:hardwood
+tile:890:964:590:590:0:12:wallbrick
+tile:890:922:500:500:0:12:wallbrick
+tile:932:964:500:500:0:12:wallbrick
+tile:923:931:500:500:6:12:wallbrick
+tile:890:890:500:590:0:12:wallbrick
+tile:964:964:500:590:0:12:wallbrick
+tile:890:964:500:590:12:12:wallbrick
+tile:890:964:500:590:13:13:concrete2
+zone:890:964:500:590:13:20:roof of Half-Moon Chambers
+zone:889:889:500:590:0:8:Half-Moon Chambers west wall
+zone:965:965:500:590:0:8:Half-Moon Chambers east wall
+zone:890:964:499:499:0:8:Half-Moon Chambers south wall
+zone:890:964:591:591:0:8:Half-Moon Chambers north wall
+zone:923:931:500:502:0:8:Half-Moon Chambers entrance
+zone:891:963:501:589:0:11:Half-Moon Chambers interior
+zone:891:963:501:511:0:11:the chambers foyer
+tile:891:925:511:511:0:11:wallbrick
+tile:929:963:511:511:0:11:wallbrick
+tile:926:928:511:511:6:11:wallbrick
+zone:926:928:511:511:0:8:Half-Moon Chambers inner door
+zone:926:928:512:589:0:11:Half-Moon Chambers main corridor
+zone:891:924:512:537:0:11:Half-Moon Chambers office 1
+zone:925:925:523:525:0:8:Half-Moon Chambers office 1 doorway
+tile:893:898:523:525:0:3:hardwood
+zone:893:898:523:525:0:6:Half-Moon Chambers office 1 desk
+zone:893:898:523:525:4:10:on top of Half-Moon Chambers office 1 desk
+tile:895:896:526:527:0:2:hardwood
+zone:895:896:526:527:0:6:Half-Moon Chambers office 1 chair
+zone:895:896:526:527:3:9:on top of Half-Moon Chambers office 1 chair
+zone:930:963:512:537:0:11:Half-Moon Chambers office 2
+zone:929:929:523:525:0:8:Half-Moon Chambers office 2 doorway
+tile:956:961:523:525:0:3:hardwood
+zone:956:961:523:525:0:6:Half-Moon Chambers office 2 desk
+zone:956:961:523:525:4:10:on top of Half-Moon Chambers office 2 desk
+tile:958:959:526:527:0:2:hardwood
+zone:958:959:526:527:0:6:Half-Moon Chambers office 2 chair
+zone:958:959:526:527:3:9:on top of Half-Moon Chambers office 2 chair
+tile:891:924:537:537:0:11:wallbrick
+tile:930:963:537:537:0:11:wallbrick
+zone:891:924:538:563:0:11:Half-Moon Chambers office 3
+zone:925:925:549:551:0:8:Half-Moon Chambers office 3 doorway
+tile:893:898:549:551:0:3:hardwood
+zone:893:898:549:551:0:6:Half-Moon Chambers office 3 desk
+zone:893:898:549:551:4:10:on top of Half-Moon Chambers office 3 desk
+tile:895:896:552:553:0:2:hardwood
+zone:895:896:552:553:0:6:Half-Moon Chambers office 3 chair
+zone:895:896:552:553:3:9:on top of Half-Moon Chambers office 3 chair
+zone:930:963:538:563:0:11:Half-Moon Chambers office 4
+zone:929:929:549:551:0:8:Half-Moon Chambers office 4 doorway
+tile:956:961:549:551:0:3:hardwood
+zone:956:961:549:551:0:6:Half-Moon Chambers office 4 desk
+zone:956:961:549:551:4:10:on top of Half-Moon Chambers office 4 desk
+tile:958:959:552:553:0:2:hardwood
+zone:958:959:552:553:0:6:Half-Moon Chambers office 4 chair
+zone:958:959:552:553:3:9:on top of Half-Moon Chambers office 4 chair
+tile:891:924:563:563:0:11:wallbrick
+tile:930:963:563:563:0:11:wallbrick
+zone:891:924:564:589:0:11:Half-Moon Chambers office 5
+zone:925:925:575:577:0:8:Half-Moon Chambers office 5 doorway
+tile:893:898:575:577:0:3:hardwood
+zone:893:898:575:577:0:6:Half-Moon Chambers office 5 desk
+zone:893:898:575:577:4:10:on top of Half-Moon Chambers office 5 desk
+tile:895:896:578:579:0:2:hardwood
+zone:895:896:578:579:0:6:Half-Moon Chambers office 5 chair
+zone:895:896:578:579:3:9:on top of Half-Moon Chambers office 5 chair
+zone:930:963:564:589:0:11:Half-Moon Chambers office 6
+zone:929:929:575:577:0:8:Half-Moon Chambers office 6 doorway
+tile:956:961:575:577:0:3:hardwood
+zone:956:961:575:577:0:6:Half-Moon Chambers office 6 desk
+zone:956:961:575:577:4:10:on top of Half-Moon Chambers office 6 desk
+tile:958:959:578:579:0:2:hardwood
+zone:958:959:578:579:0:6:Half-Moon Chambers office 6 chair
+zone:958:959:578:579:3:9:on top of Half-Moon Chambers office 6 chair
+tile:925:925:512:522:0:11:wallbrick
+tile:925:925:526:548:0:11:wallbrick
+tile:925:925:552:574:0:11:wallbrick
+tile:925:925:578:589:0:11:wallbrick
+tile:925:925:523:525:6:11:wallbrick
+tile:925:925:549:551:6:11:wallbrick
+tile:925:925:575:577:6:11:wallbrick
+tile:929:929:512:522:0:11:wallbrick
+tile:929:929:526:548:0:11:wallbrick
+tile:929:929:552:574:0:11:wallbrick
+tile:929:929:578:589:0:11:wallbrick
+tile:929:929:523:525:6:11:wallbrick
+tile:929:929:549:551:6:11:wallbrick
+tile:929:929:575:577:6:11:wallbrick
+tile:1088:1146:984:1074:0:0:concrete10
+zone:1088:1146:984:1074:0:8:the airport long-stay car park
+zone:1092:1116:988:997:0:8:car park bay 1
+zone:1120:1144:988:997:0:8:car park bay 2
+zone:1092:1116:1000:1009:0:8:car park bay 3
+zone:1120:1144:1000:1009:0:8:car park bay 4
+zone:1092:1116:1012:1021:0:8:car park bay 5
+zone:1120:1144:1012:1021:0:8:car park bay 6
+zone:1092:1116:1024:1033:0:8:car park bay 7
+zone:1120:1144:1024:1033:0:8:car park bay 8
+zone:1092:1116:1036:1045:0:8:car park bay 9
+zone:1120:1144:1036:1045:0:8:car park bay 10
+zone:1092:1116:1048:1057:0:8:car park bay 11
+zone:1120:1144:1048:1057:0:8:car park bay 12
+zone:1092:1116:1060:1069:0:8:car park bay 13
+zone:1120:1144:1060:1069:0:8:car park bay 14
 
-ispawn:440:560:90:190:0:0:2000:3:health_potion:frag_grenade:empty_bucket:rock
+// ============================================================
+// WEST MERIDIAN - additional buildings
+// ============================================================
+tile:196:256:400:448:0:0:plank
+tile:196:256:448:448:0:16:wallwood
+tile:196:256:400:400:0:16:wallwood
+tile:196:196:400:448:0:16:wallwood
+tile:256:256:400:419:0:16:wallwood
+tile:256:256:429:448:0:16:wallwood
+tile:256:256:420:428:6:16:wallwood
+tile:196:256:400:448:16:16:wallwood
+tile:196:256:400:448:17:17:concrete2
+zone:196:256:400:448:17:24:roof of the Meridian Boathouse
+zone:195:195:400:448:0:8:the Meridian Boathouse west wall
+zone:257:257:400:448:0:8:the Meridian Boathouse east wall
+zone:196:256:399:399:0:8:the Meridian Boathouse south wall
+zone:196:256:449:449:0:8:the Meridian Boathouse north wall
+zone:254:256:420:428:0:8:the Meridian Boathouse entrance
+tile:225:227:399:399:0:17:ladder1
+zone:225:227:399:399:0:17:a ladder to the Meridian Boathouse roof
+zone:197:255:401:447:0:11:the boathouse
+zone:197:255:401:447:0:11:the boathouse
+tile:199:253:403:409:0:3:plank
+zone:199:253:403:409:0:6:an upturned rowing boat
+zone:199:253:403:409:4:10:on top of an upturned rowing boat
+tile:330:420:196:240:0:0:tile2
+tile:330:371:240:240:0:12:wallbrick
+tile:379:420:240:240:0:12:wallbrick
+tile:372:378:240:240:6:12:wallbrick
+tile:330:420:196:196:0:12:wallbrick
+tile:330:330:196:240:0:12:wallbrick
+tile:420:420:196:240:0:12:wallbrick
+tile:330:420:196:240:12:12:wallbrick
+tile:330:420:196:240:13:13:concrete2
+zone:330:420:196:240:13:20:roof of the Meridian Fish Market
+zone:329:329:196:240:0:8:the Meridian Fish Market west wall
+zone:421:421:196:240:0:8:the Meridian Fish Market east wall
+zone:330:420:195:195:0:8:the Meridian Fish Market south wall
+zone:330:420:241:241:0:8:the Meridian Fish Market north wall
+zone:372:378:238:240:0:8:the Meridian Fish Market entrance
+zone:331:419:197:239:0:11:the Meridian Fish Market interior
+zone:331:419:197:224:0:11:the Meridian Fish Market sales floor
+tile:333:413:211:212:0:3:hardwood
+zone:333:413:211:212:0:6:the Meridian Fish Market counter
+zone:333:413:211:212:4:10:on top of the Meridian Fish Market counter
+tile:332:334:199:223:0:3:hardwood
+zone:332:334:199:223:0:6:the Meridian Fish Market fish stalls
+zone:332:334:199:223:4:10:on top of the Meridian Fish Market fish stalls
+tile:416:418:199:223:0:3:hardwood
+zone:416:418:199:223:0:6:the Meridian Fish Market fish stalls
+zone:416:418:199:223:4:10:on top of the Meridian Fish Market fish stalls
+tile:331:373:225:225:0:11:wallbrick
+tile:377:419:225:225:0:11:wallbrick
+tile:374:376:225:225:6:11:wallbrick
+zone:374:376:225:225:0:8:the Meridian Fish Market stockroom door
+zone:331:419:226:239:0:11:the Meridian Fish Market stockroom
+tile:332:334:227:238:0:3:hardwood
+zone:332:334:227:238:0:6:the Meridian Fish Market stock shelves
+zone:332:334:227:238:4:10:on top of the Meridian Fish Market stock shelves
+tile:196:228:560:600:0:0:hardwood
+tile:196:209:600:600:0:12:wallwood
+tile:215:228:600:600:0:12:wallwood
+tile:210:214:600:600:6:12:wallwood
+tile:196:228:560:560:0:12:wallwood
+tile:196:196:560:600:0:12:wallwood
+tile:228:228:560:600:0:12:wallwood
+tile:196:228:560:600:12:12:wallwood
+tile:196:228:560:600:13:13:concrete2
+zone:196:228:560:600:13:20:roof of 1 Gull Street
+zone:195:195:560:600:0:8:1 Gull Street west wall
+zone:229:229:560:600:0:8:1 Gull Street east wall
+zone:196:228:559:559:0:8:1 Gull Street south wall
+zone:196:228:601:601:0:8:1 Gull Street north wall
+zone:210:214:598:600:0:8:1 Gull Street entrance
+zone:197:227:561:599:0:11:1 Gull Street interior
+zone:210:214:561:599:0:11:1 Gull Street hallway
+tile:209:209:561:563:0:11:wallwood
+tile:209:209:567:593:0:11:wallwood
+tile:209:209:597:599:0:11:wallwood
+tile:209:209:564:566:6:11:wallwood
+tile:209:209:594:596:6:11:wallwood
+zone:209:209:564:566:0:8:1 Gull Street living room doorway
+zone:209:209:594:596:0:8:1 Gull Street kitchen doorway
+tile:197:209:580:580:0:11:wallwood
+zone:197:208:561:579:0:11:1 Gull Street living room
+tile:198:202:562:564:0:2:hardwood2
+zone:198:202:562:564:0:6:1 Gull Street sofa
+zone:198:202:562:564:3:9:on top of 1 Gull Street sofa
+tile:199:202:576:578:0:2:hardwood
+zone:199:202:576:578:0:6:1 Gull Street coffee table
+zone:199:202:576:578:3:9:on top of 1 Gull Street coffee table
+zone:197:208:581:599:0:11:1 Gull Street kitchen
+tile:198:207:597:598:0:3:hardwood
+zone:198:207:597:598:0:6:1 Gull Street kitchen counter
+zone:198:207:597:598:4:10:on top of 1 Gull Street kitchen counter
+tile:215:215:561:563:0:11:wallwood
+tile:215:215:567:593:0:11:wallwood
+tile:215:215:597:599:0:11:wallwood
+tile:215:215:564:566:6:11:wallwood
+tile:215:215:594:596:6:11:wallwood
+zone:215:215:564:566:0:8:1 Gull Street bedroom doorway
+zone:215:215:594:596:0:8:1 Gull Street back room doorway
+tile:215:227:580:580:0:11:wallwood
+zone:216:227:561:579:0:11:1 Gull Street bedroom
+tile:223:226:562:565:0:2:hardwood2
+zone:223:226:562:565:0:6:1 Gull Street bed
+zone:223:226:562:565:3:9:on top of 1 Gull Street bed
+zone:216:227:581:599:0:11:1 Gull Street back bedroom
+tile:223:226:595:598:0:2:hardwood2
+zone:223:226:595:598:0:6:1 Gull Street bed
+zone:223:226:595:598:3:9:on top of 1 Gull Street bed
+tile:236:268:560:600:0:0:hardwood
+tile:236:249:600:600:0:12:wallwood
+tile:255:268:600:600:0:12:wallwood
+tile:250:254:600:600:6:12:wallwood
+tile:236:268:560:560:0:12:wallwood
+tile:236:236:560:600:0:12:wallwood
+tile:268:268:560:600:0:12:wallwood
+tile:236:268:560:600:12:12:wallwood
+tile:236:268:560:600:13:13:concrete2
+zone:236:268:560:600:13:20:roof of 3 Gull Street
+zone:235:235:560:600:0:8:3 Gull Street west wall
+zone:269:269:560:600:0:8:3 Gull Street east wall
+zone:236:268:559:559:0:8:3 Gull Street south wall
+zone:236:268:601:601:0:8:3 Gull Street north wall
+zone:250:254:598:600:0:8:3 Gull Street entrance
+zone:237:267:561:599:0:11:3 Gull Street interior
+zone:250:254:561:599:0:11:3 Gull Street hallway
+tile:249:249:561:563:0:11:wallwood
+tile:249:249:567:593:0:11:wallwood
+tile:249:249:597:599:0:11:wallwood
+tile:249:249:564:566:6:11:wallwood
+tile:249:249:594:596:6:11:wallwood
+zone:249:249:564:566:0:8:3 Gull Street living room doorway
+zone:249:249:594:596:0:8:3 Gull Street kitchen doorway
+tile:237:249:580:580:0:11:wallwood
+zone:237:248:561:579:0:11:3 Gull Street living room
+tile:238:242:562:564:0:2:hardwood2
+zone:238:242:562:564:0:6:3 Gull Street sofa
+zone:238:242:562:564:3:9:on top of 3 Gull Street sofa
+tile:239:242:576:578:0:2:hardwood
+zone:239:242:576:578:0:6:3 Gull Street coffee table
+zone:239:242:576:578:3:9:on top of 3 Gull Street coffee table
+zone:237:248:581:599:0:11:3 Gull Street kitchen
+tile:238:247:597:598:0:3:hardwood
+zone:238:247:597:598:0:6:3 Gull Street kitchen counter
+zone:238:247:597:598:4:10:on top of 3 Gull Street kitchen counter
+tile:255:255:561:563:0:11:wallwood
+tile:255:255:567:593:0:11:wallwood
+tile:255:255:597:599:0:11:wallwood
+tile:255:255:564:566:6:11:wallwood
+tile:255:255:594:596:6:11:wallwood
+zone:255:255:564:566:0:8:3 Gull Street bedroom doorway
+zone:255:255:594:596:0:8:3 Gull Street back room doorway
+tile:255:267:580:580:0:11:wallwood
+zone:256:267:561:579:0:11:3 Gull Street bedroom
+tile:263:266:562:565:0:2:hardwood2
+zone:263:266:562:565:0:6:3 Gull Street bed
+zone:263:266:562:565:3:9:on top of 3 Gull Street bed
+zone:256:267:581:599:0:11:3 Gull Street back bedroom
+tile:263:266:595:598:0:2:hardwood2
+zone:263:266:595:598:0:6:3 Gull Street bed
+zone:263:266:595:598:3:9:on top of 3 Gull Street bed
+tile:252:252:596:599:0:12:ladder1
+zone:252:252:596:599:0:12:3 Gull Street attic ladder
+tile:237:267:561:599:12:12:plank
+zone:237:267:561:599:13:23:3 Gull Street attic
+tile:238:240:562:564:13:15:plank
+zone:238:240:562:564:16:22:on top of 3 Gull Street attic crates
 
-// ===========================
-// SOUTH ISLAND (430-570, 800-920)
-// A town
-// ===========================
-tile:420:580:790:930:0:0:sand
-zone:420:580:920:930:0:5:the beach of the south island
-zone:420:430:790:930:0:5:the beach of the south island
-zone:570:580:790:930:0:5:the beach of the south island
-tile:440:560:810:910:0:0:concrete2
-zone:440:560:810:910:0:50:the town on the south island
+// ============================================================
+// UNDERGROUND BUNKERS (one beneath each district)
+// ============================================================
+// Bunker North (under Meridian Plaza)
+tile:644:684:885:915:-12:-12:concrete10
+tile:643:643:885:915:-12:-1:wallstone
+tile:685:685:885:915:-12:-1:wallstone
+tile:644:684:884:884:-12:-1:wallstone
+tile:644:684:916:916:-12:-1:wallstone
+zone:644:684:885:915:-12:-1:Bunker North
+tile:664:664:900:900:-12:0:ladder1
+zone:664:664:900:900:-12:0:the ladder into Bunker North
+zone:664:664:899:899:0:8:the hatch to Bunker North
+tile:646:646:887:887:-12:-12:metal4
+zone:646:648:887:889:-12:-6:Bunker North control panel
+src:644:684:885:915:-12:-1:rumble.ogg:-12
+ispawn:645:683:886:914:-12:-12:5000:3:bunker_key:frag_grenade:health_potion:bomb_vest
+bunker:664:900:-12:Bunker North
+poi:664:900:-12:Bunker North
+// Bunker South (under Elm Road)
+tile:568:608:465:495:-12:-12:concrete10
+tile:567:567:465:495:-12:-1:wallstone
+tile:609:609:465:495:-12:-1:wallstone
+tile:568:608:464:464:-12:-1:wallstone
+tile:568:608:496:496:-12:-1:wallstone
+zone:568:608:465:495:-12:-1:Bunker South
+tile:588:588:480:480:-12:0:ladder1
+zone:588:588:480:480:-12:0:the ladder into Bunker South
+zone:588:588:479:479:0:8:the hatch to Bunker South
+tile:570:570:467:467:-12:-12:metal4
+zone:570:572:467:469:-12:-6:Bunker South control panel
+src:568:608:465:495:-12:-1:rumble.ogg:-12
+ispawn:569:607:466:494:-12:-12:5000:3:bunker_key:smoke_bomb:semtex_pack:health_potion
+bunker:588:480:-12:Bunker South
+poi:588:480:-12:Bunker South
+// Bunker East (under Kensington Drive)
+tile:980:1020:785:815:-12:-12:concrete10
+tile:979:979:785:815:-12:-1:wallstone
+tile:1021:1021:785:815:-12:-1:wallstone
+tile:980:1020:784:784:-12:-1:wallstone
+tile:980:1020:816:816:-12:-1:wallstone
+zone:980:1020:785:815:-12:-1:Bunker East
+tile:1000:1000:800:800:-12:0:ladder1
+zone:1000:1000:800:800:-12:0:the ladder into Bunker East
+zone:1000:1000:799:799:0:8:the hatch to Bunker East
+tile:982:982:787:787:-12:-12:metal4
+zone:982:984:787:789:-12:-6:Bunker East control panel
+src:980:1020:785:815:-12:-1:rumble.ogg:-12
+ispawn:981:1019:786:814:-12:-12:5000:3:bunker_key:frag_grenade:bomb_vest
+bunker:1000:800:-12:Bunker East
+poi:1000:800:-12:Bunker East
+// Bunker West (under Oceanfront Drive)
+tile:280:320:385:415:-12:-12:concrete10
+tile:279:279:385:415:-12:-1:wallstone
+tile:321:321:385:415:-12:-1:wallstone
+tile:280:320:384:384:-12:-1:wallstone
+tile:280:320:416:416:-12:-1:wallstone
+zone:280:320:385:415:-12:-1:Bunker West
+tile:300:300:400:400:-12:0:ladder1
+zone:300:300:400:400:-12:0:the ladder into Bunker West
+zone:300:300:399:399:0:8:the hatch to Bunker West
+tile:282:282:387:387:-12:-12:metal4
+zone:282:284:387:389:-12:-6:Bunker West control panel
+src:280:320:385:415:-12:-1:rumble.ogg:-12
+ispawn:281:319:386:414:-12:-12:5000:3:bunker_key:health_potion:life_injection:smoke_bomb
+bunker:300:400:-12:Bunker West
+poi:300:400:-12:Bunker West
 
-// Town road
-tile:440:560:858:862:0:0:concrete5
-zone:440:560:858:862:0:5:town main road
+// ============================================================
+// CITYWIDE ITEM SPAWNS AND AMBIENCE
+// ============================================================
+ispawn:150:1150:150:1150:0:0:800:120:empty_bucket:frag_grenade:smoke_bomb:semtex_pack:health_potion:energetic_potion_red:energetic_potion_blue:bomb_vest:bunker_key:AK47_ammo_10_50:glock17_ammo_10_40:beretta92fs.pistol_ammo_10_40:hk.g36_ammo_20_50:benelli.m4.shotgun_ammo_10_40:magnum.revolver_ammo_5_40:sg08.sniper.rifle_ammo_1_10:tar.21.assault.rifle_ammo_10_30:famas.f1.assault.rifle_ammo_10_20
+src:150:1150:150:1150:0:8:birds5.ogg:-14
 
-// Town hall
-tile:470:530:820:850:0:0:tile1
-tile:470:470:820:850:0:25:wallbrick
-tile:530:530:820:850:0:25:wallbrick
-tile:470:530:820:820:0:25:wallbrick
-tile:470:530:850:850:0:25:wallbrick
-tile:470:530:820:850:25:25:wallbrick
-tile:470:530:820:850:26:26:concrete2
-zone:470:530:820:850:0:25:the town hall
-zone:470:530:820:850:26:50:roof of the town hall
-tile:498:502:850:850:6:25:wallbrick
-
-// General store
-tile:450:480:870:895:0:0:hardwood
-tile:450:450:870:895:0:20:wallwood
-tile:480:480:870:895:0:20:wallwood
-tile:450:480:870:870:0:20:wallwood
-tile:450:480:895:895:0:20:wallwood
-tile:450:480:870:895:20:20:wallwood
-tile:450:480:870:895:21:21:plank
-zone:450:480:870:895:0:20:the general store
-tile:463:467:870:870:6:20:wallwood
-ispawn:451:479:871:894:0:0:3000:3:health_potion:energetic_potion_red:smoke_bomb:empty_bucket
-
-// Tavern
-tile:520:550:870:900:0:0:hardwood2
-tile:520:520:870:900:0:20:wallwood
-tile:550:550:870:900:0:20:wallwood
-tile:520:550:870:870:0:20:wallwood
-tile:520:550:900:900:0:20:wallwood
-tile:520:550:870:900:20:20:wallwood
-tile:520:550:870:900:21:21:plank
-zone:520:550:870:900:0:20:the tavern
-tile:533:537:870:870:6:20:wallwood
-src:521:549:871:899:0:20:calm.ogg:-8
-
-// ===========================
-// EAST ISLAND (800-920, 430-570)
-// Residential area
-// ===========================
-tile:790:930:420:580:0:0:sand
-zone:790:800:420:580:0:5:the beach of the east island
-zone:920:930:420:580:0:5:the beach of the east island
-zone:790:930:420:430:0:5:the beach of the east island
-zone:790:930:570:580:0:5:the beach of the east island
-tile:810:910:440:560:0:0:grass3
-zone:810:910:440:560:0:50:the residential area on the east island
-src:810:910:440:560:0:20:birds3.ogg:-8
-
-// Residential street
-tile:858:862:440:560:0:0:concrete5
-zone:858:862:440:560:0:5:residential street
-
-// House 1
-tile:820:845:450:470:0:0:carpet1
-tile:820:820:450:470:0:18:wallwood
-tile:845:845:450:470:0:18:wallwood
-tile:820:845:450:450:0:18:wallwood
-tile:820:845:470:470:0:18:wallwood
-tile:820:845:450:470:18:18:wallwood
-tile:820:845:450:470:19:19:plank
-zone:820:845:450:470:0:18:a house on elm street
-tile:845:845:458:462:6:18:wallwood
-
-// House 2
-tile:820:845:490:510:0:0:carpet1
-tile:820:820:490:510:0:18:wallwood
-tile:845:845:490:510:0:18:wallwood
-tile:820:845:490:490:0:18:wallwood
-tile:820:845:510:510:0:18:wallwood
-tile:820:845:490:510:18:18:wallwood
-tile:820:845:490:510:19:19:plank
-zone:820:845:490:510:0:18:a house on maple street
-tile:845:845:498:502:6:18:wallwood
-
-// House 3
-tile:820:845:530:550:0:0:hardwood
-tile:820:820:530:550:0:18:wallwood
-tile:845:845:530:550:0:18:wallwood
-tile:820:845:530:530:0:18:wallwood
-tile:820:845:550:550:0:18:wallwood
-tile:820:845:530:550:18:18:wallwood
-tile:820:845:530:550:19:19:plank
-zone:820:845:530:550:0:18:a house on oak street
-tile:845:845:538:542:6:18:wallwood
-
-// House 4
-tile:875:900:450:470:0:0:tile2
-tile:875:875:450:470:0:18:wallwood
-tile:900:900:450:470:0:18:wallwood
-tile:875:900:450:450:0:18:wallwood
-tile:875:900:470:470:0:18:wallwood
-tile:875:900:450:470:18:18:wallwood
-tile:875:900:450:470:19:19:plank
-zone:875:900:450:470:0:18:a house on birch lane
-tile:875:875:458:462:6:18:wallwood
-
-// House 5
-tile:875:900:490:510:0:0:tile1
-tile:875:875:490:510:0:18:wallwood
-tile:900:900:490:510:0:18:wallwood
-tile:875:900:490:490:0:18:wallwood
-tile:875:900:510:510:0:18:wallwood
-tile:875:900:490:510:18:18:wallwood
-tile:875:900:490:510:19:19:plank
-zone:875:900:490:510:0:18:a house on cedar drive
-tile:875:875:498:502:6:18:wallwood
-
-// House 6
-tile:875:900:530:550:0:0:carpet1
-tile:875:875:530:550:0:18:wallwood
-tile:900:900:530:550:0:18:wallwood
-tile:875:900:530:530:0:18:wallwood
-tile:875:900:550:550:0:18:wallwood
-tile:875:900:530:550:18:18:wallwood
-tile:875:900:530:550:19:19:plank
-zone:875:900:530:550:0:18:a house on pine court
-tile:875:875:538:542:6:18:wallwood
-
-ispawn:810:910:440:560:0:0:3000:2:health_potion:energetic_potion_green:energetic_potion_blue
-
-// ===========================
-// WEST ISLAND (80-200, 430-570)
-// The mine
-// ===========================
-tile:70:210:420:580:0:0:sand
-zone:70:80:420:580:0:5:the beach of the west island
-zone:200:210:420:580:0:5:the beach of the west island
-zone:70:210:420:430:0:5:the beach of the west island
-zone:70:210:570:580:0:5:the beach of the west island
-tile:90:190:440:560:0:0:rocks1
-zone:90:190:440:560:0:50:the mining area on the west island
-
-// Mine entrance building
-tile:130:160:480:510:0:0:concrete10
-tile:130:130:480:510:0:20:wallstone
-tile:160:160:480:510:0:20:wallstone
-tile:130:160:480:480:0:20:wallstone
-tile:130:160:510:510:0:20:wallstone
-tile:130:160:480:510:20:20:wallstone
-tile:130:160:480:510:21:21:metal2
-zone:130:160:480:510:0:20:the mine entrance building
-tile:160:160:493:497:6:20:wallstone
-
-// Mine shaft going underground
-tile:145:145:495:495:0:0:metal5
-tile:145:145:495:495:-30:-1:ladder1
-zone:145:145:495:495:0:5:mine shaft entrance
-zone:145:145:495:495:-30:-1:mine shaft ladder
-
-// Underground mine tunnels
-tile:100:190:490:500:-30:-30:stone
-tile:100:190:490:500:-29:-25:blank
-zone:100:190:490:500:-30:-25:mine tunnel east-west
-tile:140:150:460:500:-30:-30:stone
-tile:140:150:460:500:-29:-25:blank
-zone:140:150:460:500:-30:-25:mine tunnel north-south
-src:90:200:450:560:-35:-20:rumble.ogg:-8
-
-// Mine ore deposits
-tile:100:115:490:500:-30:-30:gravel1
-zone:100:115:490:500:-30:-25:ore deposit at the end of the west tunnel
-tile:140:150:460:470:-30:-30:gravel1
-zone:140:150:460:470:-30:-25:ore deposit at the end of the north tunnel
-ispawn:100:115:490:500:-30:-30:5000:2:rock:empty_bucket
-ispawn:140:150:460:470:-30:-30:5000:2:rock
-
-// Mine equipment shed
-tile:100:125:450:470:0:0:concrete10
-tile:100:100:450:470:0:15:wallwood
-tile:125:125:450:470:0:15:wallwood
-tile:100:125:450:450:0:15:wallwood
-tile:100:125:470:470:0:15:wallwood
-tile:100:125:450:470:15:15:wallwood
-tile:100:125:450:470:16:16:metal2
-zone:100:125:450:470:0:15:the mining equipment shed
-tile:125:125:458:462:6:15:wallwood
-ispawn:101:124:451:469:0:0:5000:2:hayvork:trector_plow:empty_bucket
-
-// ===========================
-// BRIDGES
-// ===========================
-
-// North bridge (central to north island)
-tile:488:512:200:360:0:0:bridge
-tile:488:488:200:360:0:3:wallfence
-tile:512:512:200:360:0:3:wallfence
-zone:488:512:200:360:0:5:the north bridge
-src:488:512:200:360:0:5:stream2.ogg:-6
-
-// South bridge (central to south island)
-tile:488:512:640:800:0:0:bridge
-tile:488:488:640:800:0:3:wallfence
-tile:512:512:640:800:0:3:wallfence
-zone:488:512:640:800:0:5:the south bridge
-src:488:512:640:800:0:5:stream2.ogg:-6
-
-// East bridge (central to east island)
-tile:650:800:488:512:0:0:bridge
-tile:650:800:488:488:0:3:wallfence
-tile:650:800:512:512:0:3:wallfence
-zone:650:800:488:512:0:5:the east bridge
-src:650:800:488:512:0:5:stream2.ogg:-6
-
-// West bridge (central to west island)
-tile:200:360:488:512:0:0:bridge
-tile:200:360:488:488:0:3:wallfence
-tile:200:360:512:512:0:3:wallfence
-zone:200:360:488:512:0:5:the west bridge
-src:200:360:488:512:0:5:stream2.ogg:-6
-
-// ===========================
-// BUNKER ALPHA - Under central plaza
-// ===========================
-tile:480:520:480:520:-10:-10:stone
-tile:480:520:480:520:-9:-1:blank
-tile:480:480:480:520:-10:0:wallstone
-tile:520:520:480:520:-10:0:wallstone
-tile:480:520:480:480:-10:0:wallstone
-tile:480:520:520:520:-10:0:wallstone
-tile:480:520:480:520:0:0:wallstone
-zone:480:520:480:520:-10:0:bunker Alpha
-// Bunker Alpha entrance ladder
-tile:500:500:519:519:-10:0:ladder1
-tile:500:500:521:521:0:0:metal5
-zone:500:500:519:519:-10:0:ladder to bunker Alpha
-zone:500:500:521:521:0:5:hatch to bunker Alpha
-// Bunker Alpha control panel
-tile:490:490:481:481:-10:-10:metal4
-zone:490:490:481:481:-10:-8:bunker Alpha control panel
-ispawn:481:519:481:519:-10:-10:5000:3:bunker_key:frag_grenade:health_potion:bunker_bomb
-
-// ===========================
-// BUNKER BRAVO - Under north island village
-// ===========================
-tile:470:510:130:160:-10:-10:stone
-tile:470:510:130:160:-9:-1:blank
-tile:470:470:130:160:-10:0:wallstone
-tile:510:510:130:160:-10:0:wallstone
-tile:470:510:130:130:-10:0:wallstone
-tile:470:510:160:160:-10:0:wallstone
-tile:470:510:130:160:0:0:wallstone
-zone:470:510:130:160:-10:0:bunker Bravo
-// Bunker Bravo entrance
-tile:490:490:159:159:-10:0:ladder1
-tile:490:490:161:161:0:0:metal5
-zone:490:490:159:159:-10:0:ladder to bunker Bravo
-zone:490:490:161:161:0:5:hatch to bunker Bravo
-tile:480:480:131:131:-10:-10:metal4
-zone:480:480:131:131:-10:-8:bunker Bravo control panel
-ispawn:471:509:131:159:-10:-10:5000:2:bunker_key:bunker_bomb:smoke_bomb
-
-// ===========================
-// BUNKER CHARLIE - Under south island town
-// ===========================
-tile:470:510:850:880:-10:-10:stone
-tile:470:510:850:880:-9:-1:blank
-tile:470:470:850:880:-10:0:wallstone
-tile:510:510:850:880:-10:0:wallstone
-tile:470:510:850:850:-10:0:wallstone
-tile:470:510:880:880:-10:0:wallstone
-tile:470:510:850:880:0:0:wallstone
-zone:470:510:850:880:-10:0:bunker Charlie
-// Bunker Charlie entrance
-tile:490:490:879:879:-10:0:ladder1
-tile:490:490:881:881:0:0:metal5
-zone:490:490:879:879:-10:0:ladder to bunker Charlie
-zone:490:490:881:881:0:5:hatch to bunker Charlie
-tile:480:480:851:851:-10:-10:metal4
-zone:480:480:851:851:-10:-8:bunker Charlie control panel
-ispawn:471:509:851:879:-10:-10:5000:2:bunker_key:frag_grenade:semtex_pack
-
-// ===========================
-// BUNKER DELTA - Under east island residential
-// ===========================
-tile:850:890:480:510:-10:-10:stone
-tile:850:890:480:510:-9:-1:blank
-tile:850:850:480:510:-10:0:wallstone
-tile:890:890:480:510:-10:0:wallstone
-tile:850:890:480:480:-10:0:wallstone
-tile:850:890:510:510:-10:0:wallstone
-tile:850:890:480:510:0:0:wallstone
-zone:850:890:480:510:-10:0:bunker Delta
-// Bunker Delta entrance
-tile:870:870:509:509:-10:0:ladder1
-tile:870:870:511:511:0:0:metal5
-zone:870:870:509:509:-10:0:ladder to bunker Delta
-zone:870:870:511:511:0:5:hatch to bunker Delta
-tile:860:860:481:481:-10:-10:metal4
-zone:860:860:481:481:-10:-8:bunker Delta control panel
-ispawn:851:889:481:509:-10:-10:5000:2:bunker_key:torpedo:bomb_vest
-
-// ===========================
-// BUNKER ECHO - Under west island mine
-// ===========================
-tile:120:160:490:520:-40:-40:stone
-tile:120:160:490:520:-39:-31:blank
-tile:120:120:490:520:-40:-30:wallstone
-tile:160:160:490:520:-40:-30:wallstone
-tile:120:160:490:490:-40:-30:wallstone
-tile:120:160:520:520:-40:-30:wallstone
-tile:120:160:490:520:-30:-30:wallstone
-zone:120:160:490:520:-40:-30:bunker Echo
-// Bunker Echo connects from mine tunnel
-tile:140:140:500:500:-40:-30:ladder1
-zone:140:140:500:500:-40:-30:ladder from mine tunnel to bunker Echo
-tile:130:130:491:491:-40:-40:metal4
-zone:130:130:491:491:-40:-38:bunker Echo control panel
-ispawn:121:159:491:519:-40:-40:5000:3:bunker_key:bunker_bomb:health_potion:life_injection
-
-// ===========================
-// UNDERGROUND TUNNEL NETWORK
-// Connects all five bunkers
-// ===========================
-
-// Tunnel from Alpha south to Charlie (y=520 down to y=850)
-tile:499:501:520:850:-15:-14:blank
-tile:499:501:520:850:-15:-15:tunnel
-zone:499:501:520:850:-15:-14:underground tunnel south
-
-// Tunnel from Alpha north to Bravo (y=160 up to y=480)
-tile:499:501:160:480:-15:-14:blank
-tile:499:501:160:480:-15:-15:tunnel
-zone:499:501:160:480:-15:-14:underground tunnel north
-
-// Tunnel from Alpha east to Delta (x=520 to x=850)
-tile:520:850:499:501:-15:-14:blank
-tile:520:850:499:501:-15:-15:tunnel
-zone:520:850:499:501:-15:-14:underground tunnel east
-
-// Tunnel from Alpha west to Echo area (x=160 to x=480)
-tile:160:480:499:501:-15:-14:blank
-tile:160:480:499:501:-15:-15:tunnel
-zone:160:480:499:501:-15:-14:underground tunnel west
-
-// Tunnel junctions at each bunker
-// Alpha junction already at 500,500
-tile:500:500:500:500:-15:-11:ladder1
-zone:500:500:500:500:-15:-1:ladder from bunker Alpha to tunnel network
-
-// Bravo junction
-tile:490:490:160:160:-15:-11:ladder1
-zone:490:490:160:160:-15:-1:ladder from bunker Bravo to tunnel network
-
-// Charlie junction
-tile:490:490:850:850:-15:-11:ladder1
-zone:490:490:850:850:-15:-1:ladder from bunker Charlie to tunnel network
-
-// Delta junction
-tile:850:850:500:500:-15:-11:ladder1
-zone:850:850:500:500:-15:-1:ladder from bunker Delta to tunnel network
-
-// Echo junction (connects to mine tunnel level)
-tile:160:160:500:500:-15:-15:tunnel
-tile:160:160:500:500:-30:-16:ladder1
-zone:160:160:500:500:-30:-15:ladder from tunnel network down to mine level
-
-src:0:1000:0:1000:-50:-10:rumble.ogg:-10
-src:0:1000:0:1000:-50:-10:cave1.ogg:-15
-zone:0:1000:0:1000:-50:-10:underground tunnel network
-
-// ===========================
-// ITEM SPAWNS (general, across all islands)
-// ===========================
-ispawn:360:640:360:640:0:0:500:100:empty_bucket:taurus_model66_revolver_suppressor:magnum_revolver_suppressor:beretta92fs_pistol_suppressor:hk_g36_suppressor:120mm.mortar_ammo_1_5:tar.21.assault.rifle_ammo_10_30:bunker_key:semtex_pack:smoke_bomb:taurus.model66.revolver_ammo_10_20:famas.f1.assault.rifle_ammo_10_20:torpedo:frag_grenade:fake_item:health_potion:bomb_vest:hk.g36_ammo_20_50:AK47_ammo_10_50:magnum.revolver_ammo_5_40:benelli.m4.shotgun_ammo_10_40:glock17_ammo_10_40:beretta92fs.pistol_ammo_10_40:sg08.sniper.rifle_ammo_1_10:m1garantBattleRifle_ammo_10_20
-
-// ===========================
-// AMBIENT SOUNDS
-// ===========================
-src:360:640:360:640:0:50:calm.ogg:-3
-src:440:560:90:190:0:20:birds5.ogg:-10
-src:810:910:440:560:0:20:birds5.ogg:-10
-
-// ===========================
-// BUNKER CONTROL PANELS
-// bunker:x:y:z:name  (source of truth for /bunkers)
-// ===========================
-bunker:35:250:-5:bunker A
-bunker:305:250:-5:bunker B
-bunker:300:10:-5:bunker C
-bunker:300:490:-5:bunker D
+// ============================================================
+// DEPLOY POINT
+// ============================================================
+poi:682:1003:0:the Meridian Plaza deploy point

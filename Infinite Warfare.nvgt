@@ -1157,7 +1157,7 @@ string[] cat_names = {
 };
 string[][] cat_docs = {
 {"getting_started", "controls", "turning_and_aiming", "fire_modes", "stamina", "commands"},
-{"modes", "shattersea_map", "habitat_alpha_map"},
+{"modes", "shattersea_map", "coruscant_map", "turbolifts"},
 {"inventory_system", "ammo_system", "equipment", "buffs_debuffs", "duo_system", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "hypercomp"},
 {"machete", "combatknife", "katana", "baseball_bat"},
 {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle"},
@@ -2340,6 +2340,110 @@ break;
 }
 }
 
+// ---------------------------------------------------------------------------
+// Turbolifts. Stand in a turbolift's control panel zone and press Shift+P to
+// choose a level. The lift announces every served level it passes on the way
+// to the one you chose, then announces its arrival.
+// ---------------------------------------------------------------------------
+void try_use_turbolift()
+{
+if (in_vehicle or in_plane)
+{
+speak("You can't use a turbolift right now.");
+return;
+}
+turbolift@ t=null;
+for (uint i=0; i<turbolifts.length(); i++)
+{
+if (turbolifts[i].contains(int(mr.x), int(mr.y), int(me.z)))
+{
+@t=@turbolifts[i];
+break;
+}
+}
+if (@t==null)
+{
+speak("There is no turbolift control panel here.");
+return;
+}
+open_turbolift_menu(t);
+}
+void open_turbolift_menu(turbolift@ t)
+{
+audio_form f;
+f.create_window(t.name, false, true);
+int f_list=f.create_list("Select a level. Press Enter to travel.", 0, false);
+for (uint i=0; i<t.level_names.length(); i++)
+{
+string lbl=t.level_names[i];
+if (int(me.z)==t.level_z[i]) lbl+=" (current level)";
+f.add_list_item(f_list, lbl);
+}
+int f_go=f.create_button("&Go", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_list);
+while(true)
+{
+wait(5);
+f.monitor();
+if (connected==true) netloop();
+if (f.is_pressed(f_go))
+{
+int sel=f.get_list_position(f_list);
+if (sel>=0 and sel<int(t.level_names.length()))
+{
+turbolift_go(t, sel);
+break;
+}
+}
+if (f.is_pressed(f_close)) break;
+}
+}
+void turbolift_go(turbolift@ t, int target)
+{
+int dest=t.level_z[target];
+int cur=int(me.z);
+if (dest==cur)
+{
+speak("You are already at "+t.level_names[target]+".");
+return;
+}
+int n=int(t.level_names.length());
+bool up=dest>cur;
+speak("Turbolift departing for "+t.level_names[target]+".");
+// Announce each served level strictly between the current and destination
+// levels, in the order the lift passes them.
+int last=cur;
+while(true)
+{
+int besti=-1;
+int bestz=dest;
+if (up)
+{
+for (int i=0; i<n; i++)
+if (t.level_z[i]>last and t.level_z[i]<dest and t.level_z[i]<bestz)
+{ bestz=t.level_z[i]; besti=i; }
+}
+else
+{
+for (int i=0; i<n; i++)
+if (t.level_z[i]<last and t.level_z[i]>dest and t.level_z[i]>bestz)
+{ bestz=t.level_z[i]; besti=i; }
+}
+if (besti<0) break;
+last=bestz;
+wait(650);
+speak(t.level_names[besti]+".");
+if (connected==true) netloop();
+}
+wait(650);
+me.z=dest;
+mr.x=round(me.x, 0);
+mr.y=round(me.y, 0);
+send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
+checkzone();
+speak("Arrived at "+t.level_names[target]+".");
+}
 void show_translocator_interface()
 {
 if (pois.length()==0)
@@ -2908,6 +3012,9 @@ send_reliable(0,"whatnear",0);
 }
 if (key_pressed(kb("nearby_players")))
 {
+if (shift_is_down())
+try_use_turbolift();
+else
 send_reliable(0,"nearplayers",0);
 }
 // Fire mode determines if hold-fire is possible.

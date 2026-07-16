@@ -579,7 +579,7 @@ if(li>-1)
 {
 string mode_display=parsed[1];
 if(parsed[1]=="freeforall") mode_display="Ghost Town";
-else if(parsed[1]=="habitat_alpha") mode_display="Habitat Alpha";
+else if(parsed[1]=="habitat_alpha") mode_display="Coruscant";
 else if(parsed[1]=="battlegrounds") mode_display="Shattersea";
 send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
 if(parsed[1]=="habitat_alpha")
@@ -588,9 +588,10 @@ file mf;
 mf.open("content/maps/habitat_alpha/habitat_alpha.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
-send_reliable(e.peer_id, "x "+random(0, 600), 0);
-send_reliable(e.peer_id, "y "+random(0, 600), 0);
-send_reliable(e.peer_id, "z 0", 0);
+// Deploy into Monument Plaza on the Main Level of Coruscant, west of Umate.
+send_reliable(e.peer_id, "x "+random(700, 766), 0);
+send_reliable(e.peer_id, "y "+random(660, 696), 0);
+send_reliable(e.peer_id, "z 1020", 0);
 }
 else if(parsed[1]=="battlegrounds")
 {

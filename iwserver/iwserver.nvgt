@@ -581,6 +581,7 @@ string mode_display=parsed[1];
 if(parsed[1]=="freeforall") mode_display="Ghost Town";
 else if(parsed[1]=="habitat_alpha") mode_display="Coruscant";
 else if(parsed[1]=="battlegrounds") mode_display="Shattersea";
+else if(parsed[1]=="freyas_ascent") mode_display="Freya's Ascent";
 send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
 if(parsed[1]=="habitat_alpha")
 {
@@ -613,6 +614,17 @@ mf.close();
 send_reliable(e.peer_id, "x "+random(50, 550), 0);
 send_reliable(e.peer_id, "y "+random(50, 550), 0);
 send_reliable(e.peer_id, "z 0", 0);
+}
+else if(parsed[1]=="freyas_ascent")
+{
+file mf;
+mf.open("content/maps/freyas_ascent/freyas_ascent.map", "rb");
+send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
+mf.close();
+// Deploy into the Deck 1 aft junction (inside the ship, above the surface).
+send_reliable(e.peer_id, "x "+random(360, 518), 0);
+send_reliable(e.peer_id, "y "+random(260, 288), 0);
+send_reliable(e.peer_id, "z 60", 0);
 }
 lobby_clients.remove_at(li);
 }

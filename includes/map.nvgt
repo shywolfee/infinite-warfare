@@ -7,6 +7,7 @@ string map_display_name(string id)
 if (id=="freeforall") return "Ghost Town";
 if (id=="habitat_alpha") return "Coruscant";
 if (id=="battlegrounds") return "Shattersea";
+if (id=="freyas_ascent") return "Freya's Ascent";
 return id;
 }
 
@@ -58,6 +59,28 @@ return x1<=x and x2>=x and y1<=y and y2>=y and z1<=z and z2>=z;
 }
 }
 turbolift@[] turbolifts;
+// Transition system. A transition is an interaction point (for example a ship's
+// airlock): stand inside its zone and press Shift+L to travel to a fixed
+// destination point elsewhere on the map (used to step between the ship interior
+// and the planet surface, which sit at different Z).
+class transition
+{
+int x1;
+int x2;
+int y1;
+int y2;
+int z1;
+int z2;
+int dx;
+int dy;
+int dz;
+string label;
+bool contains(int x, int y, int z)
+{
+return x1<=x and x2>=x and y1<=y and y2>=y and z1<=z and z2>=z;
+}
+}
+transition@[] transitions;
 double get_poi_distance(int px, int py, int pz)
 {
 double dx=double(px)-mr.x;
@@ -140,6 +163,7 @@ map.resize(0);
 zones.resize(0);
 pois.resize(0);
 turbolifts.resize(0);
+transitions.resize(0);
 string[] ldata=delinear(mdata);
 for(uint i=0; i<ldata.length(); i++)
 {
@@ -222,6 +246,25 @@ t.level_z.insert_last(lz);
 }
 if(t.level_names.length()>0)
 turbolifts.insert_last(t);
+}
+else if(parsed[0]=="transition" and parsed.length()>10)
+{
+transition t;
+t.x1=string_to_number(parsed[1]);
+t.x2=string_to_number(parsed[2]);
+t.y1=string_to_number(parsed[3]);
+t.y2=string_to_number(parsed[4]);
+t.z1=string_to_number(parsed[5]);
+t.z2=string_to_number(parsed[6]);
+t.dx=string_to_number(parsed[7]);
+t.dy=string_to_number(parsed[8]);
+t.dz=string_to_number(parsed[9]);
+// Join any remaining fields so the label may contain colons.
+string lbl=parsed[10];
+for(uint p=11; p<parsed.length(); p++)
+lbl+=":"+parsed[p];
+t.label=lbl;
+transitions.insert_last(t);
 }
 }
 }

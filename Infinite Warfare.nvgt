@@ -1157,7 +1157,7 @@ string[] cat_names = {
 };
 string[][] cat_docs = {
 {"getting_started", "controls", "turning_and_aiming", "fire_modes", "stamina", "commands"},
-{"modes", "shattersea_map", "coruscant_map", "turbolifts"},
+{"modes", "shattersea_map", "coruscant_map", "freyas_ascent_map", "turbolifts", "transitions"},
 {"inventory_system", "ammo_system", "equipment", "buffs_debuffs", "duo_system", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "hypercomp"},
 {"machete", "combatknife", "katana", "baseball_bat"},
 {"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle"},
@@ -2444,6 +2444,40 @@ send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
 checkzone();
 speak("Arrived at "+t.level_names[target]+".");
 }
+// ---------------------------------------------------------------------------
+// Transitions. Interaction points (like a ship's airlock) that move you to a
+// fixed destination elsewhere on the map when you press Shift+L inside them.
+// ---------------------------------------------------------------------------
+void try_use_transition()
+{
+if (in_vehicle or in_plane)
+{
+speak("You can't do that right now.");
+return;
+}
+transition@ t=null;
+for (uint i=0; i<transitions.length(); i++)
+{
+if (transitions[i].contains(int(mr.x), int(mr.y), int(me.z)))
+{
+@t=@transitions[i];
+break;
+}
+}
+if (@t==null)
+{
+speak("There's nothing to step through here.");
+return;
+}
+me.x=t.dx;
+me.y=t.dy;
+me.z=t.dz;
+mr.x=round(me.x, 0);
+mr.y=round(me.y, 0);
+send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
+checkzone();
+speak(t.label);
+}
 void show_translocator_interface()
 {
 if (pois.length()==0)
@@ -3016,6 +3050,10 @@ if (shift_is_down())
 try_use_turbolift();
 else
 send_reliable(0,"nearplayers",0);
+}
+if (shift_is_down() and key_pressed(kb("transition")))
+{
+try_use_transition();
 }
 // Fire mode determines if hold-fire is possible.
 can_fire = can_hold_fire(weapons[w]);

@@ -26,4 +26,7 @@ poi:x:y:z:name - A named location listed by the points-of-interest menu (J).
 Turbolift definitions:
 turbolift:x1:x2:y1:y2:z1:z2:liftname:level1,z1:level2,z2:... - Declares a turbolift whose control panel occupies the given region (spanning z1..z2 across every level it serves). The trailing fields each name a destination level and its absolute Z, separated by a comma. Level names must not contain a colon or a comma. When a player stands in the panel region and presses Shift+P, a menu offers those levels; selecting one moves the player to that level's Z, announcing every served level passed along the way. Parsed client-side in includes/map.nvgt.
 
+Transition definitions:
+transition:x1:x2:y1:y2:z1:z2:destx:desty:destz:label - An interaction point (such as a ship's airlock). When a player stands inside the region and presses Shift+L, they are moved to (destx,desty,destz) and the label is spoken. Coordinates are absolute; the label may contain spaces but not a colon. Transitions are one-way, so a two-way passage needs one at each end. Parsed client-side in includes/map.nvgt.
+
 The map system is initialized with init_mapsystem() on the server. Maps are sent to clients as raw text via the mapdata message.

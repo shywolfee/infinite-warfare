@@ -1,6 +1,6 @@
 string find_map_path(string mapname)
 {
-string[] mode_dirs={"battlegrounds", "habitat_alpha", "battleroyale", "freeforall"};
+string[] mode_dirs={"battlegrounds", "habitat_alpha", "battleroyale", "freeforall", "freyas_ascent"};
 for(uint i=0; i<mode_dirs.length(); i++)
 {
 string path="content/maps/"+mode_dirs[i]+"/"+mapname+".map";
@@ -293,7 +293,7 @@ return maps[index].tile_exists(x, y, z);
 void init_mapsystem()
 {
 maps.resize(0);
-string[] mode_dirs={"battlegrounds", "habitat_alpha", "battleroyale", "freeforall"};
+string[] mode_dirs={"battlegrounds", "habitat_alpha", "battleroyale", "freeforall", "freyas_ascent"};
 for(uint d=0; d<mode_dirs.length(); d++)
 {
 string dir="content/maps/"+mode_dirs[d];

@@ -1,0 +1,605 @@
+// ---------------------------------------------------------------------------
+// Server control panel GUI.
+//
+// A self-voicing audio_form interface for the dev running the server console.
+// It is opened by pressing G from the server window and is laid out as a set of
+// tabs, using the same "selector list drives the visible content" technique the
+// client's help screen uses for its topic categories. Selecting a different
+// entry in the "Tab" list rebuilds the form with that tab's own controls.
+//
+// Every GUI loop calls server_tick() on each frame so the server keeps serving
+// connected players (and spawning chests) while a menu is open.
+// ---------------------------------------------------------------------------
+
+// Format a millisecond duration as an uptime string, e.g. "2d 03:14:07".
+string format_uptime(int64 ms)
+{
+int64 total=ms/1000;
+int secs=int(total%60);
+int mins=int((total/60)%60);
+int hours=int((total/3600)%24);
+int days=int(total/86400);
+string r="";
+if(days>0) r+=""+days+"d ";
+r+=(hours<10?"0":"")+hours+":"+(mins<10?"0":"")+mins+":"+(secs<10?"0":"")+secs;
+return r;
+}
+
+// Round a value to one decimal place without relying on locale formatting.
+string format_decimal(double v)
+{
+int whole=int(v);
+int frac=int((v-whole)*10+0.5);
+if(frac>=10){whole++;frac=0;}
+return ""+whole+"."+frac;
+}
+
+// Turn a raw byte count into a human friendly size.
+string format_bytes(double b)
+{
+if(b<1024) return ""+int(b)+" B";
+double kb=b/1024.0;
+if(kb<1024) return format_decimal(kb)+" KB";
+double mb=kb/1024.0;
+if(mb<1024) return format_decimal(mb)+" MB";
+double gb=mb/1024.0;
+return format_decimal(gb)+" GB";
+}
+
+// The read-only text shown on the Management tab.
+string management_stats()
+{
+string s="";
+s+="Uptime: "+format_uptime(uptimer.elapsed)+"\r\n";
+s+="Players in game: "+int(players.length())+"\r\n";
+s+="Lobby clients: "+int(lobby_clients.length())+"\r\n";
+s+="Connected peers: "+int(n.connected_peers)+"\r\n";
+s+="Data sent: "+format_bytes(n.bytes_sent)+"\r\n";
+s+="Data received: "+format_bytes(n.bytes_received)+"\r\n";
+s+="Packets sent: "+int(n.packets_sent)+"\r\n";
+s+="Packets received: "+int(n.packets_received);
+return s;
+}
+
+// A simple yes/no confirmation dialog. Escape (the cancel button) means no.
+bool server_confirm(string question)
+{
+audio_form f;
+f.create_window("Confirm", false, true);
+f.create_input_box("Question", question, "", 0, false, true, false);
+int f_yes=f.create_button("&Yes");
+int f_no=f.create_button("&No", false, true);
+f.focus(f_no);
+while(true)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_yes)) return true;
+if(f.is_pressed(f_no)) return false;
+}
+return false;
+}
+
+// A read-only information dialog. Escape or the Back button closes it.
+void server_info(string title, string msg)
+{
+audio_form f;
+f.create_window(title, false, true);
+f.create_input_box("Info", msg, "", 0, false, true, false);
+int f_back=f.create_button("&Back", true, true);
+f.focus(0);
+while(true)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_back)) return;
+}
+}
+
+// A single-line text prompt. Returns the entered text, or "" if cancelled.
+string server_prompt(string title, string caption)
+{
+audio_form f;
+f.create_window(title, false, true);
+int f_in=f.create_input_box(caption, "", "", 0, false, false, false);
+int f_ok=f.create_button("&OK", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_in);
+while(true)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_ok)) return f.get_text(f_in);
+if(f.is_pressed(f_cancel)) return "";
+}
+return "";
+}
+
+// Gracefully disconnect everyone and stop the server.
+void gui_shutdown()
+{
+send_reliable(0, "The server is shutting down.", 2);
+send_reliable(0, "play_s notify.ogg", 0);
+wait(1500);
+for(uint i=0; i<players.length(); i++)
+send_reliable(0, "offline "+players[i].x+" "+players[i].y+" "+players[i].z+" "+players[i].name+" "+players[i].map, 0);
+wait(300);
+exit();
+}
+
+// Gracefully disconnect everyone and relaunch the server (matches /reboot).
+void gui_reboot()
+{
+send_reliable(0, "server rebooting", 2);
+send_reliable(0, "play_s notify.ogg", 0);
+wait(4500);
+for(uint i=0; i<players.length(); i++)
+send_reliable(0, "offline "+players[i].x+" "+players[i].y+" "+players[i].z+" "+players[i].name+" "+players[i].map, 0);
+wait(300);
+run("iwserver.exe", "", false, false);
+exit();
+}
+
+// Flip authorization mode and persist it, matching admin_set_authmode.
+void gui_toggle_authmode()
+{
+auth_mode=!auth_mode;
+file af;
+af.open("authmode.svr", "wb");
+af.write(auth_mode ? "1" : "0");
+af.close();
+}
+
+// Notify online staff and the owner that a ticket/feedback thread was replied to.
+void notify_thread_reply(string kind, string tid, string author, string owner, string subject)
+{
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to "+kind+" #"+tid+": "+subject, 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, author+" replied to your "+kind+" #"+tid+": "+subject, 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to "+kind+" #"+tid+": "+subject, 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, author+" replied to your "+kind+" #"+tid+": "+subject, 2);
+}
+}
+}
+
+// Notify online staff and the owner that a ticket/feedback thread was closed.
+void notify_thread_close(string kind, string tid, string closer, string owner, string subject)
+{
+for(uint i=0; i<players.length(); i++)
+{
+if(players[i].dev or players[i].admin)
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, closer+" closed "+kind+" #"+tid+": "+subject, 2);
+}
+else if(string_to_lower_case(players[i].name)==string_to_lower_case(owner))
+{
+send_reliable(players[i].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[i].peer_id, "Your "+kind+" #"+tid+" ("+subject+") has been closed by "+closer+".", 2);
+}
+}
+for(uint i=0; i<lobby_clients.length(); i++)
+{
+if(lobby_clients[i].dev or lobby_clients[i].admin)
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, closer+" closed "+kind+" #"+tid+": "+subject, 2);
+}
+else if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(owner))
+{
+send_reliable_id(lobby_clients[i].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[i].peer_id, "Your "+kind+" #"+tid+" ("+subject+") has been closed by "+closer+".", 2);
+}
+}
+}
+
+// View a single ticket or feedback thread with reply/close controls. dir/secret
+// select the store, kind is the lower-case noun ("ticket"/"feedback") used in
+// notifications, disp is the capitalized noun used for on-screen labels.
+void admin_thread_view(string dir, string secret, string kind, string disp, string id)
+{
+string path=dir+"/"+id+".dat";
+if(!file_exists(path))
+{
+server_info("Not found", "That "+kind+" no longer exists.");
+return;
+}
+while(true)
+{
+savedata t(path, secret);
+t.load();
+string body=disp+" #"+t.read("id")+"\r\nFrom: "+t.read("owner")+"\r\nSubject: "+t.read("subject")+"\r\nStatus: "+t.read("status")+"\r\n\r\n"+t.read("body");
+int rc=int(t.readn("reply_count"));
+for(int r=0; r<rc; r++)
+body+="\r\n\r\nReply: "+t.read("reply_"+r);
+audio_form f;
+f.create_window(disp+" #"+id, false, true);
+f.create_input_box(disp, body, "", 0, false, true, false);
+int f_reply=f.create_button("&Reply");
+int f_close=f.create_button("C&lose "+kind);
+int f_back=f.create_button("&Back", false, true);
+f.focus(0);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_reply))
+{
+string txt=server_prompt("Reply", "Enter your reply to this "+kind+":");
+if(txt!="")
+{
+savedata t2(path, secret);
+t2.load();
+int rc2=int(t2.readn("reply_count"));
+t2.add("reply_"+rc2, "Server: "+txt);
+t2.add("reply_count", double(rc2+1));
+t2.save();
+notify_thread_reply(kind, id, "Server", t2.read("owner"), t2.read("subject"));
+}
+refresh=true;
+break;
+}
+else if(f.is_pressed(f_close))
+{
+if(server_confirm("Close this "+kind+"?"))
+{
+savedata t2(path, secret);
+t2.load();
+t2.add("status", "closed");
+t2.add("close_reason", "Closed by server admin");
+t2.save();
+notify_thread_close(kind, id, "Server", t2.read("owner"), t2.read("subject"));
+return;
+}
+refresh=true;
+break;
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+}
+
+// List the open tickets or feedback requests and let the dev open one.
+void admin_thread_menu(string title, string dir, string secret, string kind, string disp)
+{
+while(true)
+{
+string[] ids;
+string[] labels;
+string[] files=find_files(dir+"/*.dat");
+for(uint i=0; i<files.length(); i++)
+{
+if(files[i]=="next_id.txt") continue;
+savedata t(dir+"/"+files[i], secret);
+t.load();
+if(t.read("status")!="open") continue;
+ids.insert_last(t.read("id"));
+labels.insert_last("#"+t.read("id")+" from "+t.read("owner")+": "+t.read("subject"));
+}
+audio_form f;
+f.create_window(title, false, true);
+int f_list=f.create_list("Open "+kind+"s", 0, false);
+if(labels.length()==0)
+f.add_list_item(f_list, "No open "+kind+"s.");
+else
+{
+for(uint i=0; i<labels.length(); i++)
+f.add_list_item(f_list, labels[i]);
+}
+int f_view=f.create_button("&View");
+int f_back=f.create_button("&Back", false, true);
+f.focus(f_list);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_view))
+{
+int sel=f.get_list_position(f_list);
+if(labels.length()>0 and sel>=0 and sel<int(ids.length()))
+{
+admin_thread_view(dir, secret, kind, disp, ids[sel]);
+refresh=true;
+break;
+}
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+}
+
+// List pending password reset codes and let the dev clear one.
+void admin_resets_menu()
+{
+while(true)
+{
+string[] paths;
+string[] users;
+string[] labels;
+string[] files=find_files("accounts/*.dat");
+for(uint i=0; i<files.length(); i++)
+{
+savedata acct("accounts/"+files[i], ACCOUNT_SECRET);
+acct.load();
+string rc=acct.read("resetcode");
+if(rc=="") continue;
+paths.insert_last("accounts/"+files[i]);
+users.insert_last(acct.read("username"));
+labels.insert_last(acct.read("username")+" (code "+rc+")");
+}
+audio_form f;
+f.create_window("Password Reset Requests", false, true);
+int f_list=f.create_list("Pending resets", 0, false);
+if(labels.length()==0)
+f.add_list_item(f_list, "No pending password reset requests.");
+else
+{
+for(uint i=0; i<labels.length(); i++)
+f.add_list_item(f_list, labels[i]);
+}
+int f_clear=f.create_button("C&lear reset code");
+int f_back=f.create_button("&Back", false, true);
+f.focus(f_list);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_clear))
+{
+int sel=f.get_list_position(f_list);
+if(labels.length()>0 and sel>=0 and sel<int(paths.length()))
+{
+if(server_confirm("Clear the reset code for "+users[sel]+"?"))
+{
+savedata a(paths[sel], ACCOUNT_SECRET);
+a.load();
+a.add("resetcode", "");
+a.save();
+}
+refresh=true;
+break;
+}
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+}
+
+// Authorization controls sub-menu: toggle authorization mode on or off and jump
+// to the list of authorization codes for unauthenticated accounts.
+void admin_auth_menu()
+{
+while(true)
+{
+audio_form f;
+f.create_window("Authorization Controls", false, true);
+f.create_input_box("Status", "Authorization mode is currently "+(auth_mode ? "enabled" : "disabled")+".\r\nWhen enabled, new accounts must be authorized with a code before they can play.", "", 0, false, true, false);
+int f_toggle=f.create_button((auth_mode ? "&Disable" : "&Enable")+" authorization mode");
+int f_codes=f.create_button("View authorization &codes");
+int f_back=f.create_button("&Back", false, true);
+f.focus(f_toggle);
+bool rebuild=false;
+while(!rebuild)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_toggle))
+{
+gui_toggle_authmode();
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_codes))
+{
+admin_authcodes_menu();
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+}
+
+// List unauthenticated accounts with their authorization codes and let the dev
+// authorize an account directly.
+void admin_authcodes_menu()
+{
+while(true)
+{
+string[] paths;
+string[] users;
+string[] labels;
+string[] files=find_files("accounts/*.dat");
+for(uint i=0; i<files.length(); i++)
+{
+savedata acct("accounts/"+files[i], ACCOUNT_SECRET);
+acct.load();
+if(!acct.d.exists("authenticated")) continue;
+if(acct.readn("authenticated")>=1.0) continue;
+paths.insert_last("accounts/"+files[i]);
+users.insert_last(acct.read("username"));
+labels.insert_last(acct.read("username")+" (code "+acct.read("authcode")+")");
+}
+audio_form f;
+f.create_window("Authorization Codes", false, true);
+int f_list=f.create_list("Unauthenticated accounts", 0, false);
+if(labels.length()==0)
+f.add_list_item(f_list, "No unauthenticated accounts.");
+else
+{
+for(uint i=0; i<labels.length(); i++)
+f.add_list_item(f_list, labels[i]);
+}
+int f_auth=f.create_button("&Authorize account");
+int f_back=f.create_button("&Back", false, true);
+f.focus(f_list);
+bool refresh=false;
+while(!refresh)
+{
+wait(5);
+f.monitor();
+server_tick();
+if(f.is_pressed(f_auth))
+{
+int sel=f.get_list_position(f_list);
+if(labels.length()>0 and sel>=0 and sel<int(paths.length()))
+{
+if(server_confirm("Authorize account "+users[sel]+"?"))
+{
+savedata a(paths[sel], ACCOUNT_SECRET);
+a.load();
+a.add("authenticated", 1.0);
+a.add("authcode", "");
+a.save();
+}
+refresh=true;
+break;
+}
+}
+else if(f.is_pressed(f_back))
+return;
+}
+}
+}
+
+// The main tabbed control panel. Tab 0 is Management, tab 1 is Administration.
+// The "Tab" list at the top switches tabs; moving to a different entry rebuilds
+// the form with that tab's controls (mirroring the help screen's category list).
+void server_gui()
+{
+gui_open=true;
+int tab=0;
+bool quit=false;
+while(!quit)
+{
+if(tab<0) tab=0;
+if(tab>1) tab=1;
+audio_form f;
+f.create_window("Infinite Warfare Server Control Panel", false, true);
+int f_tab=f.create_list("Tab", 0, false);
+f.add_list_item(f_tab, "Management");
+f.add_list_item(f_tab, "Administration");
+f.set_list_position(f_tab, tab);
+int f_stats=-1, f_refresh=-1, f_shutdown=-1, f_reboot=-1;
+int f_tickets=-1, f_feedback=-1, f_resets=-1, f_auth=-1;
+if(tab==0)
+{
+f_stats=f.create_input_box("Server statistics", management_stats(), "", 0, false, true, false);
+f_refresh=f.create_button("&Refresh statistics");
+f_shutdown=f.create_button("Shut &down server");
+f_reboot=f.create_button("Re&boot server");
+}
+else
+{
+f_tickets=f.create_button("Manage support &tickets");
+f_feedback=f.create_button("Manage &feedback requests");
+f_resets=f.create_button("Manage password &resets");
+f_auth=f.create_button("&Authorization controls");
+}
+int f_close=f.create_button("E&xit control panel", false, true);
+f.focus(f_tab);
+int last_tab=tab;
+bool rebuild=false;
+while(!rebuild)
+{
+wait(5);
+f.monitor();
+server_tick();
+int sel=f.get_list_position(f_tab);
+if(sel>=0 and sel!=last_tab)
+{
+tab=sel;
+rebuild=true;
+break;
+}
+if(tab==0)
+{
+if(f.is_pressed(f_refresh))
+{
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_shutdown))
+{
+if(server_confirm("Shut down the server now? All connected players will be disconnected."))
+gui_shutdown();
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_reboot))
+{
+if(server_confirm("Reboot the server now? All connected players will be disconnected while it restarts."))
+gui_reboot();
+rebuild=true;
+break;
+}
+}
+else
+{
+if(f.is_pressed(f_tickets))
+{
+admin_thread_menu("Support Tickets", tickets_dir, TICKET_SECRET, "ticket", "Ticket");
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_feedback))
+{
+admin_thread_menu("Feedback Requests", feedback_dir, FEEDBACK_SECRET, "feedback", "Feedback");
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_resets))
+{
+admin_resets_menu();
+rebuild=true;
+break;
+}
+else if(f.is_pressed(f_auth))
+{
+admin_auth_menu();
+rebuild=true;
+break;
+}
+}
+if(f.is_pressed(f_close))
+{
+quit=true;
+break;
+}
+}
+}
+gui_open=false;
+}

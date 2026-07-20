@@ -15,9 +15,11 @@
 #include "includes/corpse.nvgt"
 #include "includes/citem.nvgt"
 #include "../includes/sd.nvgt"
+#include "includes/gui.nvgt"
 string[] killmsgs;
 timer spawn_chesttimer;
-double minversion=0.12;
+bool gui_open=false;
+double minversion=0.5045;
 const int port=1316;
 string adminlist="";
 string[] dev_list = {"velan"};
@@ -41,7 +43,7 @@ const string BUG_SECRET = "IW_bUg_rPt_K3y_zX5vN8mQ2wL9!";
 string bug_dir="administration/bugs";
 void main()
 {
-show_window("Infinite Warfare server!, version "+ minversion);
+show_window("Infinite Warfare server, version "+minversion+" - press G to open the control panel.");
 file pr;
 if(file_exists("admins.txt"))
 {
@@ -121,17 +123,29 @@ spawn_watertank(299,494,-50,"main");
 while(true)
 {
 wait(5);
-netloop();
-if(spawn_chesttimer.elapsed>=300000 and chests.length()<=10)
+server_tick();
+if(key_pressed(KEY_G))
 {
-spawn_chesttimer.restart();
-spawn_chest(random(0,400),random(0,500),0,"main",in_chest[random(0,in_chest.length()-1)]);
-send_reliable(0, "there is a chest spawned", 2);  
+server_gui();
+show_window("Infinite Warfare server, version "+minversion+" - press G to open the control panel.");
 }
 if(key_pressed(KEY_ESCAPE))
 {
 exit();
 }
+}
+}
+// One iteration of the server's background work: process network/game events and
+// handle timed chest spawns. Called from the main loop and from every control
+// panel GUI loop so the server keeps running while a menu is open.
+void server_tick()
+{
+netloop();
+if(spawn_chesttimer.elapsed>=300000 and chests.length()<=10)
+{
+spawn_chesttimer.restart();
+spawn_chest(random(0,400),random(0,500),0,"main",in_chest[random(0,in_chest.length()-1)]);
+send_reliable(0, "there is a chest spawned", 2);
 }
 }
 void netloop()
@@ -158,7 +172,7 @@ playerloop();
 itemloop();
 maploop();
 e=n.request();
-if(key_pressed(KEY_H))
+if(!gui_open and key_pressed(KEY_H))
 {
 hide_window();
 }

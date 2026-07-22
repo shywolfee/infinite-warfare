@@ -50,6 +50,13 @@ bool ballista=false;
 timer ballistatimer;
 bool bunkerbomb;
 timer bunkerbombtimer;
+// Per-player cooldowns to deter spamming/cheating. The "used" flags guard
+// against a freshly spawned player being blocked by a timer that has been
+// running since they joined.
+timer bunker_claim_cd;
+bool bunker_claim_used=false;
+timer bunker_bomb_cd;
+bool bunker_bomb_used=false;
 bool see=true;
 bool semtex=false;
 timer semtextimer;

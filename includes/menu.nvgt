@@ -1035,25 +1035,50 @@ m.enable_left_and_right=false;
 // ---------------------------------------------------------------------------
 // Options menu — single form with checkboxes for toggles, buttons for values.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Options menu.
+// Settings are grouped into named categories, mirroring the way the help menu
+// groups help entries. The top level lists the categories; opening one shows a
+// form with just that category's settings.
+// ---------------------------------------------------------------------------
 void optionsmenu()
 {
+string[] cats={"Gameplay", "Controls", "Audio", "Key Bindings"};
 audio_form f;
 f.create_window("Options", false, true);
-// Gameplay
+int f_cats=f.create_list("Categories. Choose a category and press Open, or press Enter.", 0, false);
+for (uint i=0; i<cats.length(); i++)
+f.add_list_item(f_cats, cats[i]);
+int f_open=f.create_button("&Open", true);
+int f_close=f.create_button("&Close", false, true);
+f.focus(f_cats);
+while (true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_open))
+{
+int sel=f.get_list_position(f_cats);
+if (sel==0) options_gameplay();
+else if (sel==1) options_controls();
+else if (sel==2) options_audio();
+else if (sel==3) options_keybinds();
+}
+else if (f.is_pressed(f_close))
+break;
+}
+}
+// Gameplay category — duo mate and on-hit readouts.
+void options_gameplay()
+{
+audio_form f;
+f.create_window("Gameplay Options", false, true);
 int f_mate=f.create_input_box("Duo mate (leave blank to clear)", mate, "", 0, false, false, false);
 int f_remember=f.create_checkbox("Remember me (save account on exit)", remember_me);
 int f_target_hp=f.create_checkbox("Show target HP on hit", show_target_hp);
 int f_damage_readout=f.create_checkbox("Show damage readout on hit", show_damage_readout);
-// Controls
-int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
-int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
-int f_autolog=f.create_checkbox("Automatically log buffers on exit", auto_log_buffers);
-int f_cam=f.create_input_box("Camera speed (1 to 200)", ""+cameraspeed, "", 0, false, false, false);
-// Key Bindings
-int f_keybinds=f.create_button("Open &key binding editor");
-// Audio
-int f_vol=f.create_input_box("Master volume (-60 to 0)", ""+mastervol, "", 0, false, false, false);
-// Buttons
 int f_save=f.create_button("&Save", true);
 int f_close=f.create_button("&Cancel", false, true);
 f.focus(f_mate);
@@ -1063,12 +1088,6 @@ wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_keybinds))
-{
-options_keybinds();
-optionsmenu();
-return;
-}
 if (f.is_pressed(f_save))
 {
 string new_mate=f.get_text(f_mate);
@@ -1081,6 +1100,34 @@ mate=new_mate;
 remember_me=f.is_checked(f_remember);
 show_target_hp=f.is_checked(f_target_hp);
 show_damage_readout=f.is_checked(f_damage_readout);
+writeprefs();
+speak("Gameplay options saved.");
+break;
+}
+else if (f.is_pressed(f_close))
+break;
+}
+}
+// Controls category — input handling, buffers, and camera speed.
+void options_controls()
+{
+audio_form f;
+f.create_window("Controls Options", false, true);
+int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
+int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
+int f_autolog=f.create_checkbox("Automatically log buffers on exit", auto_log_buffers);
+int f_cam=f.create_input_box("Camera speed (1 to 200)", ""+cameraspeed, "", 0, false, false, false);
+int f_save=f.create_button("&Save", true);
+int f_close=f.create_button("&Cancel", false, true);
+f.focus(f_rctrl);
+while (true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_save))
+{
 rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
 menu_wrap_enabled=f.is_checked(f_wrap);
 auto_log_buffers=f.is_checked(f_autolog);
@@ -1095,6 +1142,31 @@ kup.setting_2=cameraspeed;
 kdown.setting_2=cameraspeed;
 kpgdn.setting_2=cameraspeed;
 kpgup.setting_2=cameraspeed;
+writeprefs();
+speak("Controls options saved.");
+break;
+}
+else if (f.is_pressed(f_close))
+break;
+}
+}
+// Audio category — master volume.
+void options_audio()
+{
+audio_form f;
+f.create_window("Audio Options", false, true);
+int f_vol=f.create_input_box("Master volume (-60 to 0)", ""+mastervol, "", 0, false, false, false);
+int f_save=f.create_button("&Save", true);
+int f_close=f.create_button("&Cancel", false, true);
+f.focus(f_vol);
+while (true)
+{
+wait(5);
+f.monitor();
+if (connected==true)
+netloop();
+if (f.is_pressed(f_save))
+{
 string vol_str=f.get_text(f_vol);
 int newvol=string_to_number(vol_str);
 if (newvol<-60) newvol=-60;
@@ -1102,7 +1174,7 @@ if (newvol>0) newvol=0;
 mastervol=newvol;
 set_sound_master_volume(mastervol);
 writeprefs();
-speak("Options saved.");
+speak("Audio options saved.");
 break;
 }
 else if (f.is_pressed(f_close))

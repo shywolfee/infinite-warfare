@@ -14,7 +14,7 @@ if (is_weapon(item)) return "Weapons";
 // Any registered weapon reserve item is ammunition, regardless of its name.
 if (is_ammo_reserve_item(item)) return "Ammo";
 if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
-if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="waypoint_marker" or item=="nanomatic_multitool" or item=="nanomatic_components") return "Consumables";
+if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="waypoint_marker" or item=="nanomatic_multitool" or item=="nanomatic_components" or item=="molecular_conduit") return "Consumables";
 return "Equipment";
 }
 
@@ -68,13 +68,87 @@ speak(inv_categories[inv_category_index] + ". " + filtered.length() + " items.")
 invpos = 0;
 }
 
+// ---------------------------------------------------------------------------
+// Carried-item hardcaps.
+// Any item may declare a hardcap on how many can be carried. Each declaration
+// carries an "islimited" boolean: when it is true the item must also declare a
+// "maxcarry" value and the inventory will never hold more than that many; when
+// it is false (the default for any undeclared item) the item can be carried in
+// unlimited quantity.
+// ---------------------------------------------------------------------------
+class item_cap
+{
+string id;
+bool islimited;
+int maxcarry;
+item_cap(string cap_id, bool cap_islimited, int cap_maxcarry)
+{
+id=cap_id;
+islimited=cap_islimited;
+// A maxcarry is only meaningful when the item is limited.
+maxcarry=cap_islimited ? cap_maxcarry : 0;
+}
+}
+item_cap@[] item_caps;
+
+// Declare a carry limit for an item. Pass islimited=true together with the
+// maxcarry to cap it; pass islimited=false (maxcarry is then ignored) to state
+// explicitly that the item is unlimited.
+void register_item_cap(string id, bool islimited, int maxcarry=0)
+{
+item_cap@ existing=null;
+for (uint i=0; i<item_caps.length(); i++)
+{
+if (item_caps[i].id==id)
+{
+@existing=item_caps[i];
+break;
+}
+}
+if (existing !is null)
+{
+existing.islimited=islimited;
+existing.maxcarry=islimited ? maxcarry : 0;
+return;
+}
+item_cap cap(id, islimited, maxcarry);
+item_caps.insert_last(cap);
+}
+
+// Returns the maximum quantity of an item that can be carried, or -1 when the
+// item is unlimited (never declared, or declared with islimited=false).
+int get_item_maxcarry(string id)
+{
+for (uint i=0; i<item_caps.length(); i++)
+{
+if (item_caps[i].id==id)
+return item_caps[i].islimited ? item_caps[i].maxcarry : -1;
+}
+return -1;
+}
+
+// Register all declared item hardcaps. Called once at startup.
+void init_item_caps()
+{
+// A translocator can only be upgraded ten times, so there is never a reason
+// to carry more than ten molecular conduits.
+register_item_cap("molecular_conduit", true, 10);
+// These are unique pieces of equipment; one is all you ever need.
+register_item_cap("translocator", true, 1);
+register_item_cap("hypercomp", true, 1);
+}
+
 void give(string item, int amount)
 {
 int a;
+int cap=get_item_maxcarry(item);
 if (!inv.exists(item))
 {
 if (amount>0)
+{
+if (cap>=0 and amount>cap) amount=cap;
 inv.set(item,amount);
+}
 }
 else
 {
@@ -83,7 +157,9 @@ if (a+amount<=0)
 inv.delete(item);
 else
 {
-inv.set(item,a+amount);
+int total=a+amount;
+if (cap>=0 and total>cap) total=cap;
+inv.set(item,total);
 }
 }
 }

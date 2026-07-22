@@ -40,7 +40,7 @@ li { margin: 4px 0; }
 
 <h1>Infinite Warfare &mdash; Game Manual</h1>
 <p>
-  <span class="version-badge">Version 0.5.0.4.8 &bull; Build 72</span><br>
+  <span class="version-badge">Version 0.5.0.4.9 &bull; Build 73</span><br>
   Created by <strong>Firegaming</strong><br>
   Coded by Max Vrenken &bull; Sound design by Jonan Smid &bull; Manual by Jesse Janssen
 </p>
@@ -103,24 +103,27 @@ li { margin: 4px 0; }
 
 <h3>2.2. Options Menu</h3>
 <p>
-  The options menu is a single scrollable form (it is no longer split into tabs). Toggles are
-  checkboxes, values are typed into input boxes, and there is a dedicated button that opens the
-  key&nbsp;binding editor. Press <kbd>Save</kbd> to apply and store your settings, or
-  <kbd>Cancel</kbd> to discard changes.
+  The options menu is organized into categories, in the same style as the help menu. The top level
+  lists the categories &mdash; <strong>Gameplay</strong>, <strong>Controls</strong>,
+  <strong>Audio</strong>, and <strong>Key Bindings</strong>; choose one and press <kbd>Open</kbd> to
+  see and change just that category's settings. Toggles are checkboxes and values are typed into
+  input boxes. Each category has its own <kbd>Save</kbd> (apply and store) and <kbd>Cancel</kbd>
+  (discard) buttons, and Key Bindings opens the rebinding editor directly (see 2.3). The table below
+  lists every setting and the category it lives under.
 </p>
 <div class="table-wrap">
 <table>
-  <tr><th>Setting</th><th>Type</th><th>Range / Values</th><th>What it does</th></tr>
-  <tr><td>Duo mate</td><td>Text</td><td>A player name (no spaces)</td><td>Sets your duo partner. Leave blank to clear.</td></tr>
-  <tr><td>Remember me</td><td>Checkbox</td><td>On / Off</td><td>Saves your account on exit so you skip the login next time.</td></tr>
-  <tr><td>Show target HP on hit</td><td>Checkbox</td><td>On / Off</td><td>Announces a hit target's remaining health.</td></tr>
-  <tr><td>Show damage readout on hit</td><td>Checkbox</td><td>On / Off</td><td>Announces the damage number you dealt on each hit.</td></tr>
-  <tr><td>Right control detection</td><td>Checkbox</td><td>On / Off</td><td>Allows Right&nbsp;Ctrl to fire in addition to your bound fire key.</td></tr>
-  <tr><td>Menu wrapping</td><td>Checkbox</td><td>On / Off</td><td>Whether lists wrap around from the last item back to the first.</td></tr>
-  <tr><td>Auto-log buffers on exit</td><td>Checkbox</td><td>On / Off</td><td>Automatically saves your message buffers when you quit.</td></tr>
-  <tr><td>Camera speed</td><td>Number</td><td>1 &ndash; 200</td><td>How fast the exploration/ghost camera and movement repeat.</td></tr>
-  <tr><td>Master volume</td><td>Number</td><td>-60 &ndash; 0 dB</td><td>Overall output volume.</td></tr>
-  <tr><td>Key binding editor</td><td>Button</td><td>&mdash;</td><td>Opens the rebinding screen (see 2.3).</td></tr>
+  <tr><th>Setting</th><th>Category</th><th>Type</th><th>Range / Values</th><th>What it does</th></tr>
+  <tr><td>Duo mate</td><td>Gameplay</td><td>Text</td><td>A player name (no spaces)</td><td>Sets your duo partner. Leave blank to clear.</td></tr>
+  <tr><td>Remember me</td><td>Gameplay</td><td>Checkbox</td><td>On / Off</td><td>Saves your account on exit so you skip the login next time.</td></tr>
+  <tr><td>Show target HP on hit</td><td>Gameplay</td><td>Checkbox</td><td>On / Off</td><td>Announces a hit target's remaining health.</td></tr>
+  <tr><td>Show damage readout on hit</td><td>Gameplay</td><td>Checkbox</td><td>On / Off</td><td>Announces the damage number you dealt on each hit.</td></tr>
+  <tr><td>Right control detection</td><td>Controls</td><td>Checkbox</td><td>On / Off</td><td>Allows Right&nbsp;Ctrl to fire in addition to your bound fire key.</td></tr>
+  <tr><td>Menu wrapping</td><td>Controls</td><td>Checkbox</td><td>On / Off</td><td>Whether lists wrap around from the last item back to the first.</td></tr>
+  <tr><td>Auto-log buffers on exit</td><td>Controls</td><td>Checkbox</td><td>On / Off</td><td>Automatically saves your message buffers when you quit.</td></tr>
+  <tr><td>Camera speed</td><td>Controls</td><td>Number</td><td>1 &ndash; 200</td><td>How fast the exploration/ghost camera and movement repeat.</td></tr>
+  <tr><td>Master volume</td><td>Audio</td><td>Number</td><td>-60 &ndash; 0 dB</td><td>Overall output volume.</td></tr>
+  <tr><td>Key binding editor</td><td>Key Bindings</td><td>Button</td><td>&mdash;</td><td>Opens the rebinding screen (see 2.3).</td></tr>
 </table>
 </div>
 
@@ -300,7 +303,10 @@ li { margin: 4px 0; }
 </div>
 
 <h3>4.6. Message Buffers</h3>
-<p>Chat, kills, and system messages are stored in scrollable buffers.</p>
+<p>Chat, kills, and system messages are stored in scrollable buffers. A dedicated
+<strong>tickets</strong> buffer collects all support-ticket and feedback notifications
+(new tickets, replies, and closures) in one place, so you can review everything ticket-related
+together. These notifications reach you whether you are in a game or sitting in the lobby.</p>
 <div class="table-wrap">
 <table>
   <tr><th>Key</th><th>Action</th></tr>
@@ -641,6 +647,7 @@ li { margin: 4px 0; }
   <tr><td>Smoke Bomb</td><td>Applies the <em>Blinded</em> debuff (15 seconds) to players within a 25-tile radius, disabling their tracking to and from you.</td></tr>
   <tr><td>Waypoint Marker</td><td>Saves your position. Use again to hear the direction and distance back to it; a third use overwrites the saved point.</td></tr>
   <tr><td>Translocator</td><td>Teleports you to a chosen point of interest after a 5-second power-up. Consumes 1 cell per 50 tiles traveled (rounded up). Recharge with Translocator Cells.</td></tr>
+  <tr><td>Molecular Conduit</td><td>Permanently raises your translocator's maximum cell capacity by <strong>1</strong> per use. A translocator can be upgraded <strong>10 times</strong> at most (20 cells total). Found in equipment chests; you can carry up to 10.</td></tr>
   <tr><td>Nanomatic Multitool</td><td>Repairs a damaged energy weapon by <strong>5&ndash;15%</strong> durability per use. Holds <strong>5 uses</strong>, then is consumed.</td></tr>
   <tr><td>Nanomatic Components</td><td>Salvaged from broken energy weapons (1&ndash;5 per break). Use 5 on a multitool that still has uses to add 1 extra use.</td></tr>
 </table>

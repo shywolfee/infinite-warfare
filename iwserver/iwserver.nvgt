@@ -1661,6 +1661,12 @@ if(chests[i].type=="chest_of_rocks")
 {
 send_reliable(players[i2].peer_id, "give rock 50", 0);
 }
+if(chests[i].type=="equipment_chest")
+{
+send_reliable(players[i2].peer_id, "give translocator_cell 5", 0);
+send_reliable(players[i2].peer_id, "give molecular_conduit 1", 0);
+send_reliable(players[i2].peer_id, "give waypoint_marker 2", 0);
+}
 send_reliable(players[i2].peer_id, "you opened the "+chests[i].type+"!", 2);
 chests.remove_at(i);
 return;
@@ -2237,6 +2243,15 @@ send_reliable(players[index].peer_id, "Too many explosives placed.", 2);
 }
 if(parsed[1]=="bunker_bomb")
 {
+if(players[index].bunker_bomb_used and players[index].bunker_bomb_cd.elapsed<300000)
+{
+// Bunker bombs can only be used once every five minutes to stop players
+// from spamming them.
+int remaining=(300000-players[index].bunker_bomb_cd.elapsed+999)/1000;
+send_reliable(players[index].peer_id, "Your bunker bomb is still recharging. Wait "+remaining+" seconds before using another.", 2);
+}
+else
+{
 bool bomb_found=false;
 for(int i=0; i<bunkers.length(); i++)
 {
@@ -2248,12 +2263,15 @@ play("bunkerbombplace",players[index].x,players[index].y,players[index].z,player
 send_reliable(players[index].peer_id, "movestop", 0);
 players[index].bunkerbomb=true;
 players[index].bunkerbombtimer.restart();
+players[index].bunker_bomb_cd.restart();
+players[index].bunker_bomb_used=true;
 bomb_found=true;
 break;
 }
 }
 if(!bomb_found)
 send_reliable(players[index].peer_id, "You must be at a bunker control panel to place a bunker bomb.", 2);
+}
 }
 if(parsed[1]=="torpedo") 
 {
@@ -2282,10 +2300,19 @@ else if(bunkers[i].owner!="")
 {
 send_reliable(players[index].peer_id, "This bunker is already claimed by someone else.", 2);
 }
+else if(players[index].bunker_claim_used and players[index].bunker_claim_cd.elapsed<60000)
+{
+// Rate-limit bunker claims to once per minute. This should not normally be
+// reachable through legitimate play, but it deters automated claim spam.
+int remaining=(60000-players[index].bunker_claim_cd.elapsed+999)/1000;
+send_reliable(players[index].peer_id, "You are claiming bunkers too quickly. Wait "+remaining+" seconds before claiming another.", 2);
+}
 else
 {
 send_reliable(players[index].peer_id, "give bunker_key -1", 0);
 bunkers[i].owner=players[index].name;
+players[index].bunker_claim_cd.restart();
+players[index].bunker_claim_used=true;
 send_reliable(0, "play_s notify.ogg", 0);
 send_reliable(0, bunkers[i].name+", has been captured by, "+players[index].name, 2);
 int owned=0;
@@ -2358,7 +2385,32 @@ else if(parsed[0]=="ac_violation")
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
-send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
+string detected=(parsed.length()>1 ? parsed[1] : "unknown software");
+string offender=players[index].name;
+string ocomp=players[index].comp;
+string omap=players[index].map;
+int ox=players[index].x;
+int oy=players[index].y;
+int oz=players[index].z;
+string alert="Anti-cheat alert: "+offender+" (machine "+ocomp+") attempted to run "+detected+" while in-game on "+omap+" at "+ox+", "+oy+", "+oz+". They have been removed.";
+for(uint ai=0; ai<players.length(); ai++)
+{
+if(players[ai].peer_id==e.peer_id) continue;
+if(players[ai].dev or players[ai].admin)
+{
+send_reliable(players[ai].peer_id, "play_s notify.ogg", 0);
+send_reliable(players[ai].peer_id, alert, 2);
+}
+}
+for(uint ai=0; ai<lobby_clients.length(); ai++)
+{
+if(lobby_clients[ai].dev or lobby_clients[ai].admin)
+{
+send_reliable_id(lobby_clients[ai].peer_id, "play_s notify.ogg", 0);
+send_reliable_id(lobby_clients[ai].peer_id, alert, 2);
+}
+}
+send_reliable(0, offender+" was removed by anti-cheat.", 2);
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
 players.remove_at(index);
 }

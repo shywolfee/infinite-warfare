@@ -51,6 +51,22 @@ sources.resize(0);
 can_move=true;
 mainmenu();
 }
+// While sitting in the lobby the player is not in the in-game netloop, so
+// route notifications here too. Without this, support and feedback
+// notifications sent to lobby clients were silently dropped.
+else if (e.channel==2)
+route_notification(msg);
+else if (e.channel==0)
+{
+string[] parsed=string_split(msg, " ", true);
+if (parsed[0]=="play_s" and parsed.length()>=2)
+p.play_stationary(parsed[1], false);
+}
+else if (e.channel==1)
+{
+p.play_stationary("chat.ogg", false);
+add_buffer_item("chats", msg);
+}
 }
 }
 

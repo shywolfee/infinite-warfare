@@ -40,7 +40,7 @@ li { margin: 4px 0; }
 
 <h1>Infinite Warfare &mdash; Game Manual</h1>
 <p>
-  <span class="version-badge">Version 0.5.0.4.9 &bull; Build 73</span><br>
+  <span class="version-badge">Version 0.5.0.5.0 &bull; Build 74</span><br>
   Created by <strong>Firegaming</strong><br>
   Coded by Max Vrenken &bull; Sound design by Jonan Smid &bull; Manual by Jesse Janssen
 </p>
@@ -146,8 +146,14 @@ li { margin: 4px 0; }
   <li><strong>Players</strong> &mdash; See who is online.</li>
   <li><strong>Killstreak Rewards</strong> &mdash; Review the kill-milestone rewards.</li>
   <li><strong>Leave Lobby</strong> &mdash; Disconnect to the main menu.</li>
-  <li>Press <kbd>F1</kbd> at any time for the detailed player list.</li>
 </ul>
+<p>You don't have to deploy to talk or check on the server. Right from the lobby you can:</p>
+<ul>
+  <li>Press <kbd>/</kbd> (slash) to open a chat box and talk to everyone on the server.</li>
+  <li>Use the message buffers: <kbd>[</kbd> / <kbd>]</kbd> move between buffers, <kbd>,</kbd> / <kbd>.</kbd> read through the focused buffer, and <kbd>Alt+B</kbd> opens the buffer manager.</li>
+  <li><kbd>F1</kbd> for the detailed player list, <kbd>F2</kbd> for the message of the day, <kbd>F3</kbd> to ping the server, and <kbd>F4</kbd> for server uptime.</li>
+</ul>
+<p>Anything that needs you to be in a game mode stays behind deploying; the lobby only exposes chat, buffers, and read-only server info.</p>
 <p>
   When you deploy you receive a fresh random loadout: 1 melee weapon, 1 sidearm, and 1 primary,
   plus 2 health potions and 3 frag grenades, auto-assigned to quickbar slots 1&ndash;5.
@@ -335,6 +341,13 @@ together. These notifications reach you whether you are in a game or sitting in 
 
 <!-- ================================================================ -->
 <h2 id="combat">5. Combat Mechanics</h2>
+
+<h3>5.0. Spawn Protection</h3>
+<p>
+  For the first <strong>5 seconds</strong> after you spawn you cannot be hit, so you are not
+  killed the instant you deploy. Protection covers gunfire, grenades, torpedoes, and every kind
+  of bomb. A message announces it when you spawn, and it ends automatically after the window.
+</p>
 
 <h3>5.1. Fire Modes</h3>
 <p>Press <kbd>Shift+A</kbd> to cycle a weapon's available fire modes.</p>

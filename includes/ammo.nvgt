@@ -830,6 +830,10 @@ int i=find_gun(wname);
 if (i<0) return;
 gun_ammos[i].mag_loaded+=amount;
 if (gun_ammos[i].mag_loaded<0) gun_ammos[i].mag_loaded=0;
+// Never let the loaded magazine exceed capacity. ammocheatloop() force-exits
+// the client when mag_loaded>mag_capacity, so an over-large ammogive (from the
+// old loot system) would otherwise crash the game.
+if (gun_ammos[i].mag_loaded>gun_ammos[i].mag_capacity) gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
 }
 
 // Returns true while this weapon is mid-reload.

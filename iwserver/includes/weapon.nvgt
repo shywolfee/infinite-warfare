@@ -271,7 +271,7 @@ return;
 
 for(int e=0; e<players.length(); e++)
 {
-if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,players[e].x,players[e].y,players[e].z)<=weapons[i].spread and players[e].map==weapons[i].map and weapons[i].cn!=players[e].name and players[e].death==false and players[e].in_plane==false)
+if (get_3d_distance(weapons[i].x,weapons[i].y,weapons[i].z,players[e].x,players[e].y,players[e].z)<=weapons[i].spread and players[e].map==weapons[i].map and weapons[i].cn!=players[e].name and players[e].death==false and players[e].in_plane==false and !players[e].is_spawn_protected())
 {
 int index=get_player_index_from(weapons[i].cn);
 {

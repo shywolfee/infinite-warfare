@@ -31,7 +31,7 @@ play("planebombexplode",planebombs[i].x,planebombs[i].y,planebombs[i].z,planebom
 send_reliable(0,"distsound planebombdist.ogg "+planebombs[i].x+" "+planebombs[i].y+" "+planebombs[i].z+" "+planebombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==planebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==planebombs[i].map and players[i2].death==false and players[i2].in_plane==false and !players[i2].is_spawn_protected())
 {
 players[i2].hitby=planebombs[i].owner+"'s planebomb";
 players[i2].health-=650;
@@ -80,7 +80,7 @@ play("120mm_mortarexplode",mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mo
 send_reliable(0,"distsound 120mm_mortarexplodedist.ogg "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false and !players[i2].is_spawn_protected())
 {
 players[i2].hitby=mortarbombs[i].owner+"'s 120mm_mortar";
 players[i2].health-=500;
@@ -129,7 +129,7 @@ play("bunkerbombexplode",bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunk
 send_reliable(0,"distsound bunkerbombdist.ogg "+bunkerbombs[i].x+" "+bunkerbombs[i].y+" "+bunkerbombs[i].z+" "+bunkerbombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=150 and players[i2].map==bunkerbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=150 and players[i2].map==bunkerbombs[i].map and players[i2].death==false and players[i2].in_plane==false and !players[i2].is_spawn_protected())
 
 {
 int index=get_player_index_from(bunkerbombs[i].owner);
@@ -247,7 +247,7 @@ play("semtexexplode",samtexs[i].x,samtexs[i].y,samtexs[i].z,samtexs[i].map);
 send_reliable(0,"distsound semtexdist.ogg "+samtexs[i].x+" "+samtexs[i].y+" "+samtexs[i].z+" "+samtexs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,players[i2].x,players[i2].y,players[i2].z)<=30 and players[i2].map==samtexs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,players[i2].x,players[i2].y,players[i2].z)<=30 and players[i2].map==samtexs[i].map and players[i2].death==false and players[i2].in_plane==false and !players[i2].is_spawn_protected())
 
 {
 int index=get_player_index_from(samtexs[i].owner);
@@ -309,7 +309,7 @@ play("smokebombexplode",smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,smokebom
 send_reliable(0,"distsound smokebombdist.ogg "+smokebombs[i].x+" "+smokebombs[i].y+" "+smokebombs[i].z+" "+smokebombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==smokebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==smokebombs[i].map and players[i2].death==false and players[i2].in_plane==false and !players[i2].is_spawn_protected())
 
 {
 players[i2].see=false;
@@ -359,7 +359,7 @@ play("bombvestexplode",bombs[i].x,bombs[i].y,bombs[i].z,bombs[i].map);
 send_reliable(0,"distsound bombvestdist.ogg "+bombs[i].x+" "+bombs[i].y+" "+bombs[i].z+" "+bombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==bombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==bombs[i].map and players[i2].death==false and players[i2].in_plane==false and !players[i2].is_spawn_protected())
 
 {
 players[i2].health-=1500;
@@ -438,7 +438,7 @@ play("semtexexplode",c4charges[i].x,c4charges[i].y,c4charges[i].z,c4charges[i].m
 send_reliable(0,"distsound semtexdist.ogg "+c4charges[i].x+" "+c4charges[i].y+" "+c4charges[i].z+" "+c4charges[i].map,0);
 for(uint p=0; p<players.length(); p++)
 {
-if(get_3d_distance(c4charges[i].x,c4charges[i].y,c4charges[i].z,players[p].x,players[p].y,players[p].z)<=25 and players[p].map==c4charges[i].map and players[p].death==false and players[p].in_plane==false)
+if(get_3d_distance(c4charges[i].x,c4charges[i].y,c4charges[i].z,players[p].x,players[p].y,players[p].z)<=25 and players[p].map==c4charges[i].map and players[p].death==false and players[p].in_plane==false and !players[p].is_spawn_protected())
 {
 players[p].hitby=c4charges[i].owner+"'s C4";
 players[p].health-=700;

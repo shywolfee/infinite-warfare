@@ -193,24 +193,21 @@ string[] parsed=string_split(get_event_message(), " ",true);
 int index=get_player_index(e.peer_id);
 if (index>-1)
 {
-players[index].msg_count++;
-if (players[index].msg_timer.elapsed>10000)
-{
-players[index].msg_timer.restart();
-players[index].msg_count=0;
-}
-if (players[index].msg_count>15)
-{
-if (players[index].msg_count>25)
+string spam_warn;
+int spam_result=players[index].spam.record_message(spam_warn);
+if (spam_result==2)
 {
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-send_reliable(players[index].peer_id, "You have been removed for flooding.", 2);
+send_reliable(players[index].peer_id, "You have been removed for spamming.", 2);
 players.remove_at(index);
 }
-else
-send_reliable(players[index].peer_id, "You are sending messages too quickly. Slow down.", 2);
+else if (spam_result==1)
+{
+send_reliable(players[index].peer_id, spam_warn, 2);
 }
-else if (players[index].afk and parsed[0]!="/afk")
+else if (spam_result==0)
+{
+if (players[index].afk and parsed[0]!="/afk")
 {
 send_reliable(players[index].peer_id, "You are AFK.", 2);
 }
@@ -510,6 +507,33 @@ pn+="developer ";
 }
 pn+=players[index].name;
 send_reliable(0,pn+": "+get_event_message(),1);
+}
+}
+}
+else
+{
+// Chat from a client sitting in the lobby (not yet spawned in-game). They may
+// talk and are held to the same spam rules, but cannot run in-game commands.
+int li=get_lobby_client_index(e.peer_id);
+if (li>-1)
+{
+string spam_warn;
+int spam_result=lobby_clients[li].spam.record_message(spam_warn);
+if (spam_result==2)
+{
+send_reliable(lobby_clients[li].peer_id, "You have been removed for spamming.", 2);
+send_reliable(lobby_clients[li].peer_id, "spam_kick", 0);
+lobby_clients.remove_at(li);
+}
+else if (spam_result==1)
+send_reliable(lobby_clients[li].peer_id, spam_warn, 2);
+else if (spam_result==0 and string_contains(parsed[0],"/",1)==-1)
+{
+string pn=lobby_clients[li].name;
+if (lobby_clients[li].dev) pn="developer "+pn;
+else if (lobby_clients[li].admin) pn="admin "+pn;
+send_reliable(0, pn+": "+get_event_message(), 1);
+}
 }
 }
 }
@@ -1641,13 +1665,16 @@ send_reliable(players[i2].peer_id, "give duo_plane 1", 0);
 }
 if(chests[i].type=="ammunition_chest")
 {
-send_unreliable(players[i2].peer_id, "ammogive benelli_m4_shotgun 30", 0);
-send_unreliable(players[i2].peer_id, "ammogive glock17 30", 0);
-send_unreliable(players[i2].peer_id, "ammogive AK47 30", 0);
-send_unreliable(players[i2].peer_id, "ammogive hk_g36 50", 0);
-send_unreliable(players[i2].peer_id, "ammogive famas_f1_assault_rifle 15", 0);
-send_unreliable(players[i2].peer_id, "ammogive sg08_sniper_rifle 15", 0);
-send_unreliable(players[i2].peer_id, "ammogive m1garantbattle_rifle 15", 0);
+// Give spare ammunition as proper reserve items (magazines/belts/boxes).
+// The old ammogive path dumped rounds into the loaded magazine and crashed
+// the client once it exceeded the weapon's capacity.
+send_reliable(players[i2].peer_id, "give 12_gauge_shell_box 24", 0);
+send_reliable(players[i2].peer_id, "give 9x19mm_17_round_magazine 3", 0);
+send_reliable(players[i2].peer_id, "give 7.62x39mm_30_round_magazine 3", 0);
+send_reliable(players[i2].peer_id, "give 5.56mm_stanag_magazine 4", 0);
+send_reliable(players[i2].peer_id, "give 5.56mm_25_round_magazine 3", 0);
+send_reliable(players[i2].peer_id, "give .308_10_round_magazine 3", 0);
+send_reliable(players[i2].peer_id, "give .30-06_en_bloc_clip 4", 0);
 }
 if(chests[i].type=="grenades_and_bombs_chest")
 {
@@ -1920,6 +1947,17 @@ if(motd!="")
 send_reliable(e.peer_id, "server message: "+motd, 0);
 else send_reliable(e.peer_id, "no message of the day has been set", 0);
 }
+else if(parsed[0]=="uptime")
+{
+int secs=int(uptimer.elapsed/1000);
+int days=secs/86400; secs=secs%86400;
+int hours=secs/3600; secs=secs%3600;
+int mins=secs/60; secs=secs%60;
+string up="";
+if(days>0) up+=days+(days==1?" day, ":" days, ");
+up+=hours+(hours==1?" hour, ":" hours, ")+mins+(mins==1?" minute, ":" minutes, ")+secs+(secs==1?" second":" seconds");
+send_reliable(e.peer_id, "server uptime: "+up, 0);
+}
 else if(parsed[0]=="playermenu")
 {
 int x;
@@ -2104,8 +2142,11 @@ send_reliable(players[index].peer_id, "give bag -1", 0);
 send_reliable(players[index].peer_id, "give health_potion 2", 0);
 send_reliable(players[index].peer_id, "give bomb_vest 1", 0);
 play("bagopen", players[index].x, players[index].y, players[index].z, players[index].map, index);
-send_unreliable(players[index].peer_id, "ammogive benelli_m4_shotgun 15", 0);
-send_unreliable(players[index].peer_id, "ammogive 357magnum_revolver 30", 0);
+// Grant spare ammunition as reserve items (magazines/belts) the way the
+// current ammo system expects. The old ammogive path shoved rounds straight
+// into the loaded magazine, overflowing capacity and crashing the client.
+send_reliable(players[index].peer_id, "give 12_gauge_shell_box 16", 0);
+send_reliable(players[index].peer_id, "give .44_magnum_ammo_belt 24", 0);
 }
 if(parsed[1]=="fake_item")
 {
@@ -2128,11 +2169,14 @@ send_reliable(players[index].peer_id, "give box -1", 0);
 send_reliable(players[index].peer_id, "give health_potion 5", 0);
 send_reliable(players[index].peer_id, "give fake_item 5", 0);
 send_reliable(players[index].peer_id, "give ultra_health_potion 1", 0);
-send_unreliable(players[index].peer_id, "ammogive glock17 100", 0);
-send_unreliable(players[index].peer_id, "ammogive hk_g36 100", 0);
-send_unreliable(players[index].peer_id, "ammogive magnum_revolver 100", 0);
-send_unreliable(players[index].peer_id, "ammogive AK47 80", 0);
-send_unreliable(players[index].peer_id, "ammogive sg08_sniper_rifle 30", 0);
+// Grant spare ammunition as reserve items (magazines/belts) rather than the
+// old ammogive path, which overflowed the loaded magazine and crashed the
+// client via the anti-cheat capacity check.
+send_reliable(players[index].peer_id, "give 9x19mm_17_round_magazine 4", 0);
+send_reliable(players[index].peer_id, "give 5.56mm_stanag_magazine 3", 0);
+send_reliable(players[index].peer_id, "give .44_magnum_ammo_belt 30", 0);
+send_reliable(players[index].peer_id, "give 7.62x39mm_30_round_magazine 3", 0);
+send_reliable(players[index].peer_id, "give .308_10_round_magazine 3", 0);
 }
 if(parsed[1]=="frag_grenade")
 {

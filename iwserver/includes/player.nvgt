@@ -1,3 +1,64 @@
+// ---------------------------------------------------------------------------
+// Shared chat spam guard, used by both in-game players and lobby clients.
+// Fast, bursty typing is tolerated: up to 3 messages in any rolling 5-second
+// window is fine (correcting typos, short quick sentences). Going over that
+// starts a 30-second "caution" and earns a single warning. While the caution is
+// active, each further burst over the limit extends it by 5 seconds and counts
+// as another warning; two more warnings during the same caution (three strikes)
+// means a kick. Silence long enough for the caution to elapse and it clears.
+//
+// record_message() returns:
+//   0 = within limits, broadcast the message normally
+//   1 = warning issued (send warn_msg to the sender; do not broadcast)
+//   2 = kick the sender
+//   3 = still spamming this burst; drop the message silently
+class spam_guard
+{
+double[] recent;          // timestamps (ms) of messages in the current 5s window
+timer clock;
+bool caution=false;
+timer caution_clock;
+int caution_ms=0;         // total caution duration; grows with repeat offenses
+int warnings=0;
+bool over=false;          // currently inside an over-limit burst (debounce)
+int record_message(string &out warn_msg)
+{
+warn_msg="";
+double now=double(clock.elapsed);
+recent.insert_last(now);
+while (recent.length()>0 and now-recent[0]>5000)
+recent.remove_at(0);
+// Clear an expired caution before judging this message.
+if (caution and double(caution_clock.elapsed)>=double(caution_ms))
+{
+caution=false;
+warnings=0;
+}
+bool over_now=(recent.length()>3);   // more than 3 in the last 5 seconds
+bool new_burst=(over_now and !over); // only the first message of a burst acts
+over=over_now;
+if (!over_now)
+return 0;
+if (!new_burst)
+return 3;
+if (!caution)
+{
+caution=true;
+caution_clock.restart();
+caution_ms=30000;
+warnings=1;
+warn_msg="You are sending messages too quickly. You are under a 30 second spam caution. Keep it up and you will be removed.";
+return 1;
+}
+warnings++;
+caution_ms+=5000;
+if (warnings>=3)
+return 2;
+warn_msg="You are still spamming. Your spam caution has been extended. One more warning and you will be removed from the server.";
+return 1;
+}
+}
+
 // Lightweight tracker for clients sitting in the lobby (before spawn_player).
 lobby_client@[] lobby_clients(0);
 class lobby_client
@@ -7,6 +68,7 @@ string name;
 string comp;
 bool dev=false;
 bool admin=false;
+spam_guard spam;
 lobby_client(int p, string n, string c)
 {
 peer_id=p;
@@ -109,6 +171,10 @@ int rapid_fire_warnings=0;
 string current_weapon="";
 int server_firetime=500;
 int server_walktime=200;
+// Spawn protection: for the first few seconds after spawning the player cannot
+// be hit, to cut down on spawn-kills. The timer starts at construction (spawn).
+timer spawn_protection_timer;
+spam_guard spam;
 player(int px, int py, int pz, string pmap, string pname, int ppeer_id)
 {
 map=pmap;
@@ -117,6 +183,11 @@ y=py;
 z=pz;
 name=pname;
 peer_id=ppeer_id;
+}
+// True while spawn protection is still active (first 5 seconds after spawn).
+bool is_spawn_protected()
+{
+return spawn_protection_timer.elapsed < 5000;
 }
 }
 void playerloop()
@@ -327,6 +398,8 @@ p1.last_y=y;
 p1.last_z=z;
 players.insert_last(p1);
 send_reliable(0, "online "+x+" "+y+" "+z+" "+name+" "+map, 0);
+// Let the player know they have a brief window of spawn protection.
+send_reliable(pi, "Spawn protection active. You cannot be hit for 5 seconds.", 2);
 }
 int get_nearest_player(int px, int py, int pz, string pmap, int pindex=-1)
 {

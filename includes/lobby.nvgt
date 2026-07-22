@@ -51,9 +51,22 @@ sources.resize(0);
 can_move=true;
 mainmenu();
 }
+else if (msg=="spam_kick")
+{
+// The server removed us from the lobby for spamming.
+connected=false;
+prevconnected=false;
+pinging=false;
+distpool.destroy_all();
+p.destroy_all();
+sources.resize(0);
+can_move=true;
+dlg("You have been removed from the server for spamming. Press Enter to return to the main menu.");
+mainmenu();
+}
 // While sitting in the lobby the player is not in the in-game netloop, so
-// route notifications here too. Without this, support and feedback
-// notifications sent to lobby clients were silently dropped.
+// route notifications and info responses here too. Without this, support and
+// feedback notifications sent to lobby clients were silently dropped.
 else if (e.channel==2)
 route_notification(msg);
 else if (e.channel==0)
@@ -61,6 +74,16 @@ else if (e.channel==0)
 string[] parsed=string_split(msg, " ", true);
 if (parsed[0]=="play_s" and parsed.length()>=2)
 p.play_stationary(parsed[1], false);
+else if (parsed[0]=="ping" and pinging)
+{
+pinging=false;
+p.play_stationary("pingstop.ogg", false);
+speak("Ping: "+pingtimer.elapsed+" milliseconds.");
+}
+else if (string_contains(msg, "server message:", 1)==0 or msg=="no message of the day has been set")
+speak(msg);
+else if (string_contains(msg, "server uptime:", 1)==0)
+speak(msg);
 }
 else if (e.channel==1)
 {
@@ -485,6 +508,97 @@ mainmenu();
 }
 
 // ---------------------------------------------------------------------------
+// Lobby chat input. Opens a small form to type a message and sends it on the
+// chat channel. lobby_form_netcheck() is pumped so the connection stays alive
+// and incoming chat/notifications keep arriving while typing.
+// ---------------------------------------------------------------------------
+void lobby_chat()
+{
+audio_form f;
+f.create_window("Chat", false, true);
+int f_msg=f.create_input_box("Message", "", "", 0, false, false, false);
+int f_send=f.create_button("&Send", true);
+int f_cancel=f.create_button("&Cancel", false, true);
+f.focus(f_msg);
+while(true)
+{
+wait(5);
+f.monitor();
+lobby_form_netcheck();
+if (!connected) return;
+if (f.is_pressed(f_send))
+{
+string msg=f.get_text(f_msg);
+if (msg!="") send_reliable(0, msg, 1);
+return;
+}
+if (f.is_pressed(f_cancel)) return;
+}
+}
+// ---------------------------------------------------------------------------
+// Handle the keys that work while sitting in the lobby: chat, message buffers,
+// and the read-only server info (MOTD, ping, uptime). The player list has its
+// own F1 handler in the lobby loop. Returns true when a sub-form was opened and
+// the lobby form should be rebuilt afterwards.
+// ---------------------------------------------------------------------------
+bool lobby_handle_keys()
+{
+if (key_pressed(kb("chat")))
+{
+lobby_chat();
+return true;
+}
+if (key_pressed(kb("buffer_left")))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) firstbuffer();
+else bufferleft();
+return false;
+}
+if (key_pressed(kb("buffer_right")))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) lastbuffer();
+else bufferright();
+return false;
+}
+if (key_pressed(KEY_COMMA))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) topbufferitem();
+else prevbufferitem();
+return false;
+}
+if (key_pressed(KEY_PERIOD))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) bottombufferitem();
+else nextbufferitem();
+return false;
+}
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
+{
+buffer_manage_menu();
+return true;
+}
+if (key_pressed(kb("motd")))
+{
+send_reliable(0, "motd", 0);
+return false;
+}
+if (key_pressed(kb("ping")) and pinging==false)
+{
+send_reliable(1, "ping", 0);
+p.play_stationary("pingstart.ogg", false);
+pingtimer.restart();
+pinging=true;
+return false;
+}
+if (key_pressed(KEY_F4))
+{
+send_reliable(0, "uptime", 0);
+return false;
+}
+return false;
+}
+
+// ---------------------------------------------------------------------------
 // Main lobby entry point — called right after loggedin123 is received.
 // ---------------------------------------------------------------------------
 void lobby()
@@ -495,7 +609,7 @@ send_reliable(0, "lobby_is_dev", 0);
 lobby_keepalive_timer.restart();
 last_server_msg.restart();
 speak("Welcome to the lobby, "+name
-+". Use Tab to navigate and press Enter to select. Press F1 to view the player list.");
++". Use Tab to navigate and press Enter to select. Press slash to chat, the bracket keys to browse your message buffers, F1 for the player list, F2 for the message of the day, F3 to ping the server, and F4 for server uptime.");
 while(true)
 {
 audio_form f;
@@ -512,6 +626,12 @@ while(!selected)
 wait(5);
 f.monitor();
 lobby_form_netcheck();
+if (!connected) return;
+if (lobby_handle_keys())
+{
+selected=true;
+continue;
+}
 if (key_pressed(kb("player_list")))
 {
 lobby_player_list();

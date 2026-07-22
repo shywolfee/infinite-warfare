@@ -216,6 +216,7 @@ void loop()
 if(mapispawntimer.elapsed>=mapispawntime)
 {
 mapispawntimer.restart();
+if(mapitems.length()==0) return;
 int tempitems=get_items_in_area_length();
 if(tempitems>maxitems)
 {

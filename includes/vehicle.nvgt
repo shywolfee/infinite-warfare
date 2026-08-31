@@ -227,12 +227,12 @@ dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];double length,widt
 // right-front wall is split around the physical doorway.
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,-.1,0,"metal4",v.get_name()+" interior floor",true);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,height-.2,height,"metal4","roof of "+v.get_name(),true);
-e.add_tile(-length*.42,-length*.42,-width*.36,width*.36,0,height,"metal5",v.get_name()+" rear bulkhead",true);
-e.add_tile(length*.42,length*.42,-width*.36,width*.36,0,height,"metal5",v.get_name()+" front bulkhead",true);
-e.add_tile(-length*.42,length*.08,-width*.36,-width*.36,0,height,"metal5",v.get_name()+" left hull",true);
-e.add_tile(length*.24,length*.42,-width*.36,-width*.36,0,height,"metal5",v.get_name()+" left front hull",true);
-e.add_tile(-length*.42,length*.08,width*.36,width*.36,0,height,"metal5",v.get_name()+" right hull",true);
-e.add_tile(length*.24,length*.42,width*.36,width*.36,0,height,"metal5",v.get_name()+" right front hull",true);
+e.add_tile(-length*.42,-length*.42,-width*.36,width*.36,0,height,"wallmetal",v.get_name()+" rear bulkhead",true);
+e.add_tile(length*.42,length*.42,-width*.36,width*.36,0,height,"wallmetal",v.get_name()+" front bulkhead",true);
+e.add_tile(-length*.42,length*.08,-width*.36,-width*.36,0,height,"wallmetal",v.get_name()+" left hull",true);
+e.add_tile(length*.24,length*.42,-width*.36,-width*.36,0,height,"wallmetal",v.get_name()+" left front hull",true);
+e.add_tile(-length*.42,length*.08,width*.36,width*.36,0,height,"wallmetal",v.get_name()+" right hull",true);
+e.add_tile(length*.24,length*.42,width*.36,width*.36,0,height,"wallmetal",v.get_name()+" right front hull",true);
 e.add_tile(length*.08,length*.24,-width*.36,width*.36,0,1.4,"metal4",v.get_name()+" front doorway",false);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,.01,height-.21,"metal4","inside the "+v.get_name(),false);
 for(int seat=0;seat<v.get_max_passengers();seat++){double sf,ss,sz;vehicle_seat_local_position(v,seat,sf,ss,sz);e.add_tile(sf-.35,sf+.35,ss-.35,ss+.35,0,1.2,"carpet1",v.seat_label(seat),false);}
@@ -244,11 +244,17 @@ void vehicle_apply_interior_local(vehicle@ v)
 {double r=v.facing*3.14159265358979323846/180.0;me.x=v.x+sine(r)*vehicle_interior_local_forward+cosine(r)*vehicle_interior_local_side;me.y=v.y+cosine(r)*vehicle_interior_local_forward-sine(r)*vehicle_interior_local_side;me.z=v.z+vehicle_interior_local_z;mr.x=round(me.x,0);mr.y=round(me.y,0);}
 bool vehicle_local_inside_floor(vehicle@ v,double forward,double side){double length,width,height;vehicle_dimensions(v,length,width,height);return forward>=-length*.42 and forward<=length*.42 and absolute(side)<=width*.36;}
 bool vehicle_local_in_doorway(vehicle@ v,double forward,double side){double length,width,height;vehicle_dimensions(v,length,width,height);return v.door_open and forward>=length*.08 and forward<=length*.24 and side>=width*.30 and side<=width*.72;}
+bool vehicle_crosses_open_door(vehicle@ v,double from_x,double from_y,double to_x,double to_y)
+{
+if(!v.door_open)return false;double af,as,bf,bs,length,width,height;vehicle_local_position(v,from_x,from_y,af,as);vehicle_local_position(v,to_x,to_y,bf,bs);vehicle_dimensions(v,length,width,height);double door_side=width*.36,delta=bs-as;if(absolute(delta)<.001)return false;double t=(door_side-as)/delta;if(t<0 or t>1)return false;double crossing=af+(bf-af)*t;return crossing>=length*.04 and crossing<=length*.29;
+}
+void vehicle_enter_interior_through_door(vehicle@ v,int index)
+{double length,width,height;vehicle_dimensions(v,length,width,height);vehicle_interior_index=index;vehicle_interior_local_forward=length*.165;vehicle_interior_local_side=width*.28;vehicle_interior_local_z=.5;vehicle_interior_last_x=v.x;vehicle_interior_last_y=v.y;vehicle_interior_last_z=v.z;ensure_vehicle_map_element(v,index);vehicle_apply_interior_local(v);speak("Stepped through the open door into the "+v.get_name()+".");}
 bool vehicle_footprint_clear(vehicle@ v,int cx,int cy,int cz)
 {
 double length,width,height,rad=v.facing*3.14159265358979323846/180.0;vehicle_dimensions(v,length,width,height);
 for(double forward=-length*.45;forward<=length*.45;forward+=1.0)for(double side=-width*.45;side<=width*.45;side+=1.0)
-{int wx=int(round(double(cx)+sine(rad)*forward+cosine(rad)*side,0)),wy=int(round(double(cy)+cosine(rad)*forward-sine(rad)*side,0));if(wx<0 or wy<0 or wx>int(max.x) or wy>int(max.y))return false;string ground=get_tile_at(wx,wy,cz);if(ground=="" or ground=="blank" or string_contains(ground,"wall",1)>-1)return false;}
+{int wx=int(round(double(cx)+sine(rad)*forward+cosine(rad)*side,0)),wy=int(round(double(cy)+cosine(rad)*forward-sine(rad)*side,0));if(wx<0 or wy<0 or wx>int(max.x) or wy>int(max.y))return false;string ground=get_static_tile_at(wx,wy,cz);if(ground=="" or ground=="blank" or string_contains(ground,"wall",1)>-1)return false;}
 return true;
 }
 
@@ -333,9 +339,10 @@ int vx = random(5, int(max.x) - 5);
 int vy = random(5, int(max.y) - 5);
 int vz = 0;
 // Make sure tile is valid.
-if (get_tile_at(vx, vy, vz) != "" and get_tile_at(vx, vy, vz) != "blank" and string_contains(get_tile_at(vx, vy, vz), "wall", 1) < 0)
+vehicle candidate(ti,vx,vy,vz);
+if (vehicle_footprint_clear(candidate,vx,vy,vz))
 {
-map_vehicles.insert_last(vehicle(ti, vx, vy, vz));
+map_vehicles.insert_last(candidate);
 }
 }
 }

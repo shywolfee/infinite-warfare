@@ -1,0 +1,36 @@
+// Authored room acoustics using NVGT 0.90's Miniaudio Freeverb and low-pass
+// nodes. Spaces answer what a sound was made inside; portals punch audible
+// openings through enclosing boundaries.
+class acoustic_space
+{
+int x1,x2,y1,y2,z1,z2;string label,material,kind;bool encloses;float rt60,wet,damping;
+bool contains(float x,float y,float z){return x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;}
+}
+acoustic_space@[] acoustic_spaces;
+bool acoustic_reverb_enabled=true;
+bool acoustic_occlusion_enabled=true;
+string[] acoustic_reverb_keys;
+audio_freeverb_node@[] acoustic_reverb_nodes;
+reverb3d@[] acoustic_reverbs_gameplay;
+reverb3d@[] acoustic_reverbs_world;
+
+void acoustics_reset(){acoustic_spaces.resize(0);acoustic_reverb_keys.resize(0);acoustic_reverb_nodes.resize(0);acoustic_reverbs_gameplay.resize(0);acoustic_reverbs_world.resize(0);}
+float acoustic_material_damping(string m){m=string_to_lower_case(m);if(string_contains(m,"carpet",1)>=0 or string_contains(m,"fabric",1)>=0)return .78;if(string_contains(m,"wood",1)>=0)return .48;if(string_contains(m,"grass",1)>=0 or string_contains(m,"sand",1)>=0)return .86;if(string_contains(m,"metal",1)>=0)return .22;if(string_contains(m,"glass",1)>=0)return .28;if(string_contains(m,"rock",1)>=0 or string_contains(m,"stone",1)>=0)return .34;return .42;}
+void acoustic_preset(string kind,bool encloses,float volume,float &out rt,float &out wet)
+{
+string k=string_to_lower_case(kind);if(!encloses){rt=.35;wet=-28;if(k=="street" or k=="urban_exterior"){rt=1.05;wet=-18;}else if(k=="canyon" or k=="gorge"){rt=2.4;wet=-12;}else if(k=="coastal_open_air" or k=="water"){rt=.65;wet=-25;}return;}
+if(k=="closet"){rt=.25;wet=-18;}else if(k=="corridor" or k=="stairwell"){rt=1.25;wet=-9;}else if(k=="hall"){rt=1.65;wet=-7;}else if(k=="warehouse"){rt=2.15;wet=-6;}else if(k=="hangar"){rt=3.1;wet=-5;}else if(k=="cave" or k=="bunker"){rt=2.5;wet=-6;}else if(k=="vehicle"){rt=.55;wet=-13;}else {rt=volume<250?.48:(volume<1200?.85:(volume<10000?1.55:2.5));wet=volume<250?-13:(volume<1200?-10:-7);}
+}
+void spawn_acoustic_space(int x1,int x2,int y1,int y2,int z1,int z2,string label,string material,bool encloses,string kind)
+{acoustic_space@ s=acoustic_space();s.x1=x1;s.x2=x2;s.y1=y1;s.y2=y2;s.z1=z1;s.z2=z2;s.label=label;s.material=material;s.encloses=encloses;s.kind=kind;float volume=float((x2-x1+1)*(y2-y1+1)*(z2-z1+1));acoustic_preset(kind,encloses,volume,s.rt60,s.wet);s.damping=acoustic_material_damping(material);acoustic_spaces.insert_last(s);}
+int acoustic_space_at(float x,float y,float z){int found=-1;for(uint i=0;i<acoustic_spaces.length();i++)if(acoustic_spaces[i].contains(x,y,z))found=int(i);return found;}
+bool acoustic_in_portal(float x,float y,float z){for(uint i=0;i<portal_regions.length();i++)if(portal_regions[i].contains(int(round(x,0)),int(round(y,0)),int(round(z,0))))return true;return false;}
+int acoustic_walls_between(float lx,float ly,float lz,float sx,float sy,float sz)
+{float distance=get_3d_distance(lx,ly,lz,sx,sy,sz);int steps=int(distance*2);if(steps<1)return 0;if(steps>240)steps=240;int walls=0;bool was_wall=false;for(int i=1;i<=steps;i++){float t=float(i)/steps,x=lx+(sx-lx)*t,y=ly+(sy-ly)*t,z=lz+(sz-lz)*t;string tile=get_tile_at(x,y,z);bool wall=string_contains(tile,"wall",1)>=0 and !acoustic_in_portal(x,y,z);if(wall and !was_wall){walls++;if(walls>=3)return walls;}was_wall=wall;}return walls;}
+float acoustic_room_size(float rt){if(rt<=.78)return .2;if(rt<=1.08)return .3+(.1*(rt-.9)/.18);if(rt<=1.56)return .5+(.1*(rt-1.26)/.3);if(rt<=1.95)return .6+(.1*(rt-1.56)/.39);if(rt<=2.61)return .7+(.1*(rt-1.95)/.66);float result=.8+.05*(rt-2.61)/.72;if(result>.9)result=.9;return result;}
+reverb3d@ acoustic_reverb_for(int space_index,bool world)
+{if(space_index<0 or space_index>=int(acoustic_spaces.length()))return null;acoustic_space@ s=acoustic_spaces[space_index];string key=int(acoustic_room_size(s.rt60)*40)+":"+int(s.damping*20)+":"+int(s.wet)+":"+(world?"w":"g");int found=acoustic_reverb_keys.find(key);if(found>=0)return world?acoustic_reverbs_world[found]:acoustic_reverbs_gameplay[found];audio_freeverb_node@ gameplay_node=audio_freeverb_node();audio_freeverb_node@ world_node=audio_freeverb_node();float room_size=acoustic_room_size(s.rt60);gameplay_node.room_size=room_size;world_node.room_size=room_size;gameplay_node.damping=s.damping;world_node.damping=s.damping;reverb3d@ gameplay_r=reverb3d(gameplay_node,gameplay_mixer);reverb3d@ world_r=reverb3d(world_node,world_mixer);gameplay_r.max_volume=s.wet;gameplay_r.min_volume=s.wet-2;world_r.max_volume=s.wet;world_r.min_volume=s.wet-2;acoustic_reverb_keys.insert_last(key);acoustic_reverb_nodes.insert_last(gameplay_node);acoustic_reverb_nodes.insert_last(world_node);acoustic_reverbs_gameplay.insert_last(gameplay_r);acoustic_reverbs_world.insert_last(world_r);return world?world_r:gameplay_r;}
+audio_low_pass_filter@ acoustic_wall_filter(int walls){if(walls<=0)return null;return audio_low_pass_filter(walls==1?2800:(walls==2?1400:850),2);}
+void acoustics_process_pool(sound_pool@ pool,bool world)
+{for(uint i=0;i<=pool.highest_slot and i<pool.items.length();i++){sound_pool_item@ item=pool.items[i];if(@item.handle==null or !item.handle.active or item.extra_data=="acoustic")continue;float sx=item.stationary?me.x:item.x,sy=item.stationary?me.y:item.y,sz=item.stationary?me.z:item.z;int source_space=acoustic_space_at(sx,sy,sz);if(source_space<0)source_space=acoustic_space_at(me.x,me.y,me.z);if(acoustic_reverb_enabled and source_space>=0)@item.handle.reverb3d=acoustic_reverb_for(source_space,world);if(acoustic_occlusion_enabled and !item.stationary){int walls=acoustic_walls_between(me.x,me.y,me.z,sx,sy,sz);if(walls>0){audio_low_pass_filter@ filter=acoustic_wall_filter(walls);item.handle.effects_chain.add_node(filter);item.start_volume-=3*walls;item.handle.set_volume(item.start_volume);}}item.extra_data="acoustic";}}
+void acoustics_loop(){acoustics_process_pool(p,false);acoustics_process_pool(distpool,true);}

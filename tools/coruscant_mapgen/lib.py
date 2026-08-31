@@ -89,6 +89,26 @@ class Map:
     def bunker(self, x, y, z, name):
         self.lines.append("bunker:%d:%d:%d:%s" % (x, y, z + self.base_z, name))
 
+    def ramp(self, x1, x2, y1, y2, z1, z2, name, surface="concrete5"):
+        """Fireteam-style bidirectional slope made of automatic one-level treads."""
+        rise=z2-z1; levels=abs(rise)+1; direction=1 if rise>=0 else -1
+        along_x=(x2-x1)>(y2-y1); length=(x2-x1+1) if along_x else (y2-y1+1)
+        if length<levels:
+            short=levels-length
+            if along_x: x2+=short
+            else: y2+=short
+            length=levels; self.errors.append("ramp lengthened %d cells: %s" % (short,name))
+        base,extra=divmod(length,levels); cut=x1 if along_x else y1
+        for i in range(levels):
+            count=base+(1 if i<extra else 0); lo,hi=cut,cut+count-1; z=z1+direction*i
+            if along_x: self.tile(lo,hi,y1,y2,z,z,surface)
+            else: self.tile(x1,x2,lo,hi,z,z,surface)
+            if z>min(z1,z2):
+                if along_x: self.tile(lo,hi,y1,y2,z-1,z-1,"wallstone")
+                else: self.tile(x1,x2,lo,hi,z-1,z-1,"wallstone")
+            cut=hi+1
+        self.zone_raw(x1,x2,y1,y2,min(z1,z2),max(z1,z2)+7,name)
+
     # ---- turbolift (absolute Z; levels are (name, absolute_z)) -------------
     def turbolift(self, x1, x2, y1, y2, z1, z2, name, levels):
         """Declare a turbolift. levels = list of (level_name, absolute_z). The

@@ -84,7 +84,7 @@ poi:650:650:0:the heart of Meridian
 // ============================================================
 tile:520:527:696:1144:0:0:concrete5
 zone:520:527:696:1144:0:8:Kingsway
-openspace:516:531:696:1144:0:8:urban_exterior
+openspace:516:531:696:1144:0:8:Kingsway:concrete:street
 tile:519:519:696:1144:0:0:stone
 zone:519:519:696:1144:0:8:west curb of Kingsway
 tile:528:528:696:1144:0:0:stone
@@ -95,7 +95,7 @@ tile:529:531:696:1144:0:0:concrete2
 zone:529:531:696:1144:0:8:east sidewalk of Kingsway
 tile:636:643:696:1144:0:0:concrete5
 zone:636:643:696:1144:0:8:Meridian Avenue
-openspace:632:647:696:1144:0:8:urban_exterior
+openspace:632:647:696:1144:0:8:Meridian Avenue:concrete:street
 tile:635:635:696:1144:0:0:stone
 zone:635:635:696:1144:0:8:west curb of Meridian Avenue
 tile:644:644:696:1144:0:0:stone
@@ -106,7 +106,7 @@ tile:645:647:696:1144:0:0:concrete2
 zone:645:647:696:1144:0:8:east sidewalk of Meridian Avenue
 tile:748:755:696:1144:0:0:concrete5
 zone:748:755:696:1144:0:8:Beacon Street
-openspace:744:759:696:1144:0:8:urban_exterior
+openspace:744:759:696:1144:0:8:Beacon Street:concrete:street
 tile:747:747:696:1144:0:0:stone
 zone:747:747:696:1144:0:8:west curb of Beacon Street
 tile:756:756:696:1144:0:0:stone
@@ -117,7 +117,7 @@ tile:757:759:696:1144:0:0:concrete2
 zone:757:759:696:1144:0:8:east sidewalk of Beacon Street
 tile:476:824:760:767:0:0:concrete5
 zone:476:824:760:767:0:8:Cathedral Row
-openspace:476:824:756:771:0:8:urban_exterior
+openspace:476:824:756:771:0:8:Cathedral Row:concrete:street
 tile:476:824:759:759:0:0:stone
 zone:476:824:759:759:0:8:south curb of Cathedral Row
 tile:476:824:768:768:0:0:stone
@@ -128,7 +128,7 @@ tile:476:824:769:771:0:0:concrete2
 zone:476:824:769:771:0:8:north sidewalk of Cathedral Row
 tile:476:824:896:903:0:0:concrete5
 zone:476:824:896:903:0:8:Plaza Street
-openspace:476:824:892:907:0:8:urban_exterior
+openspace:476:824:892:907:0:8:Plaza Street:concrete:street
 tile:476:824:895:895:0:0:stone
 zone:476:824:895:895:0:8:south curb of Plaza Street
 tile:476:824:904:904:0:0:stone
@@ -139,7 +139,7 @@ tile:476:824:905:907:0:0:concrete2
 zone:476:824:905:907:0:8:north sidewalk of Plaza Street
 tile:476:824:1032:1039:0:0:concrete5
 zone:476:824:1032:1039:0:8:Northgate Road
-openspace:476:824:1028:1043:0:8:urban_exterior
+openspace:476:824:1028:1043:0:8:Northgate Road:concrete:street
 tile:476:824:1031:1031:0:0:stone
 zone:476:824:1031:1031:0:8:south curb of Northgate Road
 tile:476:824:1040:1040:0:0:stone
@@ -189,7 +189,7 @@ zone:690:696:1010:1011:3:9:on top of plaza bench
 ispawn:584:708:920:1020:0:0:4000:4:health_potion:energetic_potion_blue:smoke_bomb:frag_grenade
 // First Meridian Bank
 tile:548:622:786:878:0:0:tile1
-space:549:621:787:877:0:11:masonry:building_interior
+space:549:621:787:877:0:11:First Meridian Bank:masonry:room
 poiregion:548:622:786:878:0:13:First Meridian Bank
 tile:548:622:878:878:0:12:wallbrick
 tile:548:580:786:786:0:12:wallbrick
@@ -294,7 +294,7 @@ tile:587:587:862:864:6:11:wallbrick
 ispawn:552:618:790:800:0:0:5000:3:health_potion:frag_grenade:smoke_bomb:bunker_key
 // Meridian City Hall
 tile:662:736:786:880:0:0:hardwood
-space:663:735:787:879:0:11:stone:building_interior
+space:663:735:787:879:0:11:Meridian City Hall:stone:room
 poiregion:662:736:786:880:0:13:Meridian City Hall
 tile:662:736:880:880:0:12:wallstone
 tile:662:694:786:786:0:12:wallstone
@@ -394,7 +394,7 @@ tile:701:701:864:866:6:11:wallstone
 poi:699:786:0:Meridian City Hall
 // Meridian Cathedral
 tile:486:512:712:748:0:0:tile2
-space:487:511:713:747:0:19:stone:building_interior
+space:487:511:713:747:0:19:Meridian Cathedral:stone:room
 poiregion:486:512:712:748:0:21:Meridian Cathedral
 tile:486:495:748:748:0:20:wallstone
 tile:503:512:748:748:0:20:wallstone
@@ -455,7 +455,7 @@ zone:490:508:744:745:4:10:on top of the cathedral altar
 src:487:511:713:747:0:20:calm.ogg:-10
 // Northside Apartments
 tile:486:560:928:1020:0:0:carpet1
-space:487:559:929:1019:0:11:masonry:building_interior
+space:487:559:929:1019:0:11:Northside Apartments:masonry:room
 poiregion:486:560:928:1020:0:13:Northside Apartments
 tile:486:560:1020:1020:0:12:wallbrick
 tile:486:518:928:928:0:12:wallbrick
@@ -556,7 +556,7 @@ tile:525:525:977:979:6:11:wallbrick
 tile:525:525:1004:1006:6:11:wallbrick
 // Meridian Library
 tile:726:800:928:1010:0:0:hardwood2
-space:727:799:929:1009:0:11:masonry:building_interior
+space:727:799:929:1009:0:11:Meridian Library:masonry:room
 poiregion:726:800:928:1010:0:13:Meridian Library
 tile:726:800:1010:1010:0:12:wallbrick
 tile:726:800:928:928:0:12:wallbrick
@@ -605,7 +605,7 @@ zone:729:735:1006:1007:4:10:on top of the library front desk
 ispawn:729:797:931:1007:0:0:6000:2:health_potion:energetic_potion_green
 // Cathedral Row shops
 tile:545:605:700:748:0:0:tile2
-space:546:604:701:747:0:11:masonry:building_interior
+space:546:604:701:747:0:11:Meridian Pharmacy:masonry:room
 poiregion:545:605:700:748:0:13:Meridian Pharmacy
 tile:545:571:748:748:0:12:wallbrick
 tile:579:605:748:748:0:12:wallbrick
@@ -643,7 +643,7 @@ tile:547:549:734:746:0:3:hardwood
 zone:547:549:734:746:0:6:Meridian Pharmacy stock shelves
 zone:547:549:734:746:4:10:on top of Meridian Pharmacy stock shelves
 tile:662:730:700:748:0:0:tile1
-space:663:729:701:747:0:11:masonry:building_interior
+space:663:729:701:747:0:11:Beacon Grocery:masonry:room
 poiregion:662:730:700:748:0:13:Beacon Grocery
 tile:662:692:748:748:0:12:wallbrick
 tile:700:730:748:748:0:12:wallbrick
@@ -681,7 +681,7 @@ tile:664:666:734:746:0:3:hardwood
 zone:664:666:734:746:0:6:Beacon Grocery stock shelves
 zone:664:666:734:746:4:10:on top of Beacon Grocery stock shelves
 tile:766:820:700:750:0:0:concrete10
-space:767:819:701:749:0:11:masonry:building_interior
+space:767:819:701:749:0:11:Northgate Hardware:masonry:room
 poiregion:766:820:700:750:0:13:Northgate Hardware
 tile:766:820:750:750:0:12:wallbrick
 tile:766:820:700:700:0:12:wallbrick
@@ -725,7 +725,7 @@ src:476:824:690:1150:0:8:wind1.ogg:-14
 // ============================================================
 tile:512:519:156:606:0:0:concrete5
 zone:512:519:156:606:0:8:Harlow Street
-openspace:508:523:156:606:0:8:urban_exterior
+openspace:508:523:156:606:0:8:Harlow Street:concrete:street
 tile:511:511:156:606:0:0:stone
 zone:511:511:156:606:0:8:west curb of Harlow Street
 tile:520:520:156:606:0:0:stone
@@ -736,7 +736,7 @@ tile:521:523:156:606:0:0:concrete2
 zone:521:523:156:606:0:8:east sidewalk of Harlow Street
 tile:636:643:156:606:0:0:concrete5
 zone:636:643:156:606:0:8:Sutton Street
-openspace:632:647:156:606:0:8:urban_exterior
+openspace:632:647:156:606:0:8:Sutton Street:concrete:street
 tile:635:635:156:606:0:0:stone
 zone:635:635:156:606:0:8:west curb of Sutton Street
 tile:644:644:156:606:0:0:stone
@@ -747,7 +747,7 @@ tile:645:647:156:606:0:0:concrete2
 zone:645:647:156:606:0:8:east sidewalk of Sutton Street
 tile:752:759:156:606:0:0:concrete5
 zone:752:759:156:606:0:8:Marsh Lane
-openspace:748:763:156:606:0:8:urban_exterior
+openspace:748:763:156:606:0:8:Marsh Lane:concrete:street
 tile:751:751:156:606:0:0:stone
 zone:751:751:156:606:0:8:west curb of Marsh Lane
 tile:760:760:156:606:0:0:stone
@@ -758,7 +758,7 @@ tile:761:763:156:606:0:0:concrete2
 zone:761:763:156:606:0:8:east sidewalk of Marsh Lane
 tile:476:824:300:307:0:0:concrete5
 zone:476:824:300:307:0:8:Foundry Street
-openspace:476:824:296:311:0:8:urban_exterior
+openspace:476:824:296:311:0:8:Foundry Street:concrete:street
 tile:476:824:299:299:0:0:stone
 zone:476:824:299:299:0:8:south curb of Foundry Street
 tile:476:824:308:308:0:0:stone
@@ -769,7 +769,7 @@ tile:476:824:309:311:0:0:concrete2
 zone:476:824:309:311:0:8:north sidewalk of Foundry Street
 tile:476:824:452:459:0:0:concrete5
 zone:476:824:452:459:0:8:Elm Road
-openspace:476:824:448:463:0:8:urban_exterior
+openspace:476:824:448:463:0:8:Elm Road:concrete:street
 tile:476:824:451:451:0:0:stone
 zone:476:824:451:451:0:8:south curb of Elm Road
 tile:476:824:460:460:0:0:stone
@@ -793,14 +793,14 @@ zone:752:759:452:459:0:8:intersection of Marsh Lane and Elm Road
 // Alleyways
 tile:522:575:360:363:0:0:gravel1
 zone:522:575:360:363:0:8:Tanner's Alley
-openspace:522:575:359:364:0:8:urban_exterior
+openspace:522:575:359:364:0:8:Tanner's Alley:concrete:street
 tile:590:634:500:503:0:0:gravel1
 zone:590:634:500:503:0:8:Cinder Alley
-openspace:590:634:499:504:0:8:urban_exterior
+openspace:590:634:499:504:0:8:Cinder Alley:concrete:street
 src:590:634:498:505:0:8:wind2.ogg:-13
 tile:762:815:250:253:0:0:gravel1
 zone:762:815:250:253:0:8:Copper Alley
-openspace:762:815:249:254:0:8:urban_exterior
+openspace:762:815:249:254:0:8:Copper Alley:concrete:street
 // Wren Court cul-de-sac
 tile:556:563:200:296:0:0:concrete5
 zone:556:563:200:296:0:8:Wren Court
@@ -812,7 +812,7 @@ tile:542:577:180:199:0:0:concrete5
 zone:542:577:180:199:0:8:the turning circle at the end of Wren Court
 poi:559:200:0:Wren Court
 tile:498:534:208:258:0:0:carpet1
-space:499:533:209:257:0:11:wood:building_interior
+space:499:533:209:257:0:11:14 Wren Court:wood:room
 poiregion:498:534:208:258:0:13:14 Wren Court
 tile:498:534:258:258:0:12:wallwood
 tile:498:534:208:208:0:12:wallwood
@@ -888,7 +888,7 @@ portal:513:513:232:234:0:5:14 Wren Court cellar door:doorway
 tile:535:545:220:246:0:0:concrete10
 zone:535:545:220:246:0:8:14 Wren Court driveway
 tile:588:624:208:258:0:0:carpet1
-space:589:623:209:257:0:23:wood:building_interior
+space:589:623:209:257:0:23:17 Wren Court:wood:room
 poiregion:588:624:208:258:0:25:17 Wren Court
 tile:588:624:258:258:0:24:wallwood
 tile:588:624:208:208:0:24:wallwood
@@ -967,7 +967,7 @@ tile:686:721:340:359:0:0:concrete5
 zone:686:721:340:359:0:8:the turning circle at the end of Sparrow Close
 poi:703:360:0:Sparrow Close
 tile:642:678:368:418:0:0:carpet1
-space:643:677:369:417:0:11:wood:building_interior
+space:643:677:369:417:0:11:3 Sparrow Close:wood:room
 poiregion:642:678:368:418:0:13:3 Sparrow Close
 tile:642:678:418:418:0:12:wallwood
 tile:642:678:368:368:0:12:wallwood
@@ -1034,7 +1034,7 @@ zone:644:646:370:372:16:22:on top of 3 Sparrow Close attic crates
 tile:679:689:380:406:0:0:concrete10
 zone:679:689:380:406:0:8:3 Sparrow Close driveway
 tile:732:768:368:418:0:0:carpet1
-space:733:767:369:417:0:11:wood:building_interior
+space:733:767:369:417:0:11:6 Sparrow Close:wood:room
 poiregion:732:768:368:418:0:13:6 Sparrow Close
 tile:732:768:418:418:0:12:wallwood
 tile:732:768:368:368:0:12:wallwood
@@ -1107,7 +1107,7 @@ tile:721:731:380:406:0:0:concrete10
 zone:721:731:380:406:0:8:6 Sparrow Close driveway
 // Southgate Diner
 tile:545:605:322:360:0:0:tile2
-space:546:604:323:359:0:11:masonry:building_interior
+space:546:604:323:359:0:11:Southgate Diner:masonry:room
 poiregion:545:605:322:360:0:13:Southgate Diner
 tile:545:605:360:360:0:12:wallbrick
 tile:545:569:322:322:0:12:wallbrick
@@ -1153,7 +1153,7 @@ zone:597:601:326:328:3:9:on top of diner booth
 ispawn:548:602:325:357:0:0:5000:2:health_potion:energetic_potion_red
 // Meridian Fire Station
 tile:662:730:322:372:0:0:concrete10
-space:663:729:323:371:0:11:masonry:building_interior
+space:663:729:323:371:0:11:Meridian Fire Station:masonry:room
 poiregion:662:730:322:372:0:13:Meridian Fire Station
 tile:662:730:372:372:0:12:wallbrick
 tile:662:685:322:322:0:12:wallbrick
@@ -1185,7 +1185,7 @@ zone:665:671:369:370:0:6:the common room kitchenette
 zone:665:671:369:370:4:10:on top of the common room kitchenette
 // Southbank School
 tile:545:620:476:566:0:0:tile1
-space:546:619:477:565:0:11:masonry:building_interior
+space:546:619:477:565:0:11:Southbank School:masonry:room
 poiregion:545:620:476:566:0:13:Southbank School
 tile:545:577:566:566:0:12:wallbrick
 tile:587:620:566:566:0:12:wallbrick
@@ -1292,7 +1292,7 @@ src:476:824:150:610:0:8:wind1.ogg:-14
 // ============================================================
 tile:868:875:160:952:0:0:concrete5
 zone:868:875:160:952:0:8:Half-Moon Way
-openspace:864:879:160:952:0:8:urban_exterior
+openspace:864:879:160:952:0:8:Half-Moon Way:concrete:street
 tile:867:867:160:952:0:0:stone
 zone:867:867:160:952:0:8:west curb of Half-Moon Way
 tile:876:876:160:952:0:0:stone
@@ -1303,7 +1303,7 @@ tile:877:879:160:952:0:0:concrete2
 zone:877:879:160:952:0:8:east sidewalk of Half-Moon Way
 tile:1100:1107:160:952:0:0:concrete5
 zone:1100:1107:160:952:0:8:Kensington Drive
-openspace:1096:1111:160:952:0:8:urban_exterior
+openspace:1096:1111:160:952:0:8:Kensington Drive:concrete:street
 tile:1099:1099:160:952:0:0:stone
 zone:1099:1099:160:952:0:8:west curb of Kensington Drive
 tile:1108:1108:160:952:0:0:stone
@@ -1314,7 +1314,7 @@ tile:1109:1111:160:952:0:0:concrete2
 zone:1109:1111:160:952:0:8:east sidewalk of Kensington Drive
 tile:836:1146:960:967:0:0:concrete5
 zone:836:1146:960:967:0:8:Albeon Way
-openspace:836:1146:956:971:0:8:urban_exterior
+openspace:836:1146:956:971:0:8:Albeon Way:concrete:street
 tile:836:1146:959:959:0:0:stone
 zone:836:1146:959:959:0:8:south curb of Albeon Way
 tile:836:1146:968:968:0:0:stone
@@ -1325,7 +1325,7 @@ tile:836:1146:969:971:0:0:concrete2
 zone:836:1146:969:971:0:8:north sidewalk of Albeon Way
 tile:884:1090:250:257:0:0:concrete5
 zone:884:1090:250:257:0:8:Darkstone Ramble
-openspace:884:1090:247:260:0:8:urban_exterior
+openspace:884:1090:247:260:0:8:Darkstone Ramble:concrete:street
 tile:884:1090:249:249:0:0:stone
 zone:884:1090:249:249:0:8:south curb of Darkstone Ramble
 tile:884:1090:258:258:0:0:stone
@@ -1336,7 +1336,7 @@ tile:884:1090:259:260:0:0:concrete2
 zone:884:1090:259:260:0:8:north sidewalk of Darkstone Ramble
 tile:980:985:300:468:0:0:concrete5
 zone:980:985:300:468:0:8:Jameson Close
-openspace:977:988:300:468:0:8:urban_exterior
+openspace:977:988:300:468:0:8:Jameson Close:concrete:street
 tile:979:979:300:468:0:0:stone
 zone:979:979:300:468:0:8:west curb of Jameson Close
 tile:986:986:300:468:0:0:stone
@@ -1358,10 +1358,10 @@ zone:980:985:250:257:0:8:intersection of Jameson Close and Darkstone Ramble
 // Alleys
 tile:902:978:360:363:0:0:gravel1
 zone:902:978:360:363:0:8:Gutter Lane
-openspace:902:978:359:364:0:8:urban_exterior
+openspace:902:978:359:364:0:8:Gutter Lane:concrete:street
 tile:940:943:400:452:0:0:gravel1
 zone:940:943:400:452:0:8:Ash Alley
-openspace:939:944:400:452:0:8:urban_exterior
+openspace:939:944:400:452:0:8:Ash Alley:concrete:street
 src:895:985:300:440:0:8:wind2.ogg:-12
 
 // ============================================================
@@ -1369,7 +1369,7 @@ src:895:985:300:440:0:8:wind2.ogg:-12
 // ============================================================
 // Airport terminal building
 tile:898:1082:980:1076:0:0:tile1
-space:899:1081:981:1075:0:17:masonry:building_interior
+space:899:1081:981:1075:0:17:Meridian International Airport:masonry:room
 poiregion:898:1082:980:1076:0:19:Meridian International Airport
 tile:898:1082:1076:1076:0:18:wallbrick
 tile:898:977:980:980:0:18:wallbrick
@@ -1537,7 +1537,7 @@ ispawn:901:1079:1008:1053:0:0:5000:4:health_potion:energetic_potion_blue:frag_gr
 poi:990:981:0:Meridian International Airport
 // Airport control tower
 tile:1092:1112:1000:1020:0:0:concrete2
-space:1093:1111:1001:1019:0:47:masonry:building_interior
+space:1093:1111:1001:1019:0:47:the airport control tower:masonry:room
 poiregion:1092:1112:1000:1020:0:49:the airport control tower
 tile:1092:1112:1020:1020:0:48:wallbrick
 tile:1092:1098:1000:1000:0:48:wallbrick
@@ -1565,7 +1565,7 @@ zone:1096:1110:1002:1003:4:10:on top of the control tower console
 poi:1102:1010:49:the airport control tower cab
 // Airport hangar
 tile:850:894:1000:1072:0:0:concrete10
-space:851:893:1001:1071:0:29:masonry:building_interior
+space:851:893:1001:1071:0:29:the airport hangar:masonry:room
 poiregion:850:894:1000:1072:0:31:the airport hangar
 tile:850:894:1072:1072:0:30:metal2
 tile:850:863:1000:1000:0:30:metal2
@@ -1610,7 +1610,7 @@ tile:902:978:400:407:0:0:cement
 zone:902:978:400:407:0:8:Hollow Row (cracked and potholed)
 src:895:990:380:470:0:8:wind2.ogg:-11
 tile:902:936:412:458:0:0:hardwood
-space:903:935:413:457:0:11:wood:building_interior
+space:903:935:413:457:0:11:2 Hollow Row:wood:room
 poiregion:902:936:412:458:0:13:2 Hollow Row
 tile:902:916:458:458:0:12:wallwood
 tile:922:936:458:458:0:12:wallwood
@@ -1679,7 +1679,7 @@ zone:904:905:434:436:-14:0:2 Hollow Row basement stairs
 zone:916:916:434:436:0:8:2 Hollow Row cellar door
 portal:916:916:434:436:0:5:2 Hollow Row cellar door:doorway
 tile:944:976:412:458:0:0:hardwood
-space:945:975:413:457:0:11:wood:building_interior
+space:945:975:413:457:0:11:4 Hollow Row:wood:room
 poiregion:944:976:412:458:0:13:4 Hollow Row
 tile:944:957:458:458:0:12:wallwood
 tile:963:976:458:458:0:12:wallwood
@@ -1744,7 +1744,7 @@ zone:945:975:413:457:13:23:4 Hollow Row attic
 tile:946:948:414:416:13:15:plank
 zone:946:948:414:416:16:22:on top of 4 Hollow Row attic crates
 tile:902:936:340:386:0:0:hardwood
-space:903:935:341:385:0:11:wood:building_interior
+space:903:935:341:385:0:11:1 Hollow Row:wood:room
 poiregion:902:936:340:386:0:13:1 Hollow Row
 tile:902:936:386:386:0:12:wallwood
 tile:902:916:340:340:0:12:wallwood
@@ -1805,7 +1805,7 @@ zone:931:934:381:384:3:9:on top of 1 Hollow Row bed
 ispawn:905:975:415:455:0:0:4000:3:frag_grenade:smoke_bomb:empty_bucket:rock
 // Kensington Drive businesses
 tile:1040:1092:300:350:0:0:concrete10
-space:1041:1091:301:349:0:11:masonry:building_interior
+space:1041:1091:301:349:0:11:Darkstone Auto Garage:masonry:room
 poiregion:1040:1092:300:350:0:13:Darkstone Auto Garage
 tile:1040:1092:350:350:0:12:wallbrick
 tile:1040:1062:300:300:0:12:wallbrick
@@ -1843,7 +1843,7 @@ tile:1042:1044:335:348:0:3:hardwood
 zone:1042:1044:335:348:0:6:Darkstone Auto Garage stock shelves
 zone:1042:1044:335:348:4:10:on top of Darkstone Auto Garage stock shelves
 tile:1040:1092:700:790:0:0:carpet1
-space:1041:1091:701:789:0:11:masonry:building_interior
+space:1041:1091:701:789:0:11:Kensington Motel:masonry:room
 poiregion:1040:1092:700:790:0:13:Kensington Motel
 tile:1040:1092:790:790:0:12:wallbrick
 tile:1040:1061:700:700:0:12:wallbrick
@@ -1947,7 +1947,7 @@ src:836:1146:160:950:0:8:wind1.ogg:-14
 // ============================================================
 tile:296:305:200:606:0:0:concrete5
 zone:296:305:200:606:0:8:Oceanfront Drive
-openspace:292:309:200:606:0:8:urban_exterior
+openspace:292:309:200:606:0:8:Oceanfront Drive:concrete:street
 tile:295:295:200:606:0:0:stone
 zone:295:295:200:606:0:8:west curb of Oceanfront Drive
 tile:306:306:200:606:0:0:stone
@@ -1958,7 +1958,7 @@ tile:307:309:200:606:0:0:concrete2
 zone:307:309:200:606:0:8:east sidewalk of Oceanfront Drive
 tile:176:292:250:257:0:0:concrete5
 zone:176:292:250:257:0:8:Wharf Street
-openspace:176:292:247:260:0:8:urban_exterior
+openspace:176:292:247:260:0:8:Wharf Street:concrete:street
 tile:176:292:249:249:0:0:stone
 zone:176:292:249:249:0:8:south curb of Wharf Street
 tile:176:292:258:258:0:0:stone
@@ -1969,7 +1969,7 @@ tile:176:292:259:260:0:0:concrete2
 zone:176:292:259:260:0:8:north sidewalk of Wharf Street
 tile:176:292:350:357:0:0:concrete5
 zone:176:292:350:357:0:8:Netmaker Row
-openspace:176:292:347:360:0:8:urban_exterior
+openspace:176:292:347:360:0:8:Netmaker Row:concrete:street
 tile:176:292:349:349:0:0:stone
 zone:176:292:349:349:0:8:south curb of Netmaker Row
 tile:176:292:358:358:0:0:stone
@@ -1980,7 +1980,7 @@ tile:176:292:359:360:0:0:concrete2
 zone:176:292:359:360:0:8:north sidewalk of Netmaker Row
 tile:176:292:450:457:0:0:concrete5
 zone:176:292:450:457:0:8:Saltgrass Street
-openspace:176:292:447:460:0:8:urban_exterior
+openspace:176:292:447:460:0:8:Saltgrass Street:concrete:street
 tile:176:292:449:449:0:0:stone
 zone:176:292:449:449:0:8:south curb of Saltgrass Street
 tile:176:292:458:458:0:0:stone
@@ -1991,7 +1991,7 @@ tile:176:292:459:460:0:0:concrete2
 zone:176:292:459:460:0:8:north sidewalk of Saltgrass Street
 tile:200:292:540:547:0:0:concrete5
 zone:200:292:540:547:0:8:Gull Street
-openspace:200:292:537:550:0:8:urban_exterior
+openspace:200:292:537:550:0:8:Gull Street:concrete:street
 tile:200:292:539:539:0:0:stone
 zone:200:292:539:539:0:8:south curb of Gull Street
 tile:200:292:548:548:0:0:stone
@@ -2047,7 +2047,7 @@ src:70:180:310:316:0:8:waves2.ogg:-6
 poi:76:313:0:the South Fishing Pier
 // The Fishing Bureau
 tile:196:252:262:312:0:0:hardwood2
-space:197:251:263:311:0:11:wood:building_interior
+space:197:251:263:311:0:11:the Fishing Bureau:wood:room
 poiregion:196:252:262:312:0:13:the Fishing Bureau
 tile:196:252:312:312:0:12:wallwood
 tile:196:252:262:262:0:12:wallwood
@@ -2078,7 +2078,7 @@ ispawn:199:249:265:309:0:0:6000:2:health_potion:empty_bucket
 // The Crescent Market
 // ============================================================
 tile:330:448:360:474:0:0:concrete12
-space:331:447:361:473:0:19:masonry:building_interior
+space:331:447:361:473:0:19:the Crescent Market:masonry:room
 poiregion:330:448:360:474:0:21:the Crescent Market
 tile:330:385:474:474:0:20:wallbrick
 tile:393:448:474:474:0:20:wallbrick
@@ -2173,7 +2173,7 @@ tile:350:356:256:257:0:2:hardwood
 zone:350:356:256:257:0:6:a broken park bench
 zone:350:356:256:257:3:9:on top of a broken park bench
 tile:406:442:296:332:0:0:plank
-space:407:441:297:331:0:13:stone:building_interior
+space:407:441:297:331:0:13:the ruined old mill:stone:room
 poiregion:406:442:296:332:0:15:the ruined old mill
 tile:406:442:332:332:0:14:wallstone
 tile:406:419:296:296:0:14:wallstone
@@ -2208,7 +2208,7 @@ poi:388:266:0:Old Mill's Park
 // The Gilded Perch (a closed restaurant)
 // ============================================================
 tile:336:404:500:556:0:0:tile2
-space:337:403:501:555:0:13:masonry:building_interior
+space:337:403:501:555:0:13:the Gilded Perch:masonry:room
 poiregion:336:404:500:556:0:15:the Gilded Perch
 tile:336:341:556:556:0:14:wallbrick
 tile:347:404:556:556:0:14:wallbrick
@@ -2278,7 +2278,7 @@ poi:370:556:0:the Gilded Perch (closed)
 // ============================================================
 tile:300:307:700:1140:0:0:concrete5
 zone:300:307:700:1140:0:8:Harbourview Road
-openspace:296:311:700:1140:0:8:urban_exterior
+openspace:296:311:700:1140:0:8:Harbourview Road:concrete:street
 tile:299:299:700:1140:0:0:stone
 zone:299:299:700:1140:0:8:west curb of Harbourview Road
 tile:308:308:700:1140:0:0:stone
@@ -2289,7 +2289,7 @@ tile:309:311:700:1140:0:0:concrete2
 zone:309:311:700:1140:0:8:east sidewalk of Harbourview Road
 // Harbourview warehouses
 tile:196:286:760:860:0:0:concrete10
-space:197:285:761:859:0:23:masonry:building_interior
+space:197:285:761:859:0:23:the North Harbour Warehouse:masonry:room
 poiregion:196:286:760:860:0:25:the North Harbour Warehouse
 tile:196:286:860:860:0:24:metal2
 tile:196:286:760:760:0:24:metal2
@@ -2330,7 +2330,7 @@ zone:271:279:765:855:0:6:stacked cargo crates
 zone:271:279:765:855:5:11:on top of stacked cargo crates
 ispawn:199:283:763:857:0:0:6000:3:box:bag:empty_bucket:rock
 tile:196:286:900:1000:0:0:concrete10
-space:197:285:901:999:0:23:masonry:building_interior
+space:197:285:901:999:0:23:the Saltworks Warehouse:masonry:room
 poiregion:196:286:900:1000:0:25:the Saltworks Warehouse
 tile:196:286:1000:1000:0:24:metal2
 tile:196:286:900:900:0:24:metal2
@@ -2371,7 +2371,7 @@ zone:271:279:905:995:0:6:stacked cargo crates
 zone:271:279:905:995:5:11:on top of stacked cargo crates
 ispawn:199:283:903:997:0:0:6000:3:box:bag:empty_bucket:rock
 tile:330:392:780:830:0:0:hardwood
-space:331:391:781:829:0:11:wood:building_interior
+space:331:391:781:829:0:11:the Harbourview Chandlery:wood:room
 poiregion:330:392:780:830:0:13:the Harbourview Chandlery
 tile:330:392:830:830:0:12:wallwood
 tile:330:392:780:780:0:12:wallwood
@@ -2410,7 +2410,7 @@ zone:332:334:815:828:0:6:the Harbourview Chandlery stock shelves
 zone:332:334:815:828:4:10:on top of the Harbourview Chandlery stock shelves
 // Cape Meridian Lighthouse
 tile:170:190:1080:1100:0:0:stone
-space:171:189:1081:1099:0:59:stone:building_interior
+space:171:189:1081:1099:0:59:Cape Meridian Lighthouse:stone:room
 poiregion:170:190:1080:1100:0:61:Cape Meridian Lighthouse
 tile:170:190:1100:1100:0:60:wallstone
 tile:170:190:1080:1080:0:60:wallstone
@@ -2440,7 +2440,7 @@ src:150:468:150:1150:0:8:ocean.ogg:-13
 // NORTH MERIDIAN - additional buildings
 // ============================================================
 tile:770:820:786:876:0:0:concrete10
-space:771:819:787:875:0:11:stone:building_interior
+space:771:819:787:875:0:11:Meridian Police Station:stone:room
 poiregion:770:820:786:876:0:13:Meridian Police Station
 tile:770:820:876:876:0:12:wallstone
 tile:770:790:786:786:0:12:wallstone
@@ -2514,7 +2514,7 @@ tile:797:797:858:875:0:11:wallstone
 tile:797:797:816:818:6:11:wallstone
 tile:797:797:855:857:6:11:wallstone
 tile:656:744:1058:1130:0:0:carpet1
-space:657:743:1059:1129:0:21:masonry:building_interior
+space:657:743:1059:1129:0:21:the Meridian Theatre:masonry:room
 poiregion:656:744:1058:1130:0:23:the Meridian Theatre
 tile:656:744:1130:1130:0:22:wallbrick
 tile:656:691:1058:1058:0:22:wallbrick
@@ -2575,7 +2575,7 @@ zone:659:741:1111:1112:3:9:on top of a row of theatre seats
 zone:657:743:1118:1129:0:11:the theatre stage
 src:657:743:1059:1129:0:22:calm.ogg:-11
 tile:486:560:1058:1140:0:0:carpet1
-space:487:559:1059:1139:0:11:masonry:building_interior
+space:487:559:1059:1139:0:11:the Kingsway Hotel:masonry:room
 poiregion:486:560:1058:1140:0:13:the Kingsway Hotel
 tile:486:560:1140:1140:0:12:wallbrick
 tile:486:518:1058:1058:0:12:wallbrick
@@ -2679,7 +2679,7 @@ tile:525:525:1126:1128:6:11:wallbrick
 // SOUTH MERIDIAN - additional buildings
 // ============================================================
 tile:664:718:474:540:0:0:tile2
-space:665:717:475:539:0:17:stone:building_interior
+space:665:717:475:539:0:17:St. Mark's Chapel:stone:room
 poiregion:664:718:474:540:0:19:St. Mark's Chapel
 tile:664:718:540:540:0:18:wallstone
 tile:664:685:474:474:0:18:wallstone
@@ -2768,7 +2768,7 @@ tile:671:711:536:537:0:3:hardwood
 zone:671:711:536:537:0:6:the chapel altar
 zone:671:711:536:537:4:10:on top of the chapel altar
 tile:545:620:474:560:0:0:tile1
-space:546:619:475:559:0:11:masonry:building_interior
+space:546:619:475:559:0:11:the Southbank Clinic:masonry:room
 poiregion:545:620:474:560:0:13:the Southbank Clinic
 tile:545:620:560:560:0:12:wallbrick
 tile:545:577:474:474:0:12:wallbrick
@@ -2867,7 +2867,7 @@ tile:584:584:520:522:6:11:wallbrick
 tile:584:584:545:547:6:11:wallbrick
 ispawn:548:616:478:500:0:0:5000:3:health_potion:ultra_health_potion:life_injection
 tile:476:508:176:220:0:0:carpet1
-space:477:507:177:219:0:11:wood:building_interior
+space:477:507:177:219:0:11:8 Harlow Street:wood:room
 poiregion:476:508:176:220:0:13:8 Harlow Street
 tile:476:508:220:220:0:12:wallwood
 tile:476:508:176:176:0:12:wallwood
@@ -2932,7 +2932,7 @@ zone:477:507:177:219:13:23:8 Harlow Street attic
 tile:478:480:178:180:13:15:plank
 zone:478:480:178:180:16:22:on top of 8 Harlow Street attic crates
 tile:476:508:232:276:0:0:carpet1
-space:477:507:233:275:0:11:wood:building_interior
+space:477:507:233:275:0:11:10 Harlow Street:wood:room
 poiregion:476:508:232:276:0:13:10 Harlow Street
 tile:476:508:276:276:0:12:wallwood
 tile:476:508:232:232:0:12:wallwood
@@ -3007,7 +3007,7 @@ portal:489:489:253:255:0:5:10 Harlow Street cellar door:doorway
 // EAST MERIDIAN - additional buildings
 // ============================================================
 tile:836:862:500:560:0:0:tile2
-space:837:861:501:559:0:11:masonry:building_interior
+space:837:861:501:559:0:11:the Half-Moon Diner:masonry:room
 poiregion:836:862:500:560:0:13:the Half-Moon Diner
 tile:836:862:560:560:0:12:wallbrick
 tile:836:862:500:500:0:12:wallbrick
@@ -3045,7 +3045,7 @@ tile:838:840:542:558:0:3:hardwood
 zone:838:840:542:558:0:6:the Half-Moon Diner stock shelves
 zone:838:840:542:558:4:10:on top of the Half-Moon Diner stock shelves
 tile:836:862:600:660:0:0:concrete10
-space:837:861:601:659:0:11:masonry:building_interior
+space:837:861:601:659:0:11:East Meridian Post Office:masonry:room
 poiregion:836:862:600:660:0:13:East Meridian Post Office
 tile:836:862:660:660:0:12:wallbrick
 tile:836:862:600:600:0:12:wallbrick
@@ -3083,7 +3083,7 @@ tile:838:840:642:658:0:3:hardwood
 zone:838:840:642:658:0:6:East Meridian Post Office stock shelves
 zone:838:840:642:658:4:10:on top of East Meridian Post Office stock shelves
 tile:890:964:500:590:0:0:hardwood
-space:891:963:501:589:0:11:masonry:building_interior
+space:891:963:501:589:0:11:Half-Moon Chambers:masonry:room
 poiregion:890:964:500:590:0:13:Half-Moon Chambers
 tile:890:964:590:590:0:12:wallbrick
 tile:890:922:500:500:0:12:wallbrick
@@ -3201,7 +3201,7 @@ zone:1120:1144:1060:1069:0:8:car park bay 14
 // WEST MERIDIAN - additional buildings
 // ============================================================
 tile:196:256:400:448:0:0:plank
-space:197:255:401:447:0:15:wood:building_interior
+space:197:255:401:447:0:15:the Meridian Boathouse:wood:room
 poiregion:196:256:400:448:0:17:the Meridian Boathouse
 tile:196:256:448:448:0:16:wallwood
 tile:196:256:400:400:0:16:wallwood
@@ -3226,7 +3226,7 @@ tile:199:253:403:409:0:3:plank
 zone:199:253:403:409:0:6:an upturned rowing boat
 zone:199:253:403:409:4:10:on top of an upturned rowing boat
 tile:330:420:196:240:0:0:tile2
-space:331:419:197:239:0:11:masonry:building_interior
+space:331:419:197:239:0:11:the Meridian Fish Market:masonry:room
 poiregion:330:420:196:240:0:13:the Meridian Fish Market
 tile:330:371:240:240:0:12:wallbrick
 tile:379:420:240:240:0:12:wallbrick
@@ -3264,7 +3264,7 @@ tile:332:334:227:238:0:3:hardwood
 zone:332:334:227:238:0:6:the Meridian Fish Market stock shelves
 zone:332:334:227:238:4:10:on top of the Meridian Fish Market stock shelves
 tile:196:228:560:600:0:0:hardwood
-space:197:227:561:599:0:11:wood:building_interior
+space:197:227:561:599:0:11:1 Gull Street:wood:room
 poiregion:196:228:560:600:0:13:1 Gull Street
 tile:196:209:600:600:0:12:wallwood
 tile:215:228:600:600:0:12:wallwood
@@ -3323,7 +3323,7 @@ tile:223:226:595:598:0:2:hardwood2
 zone:223:226:595:598:0:6:1 Gull Street bed
 zone:223:226:595:598:3:9:on top of 1 Gull Street bed
 tile:236:268:560:600:0:0:hardwood
-space:237:267:561:599:0:11:wood:building_interior
+space:237:267:561:599:0:11:3 Gull Street:wood:room
 poiregion:236:268:560:600:0:13:3 Gull Street
 tile:236:249:600:600:0:12:wallwood
 tile:255:268:600:600:0:12:wallwood
@@ -3474,5 +3474,5 @@ poiregion:150:468:150:1150:0:120:West Meridian
 poiregion:472:828:150:610:0:120:South Meridian
 poiregion:472:828:690:1150:0:120:North Meridian
 poiregion:832:1150:150:1150:0:120:East Meridian
-openspace:0:1300:0:1300:0:8:coastal_open_air
-openspace:150:1150:612:688:0:8:canal_open_air
+openspace:0:1300:0:1300:0:8:the Shattersea coast:water:coastal_open_air
+openspace:150:1150:612:688:0:8:the Old Anchorhold Canal:stone:water

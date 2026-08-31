@@ -54,3 +54,15 @@ Runtime vehicles use the same philosophy through client dynamic map elements.
 Their geometry is authored in local half-tile coordinates and transformed into
 the world as the vehicle moves. Occupants retain local interior coordinates;
 the vehicle transform, rather than the cabin layout, changes during travel.
+
+Acoustic records use Fireteam Requiem's field order:
+space:x1:x2:y1:y2:z1:z2:label:material:kind
+openspace:x1:x2:y1:y2:z1:z2:label:material:kind
+portal:x1:x2:y1:y2:z1:z2:label:material
+Enclosing spaces provide Freeverb presets and occlusion boundaries. Open spaces
+provide source-location reverb without becoming walls. Portals cancel a wall
+crossing along the listener-to-source trace.
+
+Generator ramps are stacks of one-level treads rather than ladders. The client
+automatically follows a walkable tread one level up or down, allowing sloped
+terrain while retaining nameable whole-coordinate navigation.

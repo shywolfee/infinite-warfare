@@ -24,6 +24,7 @@
 #include "includes/net.nvgt"
 //#include "includes/rotation.nvgt"
 #include "sound_pool.nvgt"
+#include "includes/acoustics.nvgt"
 #include "includes/src.nvgt"
 #include "includes/sd.nvgt"
 #include "includes/accounts.nvgt"
@@ -4219,12 +4220,14 @@ int minimum_safe_interval=walktime*3/4+5;if(momentum_interval<minimum_safe_inter
 if(walktimer.elapsed>momentum_interval){walktimer.restart();move(desired_move);movement_momentum+=.16/weight_factor;if(movement_momentum>1)movement_momentum=1;if(walktime>=300)stamina_on_heavy_move(walktime);}
 momentum_timer.restart();
 }
-else if(momentum_direction!="" and movement_momentum>.08)
+else
 {
-int coast_interval=int(double(movetime)*(1.05+(1.0-movement_momentum)*.75)*weight_factor);
-if(walktimer.elapsed>coast_interval){walktimer.restart();move(momentum_direction);movement_momentum-=.22*weight_factor;if(movement_momentum<0)movement_momentum=0;}
+// Releasing a movement key stops issuing navigation steps immediately. The
+// simulated momentum now affects cadence only while the player is actively
+// holding a direction; it never invents a second grid step after a tap.
+movement_momentum*=.55;
+if(movement_momentum<.08){movement_momentum=0;momentum_direction="";}
 }
-else{movement_momentum=0;momentum_direction="";}
 }
 }
 if(can_move==true)
@@ -4450,6 +4453,8 @@ if(sd.d.exists("auto_bind_starting_loadout")) auto_bind_starting_loadout=sd.read
 if(sd.d.exists("replace_occupied_attachments"))replace_occupied_attachments=sd.readn("replace_occupied_attachments")>=1;
 if(sd.d.exists("hear_own_projectile_audio"))hear_own_projectile_audio=sd.readn("hear_own_projectile_audio")>=1;
 if(sd.d.exists("audio_form_sound_feedback"))audio_form_sound_feedback=sd.readn("audio_form_sound_feedback")>=1;
+if(sd.d.exists("acoustic_reverb_enabled"))acoustic_reverb_enabled=sd.readn("acoustic_reverb_enabled")>=1;
+if(sd.d.exists("acoustic_occlusion_enabled"))acoustic_occlusion_enabled=sd.readn("acoustic_occlusion_enabled")>=1;
 if(sd.d.exists("netaddress"))netaddress=sd.read("netaddress");
 if(sd.d.exists("netport")){int saved_port=sd.readn("netport");if(saved_port>0 and saved_port<=65535)netport=saved_port;}
 }
@@ -4491,6 +4496,8 @@ sd.add("auto_bind_starting_loadout",auto_bind_starting_loadout?1:0);
 sd.add("replace_occupied_attachments",replace_occupied_attachments?1:0);
 sd.add("hear_own_projectile_audio",hear_own_projectile_audio?1:0);
 sd.add("audio_form_sound_feedback",audio_form_sound_feedback?1:0);
+sd.add("acoustic_reverb_enabled",acoustic_reverb_enabled?1:0);
+sd.add("acoustic_occlusion_enabled",acoustic_occlusion_enabled?1:0);
 sd.add("netaddress",netaddress);
 sd.add("netport",netport);
 sd.save();
@@ -5213,6 +5220,7 @@ if (heal_tick > 0)
 send_reliable(0, "heal " + heal_tick, 0);
 p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
 distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
+acoustics_loop();
 mr.x=round(me.x,0);
 mr.y=round(me.y,0);
 movetime=walktime;

@@ -72,14 +72,14 @@ class Map:
     def src(self, x1, x2, y1, y2, z1, z2, sound, vol=-8):
         self.lines.append("src:%d:%d:%d:%d:%d:%d:%s:%d" % (x1, x2, y1, y2, z1, z2, sound, vol))
 
-    def space(self, x1, x2, y1, y2, z1, z2, material, kind="room"):
+    def space(self, x1, x2, y1, y2, z1, z2, label, material, kind="room"):
         """Acoustic volume, deliberately independent of navigation zones."""
-        self.lines.append("space:%d:%d:%d:%d:%d:%d:%s:%s" %
-                          (x1, x2, y1, y2, z1, z2, material, kind))
+        self.lines.append("space:%d:%d:%d:%d:%d:%d:%s:%s:%s" %
+                          (x1, x2, y1, y2, z1, z2, label, material, kind))
 
-    def openspace(self, x1, x2, y1, y2, z1, z2, material="open_air"):
-        self.lines.append("openspace:%d:%d:%d:%d:%d:%d:%s" %
-                          (x1, x2, y1, y2, z1, z2, material))
+    def openspace(self, x1, x2, y1, y2, z1, z2, label, material="open_air", kind="open"):
+        self.lines.append("openspace:%d:%d:%d:%d:%d:%d:%s:%s:%s" %
+                          (x1, x2, y1, y2, z1, z2, label, material, kind))
 
     def portal(self, x1, x2, y1, y2, z1, z2, name, material="doorway"):
         """Sound opening paired with a real geometry gap and doorway zone."""
@@ -143,6 +143,32 @@ class Map:
         self.tile(x1, x2, y1, y2, 0, top, t)
         self.zone_raw(x1, x2, y1, y2, 0, max(6, top), name)
         self.zone_raw(x1, x2, y1, y2, top + 1, top + 7, "on top of " + name)
+
+    def ramp(self, x1, x2, y1, y2, z1, z2, name, surface="concrete5"):
+        """A bidirectional walkable slope built from one-level treads."""
+        rise = z2 - z1
+        levels = abs(rise) + 1
+        direction = 1 if rise >= 0 else -1
+        along_x = (x2 - x1) > (y2 - y1)
+        length = (x2 - x1 + 1) if along_x else (y2 - y1 + 1)
+        if length < levels:
+            short = levels - length
+            if along_x: x2 += short
+            else: y2 += short
+            length = levels
+            self.errors.append("ramp lengthened %d cells: %s" % (short, name))
+        base, extra = divmod(length, levels)
+        cut = x1 if along_x else y1
+        for i in range(levels):
+            count = base + (1 if i < extra else 0)
+            lo, hi, z = cut, cut + count - 1, z1 + direction * i
+            if along_x: self.tile(lo, hi, y1, y2, z, z, surface)
+            else: self.tile(x1, x2, lo, hi, z, z, surface)
+            if z > min(z1, z2):
+                if along_x: self.tile(lo, hi, y1, y2, z - 1, z - 1, "wallstone")
+                else: self.tile(x1, x2, lo, hi, z - 1, z - 1, "wallstone")
+            cut = hi + 1
+        self.zone_raw(x1, x2, y1, y2, min(z1, z2), max(z1, z2) + 7, name)
 
 
 def _clip(lo, hi, gaps):

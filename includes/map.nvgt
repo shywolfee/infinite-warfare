@@ -107,6 +107,11 @@ return square_root(dx*dx+dy*dy+dz*dz);
 }
 string get_tile_at(double x, double y, double z)
 {
+string runtime_tile=dynamic_map_tile_at(x,y,z);if(runtime_tile!="")return runtime_tile;
+return get_static_tile_at(x,y,z);
+}
+string get_static_tile_at(double x,double y,double z)
+{
 int ix=int(x), iy=int(y), iz=int(z);
 string key=ix+":"+iy+":"+iz;
 string cached;
@@ -149,6 +154,8 @@ void load_map(string mdata)
 {
 p.destroy_all();
 destroy_all_sources();
+acoustics_reset();
+dynamic_map_elements.resize(0);
 map.resize(0);
 zones.resize(0);
 tile_regions.resize(0);
@@ -186,6 +193,8 @@ else if((parsed[0]=="space" or parsed[0]=="openspace") and parsed.length()>7)
 {
 string description=parsed[7];if(parsed.length()>8)description+=" "+parsed[8];
 acoustic_regions.insert_last(map_region(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),description));
+string acoustic_label=parsed[7],acoustic_material=parsed.length()>8?parsed[8]:"concrete",acoustic_kind=parsed.length()>9?parsed[9]:"";
+spawn_acoustic_space(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),acoustic_label,acoustic_material,parsed[0]=="space",acoustic_kind);
 }
 else if(parsed[0]=="portal" and parsed.length()>7)
 portal_regions.insert_last(map_region(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),parsed[7]));
@@ -296,6 +305,13 @@ p.play_stationary("ladderstep"+random(1,5)+".ogg",false);
 }
 }
 }
+void follow_walkable_ramp(double ox,double oy)
+{
+int nx=int(round(me.x,0)),ny=int(round(me.y,0)),z=int(round(me.z,0));string here=get_tile_at(nx,ny,z),above=get_tile_at(nx,ny,z+1),below=get_tile_at(nx,ny,z-1);
+bool blocked_here=here=="" or here=="blank" or string_contains(here,"wall",1)>=0;
+if(blocked_here and above!="" and above!="blank" and string_contains(above,"wall",1)<0){me.z=z+1;return;}
+if((here=="" or here=="blank") and below!="" and below!="blank" and string_contains(below,"wall",1)<0)me.z=z-1;
+}
 void move(string dir)
 {
 if(vehicle_try_interior_move(dir))return;
@@ -321,6 +337,7 @@ if(dir==Forward)
 double ox=me.x;
 double oy=me.y;
 me=move(me.x, me.y, me.z, facing, north);
+follow_walkable_ramp(ox,oy);
 if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
 {
 me.x=ox;
@@ -334,6 +351,7 @@ if(dir==Backward)
 double ox=me.x;
 double oy=me.y;
 me=move(me.x, me.y, me.z, facing, south);
+follow_walkable_ramp(ox,oy);
 if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
 {
 me.x=ox;
@@ -347,6 +365,7 @@ if(dir==Left)
 double ox=me.x;
 double oy=me.y;
 me=move(me.x, me.y, me.z, facing, west);
+follow_walkable_ramp(ox,oy);
 if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
 {
 me.x=ox;
@@ -360,6 +379,7 @@ if(dir==Right)
 double ox=me.x;
 double oy=me.y;
 me=move(me.x, me.y, me.z, facing, east);
+follow_walkable_ramp(ox,oy);
 if(round(me.x, 0)<0 or round(me.x, 0)>max.x or round(me.y, 0)<0 or round(me.y, 0)>max.y)
 {
 me.x=ox;
@@ -390,7 +410,8 @@ break;
 }
 if(vehicle_contains_position(obstacle,me.x,me.y,me.z))
 {
-if(obstacle.door_open and (vehicle_interior_index==int(vi) or vehicle_local_in_doorway(obstacle,local_forward,local_side))){vehicle_interior_index=int(vi);vehicle_set_interior_local(obstacle,me.x,me.y,me.z);ensure_vehicle_map_element(obstacle,int(vi));continue;}
+if(vehicle_interior_index==int(vi) and obstacle.door_open){vehicle_set_interior_local(obstacle,me.x,me.y,me.z);continue;}
+if(vehicle_crosses_open_door(obstacle,ox,oy,me.x,me.y)){vehicle_enter_interior_through_door(obstacle,int(vi));mr.x=round(me.x,0);mr.y=round(me.y,0);continue;}
 play_vehicle_audio(obstacle,"crash");
 speak(obstacle.get_name()+" body blocking the way. Open its door to enter the interior.");
 me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);

@@ -93,6 +93,7 @@ return;
 fire_modes[i].current_mode++;
 if (fire_modes[i].current_mode >= int(fire_modes[i].modes.length()))
 fire_modes[i].current_mode = 0;
+p.play_stationary(wname + "mode_" + fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]) + ".ogg", false);
 speak(fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]));
 return;
 }
@@ -141,9 +142,9 @@ stamina += amount;
 if (stamina > max_stamina) stamina = max_stamina;
 }
 
-void stamina_on_melee()
+void stamina_on_melee(string weapon="")
 {
-degrade_stamina(5);
+int cost=5;if(weapon!="")cost=int(round(5.0*handling_melee_stamina_multiplier(weapon),0));if(cost<1)cost=1;degrade_stamina(cost);
 }
 
 void stamina_on_jump()
@@ -166,7 +167,8 @@ degrade_stamina(1);
 
 void stamina_loop()
 {
-if (stamina_regen_timer.elapsed >= 5000 and stamina < max_stamina)
+int regen_interval=sitting ? 2000 : 5000;
+if (stamina_regen_timer.elapsed >= regen_interval and stamina < max_stamina)
 {
 stamina_regen_timer.restart();
 restore_stamina(5);
@@ -314,8 +316,44 @@ timer wirenet_cooldown;
 timer biomonitor_cooldown;
 bool biomonitor_ready = true;
 
+string equipment_ability_for_item(string item){if(item=="biomonitor_bracelet")return "ability_biomonitor_scan";if(item=="wirenet")return "ability_wirenet_toggle";return "";}
+bool is_equipment_ability(string id){return id=="ability_biomonitor_scan" or id=="ability_wirenet_toggle";}
+string equipment_ability_name(string id){if(id=="ability_biomonitor_scan")return "Biomonitor Scan";if(id=="ability_wirenet_toggle")return "WireNet Auto-Heal Toggle";return string_replace(id,"_"," ",true);}
+string equipment_ability_source(string id){if(id=="ability_biomonitor_scan")return "Biomonitor Bracelet";if(id=="ability_wirenet_toggle")return "WireNet";return "Unknown equipment";}
+string equipment_ability_description(string id){if(id=="ability_biomonitor_scan")return "Scans for nearby players and reports the server-authoritative result.";if(id=="ability_wirenet_toggle")return "Enables or disables automatic emergency healing while WireNet charges remain.";return "";}
+int equipment_ability_cooldown_remaining(string id){if(id=="ability_biomonitor_scan" and !biomonitor_ready and biomonitor_cooldown.elapsed<15000)return int(ceil(double(15000-biomonitor_cooldown.elapsed)/1000.0));return 0;}
+void bind_equipment_ability(string id)
+{
+if(!is_equipment_ability(id))return;for(int i=0;i<10;i++)if(quickbar[i]==id)return;
+for(int i=0;i<10;i++)if(quickbar[i]==""){quickbar[i]=id;speak(equipment_ability_name(id)+" automatically bound to quickbar slot "+(i+1)+".");return;}
+speak(equipment_ability_name(id)+" is available, but no quickbar slot was empty. Open the Shift I quickbar manager to assign it.");
+}
+void remove_equipment_ability(string id){for(int i=0;i<10;i++)if(quickbar[i]==id)quickbar[i]="";}
+void activate_equipment_ability(string id)
+{
+if(id=="ability_biomonitor_scan")
+{
+if(equip_bracelet!="biomonitor_bracelet"){speak("Equip the Biomonitor Bracelet to use this ability.");return;}
+int remain=equipment_ability_cooldown_remaining(id);if(remain>0){speak("Biomonitor recharging. "+remain+" seconds remaining.");return;}
+biomonitor_ready=false;biomonitor_cooldown.restart();send_reliable(0,"bioscan",0);speak("Scanning.");return;
+}
+if(id=="ability_wirenet_toggle")
+{
+if(equip_medical!="wirenet"){speak("Equip WireNet to use this ability.");return;}wirenet_active=!wirenet_active;speak("WireNet "+(wirenet_active?"activated. "+wirenet_charges+" charges remaining.":"deactivated."));
+}
+}
+
+double equipped_item_weight(string item)
+{
+if(item=="bomb_vest")return 12.0;if(item=="biomonitor_bracelet")return .4;if(item=="wirenet")return 2.5;
+if(string_contains(item,"holster",1)>=0 or string_contains(item,"belt",1)>=0 or string_contains(item,"sling",1)>=0 or string_contains(item,"strap",1)>=0 or string_contains(item,"scabbard",1)>=0 or string_contains(item,"sheath",1)>=0 or string_contains(item,"bandoleer",1)>=0 or string_contains(item,"case",1)>=0)return 1.5;
+return item==""?0:1.0;
+}
+double total_equipment_weight(){return double(equipped_armor_weight)+equipped_item_weight(equip_body)+equipped_item_weight(equip_bracelet)+equipped_item_weight(equip_medical)+equipped_item_weight(equip_holster1)+equipped_item_weight(equip_holster2);}
+
 void equip_item(string item, string slot)
 {
+p.play_stationary(item + "equip.ogg", false);
 if (slot == "body")
 equip_body = item;
 else if (slot == "bracelet")
@@ -325,6 +363,7 @@ if (item == "biomonitor_bracelet")
 {
 biomonitor_ready = true;
 biomonitor_cooldown.restart();
+bind_equipment_ability(equipment_ability_for_item(item));
 }
 }
 else if (slot == "medical")
@@ -334,6 +373,7 @@ if (item == "wirenet")
 {
 wirenet_charges = 3;
 wirenet_active = true;
+bind_equipment_ability(equipment_ability_for_item(item));
 }
 }
 }
@@ -344,6 +384,7 @@ if (slot == "body")
 {
 if (equip_body != "")
 {
+p.play_stationary(equip_body + "unequip.ogg", false);
 give(equip_body, 1);
 speak(string_replace(equip_body, "_", " ", true) + " removed.");
 equip_body = "";
@@ -355,6 +396,8 @@ else if (slot == "bracelet")
 {
 if (equip_bracelet != "")
 {
+remove_equipment_ability(equipment_ability_for_item(equip_bracelet));
+p.play_stationary(equip_bracelet + "unequip.ogg", false);
 give(equip_bracelet, 1);
 speak(string_replace(equip_bracelet, "_", " ", true) + " removed.");
 equip_bracelet = "";
@@ -366,6 +409,8 @@ else if (slot == "medical")
 {
 if (equip_medical != "")
 {
+remove_equipment_ability(equipment_ability_for_item(equip_medical));
+p.play_stationary(equip_medical + "unequip.ogg", false);
 give(equip_medical, 1);
 speak(string_replace(equip_medical, "_", " ", true) + " removed.");
 equip_medical = "";
@@ -378,7 +423,11 @@ speak("Nothing equipped in medical slot.");
 
 string get_equipment_string()
 {
-string result = "Body: ";
+string result="Armour head: "+(equipped_armor_head==""?"empty":string_replace(equipped_armor_head,"_"," ",true)+", "+equipped_armor_head_durability+" durability");
+result+=". Armour torso: "+(equipped_armor_torso==""?"empty":string_replace(equipped_armor_torso,"_"," ",true)+", "+equipped_armor_torso_durability+" durability");
+result+=". Armour arms: "+(equipped_armor_arms==""?"empty":string_replace(equipped_armor_arms,"_"," ",true)+", "+equipped_armor_arms_durability+" durability");
+result+=". Armour legs: "+(equipped_armor_legs==""?"empty":string_replace(equipped_armor_legs,"_"," ",true)+", "+equipped_armor_legs_durability+" durability");
+result+=". Total equipped weight: "+round(total_equipment_weight(),1)+". Body: ";
 if (equip_body != "")
 result += string_replace(equip_body, "_", " ", true);
 else
@@ -525,17 +574,20 @@ if(hw!="")
 give(hw, 1);
 int gi=find_gun(hw);
 if(gi>=0) gun_ammos[gi].mag_loaded=ha;
+p.play_stationary("holster_"+hid+"_weapon_remove.ogg", false);
 speak(get_weapon_display_name(hw)+" unholstered.");
 }
 int idx=find_holster_def(hid);
 if(idx>=0 and holster_defs[idx].has_ammo_storage and ba>0)
 {
 give(holster_defs[idx].ammo_reserve_item, ba);
+p.play_stationary("holster_"+hid+"_ammo_remove.ogg", false);
 speak(ba+" rounds returned from belt.");
 }
 give(hid, 1);
 int didx=find_holster_def(hid);
 string dn=(didx>=0)?holster_defs[didx].display_name:string_replace(hid,"_"," ",true);
+p.play_stationary("holster_"+hid+"_unequip.ogg", false);
 speak(dn+" removed from holster "+slot+".");
 if(slot==1){equip_holster1="";holster1_weapon="";holster1_weapon_ammo=0;holster1_belt_ammo=0;}
 else{equip_holster2="";holster2_weapon="";holster2_weapon_ammo=0;holster2_belt_ammo=0;}
@@ -565,6 +617,7 @@ int store=(have<space)?have:space;
 give(ammo_item, -store);
 if(s==1) holster1_belt_ammo+=store;
 else holster2_belt_ammo+=store;
+p.play_stationary("holster_"+hid+"_ammo_store.ogg", false);
 speak(store+" rounds stored in belt. "+((s==1)?holster1_belt_ammo:holster2_belt_ammo)+" of "+cap+" total.");
 return true;
 }
@@ -581,11 +634,13 @@ class partial_ammo_item
 string base_item;    // inventory key (e.g. "glock_17_magazine", "volt_cell")
 int remaining;       // units left in this item
 int max_capacity;    // full capacity (for percentage calculation)
-partial_ammo_item(string bi, int rem, int mc)
+string ammunition;  // projectile load retained in a removed feed device
+partial_ammo_item(string bi, int rem, int mc,string ammo="standard_ammunition")
 {
 base_item = bi;
 remaining = rem;
 max_capacity = mc;
+ammunition = ammo;
 }
 }
 
@@ -597,9 +652,9 @@ if (capacity <= 0) return 0;
 return (loaded * 100) / capacity;
 }
 
-int add_partial(string base, int remaining, int max_cap)
+int add_partial(string base, int remaining, int max_cap,string ammunition="standard_ammunition")
 {
-partial_ammo_item p(base, remaining, max_cap);
+partial_ammo_item p(base, remaining, max_cap,ammunition);
 partial_items.insert_last(p);
 return int(partial_items.length()) - 1;
 }
@@ -653,7 +708,9 @@ string weapon_name;
 string ammo_type;        // e.g. "9x19mm Parabellum"
 string feed_device;      // e.g. "17-round magazine"
 int mag_capacity;        // rounds per full magazine / clip / cylinder
+int base_mag_capacity;   // unmodified capacity from the weapon definition
 int mag_loaded;          // rounds currently in the weapon
+string loaded_ammunition;// actual projectile load, retained until unload/reload
 string reserve_item;     // inventory key for spare ammo
 string reserve_label;    // spoken name for the reserve ("magazine", "ammo belt", …)
 bool is_magazine;        // true = magazine reload, false = individual round reload
@@ -666,6 +723,14 @@ string ammo_display;     // "rounds", "charge", or "fuel"
 int reload_from_partial; // -1 = full item, >= 0 = index into partial_items
 int reload_round_count;  // individual reload: rounds to load (-1 = fill up)
 int reload_fuel_target;  // fuel reload: target loaded level (-1 = not a fuel reload)
+bool reload_audio_manual;
+int reload_audio_rounds;
+int reload_audio_inserted;
+bool reload_cycle_pending;
+timer reload_cycle_timer;
+bool manual_action;
+bool action_open;
+bool chamber_ready;
 
 gun_ammo(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
 {
@@ -673,7 +738,9 @@ weapon_name=wn;
 ammo_type=at;
 feed_device=fd;
 mag_capacity=mc;
+base_mag_capacity=mc;
 mag_loaded=mc;
+loaded_ammunition="standard_ammunition";
 reserve_item=ri;
 reserve_label=rl;
 is_magazine=im;
@@ -685,10 +752,104 @@ ammo_display="rounds";
 reload_from_partial=-1;
 reload_round_count=-1;
 reload_fuel_target=-1;
+reload_audio_manual=false;
+reload_audio_rounds=0;
+reload_audio_inserted=0;
+reload_cycle_pending=false;
+manual_action=false;
+for(uint wi=0;wi<wpn_cache.length();wi++)if(wpn_cache[wi].id==wn and (wpn_cache[wi].wclass=="revolver" or wpn_cache[wi].wclass=="shotgun"))manual_action=true;
+action_open=false;
+chamber_ready=mag_loaded>0;
 }
 }
 
 gun_ammo@[] gun_ammos(0);
+
+class ammunition_load_def
+{
+string id,display_name,reserve_item,description,sound_bank;string[] weapons;int give_amount;
+ammunition_load_def(string i,string n,string r,string d,string s,string[]@ w,int g){id=i;display_name=n;reserve_item=r;description=d;sound_bank=s;weapons=w;give_amount=g;}
+}
+ammunition_load_def@[] ammunition_loads;
+dictionary selected_weapon_ammunition;
+void register_ammunition_load(string id,string name,string reserve,string description,string sound_bank,string[]@ weapons,int give_amount=30){ammunition_loads.insert_last(ammunition_load_def(id,name,reserve,description,sound_bank,weapons,give_amount));}
+string[] ammo_weapons_for_caliber(string caliber){string[] result;for(uint i=0;i<gun_ammos.length();i++)if(gun_ammos[i].ammo_type==caliber)result.insert_last(gun_ammos[i].weapon_name);return result;}
+void register_caliber_load(string caliber,string suffix,string name,string description,int amount=30){string[] weapons=ammo_weapons_for_caliber(caliber);if(weapons.length()>0)register_ammunition_load(string_replace(string_replace(caliber," ","_",true),".","",true)+"_"+suffix,name,string_replace(string_replace(caliber," ","_",true),".","",true)+"_"+suffix+"_box",description,"",weapons,amount);}
+void initialize_ammunition_loads()
+{
+ammunition_loads.resize(0);
+register_caliber_load("9x19mm Parabellum","jhp","9x19mm Jacketed Hollow Point","Expands in soft targets for higher damage but weak penetration.");register_caliber_load("9x19mm Parabellum","plus_p","9x19mm Plus P","Higher-pressure load with greater velocity, recoil, and retained energy.");register_caliber_load("9x19mm Parabellum","subsonic","9x19mm Subsonic","Low-velocity quiet load with greater drop and reduced damage.");register_caliber_load("9x19mm Parabellum","frangible","9x19mm Frangible","Low-penetration close-range load that minimizes overpenetration.");
+register_caliber_load(".50 Action Express","jhp",".50 AE Hollow Point","High tissue damage with reduced penetration.",14);register_caliber_load(".50 Action Express","hardcast",".50 AE Hard-Cast","Heavy deep-penetrating projectile with strong retained energy.",14);register_caliber_load(".50 Action Express","incendiary",".50 AE Incendiary","Ignites struck targets for brief continuing damage.",7);
+register_caliber_load(".357 Magnum","jhp",".357 Magnum Hollow Point","Expanding defensive load.",24);register_caliber_load(".357 Magnum","hardcast",".357 Magnum Hard-Cast","Deep-penetrating heavy load.",24);register_caliber_load(".357 Magnum","wadcutter",".357 Magnum Wadcutter","Accurate short-range target load with rapid drag.",24);register_caliber_load(".357 Magnum","shotshell",".357 Magnum Shotshell","Short-range multi-pellet load.",18);
+register_caliber_load(".44 Magnum","jhp",".44 Magnum Hollow Point","High-damage expanding load.",24);register_caliber_load(".44 Magnum","hardcast",".44 Magnum Hard-Cast","Heavy hunting load with high penetration.",24);register_caliber_load(".44 Magnum","shotshell",".44 Magnum Shotshell","Short-range multi-pellet load.",18);
+register_caliber_load("5.56x45mm NATO","m855a1","5.56mm M855A1 EPR","Higher-velocity enhanced-penetration rifle load.",90);register_caliber_load("5.56x45mm NATO","match","5.56mm Match","Low-dispersion long-range match ammunition.",60);register_caliber_load("5.56x45mm NATO","tracer","5.56mm Tracer","Visible-flight load with a distinctive projectile loop.",60);register_caliber_load("5.56x45mm NATO","subsonic","5.56mm Subsonic","Quiet low-velocity rifle ammunition.",60);
+register_caliber_load("7.62x39mm","ap","7.62x39mm Armour-Piercing","Hardened penetrator load.",60);register_caliber_load("7.62x39mm","softpoint","7.62x39mm Soft Point","Higher damage with reduced penetration.",60);register_caliber_load("7.62x39mm","subsonic","7.62x39mm Subsonic","Heavy quiet load with pronounced drop.",60);register_caliber_load("7.62x39mm","tracer","7.62x39mm Tracer","Visible-flight ammunition.",60);
+string[] rifle_calibers={"7.62x51mm NATO",".308 Winchester",".30-06 Springfield",".338 Lapua Magnum","7.62x54mm R","4.6x30mm","5.7x28mm"};for(uint c=0;c<rifle_calibers.length();c++){register_caliber_load(rifle_calibers[c],"match",rifle_calibers[c]+" Match","Precision load with reduced dispersion and strong retention.",40);register_caliber_load(rifle_calibers[c],"ap",rifle_calibers[c]+" Armour-Piercing","Hardened high-penetration load.",40);register_caliber_load(rifle_calibers[c],"expanding",rifle_calibers[c]+" Expanding","Higher damage with reduced penetration.",40);}
+string[] gauge12=ammo_weapons_for_caliber("12-gauge buckshot");register_ammunition_load("12g_slug","12-gauge Rifled Slug","12_gauge_slug_box","Single heavy projectile with range and penetration.","shotgun_slug",gauge12,24);register_ammunition_load("12g_number4_buck","12-gauge Number 4 Buckshot","12_gauge_number4_buck_box","More smaller pellets and a wider pattern.","shotgun_number4",gauge12,32);register_ammunition_load("12g_flechette","12-gauge Flechette","12_gauge_flechette_box","Multiple fin-stabilized darts with improved penetration.","shotgun_flechette",gauge12,24);register_ammunition_load("12g_breaching","12-gauge Breaching","12_gauge_breaching_box","Very short-range high-impact door and target load.","shotgun_breaching",gauge12,20);register_ammunition_load("12g_dragons_breath","12-gauge Dragon's Breath","12_gauge_dragons_breath_box","Incendiary projectile cloud that ignites targets.","shotgun_incendiary",gauge12,12);
+string[] gauge23=ammo_weapons_for_caliber("23x75mm R");register_ammunition_load("23mm_barrikada","23x75mm Barrikada Slug","23x75mm_barrikada_box","Heavy armour-piercing slug.","ks23_slug",gauge23,15);register_ammunition_load("23mm_shrapnel10","23x75mm Shrapnel-10","23x75mm_shrapnel10_box","Buckshot load optimized for close range.","ks23_shrapnel",gauge23,20);register_ammunition_load("23mm_volna_r","23x75mm Volna-R","23x75mm_volna_r_box","Less-lethal rubber projectile with extreme knockback.","ks23_rubber",gauge23,12);
+string[] crossbows={"crossbow"};register_ammunition_load("crossbow_broadhead","Broadhead Bolt","broadhead_bolt_quiver","High tissue damage with lower armour penetration.","crossbow_broadhead",crossbows,12);register_ammunition_load("crossbow_bodkin","Bodkin Bolt","bodkin_bolt_quiver","Narrow armour-piercing bolt.","crossbow_bodkin",crossbows,12);register_ammunition_load("crossbow_explosive","Explosive Bolt","explosive_bolt_quiver","Impact-detonated explosive bolt.","crossbow_explosive",crossbows,6);register_ammunition_load("crossbow_incendiary","Incendiary Bolt","incendiary_bolt_quiver","Ignites targets after impact.","crossbow_incendiary",crossbows,8);register_ammunition_load("crossbow_shock","Shock Bolt","shock_bolt_quiver","Disruptive bolt that impairs movement.","crossbow_shock",crossbows,8);
+string[] mortars={"120mm_mortar"};register_ammunition_load("120mm_fragmentation","120mm Fragmentation Shell","120mm_fragmentation_shell","Wide anti-personnel fragmentation payload.","mortar_fragmentation",mortars,5);register_ammunition_load("120mm_incendiary","120mm Incendiary Shell","120mm_incendiary_shell","Incendiary payload that ignites blast victims.","mortar_incendiary",mortars,4);register_ammunition_load("120mm_thermobaric","120mm Thermobaric Shell","120mm_thermobaric_shell","High-damage blast with increased radius and reduced penetration.","mortar_thermobaric",mortars,3);
+for(uint gi=0;gi<gun_ammos.length();gi++)if(string_contains(gun_ammos[gi].ammo_type,"energy",1)>=0 or string_contains(gun_ammos[gi].ammo_type,"beam",1)>=0 or string_contains(gun_ammos[gi].ammo_type,"pulse",1)>=0){string[] ew={gun_ammos[gi].weapon_name};string prefix=gun_ammos[gi].weapon_name;register_ammunition_load(prefix+"_overcharge",get_weapon_display_name(prefix)+" Overcharge Cell",prefix+"_overcharge_cell","Higher damage and velocity at increased charge cost.","energy_overcharge",ew,8);register_ammunition_load(prefix+"_ion",get_weapon_display_name(prefix)+" Ion Cell",prefix+"_ion_cell","High penetration and armour disruption.","energy_ion",ew,8);register_ammunition_load(prefix+"_cryo",get_weapon_display_name(prefix)+" Cryogenic Cell",prefix+"_cryo_cell","Reduces target movement after impact.","energy_cryo",ew,8);register_ammunition_load(prefix+"_scatter",get_weapon_display_name(prefix)+" Scatter Cell",prefix+"_scatter_cell","Multiple lower-damage energy particles.","energy_scatter",ew,8);}
+}
+int find_ammunition_load(string id){for(uint i=0;i<ammunition_loads.length();i++)if(ammunition_loads[i].id==id)return i;return -1;}
+string[] compatible_ammunition_for_weapon(string wname){string[] result={"standard_ammunition"};for(uint i=0;i<ammunition_loads.length();i++)for(uint w=0;w<ammunition_loads[i].weapons.length();w++)if(ammunition_loads[i].weapons[w]==wname){result.insert_last(ammunition_loads[i].id);break;}return result;}
+
+string selected_ammunition_for_weapon(string wname)
+{
+string selected;if(selected_weapon_ammunition.get(wname,selected) and selected!="")return selected;
+return "standard_ammunition";
+}
+
+string ammunition_display_name(string ammunition)
+{
+if(ammunition=="standard_ammunition")return "standard ammunition";
+int ai=find_ammunition_load(ammunition);return ai>=0?ammunition_loads[ai].display_name:string_replace(ammunition,"_"," ",true);
+}
+
+string ammunition_reserve_item(string wname,string ammunition)
+{
+int gi=find_gun(wname);if(gi<0)return "";if(ammunition=="standard_ammunition")return gun_ammos[gi].reserve_item;int ai=find_ammunition_load(ammunition);return ai>=0?ammunition_loads[ai].reserve_item:"";
+}
+int selected_ammunition_available(string wname){string selected=selected_ammunition_for_weapon(wname),reserve=ammunition_reserve_item(wname,selected);return reserve==""?0:get_item_count(reserve);}
+void cycle_weapon_ammunition(string wname,int direction=1)
+{
+int gi=find_gun(wname);
+if(gi<0){speak("This weapon has no selectable ammunition.");return;}
+if(gun_ammos[gi].reloading){speak("Finish the current reload before changing ammunition.");return;}
+string[] choices=compatible_ammunition_for_weapon(wname);
+if(choices.length()<2){speak("No alternate ammunition is registered for this weapon.");return;}
+string current=selected_ammunition_for_weapon(wname);int pos=0;
+for(uint i=0;i<choices.length();i++)if(choices[i]==current)pos=i;
+pos+=direction;if(pos>=int(choices.length()))pos=0;if(pos<0)pos=choices.length()-1;
+selected_weapon_ammunition.set(wname,choices[pos]);p.play_stationary("ammo_cycle.ogg",false);
+string reserve=ammunition_reserve_item(wname,choices[pos]);
+speak(ammunition_display_name(choices[pos])+" selected for the next reload. "+get_item_count(reserve)+" available. Currently loaded: "+ammunition_display_name(gun_ammos[gi].loaded_ammunition)+".");
+}
+
+int effective_magazine_capacity(string wname)
+{
+int gi=find_gun(wname);if(gi<0)return 0;int capacity=gun_ammos[gi].base_mag_capacity;
+if(weapon_has_attachment(wname,"extended_magazine"))capacity=int(ceil(double(capacity)*1.5));
+else if(weapon_has_attachment(wname,"drum_magazine")){capacity*=2;if(capacity<50)capacity=50;}
+return capacity;
+}
+
+float attachment_reload_time_mult(string wname)
+{
+float mult=1.0;if(weapon_has_attachment(wname,"quickdraw_magazine"))mult*=.68;if(weapon_has_attachment(wname,"extended_magazine"))mult*=1.12;if(weapon_has_attachment(wname,"drum_magazine"))mult*=1.35;if(weapon_has_attachment(wname,"shell_carrier"))mult*=.78;return mult;
+}
+
+void synchronize_weapon_feed(string wname)
+{
+int gi=find_gun(wname);if(gi<0)return;gun_ammos[gi].mag_capacity=effective_magazine_capacity(wname);gun_ammos[gi].reload_ms_current=int(double(gun_ammos[gi].reload_ms)*attachment_reload_time_mult(wname));
+}
+
+bool attachment_feed_change_allowed(string attachment_id,string wname)
+{
+int ai=find_attachment_def(attachment_id),gi=find_gun(wname);if(ai<0 or gi<0)return true;
+if(attachment_defs[ai].slot=="magazine" and gun_ammos[gi].mag_loaded>0){speak("Unload the "+gun_ammos[gi].feed_device+" before changing magazine attachments. This prevents loaded rounds from being lost.");return false;}
+return true;
+}
 
 // Register a weapon's ammo profile.
 void register_gun(string wn, string at, string fd, int mc, string ri, string rl, bool im, int sr, int rms)
@@ -718,6 +879,50 @@ if (gun_ammos[i].weapon_name==wname) return i;
 return -1;
 }
 
+bool is_manual_fed_weapon(string wname){int gi=find_gun(wname);return gi>=0 and gun_ammos[gi].manual_action;}
+bool manual_weapon_can_fire(string wname,bool report=true)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action)return true;gun_ammo@ g=gun_ammos[gi];
+if(g.action_open){if(report)speak("You cannot fire because the "+(get_weapon_class(wname)=="revolver"?"cylinder":"action")+" is still open. Close it first.");return false;}
+if(!g.chamber_ready){if(report)speak("You cannot fire because no round is chambered. Cycle the action first.");return false;}
+return true;
+}
+void manual_weapon_after_fire(string wname)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action)return;
+if(get_weapon_class(wname)=="shotgun")gun_ammos[gi].chamber_ready=false;
+else gun_ammos[gi].chamber_ready=gun_ammos[gi].mag_loaded>0;
+}
+void manual_toggle_action(string wname)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon has no manually operated loading action.");return;}gun_ammo@ g=gun_ammos[gi];
+if(g.reloading){speak("Finish the current operation first.");return;}
+g.action_open=!g.action_open;
+if(g.action_open){g.chamber_ready=false;p.play_stationary(wname+"reload_open.ogg",false);speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" opened. "+g.mag_loaded+" rounds remain.");}
+else{p.play_stationary(wname+"reload_close.ogg",false);if(get_weapon_class(wname)=="revolver")g.chamber_ready=g.mag_loaded>0;speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" closed."+(get_weapon_class(wname)=="shotgun" and g.mag_loaded>0?" Cycle the action to chamber a round.":""));}
+}
+void manual_insert_round(string wname)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon is not manually fed.");return;}gun_ammo@ g=gun_ammos[gi];
+if(!g.action_open){speak("Open the "+(get_weapon_class(wname)=="revolver"?"cylinder":"loading action")+" before inserting a round.");return;}
+if(g.mag_loaded>=g.mag_capacity){speak(g.feed_device+" is full.");return;}
+string selected=selected_ammunition_for_weapon(wname);if(g.mag_loaded>0 and g.loaded_ammunition!=selected){speak("The weapon already contains "+ammunition_display_name(g.loaded_ammunition)+". Empty it before inserting "+ammunition_display_name(selected)+".");return;}
+string reserve=ammunition_reserve_item(wname,selected);if(get_item_count(reserve)<=0){speak("No "+ammunition_display_name(selected)+" remains in reserve.");return;}
+give(reserve,-1);g.mag_loaded++;g.loaded_ammunition=selected;p.play_stationary(wname+"reload_insert.ogg",false);speak("Inserted "+ammunition_display_name(selected)+". "+g.mag_loaded+" of "+g.mag_capacity+" loaded.");
+}
+void manual_cycle_weapon(string wname)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon has no manual action to cycle.");return;}gun_ammo@ g=gun_ammos[gi];
+if(get_weapon_class(wname)=="revolver"){speak("The revolver advances its cylinder with the trigger; close the cylinder to make it ready.");return;}
+if(g.action_open){speak("Close the action before cycling it.");return;}if(g.mag_loaded<=0){speak("The weapon is empty. Open it and insert a shell first.");return;}
+g.chamber_ready=true;p.play_stationary(wname+"reload_cycle.ogg",false);speak("Action cycled. Round chambered.");
+}
+void manual_eject_ammunition(string wname)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon is not manually fed.");return;}gun_ammo@ g=gun_ammos[gi];
+if(!g.action_open){speak("Open the "+(get_weapon_class(wname)=="revolver"?"cylinder":"action")+" before ejecting ammunition.");return;}if(g.mag_loaded<=0){speak("The weapon is already empty.");return;}
+string reserve=ammunition_reserve_item(wname,g.loaded_ammunition);give(reserve,g.mag_loaded);int returned=g.mag_loaded;g.mag_loaded=0;g.chamber_ready=false;p.play_stationary(wname+"unload.ogg",false);speak("Ejected "+returned+" rounds of "+ammunition_display_name(g.loaded_ammunition)+" into reserve.");
+}
 // Returns true if the item is a spare-ammo reserve for any registered weapon
 // (magazine, belt, box, drum, energy cell, fuel canister, etc.). This is the
 // authoritative source for ammo categorization so that reserve items with
@@ -840,15 +1045,53 @@ if (i<0) return false;
 return gun_ammos[i].reloading;
 }
 
+void begin_reload_audio(gun_ammo@ g, int rounds)
+{
+g.reload_audio_manual=(!g.is_magazine and g.ammo_display=="rounds");
+g.reload_audio_rounds=rounds;
+g.reload_audio_inserted=0;
+g.reload_cycle_pending=false;
+if(g.reload_audio_manual)
+p.play_stationary(g.weapon_name+"reload_open.ogg", false);
+else
+p.play_stationary(g.weapon_name+"reload.ogg", false);
+}
+
 // Called every frame from mainloop(): complete any in-progress reloads.
 void reload_loop_all()
 {
 for (uint i=0; i<gun_ammos.length(); i++)
 {
+if(gun_ammos[i].reload_cycle_pending and gun_ammos[i].reload_cycle_timer.elapsed>=150)
+{
+p.play_stationary(gun_ammos[i].weapon_name+"reload_cycle.ogg", false);
+gun_ammos[i].reload_cycle_pending=false;
+gun_ammos[i].action_open=false;
+}
 if (!gun_ammos[i].reloading) continue;
+if(gun_ammos[i].reload_audio_manual and gun_ammos[i].reload_audio_rounds>0)
+{
+int insert_window=(gun_ammos[i].reload_ms_current*85)/100;
+if(insert_window<1) insert_window=1;
+int desired=(gun_ammos[i].reload_timer.elapsed*gun_ammos[i].reload_audio_rounds)/insert_window;
+if(desired>gun_ammos[i].reload_audio_rounds) desired=gun_ammos[i].reload_audio_rounds;
+if(desired>gun_ammos[i].reload_audio_inserted)
+{
+gun_ammos[i].reload_audio_inserted++;
+p.play_stationary(gun_ammos[i].weapon_name+"reload_insert.ogg", false);
+}
+}
 if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms_current)
 {
 gun_ammo@ g=gun_ammos[i];
+if(g.reload_audio_manual)
+{
+p.play_stationary(g.weapon_name+"reload_close.ogg", false);
+g.reload_cycle_pending=true;
+g.reload_cycle_timer.restart();
+g.reload_audio_manual=false;
+}
+else p.play_stationary(g.weapon_name+"reloadend.ogg", false);
 if (g.ammo_display=="fuel")
 {
 // Fuel weapons siphon fuel from the canister pool up to a target level
@@ -863,6 +1106,7 @@ if (fneed<=0) { speak("Already at that fuel level."); continue; }
 int drawn = draw_fuel(g.reserve_item, fneed);
 if (drawn<=0) { speak("No fuel remaining in your "+g.reserve_label+"s."); continue; }
 g.mag_loaded += drawn;
+g.loaded_ammunition="standard_ammunition";
 int ffull = get_item_count(g.reserve_item);
 int fpart = count_partials_for(g.reserve_item);
 string fres = ffull+" full";
@@ -881,8 +1125,9 @@ g.reload_from_partial=-1;
 speak("Partial "+g.reserve_label+" no longer available.");
 continue;
 }
-g.mag_loaded=partial_items[g.reload_from_partial].remaining;
-remove_partial(g.reload_from_partial);
+int partial_rounds=partial_items[g.reload_from_partial].remaining;int partial_max=partial_items[g.reload_from_partial].max_capacity;string partial_ammunition=partial_items[g.reload_from_partial].ammunition;
+g.mag_loaded=partial_rounds;if(g.mag_loaded>g.mag_capacity)g.mag_loaded=g.mag_capacity;g.loaded_ammunition=partial_ammunition;
+remove_partial(g.reload_from_partial);if(partial_rounds>g.mag_loaded)add_partial(g.reserve_item,partial_rounds-g.mag_loaded,partial_max,partial_ammunition);
 g.reloading=false;
 g.reload_from_partial=-1;
 if (g.ammo_display=="charge")
@@ -890,12 +1135,12 @@ speak("Reloaded. "+get_ammo_percentage(g.mag_loaded, g.mag_capacity)+"% charge."
 else if (g.ammo_display=="fuel")
 speak("Reloaded. "+get_ammo_percentage(g.mag_loaded, g.mag_capacity)+"% fuel.");
 else
-speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+".");
+speak("Reloaded. "+g.mag_loaded+" of "+g.mag_capacity+" rounds, "+ammunition_display_name(g.loaded_ammunition)+".");
 }
 else
 {
 // Loading from a full item.
-int have=get_item_count(g.reserve_item);
+string selected_load=selected_ammunition_for_weapon(g.weapon_name),selected_reserve=ammunition_reserve_item(g.weapon_name,selected_load);int have=get_item_count(selected_reserve);
 if (have<=0)
 {
 g.reloading=false;
@@ -903,16 +1148,16 @@ g.reload_from_partial=-1;
 speak("No spare "+g.reserve_label+" remaining.");
 continue;
 }
-give(g.reserve_item, -1);
-g.mag_loaded=g.mag_capacity;
+if(selected_load=="standard_ammunition"){int units_needed=int(ceil(double(g.mag_capacity)/double(g.base_mag_capacity)));if(units_needed>have)units_needed=have;give(selected_reserve,-units_needed);int available_rounds=units_needed*g.base_mag_capacity;g.mag_loaded=available_rounds;if(g.mag_loaded>g.mag_capacity)g.mag_loaded=g.mag_capacity;int leftover=available_rounds-g.mag_loaded;if(leftover>0)add_partial(g.reserve_item,leftover,g.base_mag_capacity,selected_load);}else{g.mag_loaded=have;if(g.mag_loaded>g.mag_capacity)g.mag_loaded=g.mag_capacity;give(selected_reserve,-g.mag_loaded);}
+g.loaded_ammunition=selected_load;
 g.reloading=false;
 g.reload_from_partial=-1;
 if (g.ammo_display=="charge")
-speak("Reloaded. 100% charge. "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+speak("Reloaded. "+get_ammo_percentage(g.mag_loaded,g.mag_capacity)+"% charge with "+ammunition_display_name(g.loaded_ammunition)+". "+get_item_count(selected_reserve)+" selected reserve remaining.");
 else if (g.ammo_display=="fuel")
 speak("Reloaded. 100% fuel. "+get_item_count(g.reserve_item)+" spare fuel canisters.");
 else
-speak("Reloaded. "+g.mag_loaded+" rounds in "+g.feed_device+". "+get_item_count(g.reserve_item)+" spare "+g.reserve_label+"s.");
+speak("Reloaded. "+g.mag_loaded+" of "+g.mag_capacity+" rounds, "+ammunition_display_name(g.loaded_ammunition)+". "+get_item_count(selected_reserve)+" selected reserve remaining.");
 }
 }
 else
@@ -920,7 +1165,7 @@ else
 // Individual reload: pull rounds from belt / box. A requested round count
 // (from using the ammo item directly) loads only that many; otherwise the
 // weapon is topped off.
-int have=get_item_count(g.reserve_item);
+string selected_load=selected_ammunition_for_weapon(g.weapon_name),selected_reserve=ammunition_reserve_item(g.weapon_name,selected_load);int have=get_item_count(selected_reserve);
 if (have<=0)
 {
 g.reloading=false;
@@ -932,11 +1177,12 @@ int need=g.mag_capacity-g.mag_loaded;
 int to_load=need;
 if (g.reload_round_count>=0 and g.reload_round_count<to_load) to_load=g.reload_round_count;
 if (to_load>have) to_load=have;
-give(g.reserve_item, -to_load);
+give(selected_reserve, -to_load);
 g.mag_loaded+=to_load;
+g.loaded_ammunition=selected_ammunition_for_weapon(g.weapon_name);
 g.reloading=false;
 g.reload_round_count=-1;
-speak("Loaded "+to_load+" round"+(to_load==1?"":"s")+". "+g.mag_loaded+" in "+g.feed_device+". "+get_item_count(g.reserve_item)+" left in "+g.reserve_label+".");
+speak("Loaded "+to_load+" round"+(to_load==1?"":"s")+" of "+ammunition_display_name(g.loaded_ammunition)+". "+g.mag_loaded+" of "+g.mag_capacity+" loaded. "+get_item_count(selected_reserve)+" compatible rounds remain.");
 }
 }
 }
@@ -959,11 +1205,12 @@ int i=find_gun(wname);
 if (i<0) { speak("This weapon does not use ammunition."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Reloading."); return; }
-int reserve=get_item_count(g.reserve_item);
+string selected_load=selected_ammunition_for_weapon(wname),selected_reserve=ammunition_reserve_item(wname,selected_load);int reserve=get_item_count(selected_reserve);
 int partials=count_partials_for(g.reserve_item);
-string mode_str = "";
+string mode_str = " Selected for next reload: "+ammunition_display_name(selected_load)+", "+reserve+" available.";
+if(g.manual_action)mode_str+=" Action "+(g.action_open?"open":"closed")+"; "+(g.chamber_ready?"ready to fire":"chamber not ready")+".";
 if (has_fire_modes(wname))
-mode_str = " Fire mode: " + fire_mode_name(get_fire_mode(wname)) + ".";
+mode_str += " Fire mode: " + fire_mode_name(get_fire_mode(wname)) + ".";
 if (g.ammo_display=="charge")
 {
 int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
@@ -982,10 +1229,10 @@ else if (g.is_magazine)
 {
 string reserve_str=reserve+" spare "+g.reserve_label+"s";
 if (partials>0) reserve_str+=", "+partials+" partial";
-speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve_str+"."+mode_str);
+speak(g.mag_loaded+" of "+g.mag_capacity+" rounds of "+g.ammo_type+", "+ammunition_display_name(g.loaded_ammunition)+", loaded. "+reserve_str+"."+mode_str);
 }
 else
-speak(g.mag_loaded+" rounds of "+g.ammo_type+" loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+"."+mode_str);
+speak(g.mag_loaded+" of "+g.mag_capacity+" rounds of "+g.ammo_type+", "+ammunition_display_name(g.loaded_ammunition)+", loaded in "+g.feed_device+". "+reserve+" rounds in "+g.reserve_label+"."+mode_str);
 }
 
 // Check whether a reload menu is needed (partial items available for magazine weapons).
@@ -998,7 +1245,7 @@ if (!g.is_magazine) return false;
 if (g.ammo_display=="fuel") return false; // fuel siphons from the pool, no swap menu
 if (g.reloading) return false;
 if (g.mag_loaded==g.mag_capacity) return false;
-int reserve=get_item_count(g.reserve_item);
+string selected_ammo=selected_ammunition_for_weapon(wname);string selected_reserve=ammunition_reserve_item(wname,selected_ammo);int reserve=get_item_count(selected_reserve);
 int partials=count_partials_for(g.reserve_item);
 if (reserve<=0 and partials<=0) return false;
 if (partials<=0) return false;
@@ -1014,7 +1261,7 @@ int per = g.reload_ms / g.mag_capacity;
 if (per<1) per=1;
 int t = per*amount;
 if (t>g.reload_ms) t=g.reload_ms;
-if (t<1) t=1;
+if (t<1) t=1;t=int(double(t)*attachment_reload_time_mult(g.weapon_name));if(t<1)t=1;
 return t;
 }
 
@@ -1024,6 +1271,7 @@ bool start_reload(string wname)
 int i=find_gun(wname);
 if (i<0) return false;
 gun_ammo@ g=gun_ammos[i];
+if(g.manual_action){speak("This weapon is manually fed. Use "+kb_binding_label("manual_action")+" to open it, "+kb_binding_label("manual_insert")+" once per round, then close it"+(get_weapon_class(wname)=="shotgun"?" and use "+kb_binding_label("manual_cycle")+" to chamber the first round.":"."));return false;}
 if (g.reloading) { speak("Already reloading."); return false; }
 g.reload_from_partial=-1;
 g.reload_round_count=-1;
@@ -1037,16 +1285,23 @@ g.reload_fuel_target=g.mag_capacity;
 g.reload_ms_current=reload_ms_for_amount(g, g.mag_capacity-g.mag_loaded);
 g.reloading=true;
 g.reload_timer.restart();
+begin_reload_audio(g, g.mag_capacity-g.mag_loaded);
 speak("Refueling.");
 return true;
 }
-int reserve=get_item_count(g.reserve_item);
+string selected_ammo=selected_ammunition_for_weapon(wname);string selected_reserve=ammunition_reserve_item(wname,selected_ammo);int reserve=get_item_count(selected_reserve);
 int partials=count_partials_for(g.reserve_item);
 if (reserve<=0 and partials<=0) { speak("No spare "+g.reserve_label+" remaining."); return false; }
-if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
-g.reload_ms_current=g.reload_ms;
+if(g.loaded_ammunition!=selected_ammo and reserve<=0){speak("No "+ammunition_display_name(selected_ammo)+" reserve is available, so the loaded "+ammunition_display_name(g.loaded_ammunition)+" was left in place.");return false;}
+if (g.mag_loaded==g.mag_capacity and g.loaded_ammunition==selected_ammo) { speak("Already fully loaded with "+ammunition_display_name(g.loaded_ammunition)+"."); return false; }
+if(!g.is_magazine and g.mag_loaded>0 and g.loaded_ammunition!=selected_ammo){speak("Unload the existing "+ammunition_display_name(g.loaded_ammunition)+" before loading "+ammunition_display_name(selected_ammo)+". Different ammunition cannot be mixed.");return false;}
+if(g.is_magazine and g.mag_loaded>0){add_partial(g.reserve_item,g.mag_loaded,g.mag_capacity,g.loaded_ammunition);g.mag_loaded=0;}
+g.reload_ms_current=int(double(g.reload_ms)*attachment_reload_time_mult(wname));
 g.reloading=true;
 g.reload_timer.restart();
+int reload_audio_count=g.mag_capacity-g.mag_loaded;
+if(!g.is_magazine and reserve<reload_audio_count) reload_audio_count=reserve;
+begin_reload_audio(g, reload_audio_count);
 if (g.is_magazine)
 {
 if (g.ammo_display=="charge")
@@ -1066,11 +1321,14 @@ bool start_reload_rounds(string wname, int count)
 int i=find_gun(wname);
 if (i<0) return false;
 gun_ammo@ g=gun_ammos[i];
+if(g.manual_action){speak("This weapon must be loaded one round at a time. Open it with "+kb_binding_label("manual_action")+" and use "+kb_binding_label("manual_insert")+" for each round.");return false;}
 if (g.is_magazine) return false;
 if (g.reloading) { speak("Already reloading."); return false; }
 int need=g.mag_capacity-g.mag_loaded;
 if (need<=0) { speak(g.feed_device+" is already full."); return false; }
-int have=get_item_count(g.reserve_item);
+string selected_ammo=selected_ammunition_for_weapon(wname);
+if(g.mag_loaded>0 and g.loaded_ammunition!=selected_ammo){speak("Unload the existing "+ammunition_display_name(g.loaded_ammunition)+" before loading "+ammunition_display_name(selected_ammo)+". Different ammunition cannot be mixed in the same weapon.");return false;}
+string selected_reserve=ammunition_reserve_item(wname,selected_ammo);int have=get_item_count(selected_reserve);
 if (have<=0) { speak("No spare "+g.reserve_label+" remaining."); return false; }
 if (count>need) count=need;
 if (count>have) count=have;
@@ -1081,6 +1339,7 @@ g.reload_round_count=count;
 g.reload_ms_current=reload_ms_for_amount(g, count);
 g.reloading=true;
 g.reload_timer.restart();
+begin_reload_audio(g, count);
 speak("Loading "+count+" round"+(count==1?"":"s")+".");
 return true;
 }
@@ -1105,6 +1364,7 @@ g.reload_fuel_target=target;
 g.reload_ms_current=reload_ms_for_amount(g, target-g.mag_loaded);
 g.reloading=true;
 g.reload_timer.restart();
+begin_reload_audio(g, target-g.mag_loaded);
 speak("Refueling to "+target_pct+"%.");
 return true;
 }
@@ -1117,12 +1377,14 @@ if (i<0) return false;
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Already reloading."); return false; }
 if (g.mag_loaded==g.mag_capacity) { speak("Already fully loaded."); return false; }
+if(g.mag_loaded>0){add_partial(g.reserve_item,g.mag_loaded,g.mag_capacity,g.loaded_ammunition);g.mag_loaded=0;}
 g.reload_from_partial=partial_index;
 g.reload_round_count=-1;
 g.reload_fuel_target=-1;
-g.reload_ms_current=g.reload_ms;
+g.reload_ms_current=int(double(g.reload_ms)*attachment_reload_time_mult(wname));
 g.reloading=true;
 g.reload_timer.restart();
+begin_reload_audio(g, g.mag_capacity-g.mag_loaded);
 if (g.ammo_display=="charge")
 speak("Swapping "+g.reserve_label+".");
 else
@@ -1138,6 +1400,7 @@ if (i<0) { speak("Nothing to unload."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Cannot unload while reloading."); return; }
 if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
+p.play_stationary(wname+"unload.ogg", false);
 if (g.ammo_display=="fuel")
 {
 // Siphon the tank's fuel back into the canister pool.
@@ -1152,6 +1415,17 @@ int fpart=count_partials_for(g.reserve_item);
 speak("Fuel tank emptied. "+ffull+" full, "+fpart+" partial "+g.reserve_label+"s.");
 return;
 }
+// Feed attachments can hold more than one base magazine. Return every round,
+// splitting it into standard-size full/partial reserves while preserving the
+// actual ammunition type for specialty loads.
+if(g.is_magazine)
+{
+int pct=get_ammo_percentage(g.mag_loaded,g.mag_capacity),rounds_to_return=g.mag_loaded;
+while(rounds_to_return>=g.base_mag_capacity){if(g.loaded_ammunition=="standard_ammunition")give(g.reserve_item,1);else add_partial(g.reserve_item,g.base_mag_capacity,g.base_mag_capacity,g.loaded_ammunition);rounds_to_return-=g.base_mag_capacity;}
+if(rounds_to_return>0)add_partial(g.reserve_item,rounds_to_return,g.base_mag_capacity,g.loaded_ammunition);
+g.mag_loaded=0;int full_count=get_item_count(g.reserve_item),partial_count=count_partials_for(g.reserve_item);
+speak(g.feed_device+" removed ("+pct+" percent full). "+full_count+" full and "+partial_count+" typed or partial "+g.reserve_label+"s in reserve.");return;
+}
 if (g.is_magazine)
 {
 if (g.mag_loaded==g.mag_capacity)
@@ -1165,7 +1439,7 @@ else
 {
 // Partially loaded — create a partial ammo item.
 int pct=get_ammo_percentage(g.mag_loaded, g.mag_capacity);
-add_partial(g.reserve_item, g.mag_loaded, g.mag_capacity);
+add_partial(g.reserve_item, g.mag_loaded, g.mag_capacity,g.loaded_ammunition);
 g.mag_loaded=0;
 int full_count=get_item_count(g.reserve_item);
 int partial_count=count_partials_for(g.reserve_item);
@@ -1179,9 +1453,9 @@ speak("Partial "+g.reserve_label+" removed ("+pct+"%). "+full_count+" full, "+pa
 }
 else
 {
-give(g.reserve_item, g.mag_loaded);
+string return_reserve=ammunition_reserve_item(wname,g.loaded_ammunition);give(return_reserve, g.mag_loaded);
 g.mag_loaded=0;
-speak(g.feed_device+" emptied. "+get_item_count(g.reserve_item)+" rounds in "+g.reserve_label+".");
+speak(g.feed_device+" emptied. "+get_item_count(return_reserve)+" rounds of "+ammunition_display_name(g.loaded_ammunition)+" in reserve.");
 }
 }
 
@@ -1191,15 +1465,26 @@ void reset_ammo()
 dictionary seen;
 for (uint i=0; i<gun_ammos.length(); i++)
 {
+synchronize_weapon_feed(gun_ammos[i].weapon_name);
 gun_ammos[i].reloading=false;
 gun_ammos[i].reload_from_partial=-1;
 gun_ammos[i].reload_round_count=-1;
 gun_ammos[i].reload_fuel_target=-1;
 gun_ammos[i].reload_ms_current=gun_ammos[i].reload_ms;
+gun_ammos[i].reload_audio_manual=false;
+gun_ammos[i].reload_audio_rounds=0;
+gun_ammos[i].reload_audio_inserted=0;
+gun_ammos[i].reload_cycle_pending=false;
+gun_ammos[i].action_open=false;
+gun_ammos[i].chamber_ready=gun_ammos[i].mag_loaded>0;
 // Only load and resupply weapons the player actually owns.
 if (get_item_count(gun_ammos[i].weapon_name)>0)
 {
 gun_ammos[i].mag_loaded=gun_ammos[i].mag_capacity;
+// Spawn/reset refills use the weapon's ordinary issued load; specialty reserves
+// remain real inventory and are never created merely because they were selected.
+gun_ammos[i].loaded_ammunition="standard_ammunition";
+gun_ammos[i].chamber_ready=true;
 if (!seen.exists(gun_ammos[i].reserve_item))
 {
 seen.set(gun_ammos[i].reserve_item, true);
@@ -1212,8 +1497,8 @@ if (diff>0) give(gun_ammos[i].reserve_item, diff);
 }
 }
 
-// Give a random starting loadout: 1 melee, 1 sidearm, 1 primary, plus ammo
-// and a few utility items.  Auto-assigns quickbar slots 1-5.
+string starting_loadout_weapon="";
+// Give a random starting loadout: 1 melee, 1 sidearm, 1 primary, plus ammo.
 void give_starting_loadout()
 {
 string[] melee_pool = {"machete", "combatknife", "katana", "baseball_bat", "chainsaw"};
@@ -1223,6 +1508,7 @@ string[] primary_pool = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_ass
 string chosen_melee   = melee_pool[random(0, melee_pool.length()-1)];
 string chosen_sidearm = sidearm_pool[random(0, sidearm_pool.length()-1)];
 string chosen_primary = primary_pool[random(0, primary_pool.length()-1)];
+starting_loadout_weapon=chosen_melee;
 
 // Give weapons as inventory items.
 give(chosen_melee, 1);
@@ -1237,18 +1523,24 @@ reset_ammo();
 give("health_potion", 2);
 give("frag_grenade", 3);
 
-// Auto-assign quickbar.
+// Auto-assigning is optional; disabling it leaves a genuinely blank quickbar.
+for (int i=0; i<10; i++) quickbar[i] = "";
+if (auto_bind_starting_loadout)
+{
 quickbar[0] = chosen_melee;
 quickbar[1] = chosen_sidearm;
 quickbar[2] = chosen_primary;
 quickbar[3] = "health_potion";
 quickbar[4] = "frag_grenade";
 for (int i=5; i<10; i++) quickbar[i] = "";
+}
 
 // Reset stamina and effects on spawn.
 reset_stamina();
 clear_all_effects();
 equip_body = "";
+equipped_armor_head="";equipped_armor_torso="";equipped_armor_arms="";equipped_armor_legs="";
+equipped_armor_head_durability=0;equipped_armor_torso_durability=0;equipped_armor_arms_durability=0;equipped_armor_legs_durability=0;equipped_armor_weight=0;
 equip_bracelet = "";
 equip_medical = "";
 wirenet_charges = 0;
@@ -1267,69 +1559,16 @@ holster2_belt_ammo=0;
 // Developer cheat: give every weapon, all ammo, and all items.
 void give_all()
 {
-string[] all_weps = {
-"machete", "combatknife", "katana", "baseball_bat",
-"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle",
-"p90_mp", "mp5", "uzi", "mp7",
-"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine",
-"scar_h_battle_rifle", "fn_fal_battle_rifle",
-"rpk_lmg", "m249_saw",
-"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun",
-"m1garantBattleRifle", "sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd",
-"120mm_mortar",
-"crossbow",
-"hayvork", "trector_plow",
-"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon",
-"flamethrower", "chainsaw"
-};
-for (uint i=0; i<all_weps.length(); i++)
+// Rebuild from the live registries so newly loaded weapons, reserves,
+// attachments, holsters, armour, and runtime-discovered items cannot be left
+// out by a stale startup snapshot.
+refresh_content_database();
+for(uint i=0;i<content_database.length();i++)
 {
-if (get_item_count(all_weps[i])<=0) give(all_weps[i], 1);
+if(content_database[i].category=="Vehicles")continue;
+int wanted=content_database[i].give_amount; int have=get_item_count(content_database[i].id);
+if(have<wanted) give(content_database[i].id,wanted-have);
 }
-
-// Reset ammo gives reserves for every weapon now in inventory.
-partial_items.resize(0);
-reset_ammo();
-
-// Every usable item.
-give("health_potion", 5);
-give("ultra_health_potion", 3);
-give("frag_grenade", 10);
-give("semtex", 5);
-give("torpedo", 5);
-give("smoke_bomb", 5);
-give("bomb_vest", 2);
-give("invisibility", 2);
-give("bucket", 2);
-give("life_injection", 3);
-give("duo_plane", 1);
-give("water_tank", 1);
-give("bag", 2);
-give("box", 2);
-give("rock", 10);
-give("energetic_potion_red", 5);
-give("energetic_potion_blue", 3);
-give("energetic_potion_green", 2);
-give("energetic_potion_rainbow", 1);
-give("translocator", 1);
-give("translocator_cell", 10);
-give("adrenaline_syringe", 3);
-give("nanomatic_multitool", 3);
-give("nanomatic_components", 10);
-give("waypoint_marker", 5);
-give("biomonitor_bracelet", 1);
-give("wirenet", 1);
-give("c4", 5);
-give("bunker_key", 3);
-give("bunker_bomb", 2);
-
-for(uint i=0; i<holster_defs.length(); i++)
-{
-if(get_item_count(holster_defs[i].id)<=0) give(holster_defs[i].id, 1);
-}
-for(uint i=0; i<attachment_defs.length(); i++)
-{
-if(get_item_count(attachment_defs[i].id)<=0) give(attachment_defs[i].id, 1);
-}
+partial_items.resize(0); reset_ammo();
 speak("All weapons, ammunition, and items given.");
 }

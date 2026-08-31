@@ -1,0 +1,70 @@
+string release_build_log;
+void release_status(nv_form@ form,nv_form_input@ status,nv_form_progress_bar@ progress,string step,double percent,string detail)
+{
+string line=step+": "+round(percent,0)+" percent. "+detail;release_build_log+=line+"\n";status.text=release_build_log;status.cursor=status.text.length();progress.caption=step;progress.value=percent;form.monitor();speak(line);
+}
+int release_count_files(string path)
+{
+int count=find_files(path+"/*").length();string[] dirs=find_directories(path+"/*");for(uint i=0;i<dirs.length();i++)count+=release_count_files(path+"/"+dirs[i]);return count;
+}
+bool release_delete_tree(string path)
+{
+if(!directory_exists(path))return true;string[] files=find_files(path+"/*");for(uint i=0;i<files.length();i++)if(!file_delete(path+"/"+files[i]))return false;string[] dirs=find_directories(path+"/*");for(uint i=0;i<dirs.length();i++)if(!release_delete_tree(path+"/"+dirs[i]))return false;return directory_delete(path);
+}
+bool release_copy_tree(string source,string destination,nv_form@ form,nv_form_input@ status,nv_form_progress_bar@ progress,int total,int &inout completed)
+{
+if(!directory_create(destination))return false;string[] files=find_files(source+"/*");for(uint i=0;i<files.length();i++){string src=source+"/"+files[i],dst=destination+"/"+files[i];if(!file_copy(src,dst,true))return false;completed++;release_status(form,status,progress,"Copying libraries",total>0?double(completed)*100.0/double(total):100,"Copied "+src+" to "+dst+".");}
+string[] dirs=find_directories(source+"/*");for(uint i=0;i<dirs.length();i++)if(!release_copy_tree(source+"/"+dirs[i],destination+"/"+dirs[i],form,status,progress,total,completed))return false;return true;
+}
+bool source_build_sound_pack()
+{
+if(SCRIPT_COMPILED or !directory_exists(SCRIPT_MAIN_PATH+"/sounds") or !file_exists(SCRIPT_MAIN_PATH+"/pack_creator.nvgt"))return false;
+return run(SCRIPT_EXECUTABLE,"\""+SCRIPT_MAIN_PATH+"/pack_creator.nvgt\" -- /s",true,false) and file_exists(SCRIPT_MAIN_PATH+"/sounds.dat");
+}
+string release_nvgt_root()
+{
+string executable=string_replace(SCRIPT_EXECUTABLE,"\\","/",true);string[] parts=string_split(executable,"/",false);if(parts.length()<2)return "";parts.remove_last();return join(parts,"/");
+}
+void release_stage_current_plugins(string release,nv_form@ form,nv_form_input@ status,nv_form_progress_bar@ progress)
+{
+// The executable declares nvgt_curl explicitly. Always take that plugin from
+// the compiler which produced this build, never from a potentially stale game
+// lib folder left by an older NVGT release.
+string compiler_plugin=release_nvgt_root()+"/lib/nvgt_curl.dll";string staged_plugin=release+"/lib/nvgt_curl.dll";
+release_status(form,status,progress,"Validating runtime plugins",0,"Locating the NVGT 0.90 curl plugin used by this compiler.");
+if(!file_exists(compiler_plugin))throw("The active NVGT installation does not provide lib/nvgt_curl.dll at "+compiler_plugin);
+if(!file_copy(compiler_plugin,staged_plugin,true))throw("Could not stage the current nvgt_curl plugin");
+release_status(form,status,progress,"Validating runtime plugins",100,"Replaced the staged curl plugin with "+compiler_plugin+".");
+}
+void compress_release_build()
+{
+if(SCRIPT_COMPILED){speak("Release compression is available only while running the NVGT source.");return;}
+string root=SCRIPT_MAIN_PATH,client=root+"/Infinite Warfare.exe",archive=root+"/release.zip",release=root+"/release";
+if(file_exists(client) and question("Replace existing executable?","Infinite Warfare.exe already exists. Do you want to replace it with a newly compiled release build?")!=1){speak("Release build cancelled without replacing the executable.");return;}
+if(!file_exists(root+"/sounds.dat")){if(!directory_exists(root+"/sounds")){dlg("Release failed: sounds.dat and the sounds source folder are both missing.");return;}if(question("Build missing sound archive?","sounds.dat is missing. Do you want to run pack_creator.nvgt now?")!=1){speak("Release build cancelled because sounds.dat is required.");return;}}
+nv_form f;f.create_window("Compress Release Build",false,true);nv_form_input@ status=f.add_input("Detailed build activity","release_activity","","",0,true,true);nv_form_progress_bar@ progress=f.add_progress_bar("Preparing","release_progress",0,100,0);nv_form_button@ close=f.add_button("Close","close",true,true);close.enabled=false;f.focus_control(progress);release_build_log="";timer elapsed;
+bool success=false;string failure="";
+try
+{
+if(!file_exists(root+"/sounds.dat")){release_status(f,status,progress,"Building sound archive",0,"Running pack_creator.nvgt and verifying its output.");if(!source_build_sound_pack())throw("pack_creator.nvgt failed or did not produce sounds.dat");release_status(f,status,progress,"Building sound archive",100,"sounds.dat created and verified by the pack creator.");}
+release_status(f,status,progress,"Compiling client",0,"Running NVGT 0.90 release compilation for Infinite Warfare.nvgt.");
+if(!run(SCRIPT_EXECUTABLE,"-c \""+root+"/Infinite Warfare.nvgt\"",true,false) or !file_exists(client))throw("NVGT could not compile Infinite Warfare.exe");
+release_status(f,status,progress,"Compiling client",100,"Release executable created at "+client+".");
+if(directory_exists(release) and !release_delete_tree(release))throw("Could not remove the previous release folder");if(!directory_create(release))throw("Could not create a clean release folder");
+string[] sources={client,root+"/sounds.dat",root+"/changes.txt",root+"/readme.html"};string[] names={"Infinite Warfare.exe","sounds.dat","changes.txt","readme.html"};
+for(uint i=0;i<sources.length();i++){release_status(f,status,progress,"Copying core release files",double(i)*100.0/double(sources.length()),"Copying "+sources[i]+".");if(!file_exists(sources[i]) or !file_copy(sources[i],release+"/"+names[i],true))throw("Could not copy required file "+sources[i]);}
+release_status(f,status,progress,"Copying core release files",100,"Executable, sound archive, changelog and readme copied.");
+if(!directory_exists(root+"/lib"))throw("The lib folder is missing");int total=release_count_files(root+"/lib"),completed=0;if(!release_copy_tree(root+"/lib",release+"/lib",f,status,progress,total,completed))throw("Could not copy the complete lib folder");
+release_stage_current_plugins(release,f,status,progress);
+release_status(f,status,progress,"Compressing release",0,"Creating "+archive+" from the completed release folder.");if(file_exists(archive))file_delete(archive);
+string psargs="-NoProfile -NonInteractive -Command \"Compress-Archive -Path '"+release+"/*' -DestinationPath '"+archive+"' -Force\"";
+// NVGT's run return value is not a reliable child exit-code result for this
+// PowerShell invocation. The old check reported failure after Compress-Archive
+// had already completed. The fresh archive is the authoritative result.
+run("powershell.exe",psargs,true,true);
+if(!file_exists(archive))throw("PowerShell Compress-Archive did not create release.zip");
+release_status(f,status,progress,"Compressing release",100,"Archive created successfully at "+archive+".");success=true;
+}
+catch{failure=get_exception_info()+" in "+get_exception_function()+" at "+get_exception_file()+":"+get_exception_line();release_build_log+="Failure call stack:\n"+last_exception_call_stack+"\n";status.text=release_build_log;}
+close.enabled=true;string summary=success?"Release build succeeded in "+round(double(elapsed.elapsed)/1000.0,2)+" seconds. Output: "+archive:"Release build failed after "+round(double(elapsed.elapsed)/1000.0,2)+" seconds. "+failure;release_status(f,status,progress,success?"Complete":"Failed",100,summary);speak(summary);while(true){wait(5);f.monitor();if(f.is_pressed(close))break;}
+}

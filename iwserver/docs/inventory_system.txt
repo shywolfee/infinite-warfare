@@ -1,12 +1,9 @@
 Inventory System
 
-Your inventory holds all your weapons, ammo, consumables, and equipment.
+Press I to open the inventory. Up and Down browse the current group, Left and Right change group, Enter selects, Shift+Enter uses the focused entry, and Alt+Enter opens its database documentation.
 
-Cycling items: Press Tab to cycle forward, Shift+Tab to cycle backward.
-Categories: Press J and K to filter by category: All, Weapons, Ammo, Consumables, Equipment.
-Using items: Press Enter on a selected item to use it. Weapons are drawn, consumables are consumed.
-Quickbar: Press Alt plus a number key (1 through 0) to bind the selected item to that quickbar slot. Press the number key alone to activate the slot.
-Quickbar view: Press Shift+I to see all weapons currently in your quickbar.
-Item help: Press Alt+Enter on any item to view its help entry.
+The live groups are All, Weapons, Ammo, Explosives, Healing, Utility, Armour, Attachments, Team and Equipment. Content is classified by the same runtime database used by the armoury and developer grant tools, so newly registered content does not require another hardcoded help list.
 
-When you die, your inventory is dropped as a corpse that other players can loot.
+Tab and Shift+Tab cycle items without opening the form. K and Shift+K cycle categories. Alt plus a number assigns the current entry to that quickbar slot; the number alone activates it.
+
+Partial magazines, cells and other feed devices remain typed inventory objects and report their remaining capacity and ammunition load. On death, carried inventory is transferred to the corpse loot system.

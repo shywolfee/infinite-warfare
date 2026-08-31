@@ -7,21 +7,16 @@ value=value>max? max:value;
 return value;
 }
 
-string pack_audio(float[] data) {
-    datastream ds;
-    ds.binary = true;
-    for (uint i = 0; i < data.length(); i++) {
-        ds.write_float(data[i]);
-    }
-    return ds.str();
-}
-
 float[]@ unpack_audio(string data) {
     datastream ds;
     ds.binary = true;
-    float[] result; // Changed from 'float result;' to 'float[] result;'
-    while (ds.good) {
-        result.insert_last(ds.read_float());
+    float[] result;
+    // Read exactly the floats that pack_audio wrote (4 bytes each); reading
+    // past the end of the stream would append a garbage sample.
+    uint count = data.length() / 4;
+    result.resize(count);
+    for (uint i = 0; i < count; i++) {
+        result[i] = ds.read_float();
     }
     return @result;
 }
@@ -59,30 +54,31 @@ float[]@ ringmod(float[]@ modulator, float[]@ carrier) {
     return @result;
 }
 
+// Note: NVGT 0.90 removed sound.push_memory. stream_pcm is its replacement: it
+// starts playback as soon as the first chunk is pushed and ends naturally once
+// the buffered data drains, so the legacy stream_end flag is accepted for API
+// compatibility but has no effect.
 sound@ push_audio(float[]@ data, uint sr = 44100, uint channels = 1, bool stream_end=false) {
-    const string bytes = pack_audio(data); // Changed from 'unpack_audio(data)' to 'pack_audio(data)'
     sound s;
-    s.load("");
-    s.push_memory(bytes, stream_end, sr, channels);
+    s.stream_pcm(data, sr, channels);
     return @s; 
 }
 
 sound@ push_audio(const string&in bytes, uint sr = 44100, uint channels = 1, bool stream_end=false) {
     sound s;
-    s.load("");
-    s.push_memory(bytes, stream_end, sr, channels);
+    // The string holds floats packed by pack_audio; decode them and stream.
+    s.stream_pcm(unpack_audio(bytes), sr, channels);
     return @s; 
 }
 
 bool push_audio(sound@ s, float[]@ data, uint sr = 44100, uint channels = 1, bool stream_end=false) {
-    const string bytes = pack_audio(data); // Changed from 'unpack_audio(data)' to 'pack_audio(data)'
     if (!s.active) s.load("");
-    return s.push_memory(bytes, stream_end, sr, channels);
+    return s.stream_pcm(data, sr, channels);
 }
 
 bool push_audio(sound@ s, const string&in bytes, uint sr = 44100, uint channels = 1, bool stream_end=false) {
     if (!s.active) s.load("");
-    return s.push_memory(bytes, stream_end, sr, channels);
+    return s.stream_pcm(unpack_audio(bytes), sr, channels);
 }
 
 float[]@ silence(float dur, uint sr=44100){

@@ -1,17 +1,22 @@
-void dlg(string message)
+void show_readonly_audio_form(string title, string message)
 {
-speak(message);
+nv_form f;
+f.create_window(title,false,true);
+nv_form_input@ text=f.add_input(title,"message",message,"",0,true,true);
+nv_form_button@ close=f.add_button("Close","close",true,true);
+f.focus_control(text);
 while(true)
 {
-if (connected) e=n.request();
-if (key_pressed(KEY_LEFT) or key_pressed(KEY_RIGHT) or key_pressed(KEY_UP) or key_pressed(KEY_DOWN))
-{
-speak(message);
-}
-if (key_pressed(KEY_RETURN) or key_pressed(KEY_ESCAPE))
-{
-break;
-}
 wait(5);
+f.monitor();
+if (connected) netloop();
+if (f.is_pressed(close)) return;
 }
+}
+
+// Standard game messages now use a navigable, read-only audio form instead
+// of the former hand-rolled speech/key loop.
+void dlg(string message)
+{
+show_readonly_audio_form("Infinite Warfare",message);
 }

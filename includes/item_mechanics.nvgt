@@ -1,0 +1,66 @@
+// Persistent per-item operating configuration. Inventory quantity remains in
+// the authoritative inventory; this stores how the player intends to use it.
+dictionary item_configurations;
+int item_configuration(string item){int value=1;if(item_configurations.exists(item))item_configurations.get(item,value);return value;}
+void set_item_configuration(string item,int value){if(value<0)value=0;if(value>2)value=2;item_configurations.set(item,value);}
+bool item_is_thrown_explosive(string i){return i=="frag_grenade" or i=="impact_grenade" or i=="flashbang" or i=="concussion_grenade" or i=="incendiary_grenade" or i=="gas_grenade";}
+bool item_is_deployable_explosive(string i){return i=="proximity_mine" or i=="claymore" or i=="time_bomb";}
+bool item_is_medical(string i){return i=="health_potion" or i=="ultra_health_potion" or i=="life_injection" or i=="adrenaline_syringe" or string_contains(i,"energetic_potion",1)>=0;}
+bool item_is_weapon_maintenance(string i){return i=="gun_cleaning_kit" or i=="handgun_cleaning_kit" or i=="rifle_field_tool" or i=="precision_bore_guide" or i=="shotgun_cleaning_rod" or i=="barrel_wrench" or i=="heat_resistant_gloves" or i=="emitter_service_key" or i=="fuel_system_wrench" or i=="drive_service_tool" or i=="field_honing_stone" or i=="weapon_inspection_gauge" or i=="cleaning_patches" or i=="precision_cleaning_patches" or i=="bore_solvent" or i=="copper_fouling_solvent" or i=="carbon_scraper" or i=="chamber_brush" or i=="shotgun_bore_swab" or i=="action_lubricant" or i=="thermal_vent_cartridge" or i=="dielectric_coolant" or i=="spare_machine_gun_barrel" or i=="burner_nozzle_cleaner" or i=="pressure_seal_kit" or i=="chain_lubricant" or i=="motor_coolant" or i=="blade_oil" or i=="rust_remover" or i=="grip_repair_wrap" or i=="fastener_compound";}
+bool item_has_configuration(string i){return item_is_thrown_explosive(i) or item_is_deployable_explosive(i) or item_is_medical(i) or i=="bag" or i=="box" or i=="fake_item" or i=="smoke_bomb" or i=="rock";}
+string item_configuration_name(string i,int value)
+{
+if(item_is_thrown_explosive(i) or i=="rock")return value==0?"controlled lob":(value==1?"standard throw":"forceful long throw");
+if(item_is_deployable_explosive(i))return value==0?"rapid arming":(value==1?"balanced arming":"concealed arming");
+if(item_is_medical(i))return value==0?"conservative dose":(value==1?"standard dose":"emergency dose");
+if(i=="bag" or i=="box")return value==0?"medical priority":(value==1?"balanced contents":"ammunition priority");
+if(i=="fake_item")return value==0?"quiet decoy":(value==1?"ordinary decoy":"attention decoy");
+if(i=="smoke_bomb")return value==0?"fast screen":(value==1?"balanced screen":"long screen");
+return "standard use";
+}
+void cycle_selected_item_configuration()
+{
+string item=get_selected_item();if(item=="" or is_weapon(item)){speak("Select a configurable inventory item first.");return;}
+if(!item_has_configuration(item)){speak(string_replace(item,"_"," ",true)+" has no alternate operating configuration. Its contextual use is fixed by its physical function.");return;}
+int next=(item_configuration(item)+1)%3;set_item_configuration(item,next);p.play_stationary("ammo_cycle.ogg",false);speak(item_configuration_name(item,next)+" selected for "+string_replace(item,"_"," ",true)+".");
+}
+string item_mechanic_description(string i)
+{
+string detail="";
+if(item_is_thrown_explosive(i))detail="Uses continuous three-dimensional throw physics, bounce, drag, gravity, a payload-specific fuse and distance-scaled effects. Its controlled, standard and forceful throws trade arc height against horizontal velocity.";
+else if(item_is_deployable_explosive(i))detail="Placement retains facing, owner and team safety. Rapid arming activates sooner with a smaller sensor envelope; balanced is general-purpose; concealed arming delays activation but expands detection.";
+else if(i=="c4")detail="Places a persistent owner-tracked remote charge; the controller reports active charges and detonates them as a group.";
+else if(i=="semtex" or i=="semtex_pack" or i=="semtex_controller")detail="Forms part of the adhesive-charge workflow: components are placed, tracked and remotely controlled rather than behaving like an ordinary grenade.";
+else if(i=="torpedo")detail="Uses a dedicated anti-vehicle delivery and damage role rather than a general fragmentation blast.";
+else if(i=="smoke_bomb")detail="Creates a timed concealment screen; configuration trades deployment speed against persistence.";
+else if(i=="bunker_bomb")detail="A restricted demolition payload whose use is tied to bunker structures and access rules.";
+else if(i=="rock")detail="A reusable low-mass thrown distraction with controlled, standard and forceful delivery profiles.";
+else if(i=="bomb_vest")detail="Occupies the body slot, contributes twelve units of equipment weight and mitigates explosive damage while equipped.";
+else if(string_contains(i,"patch",1)>=0 or i=="aramid_repair_tape" or i=="ceramic_plate_epoxy" or i=="armor_rivet_pack")detail="A consumable field patch for a compatible equipped armour construction. It restores only a small amount and cannot raise damaged armour above sixty percent durability; proper replacement remains necessary.";
+else if(string_contains(i,"helmet",1)>=0 or string_contains(i,"armor",1)>=0 or string_contains(i,"armour",1)>=0 or string_contains(i,"plate",1)>=0 or string_contains(i,"sleeves",1)>=0 or string_contains(i,"guards",1)>=0 or string_contains(i,"greaves",1)>=0)detail="Occupies its anatomical armour slot. Only hits to that body region consume its durability and receive protection; mass affects movement and jumping.";
+else if(i=="health_potion" or i=="ultra_health_potion")detail="Combines an immediate server-authoritative heal with timed residual recovery and a reuse interval. Dose configuration trades immediate recovery against consumption strain.";
+else if(i=="life_injection")detail="Requires a downed teammate within four tiles, locks the administration sequence, and restores the selected target with dose-dependent initial health.";
+else if(string_contains(i,"energetic_potion",1)>=0)detail="Restores a colour-specific stamina range; dose configuration controls how aggressively the contents are consumed.";
+else if(i=="adrenaline_syringe")detail="Starts a short emergency movement and stamina state rather than applying ordinary healing.";
+else if(i=="bucket" or i=="empty_bucket" or i=="water_tank")detail="Participates in a physical water-transfer loop: fill an empty bucket while standing in water, carry it, and empty it into a colocated tank over time.";
+else if(i=="bag" or i=="box")detail="A sealed supply container consumed on opening. Medical, balanced and ammunition-priority packing profiles change its authoritative contents.";
+else if(i=="translocator")detail="Consumes stored cell charge to move to a selected valid point of interest through its dedicated interface.";
+else if(i=="translocator_cell")detail="Adds finite charge to the translocator rather than acting as generic ammunition.";
+else if(i=="nanomatic_multitool" or i=="nanomatic_components" or i=="repair_kit")detail="Part of the equipment-maintenance economy: the tool selects damaged compatible equipment and consumes repair material according to missing durability.";
+else if(item_is_weapon_maintenance(i))detail="Part of class-specific weapon maintenance. Durable tools are retained; patches, solvents, lubricants, coolants, seals, replacement barrels and repair materials are consumed by timed servicing. Maintenance immobilizes the player, only partially reduces heat or fouling, and has a per-weapon cooldown.";
+else if(i=="biomonitor_bracelet")detail="Occupies the bracelet slot and supplies a movable quickbar scan ability with a server-validated radius and cooldown.";
+else if(i=="wirenet")detail="Occupies the medical slot and supplies a movable quickbar ability controlling three automatic emergency-heal charges.";
+else if(i=="hypercomp")detail="Opens the portable bunker-monitoring and control interface rather than being consumed directly.";
+else if(i=="binoculars")detail="Provides non-consuming reconnaissance of zones and points of interest.";
+else if(i=="bunker_key")detail="A persistent access credential checked by bunker interactions rather than consumed as a generic item.";
+else if(i=="fake_item")detail="Places a cooldown-limited owner decoy; its profile controls how conspicuous the deployment is.";
+else if(string_contains(i,"team_",1)==0 or i=="duo_plane_kit")detail="Requires team membership and invokes its team-authoritative shared deployment, distribution or reconnaissance function.";
+else if(is_attachment_item(i))detail="Installs only in its declared weapon slot and changes live weapon statistics; occupied-slot replacement follows the saved attachment option.";
+else if(is_holster_item(i))detail="Occupies one of two equipment slots and provides weapon-specific storage, draw and ammunition handling with physical weight.";
+else if(is_ammo_reserve_item(i))detail="Represents a real compatible feed device or loose reserve. Loading preserves ammunition identity, partial contents and weapon capacity.";
+else detail="Uses its registered contextual server action; it is not treated as a generic interchangeable consumable.";
+if(item_has_configuration(i))detail+=" Current configuration: "+item_configuration_name(i,item_configuration(i))+". Use "+kb_binding_label("item_configuration")+" to change it.";
+return detail;
+}
+string item_use_command(string item){return "use "+item+" "+item_configuration(item);}
+double item_dose_multiplier(string item){int mode=item_configuration(item);return mode==0?.72:(mode==2?1.28:1.0);}

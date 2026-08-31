@@ -32,6 +32,46 @@ attachment_def d(id, display_name, prefix, slot, removable, firetime_mult, walkt
 attachment_defs.insert_last(d);
 }
 
+void register_expanded_combat_attachments()
+{
+string[] pistols,rifles,shotguns,all_firearms;
+for(uint i=0;i<wpn_cache.length();i++)
+{
+string c=wpn_cache[i].wclass,id=wpn_cache[i].id;
+if(c=="pistol" or c=="revolver")pistols.insert_last(id);
+if(c=="assault_rifle" or c=="battle_rifle" or c=="sniper_rifle" or c=="submachine_gun" or c=="light_machine_gun")rifles.insert_last(id);
+if(c=="shotgun")shotguns.insert_last(id);
+if(c=="pistol" or c=="revolver" or c=="assault_rifle" or c=="battle_rifle" or c=="sniper_rifle" or c=="submachine_gun" or c=="light_machine_gun" or c=="shotgun")all_firearms.insert_last(id);
+}
+register_attachment("red_dot_sight","Red Dot Sight","red-dot","optic",true,1.0,1.0,all_firearms);
+register_attachment("holographic_sight","Holographic Sight","holographic","optic",true,1.0,1.0,all_firearms);
+register_attachment("two_power_optic","2x Combat Optic","two-power","optic",true,1.0,1.01,all_firearms);
+register_attachment("four_power_optic","4x Rifle Scope","four-power","optic",true,1.0,1.03,rifles);
+register_attachment("eight_power_scope","8x Precision Scope","eight-power","optic",true,1.02,1.06,rifles);
+register_attachment("thermal_scope","Thermal Scope","thermal","optic",true,1.03,1.07,rifles);
+register_attachment("long_barrel","Long Barrel","long-barrelled","barrel",true,1.03,1.05,all_firearms);
+register_attachment("short_barrel","Short Barrel","short-barrelled","barrel",true,.96,.94,all_firearms);
+register_attachment("match_grade_barrel","Match-grade Barrel","match-grade","barrel",true,1.04,1.04,all_firearms);
+register_attachment("heavy_barrel","Heavy Barrel","heavy-barrelled","barrel",true,1.05,1.1,rifles);
+register_attachment("muzzle_brake","Muzzle Brake","braked","muzzle",true,.98,1.0,all_firearms);
+register_attachment("compensator","Compensator","compensated","muzzle",true,.97,1.0,all_firearms);
+register_attachment("flash_hider","Flash Hider","flash-hidden","muzzle",true,1.0,1.0,all_firearms);
+register_attachment("vertical_grip","Vertical Foregrip","vertical-grip","underbarrel",true,.98,1.01,rifles);
+register_attachment("angled_grip","Angled Foregrip","angled-grip","underbarrel",true,.96,1.0,rifles);
+register_attachment("bipod","Bipod","bipod-equipped","underbarrel",true,.96,1.12,rifles);
+register_attachment("laser_aiming_module","Aiming Laser","laser-aimed","side_rail",true,1.0,1.0,all_firearms);
+register_attachment("weapon_light","Weapon Light","illuminated","side_rail",true,1.0,1.01,all_firearms);
+register_attachment("lightweight_stock","Lightweight Stock","light-stocked","stock",true,1.0,.94,rifles);
+register_attachment("precision_stock","Precision Stock","precision-stocked","stock",true,1.02,1.06,rifles);
+register_attachment("recoil_buffer_stock","Recoil-buffer Stock","buffered","stock",true,.96,1.04,rifles);
+register_attachment("extended_magazine","Extended Magazine","extended-mag","magazine",true,1.0,1.06,all_firearms);
+register_attachment("quickdraw_magazine","Quickdraw Magazine","quickdraw-mag","magazine",true,1.0,1.0,all_firearms);
+register_attachment("drum_magazine","Drum Magazine","drum-fed","magazine",true,1.0,1.16,rifles);
+register_attachment("choke_full","Full Choke","full-choke","muzzle",true,1.0,1.0,shotguns);
+register_attachment("choke_improved","Improved Choke","improved-choke","muzzle",true,1.0,1.0,shotguns);
+register_attachment("shell_carrier","Receiver Shell Carrier","shell-carrier","side_rail",true,1.0,1.02,shotguns);
+}
+
 int find_attachment_def(string id)
 {
 for(uint i=0; i<attachment_defs.length(); i++)
@@ -55,6 +95,25 @@ for(uint i=0; i<attachment_defs[idx].compatible_weapons.length(); i++)
 if(attachment_defs[idx].compatible_weapons[i]==weapon_name) return true;
 }
 return false;
+}
+
+string attachment_compatible_class_description(string attachment_id)
+{
+int idx=find_attachment_def(attachment_id);if(idx<0)return "unknown weapons";
+string[] classes;
+for(uint i=0;i<attachment_defs[idx].compatible_weapons.length();i++)
+{
+string wid=attachment_defs[idx].compatible_weapons[i];
+for(uint widx=0;widx<wpn_cache.length();widx++)if(wpn_cache[widx].id==wid)
+{
+string c=string_replace(wpn_cache[widx].wclass,"_"," ",true);bool seen=false;
+for(uint cidx=0;cidx<classes.length();cidx++)if(classes[cidx]==c)seen=true;
+if(!seen)classes.insert_last(c);break;
+}
+}
+if(classes.length()==0)return "no currently loaded weapon class";
+string result="";for(uint i=0;i<classes.length();i++){if(i>0)result+=i==classes.length()-1?" or ":", ";result+=classes[i];}
+return result;
 }
 
 string[] get_weapon_attachments(string weapon_name)
@@ -98,6 +157,7 @@ bool attach_to_weapon(string attachment_id, string weapon_name)
 if(!can_attach_to(attachment_id, weapon_name)) return false;
 int def_idx=find_attachment_def(attachment_id);
 if(def_idx<0) return false;
+if(!attachment_feed_change_allowed(attachment_id,weapon_name))return false;
 if(weapon_has_attachment_in_slot(weapon_name, attachment_defs[def_idx].slot)) return false;
 string[] attached=get_weapon_attachments(weapon_name);
 attached.insert_last(attachment_id);
@@ -108,6 +168,7 @@ if(i>0) data+="|";
 data+=attached[i];
 }
 weapon_attachments.set(weapon_name, data);
+synchronize_weapon_feed(weapon_name);
 return true;
 }
 
@@ -116,6 +177,7 @@ bool detach_from_weapon(string attachment_id, string weapon_name)
 int def_idx=find_attachment_def(attachment_id);
 if(def_idx<0) return false;
 if(!attachment_defs[def_idx].removable) return false;
+if(!attachment_feed_change_allowed(attachment_id,weapon_name))return false;
 string[] attached=get_weapon_attachments(weapon_name);
 bool found=false;
 for(uint i=0; i<attached.length(); i++)
@@ -135,6 +197,7 @@ if(i>0) data+="|";
 data+=attached[i];
 }
 weapon_attachments.set(weapon_name, data);
+synchronize_weapon_feed(weapon_name);
 return true;
 }
 
@@ -210,4 +273,19 @@ if(can_attach_to(attachment_defs[i].id, weapon_name))
 result.insert_last(attachment_defs[i].id);
 }
 return result;
+}
+
+string attachment_effect_description(string id)
+{
+if(string_contains(id,"suppressor",1)>=0)return "Suppresses the firing report, reduces recoil, and slightly reduces projectile velocity and retained energy.";
+if(id=="red_dot_sight")return "Reduces angular dispersion by 8 percent.";if(id=="holographic_sight")return "Reduces angular dispersion by 10 percent.";if(id=="two_power_optic")return "Reduces angular dispersion by 14 percent with a minor handling cost.";if(id=="four_power_optic")return "Reduces angular dispersion by 25 percent with a handling cost.";if(id=="eight_power_scope")return "Reduces angular dispersion by 38 percent with a larger handling cost.";if(id=="thermal_scope")return "Reduces angular dispersion by 28 percent with the largest optic handling cost.";
+if(id=="long_barrel")return "Raises muzzle velocity by 12 percent and increases handling time.";if(id=="short_barrel")return "Reduces muzzle velocity by 10 percent but improves handling.";if(id=="match_grade_barrel")return "Raises velocity by 5 percent and improves projectile stability.";if(id=="heavy_barrel")return "Raises velocity and stability with a substantial movement penalty.";
+if(id=="muzzle_brake")return "Reduces vertical and horizontal recoil and improves dispersion.";if(id=="compensator")return "Provides the strongest combined recoil and dispersion control.";if(id=="flash_hider")return "Slightly stabilizes the muzzle and recoil while concealing the muzzle flash.";
+if(id=="vertical_grip")return "Reduces vertical recoil and dispersion.";if(id=="angled_grip")return "Reduces horizontal recoil and dispersion.";if(id=="bipod")return "Greatly improves dispersion and seated recoil at a movement cost.";
+if(id=="laser_aiming_module")return "Reduces angular dispersion.";if(id=="weapon_light")return "Improves close handling accuracy with a small movement cost.";
+if(id=="lightweight_stock")return "Improves movement handling but increases recoil and dispersion.";if(id=="precision_stock")return "Strongly improves dispersion and recoil at a movement cost.";if(id=="recoil_buffer_stock")return "Strongly reduces recoil and improves dispersion.";
+if(id=="extended_magazine")return "Raises real loaded capacity by 50 percent; requires more ammunition and takes 12 percent longer to reload.";if(id=="quickdraw_magazine")return "Reduces real reload time by 32 percent.";if(id=="drum_magazine")return "Doubles real capacity, with a 50-round minimum, a 35 percent reload penalty, and substantial weight.";
+if(id=="match_ammunition")return "On reload, selects match rounds with higher velocity and retained energy.";if(id=="armor_piercing_ammunition")return "On reload, selects higher-velocity rounds with extra penetration at slightly lower damage.";if(id=="hollow_point_ammunition")return "On reload, selects higher-damage rounds with no penetration and weaker long-range retention.";if(id=="subsonic_ammunition")return "On reload, selects quieter low-velocity rounds with greater drag and lower damage.";if(id=="breaching_rounds")return "On reload, selects high close-range-damage shotgun loads with sharply reduced range.";
+if(id=="choke_full")return "Tightens the shotgun projectile pattern most strongly.";if(id=="choke_improved")return "Moderately tightens the shotgun projectile pattern.";if(id=="shell_carrier")return "Reduces individual shotgun reload time by 22 percent.";
+return "Provides its registered handling and compatibility modifiers.";
 }

@@ -5,6 +5,10 @@ string[] _kb_act_names;
 string[] _kb_act_labels;
 int[] _kb_act_defaults;
 int[] _kb_act_binds;
+int[] _kb_act_modifiers;
+string kb_active_profile="Default";
+const string KB_PROFILE_DIR=DIRECTORY_LOCAL_APPDATA+"/iw/keymaps";
+const string KB_CONFIG_PATH=DIRECTORY_LOCAL_APPDATA+"/iw/keyconfig.json";
 
 void _kb_reg_key(string name, int code, string label)
 {
@@ -13,12 +17,33 @@ _kb_key_codes.insert_last(code);
 _kb_key_labels.insert_last(label);
 }
 
-void _kb_reg_action(string name, string label, int default_key)
+void _kb_reg_action(string name, string label, int default_key, int modifiers=0)
 {
 _kb_act_names.insert_last(name);
 _kb_act_labels.insert_last(label);
 _kb_act_defaults.insert_last(default_key);
 _kb_act_binds.insert_last(default_key);
+_kb_act_modifiers.insert_last(modifiers);
+}
+
+string kb_modifier_label(int modifiers)
+{
+string result="";
+if ((modifiers&KEYMOD_CTRL)>0) result+="Control+";
+if ((modifiers&KEYMOD_ALT)>0) result+="Alt+";
+if ((modifiers&KEYMOD_SHIFT)>0) result+="Shift+";
+return result;
+}
+
+string kb_binding_label(uint action_index)
+{
+return kb_modifier_label(_kb_act_modifiers[action_index])+kb_key_label(_kb_act_binds[action_index]);
+}
+
+string kb_binding_label(string action)
+{
+for(uint i=0;i<_kb_act_names.length();i++)if(_kb_act_names[i]==action)return kb_binding_label(i);
+return "unbound";
 }
 
 int kb(string action)
@@ -144,6 +169,15 @@ _kb_reg_action("move_down", "Move down", KEY_NEXT);
 _kb_reg_action("jump", "Jump", KEY_SPACE);
 _kb_reg_action("fire", "Fire weapon", KEY_LCONTROL);
 _kb_reg_action("reload", "Reload", KEY_R);
+_kb_reg_action("manual_action", "Open or close manual weapon action", KEY_Y, KEYMOD_ALT);
+_kb_reg_action("manual_insert", "Insert one round into manual weapon", KEY_I, KEYMOD_ALT);
+_kb_reg_action("manual_cycle", "Cycle manual weapon action", KEY_Y, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("manual_eject", "Eject manual weapon ammunition", KEY_G, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("weapon_operation", "Operate weapon-specific control", KEY_N, KEYMOD_ALT);
+_kb_reg_action("weapon_maintenance", "Vent, service, or maintain weapon", KEY_N, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("weapon_inspect", "Inspect weapon handling state", KEY_A, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("item_configuration", "Cycle selected item configuration", KEY_M, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("item_inspect", "Inspect selected item mechanics", KEY_K, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("ammo_check", "Check ammo", KEY_A);
 _kb_reg_action("use_item", "Use item", KEY_RETURN);
 _kb_reg_action("chat", "Chat", KEY_SLASH);
@@ -159,15 +193,29 @@ _kb_reg_action("next_item", "Next item", KEY_TAB);
 _kb_reg_action("next_category", "Next category", KEY_K);
 _kb_reg_action("nearby_items", "Nearby items", KEY_M);
 _kb_reg_action("nearby_players", "Nearby players", KEY_P);
-_kb_reg_action("transition", "Leave or board ship (hold Shift)", KEY_L);
+_kb_reg_action("transition", "Leave or board ship", KEY_L, KEYMOD_SHIFT);
 _kb_reg_action("track_player", "Track player", KEY_T);
+_kb_reg_action("target_region_previous", "Target previous body region", KEY_LBRACKET, KEYMOD_ALT);
+_kb_reg_action("target_region_next", "Target next body region", KEY_RBRACKET, KEYMOD_ALT);
+_kb_reg_action("target_region_reset", "Reset target to whole body", KEY_T, KEYMOD_ALT);
 _kb_reg_action("track_info", "Track info", KEY_W);
 _kb_reg_action("points_of_interest", "Points of interest", KEY_J);
 _kb_reg_action("player_list", "Player list", KEY_F1);
 _kb_reg_action("motd", "Message of the Day", KEY_F2);
 _kb_reg_action("ping", "Ping server", KEY_F3);
+_kb_reg_action("server_uptime", "Server uptime and traffic", KEY_F4);
 _kb_reg_action("vehicle_enter", "Enter or exit vehicle", KEY_V);
 _kb_reg_action("vehicle_door", "Vehicle door or chest", KEY_O);
+_kb_reg_action("vehicle_window", "Open or close vehicle window", KEY_U);
+_kb_reg_action("vehicle_service", "Inspect, refuel, service, or customize nearby vehicle", KEY_V, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("voice_chat", "Voice chat", KEY_O, KEYMOD_ALT);
+_kb_reg_action("voice_room", "Configure voice room", KEY_V, KEYMOD_ALT);
+_kb_reg_action("voice_hear_self", "Toggle hearing your own voice", KEY_O, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("voice_settings", "Open voice chat settings", KEY_F7, KEYMOD_SHIFT);
+_kb_reg_action("effects_read", "Read buffs and debuffs", KEY_B, KEYMOD_ALT);
+_kb_reg_action("dev_poi_teleport", "Developer POI teleport", KEY_J, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("packet_monitor", "Toggle developer packet reporting", KEY_F10, KEYMOD_SHIFT);
+_kb_reg_action("packet_viewer", "Open developer packet viewer", KEY_F11, KEYMOD_SHIFT);
 _kb_reg_action("menu", "Game menu", KEY_ESCAPE);
 _kb_reg_action("quickbar_view", "View quickbar", KEY_I);
 _kb_reg_action("inventory", "Open inventory menu", KEY_I);
@@ -177,7 +225,24 @@ _kb_reg_action("volume_up", "Volume up", KEY_HOME);
 _kb_reg_action("volume_down", "Volume down", KEY_END);
 _kb_reg_action("stamina_check", "Check stamina and effects", KEY_V);
 _kb_reg_action("options_menu", "Options menu", KEY_F11);
-if (file_exists("keyconfig.json"))
+_kb_reg_action("fullscreen_toggle", "Toggle full screen", KEY_F12, KEYMOD_CTRL|KEYMOD_SHIFT);
+if(!directory_exists(DIRECTORY_LOCAL_APPDATA+"/iw"))directory_create(DIRECTORY_LOCAL_APPDATA+"/iw");
+if (!directory_exists(KB_PROFILE_DIR)) directory_create(KB_PROFILE_DIR);
+string[] moved;
+if(file_exists("keyconfig.json") and !file_exists(KB_CONFIG_PATH)){if(kb_copy_file("keyconfig.json",KB_CONFIG_PATH)){file_delete("keyconfig.json");moved.insert_last("keyconfig.json to AppData");}}
+string[] legacy_profiles=find_files("keymaps/*.json");
+for(uint legacy=0;legacy<legacy_profiles.length();legacy++){string filename=legacy_profiles[legacy];filename=string_replace(filename,"\\","/",true);int slash=string_contains(filename,"/",1);while(slash>=0){filename=string_mid(filename,slash+1,filename.length()-slash-1);slash=string_contains(filename,"/",1);}string source="keymaps/"+filename,destination=KB_PROFILE_DIR+"/"+filename;if(!file_exists(destination) and kb_copy_file(source,destination)){file_delete(source);moved.insert_last("keymap "+filename+" to AppData");}}
+if(moved.length()>0){string notice="Infinite Warfare moved "+join(moved,", ")+". Future key bindings are stored in "+KB_PROFILE_DIR+".";speak(notice);show_readonly_audio_form("Key binding files moved",notice);}
+if (!kb_valid_profile_name(kb_active_profile)) kb_active_profile="Default";
+if (!file_exists(KB_PROFILE_DIR+"/Default.json") and file_exists(KB_CONFIG_PATH))
+kb_copy_file(KB_CONFIG_PATH, KB_PROFILE_DIR+"/Default.json");
+string duplicate_notice=kb_remove_duplicate_profiles();
+if(duplicate_notice!="")
+{
+speak(duplicate_notice);
+show_readonly_audio_form("Duplicate keymaps removed",duplicate_notice);
+}
+if (file_exists(kb_profile_path()))
 {
 kb_load();
 if (!kb_validate_config())
@@ -188,6 +253,95 @@ kb_reset();
 }
 else
 kb_save();
+}
+
+string kb_safe_profile_name(string value)
+{
+value=value.trim_whitespace();
+string cleaned="";
+for (uint i=0; i<value.length(); i++)
+{
+string c=string_mid(value,i,1);
+if ((c>="a" and c<="z") or (c>="A" and c<="Z") or (c>="0" and c<="9") or c==" " or c=="-" or c=="_") cleaned+=c;
+}
+return cleaned;
+}
+
+bool kb_valid_profile_name(string value)
+{
+string trimmed=value.trim_whitespace();
+if (trimmed=="" or trimmed.length()>48) return false;
+return kb_safe_profile_name(trimmed)==trimmed;
+}
+
+bool kb_profile_exists(string value)
+{
+string[] profiles=kb_list_profiles();
+for (uint i=0; i<profiles.length(); i++) if (profiles[i].lower()==value.lower()) return true;
+return false;
+}
+
+bool kb_copy_file(string source, string destination)
+{
+file input; if(!input.open(source,"rb")) return false;
+string content=input.read(); input.close();
+file output; if(!output.open(destination,"wb")) return false;
+output.write(content); output.close(); return true;
+}
+
+string kb_file_signature(string path)
+{
+string[] values;
+for(uint i=0;i<_kb_act_names.length();i++)values.insert_last(kb_key_to_name(_kb_act_defaults[i]));
+file f;if(!f.open(path,"rb"))return "";
+string content=f.read();f.close();
+content=string_replace(content,"\r","\n",true);
+string[] lines=string_split(content,"\n",true);
+for(uint i=0;i<lines.length();i++)
+{
+string line=string_replace(lines[i],"\"","",true);
+line=string_replace(line,",","",true);line=string_replace(line," ","",true);line=string_replace(line,"\t","",true);
+int cp=string_contains(line,":",1);if(cp<0)continue;
+string action=string_left(line,cp),keyname=string_mid(line,cp+2,line.length()-cp-1);
+if(kb_name_to_key(keyname)<0)continue;
+for(uint j=0;j<_kb_act_names.length();j++)if(_kb_act_names[j]==action){values[j]=keyname;break;}
+}
+string signature="";
+for(uint i=0;i<values.length();i++)signature+=_kb_act_names[i]+"="+values[i]+";";
+return signature;
+}
+
+string kb_current_signature()
+{
+string signature="";
+for(uint i=0;i<_kb_act_names.length();i++)signature+=_kb_act_names[i]+"="+kb_key_to_name(_kb_act_binds[i])+";";
+return signature;
+}
+
+bool kb_signature_exists(string signature,string except_name="")
+{
+string[] profiles=kb_list_profiles();
+for(uint i=0;i<profiles.length();i++)if(profiles[i].lower()!=except_name.lower() and kb_file_signature(KB_PROFILE_DIR+"/"+profiles[i]+".json")==signature)return true;
+return false;
+}
+
+string kb_remove_duplicate_profiles()
+{
+string[] profiles=kb_list_profiles();string[] signatures;string[] kept_names;string[] removed;
+for(uint i=0;i<profiles.length();i++)
+{
+string signature=kb_file_signature(KB_PROFILE_DIR+"/"+profiles[i]+".json");bool duplicate=false;
+for(uint j=0;j<signatures.length();j++)if(signature!="" and signatures[j]==signature){duplicate=true;break;}
+if(duplicate){file_delete(KB_PROFILE_DIR+"/"+profiles[i]+".json");removed.insert_last(profiles[i]);}
+else{signatures.insert_last(signature);kept_names.insert_last(profiles[i]);}
+}
+if(removed.length()==0)return "";
+return "Removed duplicate keymap"+(removed.length()>1?"s ":" ")+join(removed,", ")+". Each remaining keymap has a unique set of bindings.";
+}
+
+string kb_profile_path()
+{
+return KB_PROFILE_DIR+"/"+kb_active_profile+".json";
 }
 
 bool kb_validate_config()
@@ -201,7 +355,7 @@ return true;
 
 void kb_show_restore_message()
 {
-audio_form f;
+iw_form f;
 f.create_window("Key Configuration Restored", false, true);
 f.create_input_box("Notice", "Your key configuration file could not be found or was corrupted. The game has restored all key bindings to their default values and created a new configuration file. You can rebind keys at any time from the options menu.", "", 0, false, true, false);
 int f_continue=f.create_button("&Continue", true);
@@ -218,7 +372,7 @@ break;
 void kb_load()
 {
 file f;
-if (!f.open("keyconfig.json","rb")) return;
+if (!f.open(kb_profile_path(),"rb")) return;
 string content=f.read();
 f.close();
 if (content=="") return;
@@ -252,7 +406,8 @@ break;
 void kb_save()
 {
 file f;
-if (!f.open("keyconfig.json","wb")) return;
+if (!directory_exists(KB_PROFILE_DIR)) directory_create(KB_PROFILE_DIR);
+if (!f.open(kb_profile_path(),"wb")) return;
 string json_str="{\n";
 for (uint i=0; i<_kb_act_names.length(); i++)
 {
@@ -263,6 +418,7 @@ json_str+="\n";
 json_str+="}\n";
 f.write(json_str);
 f.close();
+kb_copy_file(kb_profile_path(),KB_CONFIG_PATH);
 }
 
 void kb_reset()
@@ -270,6 +426,99 @@ void kb_reset()
 for (uint i=0; i<_kb_act_names.length(); i++)
 _kb_act_binds[i]=_kb_act_defaults[i];
 kb_save();
+}
+
+string[] kb_list_profiles()
+{
+string[] files=find_files(KB_PROFILE_DIR+"/*.json");
+string[] names;
+for (uint i=0; i<files.length(); i++)
+{
+string n=files[i];
+n=string_replace(n,"\\","/",true);
+int slash=string_contains(n,"/",1);
+while (slash>=0)
+{
+n=string_mid(n,slash+1,n.length()-slash-1);
+slash=string_contains(n,"/",1);
+}
+if (n.length()>5) n=string_left(n,n.length()-5);
+if (kb_valid_profile_name(n)) names.insert_last(n);
+}
+for (uint a=0; a<names.length(); a++)
+for (uint b=a+1; b<names.length(); b++)
+if (names[b].lower()<names[a].lower())
+{
+string temporary=names[a]; names[a]=names[b]; names[b]=temporary;
+}
+return names;
+}
+
+void kb_load_profile(string profile)
+{
+if (!kb_valid_profile_name(profile) or !file_exists(KB_PROFILE_DIR+"/"+profile+".json")) return;
+kb_active_profile=profile;
+for (uint i=0; i<_kb_act_names.length(); i++) _kb_act_binds[i]=_kb_act_defaults[i];
+kb_load();
+kb_update_holds();
+writeprefs();
+}
+
+void keymap_profiles_menu()
+{
+while (true)
+{
+iw_form f; f.create_window("Keymap Profiles",false,true);
+string[] profiles=kb_list_profiles();
+int list=f.create_list("Profiles. Active: "+kb_active_profile,0,false);
+for (uint i=0; i<profiles.length(); i++) f.add_list_item(list,profiles[i]+(profiles[i]==kb_active_profile ? " (active)" : ""));
+int activate=f.create_button("Activate selected",true);
+int create=f.create_button("Create a new keymap");
+int remove=f.create_button("Delete selected profile");
+int close=f.create_button("Close",false,true); f.focus(list);
+while (true)
+{
+wait(5); f.monitor(); if (connected) netloop();
+if (f.is_pressed(close)) return;
+if (f.is_pressed(activate)) { int pos=f.get_list_position(list); if(pos>=0 and pos<int(profiles.length())) { kb_load_profile(profiles[pos]); speak("Activated keymap "+kb_active_profile+"."); } break; }
+if (f.is_pressed(create))
+{
+string new_name=af_input("New keymap name","",connected).trim_whitespace();
+if (!kb_valid_profile_name(new_name)) speak("Invalid keymap name. Use letters, numbers, spaces, hyphens, or underscores, with a maximum of 48 characters.");
+else if (kb_profile_exists(new_name)) speak("That keymap already exists.");
+else
+{
+string[] action_labels;
+for(uint a=0;a<_kb_act_labels.length();a++)action_labels.insert_last(_kb_act_labels[a]+": "+kb_key_label(_kb_act_binds[a]));
+iw_form choose;choose.create_window("Change a binding",false,true);
+int action_list=choose.create_list("Choose the first binding to change. A keymap cannot be saved until at least one key differs.",0,false);
+for(uint a=0;a<action_labels.length();a++)choose.add_list_item(action_list,action_labels[a]);
+int choose_ok=choose.create_button("&Change selected binding",true),choose_cancel=choose.create_button("&Cancel",false,true);choose.focus(action_list);
+int changed=-1;
+while(changed<0){wait(5);choose.monitor();if(connected)netloop();if(choose.is_pressed(choose_cancel))break;if(choose.is_pressed(choose_ok)){changed=choose.get_list_position(action_list);break;}}
+if(changed<0 or changed>=int(_kb_act_binds.length())){speak("Keymap creation cancelled. No bindings were changed.");break;}
+speak("Press the new key for "+_kb_act_labels[changed]+".");
+int new_key=kb_wait_for_key();
+if(new_key<0 or new_key==_kb_act_binds[changed]){speak("Keymap not saved because no binding was changed.");break;}
+int old_key=_kb_act_binds[changed];_kb_act_binds[changed]=new_key;
+if(kb_signature_exists(kb_current_signature())){_kb_act_binds[changed]=old_key;speak("Keymap not saved because those bindings exactly duplicate an existing keymap.");break;}
+kb_active_profile=new_name;kb_save();writeprefs();speak("Created and activated keymap "+new_name+".");
+}
+break;
+}
+if (f.is_pressed(remove))
+{
+int pos=f.get_list_position(list);
+if(pos>=0 and pos<int(profiles.length()))
+{
+if(profiles[pos]=="Default") speak("The Default keymap cannot be deleted.");
+else if(profiles[pos]==kb_active_profile) speak("Activate another keymap before deleting this one.");
+else { file_delete(KB_PROFILE_DIR+"/"+profiles[pos]+".json"); speak("Keymap deleted."); }
+}
+break;
+}
+}
+}
 }
 
 int kb_wait_for_key()
@@ -313,16 +562,36 @@ kS.key_code=kb("aim_up");
 kX.key_code=kb("aim_down");
 }
 
+void key_practice_mode()
+{
+while(key_down(KEY_F1) or key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))wait(5);
+speak("Key practice. Press any key to hear its current action. Press Escape to close.");
+while(true)
+{
+wait(5);if(connected)netloop();
+for(int key=1;key<=211;key++)if(key_pressed(key))
+{
+if(key==KEY_ESCAPE){speak("Key practice closed.");return;}
+int modifiers=0;if(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))modifiers|=KEYMOD_SHIFT;if(key_down(KEY_LMENU) or key_down(KEY_RMENU))modifiers|=KEYMOD_ALT;if(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL))modifiers|=KEYMOD_CTRL;
+string label=kb_modifier_label(modifiers)+kb_key_label(key),actions="";
+for(uint action=0;action<_kb_act_names.length();action++)if(_kb_act_binds[action]==key and _kb_act_modifiers[action]==modifiers){if(actions!="")actions+=", ";actions+=_kb_act_labels[action];}
+if(actions=="")speak(label+" is not bound to a configurable action.");else speak(label+" is bound to "+actions+".");
+break;
+}
+}
+}
+
 void options_keybinds()
 {
 while(true)
 {
-audio_form f;
+iw_form f;
 f.create_window("Key Bindings",false,true);
 int f_list=f.create_list("Actions. Press Enter to rebind the selected action.",0,false);
 for (uint i=0; i<_kb_act_names.length(); i++)
-f.add_list_item(f_list,_kb_act_labels[i]+": "+kb_key_label(_kb_act_binds[i]));
+f.add_list_item(f_list,_kb_act_labels[i]+": "+kb_binding_label(i));
 int f_rebind=f.create_button("&Rebind selected",true);
+int f_profiles=f.create_button("Manage keymap profiles");
 int f_reset=f.create_button("R&eset all to defaults",false);
 int f_back=f.create_button("Go &back",false,true);
 f.focus(f_list);
@@ -333,10 +602,12 @@ wait(5);
 f.monitor();
 if (connected==true) netloop();
 if (f.is_pressed(f_back)) return;
+if (f.is_pressed(f_profiles)) { keymap_profiles_menu(); refresh=true; }
 if (f.is_pressed(f_reset))
 {
 kb_reset();
 kb_update_holds();
+p.play_stationary("keybind_reset.ogg",false);
 speak("All key bindings reset to defaults.");
 refresh=true;
 }
@@ -356,7 +627,7 @@ else
 int conflict=-1;
 for (uint j=0; j<_kb_act_names.length(); j++)
 {
-if (int(j)!=sel and _kb_act_binds[j]==new_key)
+if (int(j)!=sel and _kb_act_binds[j]==new_key and _kb_act_modifiers[j]==_kb_act_modifiers[sel])
 {
 conflict=j;
 break;
@@ -365,13 +636,28 @@ break;
 if (conflict>=0)
 {
 int old_key=_kb_act_binds[sel];
+iw_form warning;
+warning.create_window("Redundant key binding",false,true);
+warning.create_input_box("Warning",kb_modifier_label(_kb_act_modifiers[sel])+kb_key_label(new_key)+" is already assigned to "+_kb_act_labels[conflict]+". Replace that binding by swapping the two actions?","",0,false,true,false);
+int replace=warning.create_button("Replace and swap",true);
+int cancel=warning.create_button("Cancel",false,true);
+warning.focus(replace);
+bool accepted=false;
+while (true)
+{
+wait(5); warning.monitor(); if (connected) netloop();
+if (warning.is_pressed(replace)) { accepted=true; break; }
+if (warning.is_pressed(cancel)) break;
+}
+if (!accepted) { speak("Binding unchanged."); refresh=true; continue; }
 _kb_act_binds[conflict]=old_key;
-speak(_kb_act_labels[conflict]+" moved to "+kb_key_label(old_key)+".");
+speak(_kb_act_labels[conflict]+" moved to "+kb_modifier_label(_kb_act_modifiers[conflict])+kb_key_label(old_key)+".");
 }
 _kb_act_binds[sel]=new_key;
 kb_save();
 kb_update_holds();
-speak(_kb_act_labels[sel]+" bound to "+kb_key_label(new_key)+".");
+p.play_stationary("keyrebind.ogg",false);
+speak(_kb_act_labels[sel]+" bound to "+kb_modifier_label(_kb_act_modifiers[sel])+kb_key_label(new_key)+".");
 }
 refresh=true;
 }

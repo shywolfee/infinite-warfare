@@ -2,7 +2,9 @@ Developer Commands
 
 These commands are only available to developers (running from source).
 
-/reboot - Reboot the server. All players are notified before shutdown.
+/reboot [seconds] [reason] - Schedule a validated reboot in 5 to 3600 seconds.
+/reboot cancel - Cancel the pending reboot.
+/quitserver confirm [reason] - Stop the server without restarting; literal confirmation is required.
 /kick [name] - Kick a player from the server (also available to admins). Cannot kick developers.
 /go [x y z] - Teleport yourself to the given coordinates.
 /go [name x y z] - Teleport another player to the given coordinates.

@@ -14,14 +14,28 @@ return id;
 string oldzone="";
 void checkzone()
 {
-if (get_zone_at(mr.x,mr.y,me.z)!=oldzone)
+string newzone=get_zone_at(mr.x,mr.y,me.z);
+if (newzone!=oldzone)
 {
-speak(get_zone_at(mr.x,mr.y,me.z));
-oldzone=get_zone_at(mr.x,mr.y,me.z);
+if(newzone!="") speak(newzone);
+oldzone=newzone;
 }
 }
 string[] map;
 string[] zones;
+class map_region
+{
+int minx; int maxx; int miny; int maxy; int minz; int maxz;
+string value;
+map_region(int ax, int bx, int ay, int by, int az, int bz, string v)
+{ minx=ax; maxx=bx; miny=ay; maxy=by; minz=az; maxz=bz; value=v; }
+bool contains(int x, int y, int z)
+{ return minx<=x and maxx>=x and miny<=y and maxy>=y and minz<=z and maxz>=z; }
+}
+map_region@[] tile_regions;
+map_region@[] zone_regions;
+dictionary tile_lookup_cache;
+dictionary zone_lookup_cache;
 // Point of Interest (POI) system.
 class poi
 {
@@ -90,30 +104,14 @@ return square_root(dx*dx+dy*dy+dz*dz);
 }
 string get_tile_at(double x, double y, double z)
 {
-string final;
-for(uint i=0; i<map.length(); i++)
-{
-string[] parsed=string_split(map[i], ":", false);
-if(parsed.length()<1)
-continue;
-if(parsed[0]=="tile" and parsed.length()>7)
-{
-int minx=string_to_number(parsed[1]);
-int maxx=string_to_number(parsed[2]);
-int miny=string_to_number(parsed[3]);
-int maxy=string_to_number(parsed[4]);
-int minz=string_to_number(parsed[5]);
-int maxz=string_to_number(parsed[6]);
-if(minx>x)
-{
-continue;
-}
-if(minx<=x and maxx>=x and miny<=y and maxy>=y and minz<=z and maxz>=z)
-{
-final=parsed[7];
-}
-}
-}
+int ix=int(x), iy=int(y), iz=int(z);
+string key=ix+":"+iy+":"+iz;
+string cached;
+if(tile_lookup_cache.get(key, cached)) return cached;
+string final="";
+for(uint i=0; i<tile_regions.length(); i++)
+if(tile_regions[i].contains(ix, iy, iz)) final=tile_regions[i].value;
+tile_lookup_cache.set(key, final);
 return final;
 }
 string linear(string[] a)
@@ -131,28 +129,13 @@ return string_split(a, "\r\n", false);
 }
 string get_zone_at(int x, int y, int z)
 {
-string final;
-for(uint i=0; i<zones.length(); i++)
-{
-string[] parsed=string_split(zones[i], ":", false);
-if(parsed.length()>5)
-{
-int minx=string_to_number(parsed[0]);
-int maxx=string_to_number(parsed[1]);
-int miny=string_to_number(parsed[2]);
-int maxy=string_to_number(parsed[3]);
-int minz=string_to_number(parsed[4]);
-int maxz=string_to_number(parsed[5]);
-if(minx>x)
-{
-continue;
-}
-if(minx<=x and maxx>=x and miny<=y and maxy>=y and minz<=z and maxz>=z and parsed.length()>6)
-{
-final=parsed[6];
-}
-}
-}
+string key=x+":"+y+":"+z;
+string cached;
+if(zone_lookup_cache.get(key, cached)) return cached;
+string final="";
+for(uint i=0; i<zone_regions.length(); i++)
+if(zone_regions[i].contains(x, y, z)) final=zone_regions[i].value;
+zone_lookup_cache.set(key, final);
 return final;
 }
 void load_map(string mdata)
@@ -161,6 +144,10 @@ p.destroy_all();
 destroy_all_sources();
 map.resize(0);
 zones.resize(0);
+tile_regions.resize(0);
+zone_regions.resize(0);
+tile_lookup_cache.delete_all();
+zone_lookup_cache.delete_all();
 pois.resize(0);
 turbolifts.resize(0);
 transitions.resize(0);
@@ -175,10 +162,15 @@ mapname=string_replace(ldata[i], "mapname:", "", false);
 else if(parsed[0]=="tile")
 {
 map.insert_last(ldata[i]);
+if(parsed.length()>7)
+tile_regions.insert_last(map_region(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), string_to_number(parsed[4]), string_to_number(parsed[5]), string_to_number(parsed[6]), parsed[7]));
 }
 else if(parsed[0]=="zone")
 {
-zones.insert_last(string_replace(ldata[i], "zone:", "", false));
+string zone_data=string_replace(ldata[i], "zone:", "", false);
+zones.insert_last(zone_data);
+if(parsed.length()>7)
+zone_regions.insert_last(map_region(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), string_to_number(parsed[4]), string_to_number(parsed[5]), string_to_number(parsed[6]), parsed[7]));
 }
 else if(parsed[0]=="maxx")
 {
@@ -358,6 +350,27 @@ void checkaround(double ox, double oy)
 {
 mr.x=round(me.x, 0);
 mr.y=round(me.y, 0);
+if(!in_vehicle)
+{
+for(uint vi=0;vi<map_vehicles.length();vi++)
+{
+vehicle@ obstacle=map_vehicles[vi];
+if(obstacle.destroyed or obstacle.x!=int(mr.x) or obstacle.y!=int(mr.y)) continue;
+if(int(round(me.z,0))==obstacle.z+1)
+{
+vehicle_roof_index=int(vi);vehicle_roof_last_x=obstacle.x;vehicle_roof_last_y=obstacle.y;vehicle_roof_last_z=obstacle.z;
+break;
+}
+if(me.z>=obstacle.z and me.z<obstacle.z+1)
+{
+play_vehicle_audio(obstacle,"crash");
+speak(obstacle.get_name()+" blocking the way.");
+me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);
+return;
+}
+}
+if(vehicle_roof_index>=0 and (vehicle_roof_index>=int(map_vehicles.length()) or map_vehicles[vehicle_roof_index].x!=int(mr.x) or map_vehicles[vehicle_roof_index].y!=int(mr.y))) vehicle_roof_index=-1;
+}
 for(int i=0; i<walls.length(); i++)
 {
 if(mr.x==walls[i].x and mr.y==walls[i].y and me.z>=walls[i].miniz and me.z<=walls[i].maxz)
@@ -424,19 +437,27 @@ me.z++;
 }
 void spawn_platform(int leftx, int rightx, int miny, int maxy, int z, string plattype)
 {
-map.insert_last(leftx+":"+rightx+":"+miny+":"+maxy+":"+z+":"+z+":"+plattype);
+map.insert_last("tile:"+leftx+":"+rightx+":"+miny+":"+maxy+":"+z+":"+z+":"+plattype);
+tile_regions.insert_last(map_region(leftx,rightx,miny,maxy,z,z,plattype));
+tile_lookup_cache.delete_all();
 }
 void spawn_tiles(int leftx, int rightx, int miny, int maxy, int minz, int maxz, string plattype)
 {
 map.insert_last("tile:"+leftx+":"+rightx+":"+miny+":"+maxy+":"+minz+":"+maxz+":"+plattype);
+tile_regions.insert_last(map_region(leftx,rightx,miny,maxy,minz,maxz,plattype));
+tile_lookup_cache.delete_all();
 }
 void spawn_zone(int leftx, int rightx, int miny, int maxy, int minz, int maxz, string zonetype)
 {
 zones.insert_last(leftx+":"+rightx+":"+miny+":"+maxy+":"+minz+":"+maxz+":"+zonetype);
+zone_regions.insert_last(map_region(leftx,rightx,miny,maxy,minz,maxz,zonetype));
+zone_lookup_cache.delete_all();
 }
 void spawn_tile(int x, int y, int z, string type)
 {
 map.insert_last("tile:"+x+":"+x+":"+y+":"+y+":"+z+":"+z+":"+type);
+tile_regions.insert_last(map_region(x,x,y,y,z,z,type));
+tile_lookup_cache.delete_all();
 }
 void spawn_tree(int x, int y)
 {

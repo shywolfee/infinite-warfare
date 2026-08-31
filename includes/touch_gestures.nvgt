@@ -1,0 +1,888 @@
+// touch_gestures.nvgt
+// Infinite Warfare bindings for the event-driven touch.nvgt gesture library.
+// The recognizer is split into three fixed normalized screen bands. touch.nvgt
+// routes every event using the immutable finger start_pos, so crossing a band
+// boundary during a swipe or drag cannot change the gesture's destination.
+
+#include "../touch.nvgt"
+
+const int swipe_touch_direction_none = -1;
+const int REGION_TOP = 0;
+const int REGION_MIDDLE = 1;
+const int REGION_BOTTOM = 2;
+bool touch_keyboard_running=false,touch_keyboard_pointer_moved=false,touch_keyboard_pointer_released=false;
+float touch_keyboard_pointer_x=0.5f,touch_keyboard_pointer_y=0.5f;
+bool gesture_help_open=false;
+const string GESTURE_CONFIG_PATH=DIRECTORY_LOCAL_APPDATA+"/iw/gesture_config.json";
+string[] gesture_action_ids,gesture_action_labels,gesture_default_signatures,gesture_current_signatures;
+void register_gesture_action(string id,string label,string signature){gesture_action_ids.insert_last(id);gesture_action_labels.insert_last(label);gesture_default_signatures.insert_last(signature);gesture_current_signatures.insert_last(signature);}
+int gesture_action_index(string id){for(uint i=0;i<gesture_action_ids.length();i++)if(gesture_action_ids[i]==id)return i;return -1;}
+string gesture_action_at(string signature,string fallback){for(uint i=0;i<gesture_current_signatures.length();i++)if(gesture_current_signatures[i]==signature)return gesture_action_ids[i];int fi=gesture_action_index(fallback);return fi>=0 and gesture_current_signatures[fi]==signature?fallback:"";}
+void save_gesture_bindings(){if(!directory_exists(DIRECTORY_LOCAL_APPDATA+"/iw"))directory_create(DIRECTORY_LOCAL_APPDATA+"/iw");string data="{\n";for(uint i=0;i<gesture_action_ids.length();i++){data+="  \""+gesture_action_ids[i]+"\": \""+gesture_current_signatures[i]+"\""+(i+1<gesture_action_ids.length()?",":"")+"\n";}data+="}\n";file_put_contents(GESTURE_CONFIG_PATH,data,false);}
+void reset_gesture_bindings(){gesture_current_signatures=gesture_default_signatures;save_gesture_bindings();p.play_stationary("keybind_reset.ogg",false);speak("Android gestures reset to default.");}
+void load_gesture_bindings(){if(!file_exists(GESTURE_CONFIG_PATH)){save_gesture_bindings();return;}string[] lines=string_split(file_get_contents(GESTURE_CONFIG_PATH),"\n",false);for(uint l=0;l<lines.length();l++){string line=lines[l].trim_whitespace();if(line.length()<5 or string_contains(line,"\"",1)<0)continue;string[] q=string_split(line,"\"",false);if(q.length()<4)continue;int ai=gesture_action_index(q[1]);if(ai>=0)gesture_current_signatures[ai]=q[3];}bool migrated=false;for(uint i=0;i<gesture_current_signatures.length();i++)if(gesture_current_signatures[i]=="bottom:2:triple_tap"){gesture_current_signatures[i]=gesture_default_signatures[i];migrated=true;}if(migrated)save_gesture_bindings();}
+void init_gesture_bindings(){
+	if(gesture_action_ids.length()>0)return;
+	register_gesture_action("inventory_previous","Previous inventory item","top:1:swipe:left");register_gesture_action("inventory_next","Next inventory item","top:1:swipe:right");register_gesture_action("category_next","Next inventory category","top:1:swipe:up");register_gesture_action("category_previous","Previous inventory category","top:1:swipe:down");register_gesture_action("rotate_left","Rotate left","middle:1:swipe:left");register_gesture_action("rotate_right","Rotate right","middle:1:swipe:right");register_gesture_action("aim_up","Aim up","middle:1:swipe:up");register_gesture_action("aim_down","Aim down","middle:1:swipe:down");register_gesture_action("buffer_previous","Previous buffer","bottom:1:swipe:up");register_gesture_action("buffer_next","Next buffer","bottom:1:swipe:down");register_gesture_action("message_previous","Previous buffer message","bottom:1:swipe:left");register_gesture_action("message_next","Next buffer message","bottom:1:swipe:right");
+	register_gesture_action("draw_holster","Draw or holster","top:1:tap");register_gesture_action("use_item","Use selected item","top:1:double_tap");register_gesture_action("item_help","Selected item help","top:1:triple_tap");register_gesture_action("facing","Check facing","middle:1:double_tap");register_gesture_action("status","Check status","middle:1:triple_tap");register_gesture_action("global_chat","Global chat","bottom:1:double_tap");register_gesture_action("interact","Interact","middle:1:hold");register_gesture_action("vehicle_enter","Enter or leave vehicle","middle:1:double_hold");register_gesture_action("weapon_panel","Weapon panel","top:1:triple_hold");register_gesture_action("voice_transmit","Toggle gesture voice transmission","bottom:1:hold");
+	register_gesture_action("track_info","Tracked-player information","top:2:tap");register_gesture_action("fire","Fire weapon","middle:2:tap");register_gesture_action("track_menu","Player tracking menu","top:2:double_tap");register_gesture_action("jump","Jump","middle:2:double_tap");register_gesture_action("game_menu","Game menu","bottom:2:double_tap");register_gesture_action("weapon_inspect","Inspect weapon handling","middle:2:triple_tap");register_gesture_action("item_config","Cycle item configuration","top:2:hold");register_gesture_action("voice_room","Voice room","bottom:2:hold");register_gesture_action("item_inspect","Inspect item mechanics","top:2:double_hold");register_gesture_action("manual_open","Open or close manual action","middle:2:double_hold");register_gesture_action("voice_settings","Voice settings","bottom:2:double_hold");register_gesture_action("quickbar","Quickbar manager","top:2:triple_hold");register_gesture_action("manual_insert","Insert manual round","middle:2:triple_hold");register_gesture_action("voice_self","Toggle hearing own voice","bottom:2:triple_hold");
+	register_gesture_action("target_previous","Target previous body region","middle:2:swipe:left");register_gesture_action("target_next","Target next body region","middle:2:swipe:right");register_gesture_action("target_reset","Reset body target","middle:2:swipe:up");register_gesture_action("posture","Sit or stand","middle:2:swipe:down");register_gesture_action("buffer_first","First buffer message","bottom:2:swipe:left");register_gesture_action("buffer_last","Last buffer message","bottom:2:swipe:right");
+	register_gesture_action("poi","Points of interest","top:3:tap");register_gesture_action("reload","Reload","middle:3:tap");register_gesture_action("team_chat","Team chat","bottom:3:tap");register_gesture_action("nearby","Nearby items","top:3:double_tap");register_gesture_action("unload","Unload weapon","middle:3:double_tap");register_gesture_action("recent_pm","Recent private messages","bottom:3:double_tap");register_gesture_action("fire_mode","Fire mode or vehicle window","middle:3:triple_tap");register_gesture_action("effects","Read effects","bottom:3:triple_tap");register_gesture_action("ammo_type","Cycle ammunition type","top:3:hold");register_gesture_action("manual_cycle","Cycle manual action","middle:3:hold");register_gesture_action("equipment","Equipment menu","bottom:3:hold");register_gesture_action("weapon_operate","Operate weapon","top:3:double_hold");register_gesture_action("manual_eject","Eject manual ammunition","middle:3:double_hold");register_gesture_action("quickbar_alt","Quickbar manager alternate","bottom:3:double_hold");register_gesture_action("weapon_maintain","Maintain weapon","top:3:triple_hold");register_gesture_action("map_chat","Map chat","middle:3:triple_hold");register_gesture_action("global_chat_alt","Global chat alternate","bottom:3:triple_hold");register_gesture_action("seat_previous","Previous vehicle seat","middle:3:swipe:left");register_gesture_action("seat_next","Next vehicle seat","middle:3:swipe:right");
+	register_gesture_action("vehicle_service","Inspect and service nearby vehicle","top:3:swipe:left");
+	load_gesture_bindings();
+}
+string[] gesture_available_signatures(){string[] result;string[] bands={"top","middle","bottom"};string[] kinds={"tap","double_tap","triple_tap","hold","double_hold","triple_hold"};for(uint b=0;b<bands.length();b++)for(int fingers=1;fingers<=3;fingers++)for(uint k=0;k<kinds.length();k++){string signature=bands[b]+":"+fingers+":"+kinds[k];if(signature!="bottom:2:triple_tap")result.insert_last(signature);}string[] dirs={"left","right","up","down"};for(uint b=0;b<bands.length();b++)for(int fingers=1;fingers<=3;fingers++)for(uint d=0;d<dirs.length();d++)result.insert_last(bands[b]+":"+fingers+":swipe:"+dirs[d]);return result;}
+void gesture_bindings_menu(){init_gesture_bindings();while(true){nv_form f;f.create_window("Android Gesture Bindings",false,true);nv_form_list_box@ list=f.add_list("Actions and gestures","actions");for(uint i=0;i<gesture_action_ids.length();i++)list.add(gesture_action_labels[i]+": "+gesture_current_signatures[i],gesture_action_ids[i]);nv_form_button@ change=f.add_button("Rebind selected action","change",true);nv_form_button@ reset=f.add_button("Reset all gestures to default","reset");nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(list);bool refresh=false;while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(close))return;if(f.is_pressed(reset)){if(question("Reset Android gestures?","Reset every Android gesture to its default assignment?")==1){reset_gesture_bindings();refresh=true;}break;}if(f.is_pressed(change)){int ai=list.list_position;if(ai<0 or ai>=int(gesture_action_ids.length()))break;string[] choices=gesture_available_signatures();int selected=android_select("Choose gesture for "+gesture_action_labels[ai],choices);if(selected>=0){string chosen=choices[selected];for(uint j=0;j<gesture_current_signatures.length();j++)if(int(j)!=ai and gesture_current_signatures[j]==chosen)gesture_current_signatures[j]=gesture_current_signatures[ai];gesture_current_signatures[ai]=chosen;save_gesture_bindings();p.play_stationary("keyrebind.ogg",false);speak("Gesture rebound.");refresh=true;}break;}}if(!refresh)return;}}
+void execute_gesture_action(string action){
+	if(action=="")return;
+	if(action=="inventory_previous"){cycle_inv(0);p.play_stationary("invmove.ogg",false);}else if(action=="inventory_next"){cycle_inv(1);p.play_stationary("invmove.ogg",false);}else if(action=="category_next"){cycle_category(1);p.play_stationary("invmove.ogg",false);}else if(action=="category_previous"){cycle_category(0);p.play_stationary("invmove.ogg",false);}else if(action=="rotate_left")gesture_rotate_left();else if(action=="rotate_right")gesture_rotate_right();else if(action=="aim_up")gesture_aim_up();else if(action=="aim_down")gesture_aim_down();else if(action=="buffer_previous")bufferleft();else if(action=="buffer_next")bufferright();else if(action=="message_previous")prevbufferitem();else if(action=="message_next")nextbufferitem();
+	else if(action=="draw_holster")holster_current_weapon();else if(action=="use_item")gk_use=true;else if(action=="item_help"){string it=get_selected_item();if(it!="")show_item_help(it);else speak("No item selected.");}else if(action=="facing")gesture_check_facing();else if(action=="status")gesture_check_status();else if(action=="global_chat" or action=="global_chat_alt")gesture_channel_chat(0);else if(action=="interact")gk_interact=true;else if(action=="vehicle_enter")gk_vehicle=true;else if(action=="weapon_panel"){if(weapons[w]!="" and weapons[w]!="empty")show_weapon_info(weapons[w]);else speak("No weapon wielded.");}else if(action=="voice_transmit")gesture_toggle_voice_transmission();
+	else if(action=="track_info"){if(tracking!="")send_reliable(1,"trackinfo "+tracking,0);else speak("You are not tracking anyone.");}else if(action=="fire")gk_fire=true;else if(action=="track_menu")gesture_open_tracking_menu();else if(action=="jump")gk_jump=true;else if(action=="game_menu")escape_menu();else if(action=="weapon_inspect")speak(weapon_handling_status(weapons[w]));else if(action=="item_config")cycle_selected_item_configuration();else if(action=="voice_room")voice_room_menu();else if(action=="item_inspect"){string it=get_selected_item();if(it=="" or is_weapon(it))speak("Select an inventory item first.");else speak(item_mechanic_description(it));}else if(action=="manual_open")manual_toggle_action(weapons[w]);else if(action=="voice_settings")voice_settings_menu();else if(action=="quickbar" or action=="quickbar_alt")show_quickbar_weapons();else if(action=="manual_insert")manual_insert_round(weapons[w]);else if(action=="voice_self")gesture_toggle_hear_self();
+	else if(action=="target_previous")gesture_target_region(-1);else if(action=="target_next")gesture_target_region(1);else if(action=="target_reset")gesture_target_region(0);else if(action=="posture")gesture_toggle_posture();else if(action=="buffer_first")topbufferitem();else if(action=="buffer_last")bottombufferitem();else if(action=="vehicle_service"){int vi=in_vehicle?player_vehicle_index:find_nearest_vehicle(int(mr.x),int(mr.y),int(me.z),5);if(vi<0)speak("No vehicle is close enough to inspect.");else map_vehicles[vi].vehicle_service_panel(int(mr.x),int(mr.y),int(me.z));}else if(action=="poi")show_poi_list();else if(action=="reload")gk_reload=true;else if(action=="team_chat")gesture_channel_chat(2);else if(action=="nearby")gesture_nearby_items();else if(action=="unload")unload_mag(weapons[w]);else if(action=="recent_pm")recent_pm_form();else if(action=="fire_mode"){if(in_vehicle)vehicle_toggle_window();else cycle_fire_mode(weapons[w]);}else if(action=="effects")speak(get_effects_string());else if(action=="ammo_type")cycle_weapon_ammunition(weapons[w]);else if(action=="manual_cycle")manual_cycle_weapon(weapons[w]);else if(action=="equipment")equipment_menu();else if(action=="weapon_operate")operate_weapon(weapons[w]);else if(action=="manual_eject")manual_eject_ammunition(weapons[w]);else if(action=="weapon_maintain")maintain_weapon(weapons[w]);else if(action=="map_chat")gesture_channel_chat(1);else if(action=="seat_previous"){if(in_vehicle)vehicle_switch_seat(name,-1);else speak("You are not in a vehicle.");}else if(action=="seat_next"){if(in_vehicle)vehicle_switch_seat(name,1);else speak("You are not in a vehicle.");}
+}
+
+class iw_touch_band_interface : touch_interface {
+	int band;
+	bool[] ev_tap(5), ev_dtap(5), ev_ttap(5), ev_long(5), ev_dhold(5), ev_thold(5);
+	int[] ev_swipe(5), ev_drag(5);
+
+	iw_touch_band_interface(touch_gesture_manager@ manager, int region, float min_y, float max_y) {
+		super(manager, 0.0f, 1.0f, min_y, max_y);
+		band = region;
+		for (int i=0; i<5; i++) { ev_swipe[i]=-1; ev_drag[i]=-1; }
+	}
+	int finger_slot(uint count) {
+		if (count<1) return 1;
+		if (count>4) return 4;
+		return int(count);
+	}
+	bool is_tap_chain_supported(uint next_count, uint finger_count) {
+		return next_count<=3;
+	}
+	void on_tap(touch_screen_finger@ finger, uint count, uint fingers) {
+		int f=finger_slot(fingers);
+		if (count==1) ev_tap[f]=true;
+		else if (count==2) ev_dtap[f]=true;
+		else ev_ttap[f]=true;
+	}
+	void on_swipe(touch_screen_finger@ finger, int direction) {
+		int f=finger_slot(max_fingers_in_sequence>0 ? max_fingers_in_sequence : 1);
+		ev_swipe[f]=direction;
+	}
+	void on_flick(touch_screen_finger@ finger, int direction, float velocity) {
+		on_swipe(finger, direction);
+	}
+	void on_compound_swipe(touch_screen_finger@ finger, int[] directions) {
+		if (directions.length()>0) on_swipe(finger, directions[directions.length()-1]);
+	}
+	void on_drag(touch_screen_finger@ finger, int direction, uint fingers) {
+		ev_drag[finger_slot(fingers)]=direction;
+	}
+	void on_touch_move(touch_screen_finger@ finger,uint fingers){if(touch_keyboard_running and fingers==1){touch_keyboard_pointer_x=finger.x;touch_keyboard_pointer_y=finger.y;touch_keyboard_pointer_moved=true;}}
+	void on_long_press(touch_screen_finger@ finger, uint fingers) {
+		int f=finger_slot(fingers);
+		if (tap_count>=2) ev_thold[f]=true;
+		else if (tap_count==1) ev_dhold[f]=true;
+		else ev_long[f]=true;
+		tap_count=0;
+	}
+	void on_released_finger(touch_screen_finger@ finger) {
+		if(touch_keyboard_running){touch_keyboard_pointer_x=finger.x;touch_keyboard_pointer_y=finger.y;touch_keyboard_pointer_released=true;}
+		for (int i=0; i<5; i++) ev_drag[i]=-1;
+	}
+	void clear_events() {
+		for (int i=0; i<5; i++) {
+			ev_tap[i]=false; ev_dtap[i]=false; ev_ttap[i]=false;
+			ev_long[i]=false; ev_dhold[i]=false; ev_thold[i]=false;
+			ev_swipe[i]=-1; ev_drag[i]=-1;
+		}
+		tap_count=0;@last_tap_func=null;@last_tapped_finger=null;max_fingers_in_sequence=0;
+	}
+}
+
+class iw_global_touch_interface : touch_interface {
+	bool bottom_two_finger_triple_tap=false;
+	bool explore_candidate=false,explore_armed=false,explore_pending=false;
+	int64 explore_finger=-1;float explore_y=.5f;
+	iw_global_touch_interface(touch_gesture_manager@ manager){super(manager);allow_passthrough=true;}
+	bool is_tap_chain_supported(uint next_count,uint finger_count){return finger_count==2 and next_count<=3;}
+	void on_tap(touch_screen_finger@ finger,uint count,uint fingers){if(fingers==2 and count==3 and finger.start_pos.y>=0.666667f)bottom_two_finger_triple_tap=true;}
+	void on_touch_down(touch_screen_finger@ finger,uint fingers){if(fingers==1){explore_candidate=true;explore_armed=false;explore_finger=finger.id;}else {explore_candidate=false;explore_armed=false;}}
+	void on_touch_move(touch_screen_finger@ finger,uint fingers){if(!touch_menu_explore_enabled or fingers!=1 or finger.id!=explore_finger)return;float distance=(finger.current_pos-finger.start_pos).length();if(!explore_armed){if(distance>.035f){explore_candidate=false;return;}if(explore_candidate and finger.active_time>=450)explore_armed=true;}if(explore_armed){explore_y=finger.y;explore_pending=true;}}
+	void on_released_finger(touch_screen_finger@ finger){if(finger.id==explore_finger){explore_candidate=false;explore_armed=false;explore_finger=-1;}}
+	bool take_context_help(){bool result=bottom_two_finger_triple_tap;bottom_two_finger_triple_tap=false;return result;}
+	float take_explore_y(){if(!explore_pending)return -1;explore_pending=false;return explore_y;}
+	void clear_transient(){explore_pending=false;bottom_two_finger_triple_tap=false;tap_count=0;@last_tap_func=null;@last_tapped_finger=null;max_fingers_in_sequence=0;}
+}
+
+touch_gesture_manager touchManager;
+iw_touch_band_interface topTouch(@touchManager, REGION_TOP, 0.0f, 0.333333f);
+iw_touch_band_interface middleTouch(@touchManager, REGION_MIDDLE, 0.333333f, 0.666667f);
+iw_touch_band_interface bottomTouch(@touchManager, REGION_BOTTOM, 0.666667f, 1.0f);
+iw_global_touch_interface globalTouch(@touchManager);
+
+class gesture_engine {
+	int region=REGION_MIDDLE;
+	gesture_engine() {
+		touchManager.swipe_min_dist=0.06f;
+		touchManager.swipe_segment_threshold=0.06f;
+		touchManager.hold_jitter_threshold=0.025f;
+		touchManager.multi_tap_timeout=400;
+		touchManager.tap_max_delay=400;
+		touchManager.long_press_time=600;
+		touchManager.add_touch_interface(@topTouch);
+		touchManager.add_touch_interface(@middleTouch);
+		touchManager.add_touch_interface(@bottomTouch);
+		touchManager.add_touch_interface(@globalTouch);
+	}
+	void update() {
+		touchManager.monitor();
+	}
+	iw_touch_band_interface@ band_at(int index) {
+		if (index==0) return @topTouch;
+		if (index==1) return @middleTouch;
+		return @bottomTouch;
+	}
+	bool take_bool(int fingers, int kind) {
+		if (fingers<1 or fingers>4) return false;
+		for (int b=0; b<3; b++) {
+			iw_touch_band_interface@ iface=band_at(b);
+			bool value=false;
+			if (kind==0) { value=iface.ev_tap[fingers]; iface.ev_tap[fingers]=false; }
+			else if (kind==1) { value=iface.ev_dtap[fingers]; iface.ev_dtap[fingers]=false; }
+			else if (kind==2) { value=iface.ev_ttap[fingers]; iface.ev_ttap[fingers]=false; }
+			else if (kind==3) { value=iface.ev_long[fingers]; iface.ev_long[fingers]=false; }
+			else if (kind==4) { value=iface.ev_dhold[fingers]; iface.ev_dhold[fingers]=false; }
+			else { value=iface.ev_thold[fingers]; iface.ev_thold[fingers]=false; }
+			if (value) { region=iface.band; return true; }
+		}
+		return false;
+	}
+	bool take_tap(int fingers) { return take_bool(fingers,0); }
+	bool take_double_tap(int fingers) { return take_bool(fingers,1); }
+	bool take_triple_tap(int fingers) { return take_bool(fingers,2); }
+	bool take_long_press(int fingers) { return take_bool(fingers,3); }
+	bool take_double_tap_hold(int fingers) { return take_bool(fingers,4); }
+	bool take_triple_tap_hold(int fingers) { return take_bool(fingers,5); }
+	int take_swipe(int fingers) {
+		if (fingers<1 or fingers>4) return -1;
+		for (int b=0; b<3; b++) {
+			iw_touch_band_interface@ iface=band_at(b);
+			int value=iface.ev_swipe[fingers];
+			iface.ev_swipe[fingers]=-1;
+			if (value>-1) { region=iface.band; return value; }
+		}
+		return -1;
+	}
+	int drag_dir(int fingers) {
+		if (fingers<1 or fingers>4) return -1;
+		for (int b=0; b<3; b++) {
+			iw_touch_band_interface@ iface=band_at(b);
+			int value=iface.ev_drag[fingers];
+			if (value>-1) { region=iface.band; return value; }
+		}
+		return -1;
+	}
+	void clear_events() {
+		topTouch.clear_events();
+		middleTouch.clear_events();
+		bottomTouch.clear_events();
+		globalTouch.clear_transient();
+	}
+}
+
+float touch_explore_take_y(){return globalTouch.take_explore_y();}
+bool take_global_gesture_help(){return globalTouch.take_context_help();}
+
+gesture_engine gengine;
+
+timer gesture_vehicle_timer;
+
+// Virtual-key flags. The main game loop reads these alongside the real keys so
+// gestures reuse the existing (burst logic, cooldowns, menus, netcode) handlers
+// rather than duplicating them. Refreshed every frame by process_touch_gestures.
+bool gk_fire = false;
+bool gk_use = false;
+bool gk_chat = false;
+bool gk_jump = false;
+bool gk_interact = false;
+bool gk_vehicle = false;
+bool gk_reload = false;
+
+// Manual override so the touch layer can be exercised on a desktop build.
+bool touch_force_enabled = false;
+bool gesture_practice_speak_band = true;
+bool is_android() {
+	return system_is_mobile or touch_force_enabled;
+}
+bool is_mobile() { return is_android(); }
+
+// ---------------------------------------------------------------------------
+// Reusable Android UI helpers. On a touchscreen build the classic iw_form
+// (a desktop GUI window) is unavailable, so these give accessible substitutes
+// built from things that do work on Android: the native input_box / alert
+// dialogs and the dynamic_menu_pro menus (which are made touch-navigable in
+// m_pro.nvgt).
+// ---------------------------------------------------------------------------
+
+// A simple single-choice list. Returns the chosen 0-based index, or -1 if the
+// player backed out. Options are plain strings.
+int android_select(string title, string[] options) {
+	if (options.length() == 0) return -1;
+	dynamic_menu_pro sel;
+	sel.reset(true);
+	sel.enable_up_and_down = true;
+	sel.enable_home_and_end = true;
+	sel.wrap = menu_wrap_enabled;
+	sel.allow_escape = true;
+	sel.click_sound = "menumove.ogg";
+	sel.enter_sound = "menuenter.ogg";
+	sel.open_sound = "menuopen.ogg";
+	sel.wrap_sound = "menuwrap.ogg";
+	sel.edge_sound = "menuedge.ogg";
+	sel.set_callback(cme, ""); // keep the network alive while the menu is open
+	for (uint i = 0; i < options.length(); i++)
+		sel.add_item_tts(options[i], "opt_" + i);
+	int r = sel.run(title, true);
+	if (r < 1) return -1;
+	return r - 1;
+}
+
+// Read-only messages use the same gesture-aware NV_form as desktop builds.
+void android_message(string title, string text) {
+	show_readonly_audio_form(title, text);
+}
+
+// ---------------------------------------------------------------------------
+// In-game action helpers. These mirror, exactly, the behavior of the keyboard
+// handlers in the main game loop so a gesture produces the same result.
+// ---------------------------------------------------------------------------
+void gesture_rotate_left() {
+	turntimer.restart();
+	facing = snapleft(facing, getdir(facing));
+	speak(dir_to_string(getdir(facing)));
+	p.play_stationary("turn.ogg", false);
+	send_reliable(0, "turn " + facing, 0);
+}
+void gesture_rotate_right() {
+	turntimer.restart();
+	facing = snapright(facing, getdir(facing));
+	speak(dir_to_string(getdir(facing)));
+	p.play_stationary("turn.ogg", false);
+	send_reliable(0, "turn " + facing, 0);
+}
+void gesture_aim_up() {
+	if (turn >= 180) return;
+	if (turn < 90) turn = 90;
+	else turn = 180;
+	p.play_stationary("turn.ogg", false);
+	string s = "";
+	if (turn == 90) s = "straight forward";
+	else if (turn == 180) s = "straight up";
+	speak("facing " + s);
+	send_reliable(0, "turn2 " + turn, 0);
+}
+void gesture_aim_down() {
+	if (turn <= 0) return;
+	if (turn > 90) turn = 90;
+	else turn = 0;
+	p.play_stationary("turn.ogg", false);
+	string s = "";
+	if (turn == 90) s = "straight forward";
+	else if (turn == 0) s = "straight down";
+	speak("facing " + s);
+	send_reliable(0, "turn2 " + turn, 0);
+}
+void gesture_check_facing() {
+	string vert_info = "";
+	if (turn == 90) vert_info = ", aiming straight forward";
+	else if (turn == 0) vert_info = ", aiming straight down";
+	else if (turn == 180) vert_info = ", aiming straight up";
+	else vert_info = ", aiming " + turn + " degrees vertical";
+	speak("You are facing " + dir_to_string(getdir(facing)) + " at " + facing + " degrees" + vert_info + ".");
+}
+void gesture_check_status() {
+	send_reliable(0, "health", 0);
+	pending_health_report = true;
+	speak(get_stamina_string() + " " + get_effects_string());
+}
+void gesture_open_tracking_menu() {
+	speak("Fetching player list, please wait.");
+	string[] plist = fetch_player_list();
+	show_player_list_form("Track Player", plist, true);
+}
+void gesture_nearby_items() {
+	pending_vehicle_nearby = get_nearby_vehicles_string(int(mr.x), int(mr.y), int(me.z));
+	send_reliable(0, "whatnear", 0);
+}
+void gesture_toggle_posture() {
+	if (in_vehicle) { speak("You cannot change posture while seated in a vehicle."); return; }
+	sitting=!sitting;
+	if (sitting) {
+		speak("Sitting. Movement is reduced, stamina recovers faster, and heavy weapons cannot be used.");
+		if (walktime>=300) speak("Your current heavy weapon is lowered until you stand.");
+	} else speak("Standing.");
+	send_reliable(0, sitting ? "posture sitting" : "posture standing", 0);
+}
+void gesture_target_region(int change) {
+	if (change==0) target_region_index=0;
+	else {
+		target_region_index+=change;
+		if(target_region_index>=int(target_regions.length()))target_region_index=0;
+		if(target_region_index<0)target_region_index=target_regions.length()-1;
+	}
+	speak(change==0 ? "Target reset to whole body." : "Targeting "+target_regions[target_region_index]+".");
+}
+void gesture_channel_chat(int channel) {
+	if (channel==1 and mapname=="main") { speak("Map chat is available after entering a game mode."); return; }
+	string title=channel==0?"Global chat":(channel==1?"Current map chat":"Team chat");
+	string text=af_input(title,"",true).trim_whitespace();
+	if(text=="")return;
+	if(channel==2)send_team_command("chat "+text);
+	else send_reliable(0,text,channel==1?6:1);
+}
+void gesture_toggle_voice_transmission() {
+	if(!voice_enabled or @voice_encoder==null){speak("Voice chat is disabled. Open voice chat settings to configure it.");return;}
+	voice_toggle_active=!voice_toggle_active;
+}
+void gesture_toggle_hear_self() {
+	voice_hear_self=!voice_hear_self;writeprefs();
+	speak(voice_hear_self ? "You will hear your own voice chat." : "You will no longer hear your own voice chat.");
+}
+
+string[] gesture_help_lines(string context){
+	string[] lines={"Bottom band two finger triple tap: open gesture help for the current context."};
+	if(context=="audio form"){
+		lines.insert_last("One finger swipe up or down: previous or next control or list item.");lines.insert_last("One finger swipe left or right: change tabs, sliders, switches, or the input cursor.");lines.insert_last("Two finger swipe right or left: Tab to the next control or Shift Tab to the previous control, including entering and leaving category pages.");lines.insert_last("One finger double tap: activate the focused control.");lines.insert_last("One finger tap: repeat the focused control.");lines.insert_last("Two finger tap: close or go back.");lines.insert_last("Two finger swipe up or down: first or last control or list item.");lines.insert_last("When explore by touch is enabled, hold one finger still briefly and then drag vertically to discover controls by screen position.");
+	}else if(context=="menu"){
+		lines.insert_last("One finger swipe up or down: previous or next item.");lines.insert_last("One finger double tap: activate.");lines.insert_last("One finger tap: repeat the current item.");lines.insert_last("Two finger tap: close or go back.");lines.insert_last("Two finger swipe up or down: first or last item.");lines.insert_last("When explore by touch is enabled, hold one finger still briefly and then drag vertically to discover items by screen position.");
+	}else if(context=="vehicle"){
+		lines.insert_last("One finger drag up or down in the middle band: accelerate or brake.");lines.insert_last("One finger double tap and hold in the middle band: leave the vehicle.");lines.insert_last("Three finger swipe left or right in the middle band: previous or next seat.");lines.insert_last("Three finger triple tap in the middle band: open or close the window.");lines.insert_last("Two finger tap in the middle band: fire when the seat permits it.");
+	}else if(context=="touch keyboard"){
+		if(touch_keyboard_analogue){lines.insert_last("One finger swipe left or right: previous or next key in this row.");lines.insert_last("One finger swipe up or down: previous or next keyboard row.");lines.insert_last("One finger double tap: type the focused key.");lines.insert_last("Two finger swipes move to top middle, bottom middle, middle left, or middle right.");}
+		else {lines.insert_last("Drag one finger across the QWERTY layout to hear keys.");lines.insert_last("Lift your finger to type the last key touched.");}
+		lines.insert_last("Shift affects the next character. Caps Lock remains active. Choose Done to return to the form.");
+	}else{
+		lines.insert_last("Top band controls inventory, ammunition, item mechanics, quickbar, weapon operation, and maintenance.");lines.insert_last("Middle band controls movement, aiming, firing, body targeting, posture, manual loading, and weapon inspection.");lines.insert_last("Bottom band controls buffers, global, map, team and private chat, voice chat, equipment, effects, and the game menu.");lines.insert_last("Open Information, Android Gestures for the complete mapping, or use gesture practice mode to identify any gesture.");
+	}
+	lines.insert_last("Close");return lines;
+}
+void show_context_gesture_help(string context){
+	if(gesture_help_open)return;gesture_help_open=true;gengine.clear_events();dynamic_menu_pro help;help.reset(true);help.enable_up_and_down=true;help.enable_home_and_end=true;help.wrap=false;help.allow_escape=true;help.click_sound="menumove.ogg";help.enter_sound="menuenter.ogg";help.open_sound="menuopen.ogg";help.edge_sound="menuedge.ogg";help.set_callback(cme,"");string[] lines=gesture_help_lines(context);for(uint i=0;i<lines.length();i++)help.add_item_tts(lines[i],"gesture_"+i);help.run("Gestures for "+context,true);gengine.clear_events();gesture_help_open=false;
+}
+
+string[][] touch_keyboard_layout={{"1","2","3","4","5","6","7","8","9","0","backspace"},{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l","apostrophe"},{"shift","z","x","c","v","b","n","m","comma","period"},{"caps lock","space","question mark","done"}};
+string touch_keyboard_label(string key,bool shift,bool caps){if(key.length()==1 and key>="a" and key<="z" and (shift!=caps))return string_to_upper_case(key);return key;}
+bool touch_keyboard_activate(nv_form_input@ input,string key,bool &inout shift,bool &inout caps){
+	if(key=="done")return true;if(key=="shift"){shift=!shift;speak(shift?"Shift on.":"Shift off.");return false;}if(key=="caps lock"){caps=!caps;speak(caps?"Caps Lock on.":"Caps Lock off.");return false;}if(key=="backspace"){input.delete_highlighted(0);return false;}
+	string value=key;if(key=="space")value=" ";else if(key=="question mark")value="?";else if(key=="apostrophe")value="'";else if(key=="comma")value=",";else if(key=="period")value=".";else if(key.length()==1 and key>="a" and key<="z" and (shift!=caps))value=string_to_upper_case(key);input.add(value,true);speak(key=="space"?"space":value);shift=false;return false;
+}
+int touch_keyboard_row_from_y(float y){int row=int(y*float(touch_keyboard_layout.length()));if(row<0)row=0;if(row>=int(touch_keyboard_layout.length()))row=int(touch_keyboard_layout.length())-1;return row;}
+int touch_keyboard_col_from_x(int row,float x){int count=touch_keyboard_layout[row].length();int col=int(x*float(count));if(col<0)col=0;if(col>=count)col=count-1;return col;}
+void touch_keyboard_edit(nv_form_input@ input){
+	if(@input==null or !is_android() or !touch_keyboard_enabled)return;touch_keyboard_running=true;touch_keyboard_pointer_moved=false;touch_keyboard_pointer_released=false;gengine.clear_events();bool shift=false,caps=false,done=false;int row=touch_keyboard_analogue?2:0,col=touch_keyboard_analogue?int(touch_keyboard_layout[row].length()/2):0,last_row=-1,last_col=-1;speak((touch_keyboard_analogue?"Analogue keyboard. ":"Explore by touch keyboard. ")+"Bottom band two finger triple tap gives keyboard gesture help.");if(touch_keyboard_analogue)speak(touch_keyboard_label(touch_keyboard_layout[row][col],shift,caps));
+	while(!done){wait(5);pump_network_for_form();gengine.update();if(take_global_gesture_help()){show_context_gesture_help("touch keyboard");continue;}if(key_pressed(KEY_ESCAPE)){speak("Touch keyboard closed.");break;}
+		if(touch_keyboard_analogue){int s=gengine.take_swipe(1);if(s==swipe_touch_direction_left)col--;else if(s==swipe_touch_direction_right)col++;else if(s==swipe_touch_direction_up){row--;if(row<0)row=touch_keyboard_layout.length()-1;col=int(touch_keyboard_layout[row].length()/2);}else if(s==swipe_touch_direction_down){row++;if(row>=int(touch_keyboard_layout.length()))row=0;col=int(touch_keyboard_layout[row].length()/2);}int s2=gengine.take_swipe(2);if(s2==swipe_touch_direction_up){row=0;col=int(touch_keyboard_layout[row].length()/2);}else if(s2==swipe_touch_direction_down){row=touch_keyboard_layout.length()-1;col=int(touch_keyboard_layout[row].length()/2);}else if(s2==swipe_touch_direction_left){row=int(touch_keyboard_layout.length()/2);col=0;}else if(s2==swipe_touch_direction_right){row=int(touch_keyboard_layout.length()/2);col=touch_keyboard_layout[row].length()-1;}if(col<0)col=touch_keyboard_layout[row].length()-1;if(col>=int(touch_keyboard_layout[row].length()))col=0;if(row!=last_row or col!=last_col){speak(touch_keyboard_label(touch_keyboard_layout[row][col],shift,caps));last_row=row;last_col=col;}if(gengine.take_double_tap(1))done=touch_keyboard_activate(input,touch_keyboard_layout[row][col],shift,caps);
+		}else{if(touch_keyboard_pointer_moved or touch_keyboard_pointer_released){row=touch_keyboard_row_from_y(touch_keyboard_pointer_y);col=touch_keyboard_col_from_x(row,touch_keyboard_pointer_x);if(row!=last_row or col!=last_col){speak(touch_keyboard_label(touch_keyboard_layout[row][col],shift,caps));last_row=row;last_col=col;}touch_keyboard_pointer_moved=false;if(touch_keyboard_pointer_released){touch_keyboard_pointer_released=false;done=touch_keyboard_activate(input,touch_keyboard_layout[row][col],shift,caps);gengine.clear_events();}}}
+	}touch_keyboard_running=false;touch_keyboard_pointer_moved=false;touch_keyboard_pointer_released=false;gengine.clear_events();
+}
+
+// ---------------------------------------------------------------------------
+// Main per-frame dispatcher. Call once from the gameplay loop. It updates the
+// touch state, then translates recognized gestures into game actions, routed
+// by screen band (top / middle / bottom), finger count, and vehicle state.
+// ---------------------------------------------------------------------------
+void process_touch_gestures() {
+	gk_fire = false;
+	gk_use = false;
+	gk_chat = false;
+	gk_jump = false;
+	gk_interact = false;
+	gk_vehicle = false;
+	gk_reload = false;
+	if (!is_android()) return;
+	gengine.update();
+	if(take_global_gesture_help()){show_context_gesture_help(in_vehicle?"vehicle":"map gameplay");return;}
+	// Continuous movement remains a held analogue gesture; discrete actions below
+	// are resolved through the user-editable gesture configuration.
+	int d1 = gengine.drag_dir(1);
+	if (d1 != swipe_touch_direction_none and gengine.region == REGION_MIDDLE) {
+		if (in_vehicle) {
+			if (gesture_vehicle_timer.elapsed > 200) {
+				if (d1 == swipe_touch_direction_up) { vehicle_speed_up(); gesture_vehicle_timer.restart(); }
+				else if (d1 == swipe_touch_direction_down) { vehicle_speed_down(); gesture_vehicle_timer.restart(); }
+			}
+		} else if (can_move and walktimer.elapsed > movetime) {
+			walktimer.restart();
+			if (d1 == swipe_touch_direction_up) move(Forward);
+			else if (d1 == swipe_touch_direction_down) move(Backward);
+			else if (d1 == swipe_touch_direction_left) move(Left);
+			else if (d1 == swipe_touch_direction_right) move(Right);
+		}
+	}
+	string[] band_names={"top","middle","bottom"};
+	for(int fingers=1;fingers<=3;fingers++){
+		int swipe=gengine.take_swipe(fingers);if(swipe!=swipe_touch_direction_none)execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":swipe:"+get_swipe_name(swipe),""));
+		if(gengine.take_triple_tap_hold(fingers))execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":triple_hold",""));
+		if(gengine.take_double_tap_hold(fingers))execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":double_hold",""));
+		if(gengine.take_long_press(fingers))execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":hold",""));
+		if(gengine.take_triple_tap(fingers))execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":triple_tap",""));
+		if(gengine.take_double_tap(fingers))execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":double_tap",""));
+		if(gengine.take_tap(fingers))execute_gesture_action(gesture_action_at(band_names[gengine.region]+":"+fingers+":tap",""));
+	}
+}
+
+// ---------------------------------------------------------------------------
+// touch_menu_poll: lightweight navigation reader used by dynamic_menu_pro so
+// its menus are usable by touch on Android. Returns a command code:
+//   1 previous, 2 next, 3 activate, 4 back/close, 5 repeat current,
+//   6 first item, 7 last item, 0 nothing.
+// ---------------------------------------------------------------------------
+int touch_menu_poll() {
+	if (!is_android()) return 0;
+	gengine.update();
+	if(take_global_gesture_help()){show_context_gesture_help("menu");return 0;}
+	int s = gengine.take_swipe(1);
+	if (s == swipe_touch_direction_up) return 1;
+	if (s == swipe_touch_direction_down) return 2;
+	int s2 = gengine.take_swipe(2);
+	if (s2 == swipe_touch_direction_up) return 6;
+	if (s2 == swipe_touch_direction_down) return 7;
+	if (gengine.take_double_tap(1)) return 3;
+	if (gengine.take_tap(2)) return 4;
+	if (gengine.take_tap(1)) return 5;
+	return 0;
+}
+
+// NV_form uses the same recognizer but needs horizontal commands as well as
+// the classic menu's vertical navigation contract.
+int touch_form_poll() {
+	if (!is_android()) return 0;
+	gengine.update();
+	if(take_global_gesture_help()){show_context_gesture_help("audio form");return 0;}
+	int s=gengine.take_swipe(1);
+	if(s==swipe_touch_direction_up)return 1;
+	if(s==swipe_touch_direction_down)return 2;
+	if(s==swipe_touch_direction_left)return 8;
+	if(s==swipe_touch_direction_right)return 9;
+	int s2=gengine.take_swipe(2);
+	if(s2==swipe_touch_direction_up)return 6;
+	if(s2==swipe_touch_direction_down)return 7;
+	if(s2==swipe_touch_direction_left)return 10;
+	if(s2==swipe_touch_direction_right)return 11;
+	if(gengine.take_double_tap(1))return 3;
+	if(gengine.take_tap(2))return 4;
+	if(gengine.take_tap(1))return 5;
+	return 0;
+}
+
+// ---------------------------------------------------------------------------
+// The player-facing gesture reference. Navigable by touch or keyboard.
+// ---------------------------------------------------------------------------
+void show_android_gestures() {
+	dynamic_menu_pro g;
+	g.reset(true);
+	g.enable_up_and_down = true;
+	g.enable_home_and_end = true;
+	g.wrap = false;
+	g.allow_escape = true;
+	g.click_sound = "menumove.ogg";
+	g.enter_sound = "menuenter.ogg";
+	g.open_sound = "menuopen.ogg";
+	g.edge_sound = "menuedge.ogg";
+	g.set_callback(cme, ""); // keep the network alive while the reference is open
+	string[] lines = {
+		"Android touch gestures. Swipe up or down to read, two finger tap or escape to go back.",
+		"Bottom band two finger triple tap: open dynamic gesture help for the current menu, audio form, map, vehicle, or touch keyboard.",
+		"In menus, two finger swipe up jumps to the first item and two finger swipe down jumps to the last item.",
+		"In audio forms, two finger swipe right tabs forward and two finger swipe left tabs backward, including entering and leaving category pages.",
+		"With explore by touch enabled, hold one finger still for a moment and then drag to discover controls by their screen positions. Immediate swipes and taps never start exploration.",
+		"The screen has three bands: top, middle, and bottom.",
+		"-- Top band: inventory and status --",
+		"One finger swipe left or right: cycle inventory.",
+		"One finger swipe up or down: cycle inventory categories.",
+		"One finger tap: draw, holster, or open the holster panel.",
+		"One finger double tap: activate the selected inventory item.",
+		"One finger triple tap: help for the selected item.",
+		"One finger triple tap and hold: open the weapon panel to manage attachments.",
+		"Two finger tap: announce your tracked player's location.",
+		"Two finger double tap: open the player tracking menu.",
+		"Two finger hold: cycle the selected item's operating configuration.",
+		"Two finger double tap and hold: inspect the selected item's mechanics.",
+		"Two finger triple tap and hold: open the quickbar and equipment abilities manager.",
+		"Three finger tap: list points of interest on the map.",
+		"Three finger double tap: list items within 20 tiles.",
+		"Three finger hold: cycle compatible ammunition for the wielded weapon.",
+		"Three finger double tap and hold: operate the weapon-specific control.",
+		"Three finger triple tap and hold: maintain, vent, or service the weapon.",
+		"-- Middle band: movement and combat --",
+		"One finger tap and hold: interact with map elements (doors, chests).",
+		"One finger double tap and hold: enter or leave a vehicle.",
+		"One finger drag up, down, left, or right: walk in that direction.",
+		"One finger swipe left or right: rotate to the nearest cardinal direction.",
+		"One finger swipe up or down: adjust vertical aim.",
+		"One finger double tap: check facing and cardinal direction.",
+		"One finger triple tap: check health, stamina, and status effects.",
+		"Two finger tap: fire the current weapon.",
+		"Two finger double tap: jump.",
+		"Two finger triple tap: inspect weapon handling.",
+		"Two finger swipe left or right: target the previous or next body region.",
+		"Two finger swipe up: reset targeting to the whole body.",
+		"Two finger swipe down: sit or stand.",
+		"Two finger double tap and hold: open or close a manual-fed weapon's action.",
+		"Two finger triple tap and hold: insert one round into a manual-fed weapon.",
+		"Three finger tap: reload.",
+		"Three finger double tap: unload.",
+		"Three finger triple tap: switch fire mode (or open a vehicle window when driving).",
+		"Three finger hold: cycle a manual weapon's action.",
+		"Three finger double tap and hold: eject manual weapon ammunition.",
+		"Three finger triple tap and hold: open current-map chat.",
+		"In a vehicle: one finger drag up or down to accelerate or decelerate.",
+		"In a vehicle: three finger swipe left or right to switch seats.",
+		"-- Bottom band: messages and menu --",
+		"Swipe up or down: switch between message buffers.",
+		"Swipe left or right: move through the current buffer.",
+		"Double tap: send a chat message.",
+		"One finger hold: toggle gesture voice transmission.",
+		"Two finger swipe left: jump to the start of the buffer.",
+		"Two finger swipe right: jump to the end of the buffer.",
+		"Two finger double tap: open the game menu.",
+		"Two finger hold: configure the active voice room.",
+		"Two finger double tap and hold: open voice settings.",
+		"Two finger triple tap and hold: toggle hearing your own voice.",
+		"Three finger tap: open team chat.",
+		"Three finger double tap: open recent private-message senders.",
+		"Three finger triple tap: read buffs and debuffs.",
+		"Three finger hold: open equipment.",
+		"Three finger double tap and hold: open quickbar and equipment abilities.",
+		"Three finger triple tap and hold: open global chat.",
+		"Back"
+	};
+	for (uint i = 0; i < lines.length(); i++)
+		g.add_item_tts(lines[i], "line_" + i);
+	g.run("Android Gestures", true);
+}
+
+string gesture_practice_band_name(int band) {
+	if (band==REGION_TOP) return "top band";
+	if (band==REGION_BOTTOM) return "bottom band";
+	return "middle band";
+}
+
+string gesture_practice_direction(int direction) {
+	if (direction==swipe_touch_direction_left) return "left";
+	if (direction==swipe_touch_direction_right) return "right";
+	if (direction==swipe_touch_direction_up) return "up";
+	if (direction==swipe_touch_direction_down) return "down";
+	if (direction==swipe_touch_direction_up_left) return "up left";
+	if (direction==swipe_touch_direction_up_right) return "up right";
+	if (direction==swipe_touch_direction_down_left) return "down left";
+	if (direction==swipe_touch_direction_down_right) return "down right";
+	return "unknown direction";
+}
+
+string gesture_practice_fingers(int fingers) {
+	if (fingers==1) return "one finger";
+	if (fingers==2) return "two finger";
+	if (fingers==3) return "three finger";
+	return "four finger";
+}
+
+string gesture_practice_function(int band, int fingers, string kind, int direction=-1) {
+	string action="This gesture has no assigned game function in this band.";
+	if (kind=="swipe") {
+		if (fingers==1 and band==REGION_TOP) {
+			if (direction==swipe_touch_direction_left) action="Cycle backward through inventory items.";
+			else if (direction==swipe_touch_direction_right) action="Cycle forward through inventory items.";
+			else if (direction==swipe_touch_direction_up) action="Cycle forward through inventory categories.";
+			else if (direction==swipe_touch_direction_down) action="Cycle backward through inventory categories.";
+		} else if (fingers==1 and band==REGION_MIDDLE) {
+			if (direction==swipe_touch_direction_left) action="Rotate left.";
+			else if (direction==swipe_touch_direction_right) action="Rotate right.";
+			else if (direction==swipe_touch_direction_up) action="Aim upward.";
+			else if (direction==swipe_touch_direction_down) action="Aim downward.";
+		} else if (fingers==1 and band==REGION_BOTTOM) {
+			if (direction==swipe_touch_direction_up) action="Move to the previous message buffer.";
+			else if (direction==swipe_touch_direction_down) action="Move to the next message buffer.";
+			else if (direction==swipe_touch_direction_left) action="Read the previous item in the current message buffer.";
+			else if (direction==swipe_touch_direction_right) action="Read the next item in the current message buffer.";
+		} else if (fingers==2 and band==REGION_BOTTOM) {
+			if (direction==swipe_touch_direction_left) action="Jump to the first item in the current message buffer.";
+			else if (direction==swipe_touch_direction_right) action="Jump to the last item in the current message buffer.";
+		} else if (fingers==2 and band==REGION_MIDDLE) {
+			if(direction==swipe_touch_direction_left)action="Target the previous body region.";
+			else if(direction==swipe_touch_direction_right)action="Target the next body region.";
+			else if(direction==swipe_touch_direction_up)action="Reset targeting to the whole body.";
+			else if(direction==swipe_touch_direction_down)action="Sit or stand.";
+		} else if (fingers==3 and band==REGION_MIDDLE) {
+			if (direction==swipe_touch_direction_left) action="While in a vehicle, switch to the previous seat.";
+			else if (direction==swipe_touch_direction_right) action="While in a vehicle, switch to the next seat.";
+		}
+		if (fingers==1 and direction==swipe_touch_direction_up) action += " In menus, move to the previous item.";
+		else if (fingers==1 and direction==swipe_touch_direction_down) action += " In menus, move to the next item.";
+		else if (fingers==2 and direction==swipe_touch_direction_up) action += " In menus, jump to the first item.";
+		else if (fingers==2 and direction==swipe_touch_direction_down) action += " In menus, jump to the last item.";
+	} else if (kind=="drag") {
+		if (fingers==1 and band==REGION_MIDDLE) {
+			if (direction==swipe_touch_direction_up) action="Move forward continuously; in a vehicle, increase speed.";
+			else if (direction==swipe_touch_direction_down) action="Move backward continuously; in a vehicle, decrease speed.";
+			else if (direction==swipe_touch_direction_left) action="Move left continuously while on foot.";
+			else if (direction==swipe_touch_direction_right) action="Move right continuously while on foot.";
+		}
+	} else if (kind=="tap") {
+		if (fingers==1 and band==REGION_TOP) action="Draw or holster the selected weapon, or open the holster panel.";
+		else if (fingers==2 and band==REGION_TOP) action="Announce the tracked player's location.";
+		else if (fingers==2 and band==REGION_MIDDLE) action="Fire the wielded weapon.";
+		else if (fingers==3 and band==REGION_TOP) action="Open the points of interest list.";
+		else if (fingers==3 and band==REGION_MIDDLE) action="Reload the wielded weapon.";
+		else if (fingers==3 and band==REGION_BOTTOM) action="Open team chat.";
+		if (fingers==1) action += " In menus, repeat the current item.";
+		else if (fingers==2) action += " In menus, go back or close the menu.";
+	} else if (kind=="double tap") {
+		if (fingers==1 and band==REGION_TOP) action="Activate the selected inventory item.";
+		else if (fingers==1 and band==REGION_MIDDLE) action="Check the direction you are facing.";
+		else if (fingers==1 and band==REGION_BOTTOM) action="Open chat.";
+		else if (fingers==2 and band==REGION_TOP) action="Open the player tracking menu.";
+		else if (fingers==2 and band==REGION_MIDDLE) action="Jump.";
+		else if (fingers==2 and band==REGION_BOTTOM) action="Open the in-game menu.";
+		else if (fingers==3 and band==REGION_TOP) action="List nearby items.";
+		else if (fingers==3 and band==REGION_MIDDLE) action="Unload the wielded weapon.";
+		else if (fingers==3 and band==REGION_BOTTOM) action="Open recent private-message senders.";
+		if (fingers==1) action += " In menus, activate the current item.";
+	} else if (kind=="triple tap") {
+		if(fingers==2 and band==REGION_BOTTOM)action="Open dynamic gesture help for the current context.";
+		else if (fingers==1 and band==REGION_TOP) action="Open help for the selected inventory item.";
+		else if (fingers==1 and band==REGION_MIDDLE) action="Check health, stamina, and current status.";
+		else if (fingers==2 and band==REGION_MIDDLE) action="Inspect weapon handling.";
+		else if (fingers==3 and band==REGION_MIDDLE) action="Change the weapon firing mode; in a vehicle, open or close the window.";
+		else if (fingers==3 and band==REGION_BOTTOM) action="Read buffs and debuffs.";
+	} else if (kind=="hold") {
+		if (fingers==1 and band==REGION_MIDDLE) action="Interact with a nearby map element.";
+		else if(fingers==1 and band==REGION_BOTTOM)action="Toggle gesture voice transmission.";
+		else if(fingers==2 and band==REGION_TOP)action="Cycle the selected item's operating configuration.";
+		else if(fingers==2 and band==REGION_BOTTOM)action="Configure the active voice room.";
+		else if(fingers==3 and band==REGION_TOP)action="Cycle compatible ammunition for the wielded weapon.";
+		else if(fingers==3 and band==REGION_MIDDLE)action="Cycle a manual-fed weapon's action.";
+		else if(fingers==3 and band==REGION_BOTTOM)action="Open equipment.";
+	} else if (kind=="double tap and hold") {
+		if (fingers==1 and band==REGION_MIDDLE) action="Enter or leave a vehicle.";
+		else if(fingers==2 and band==REGION_TOP)action="Inspect the selected item's mechanics.";
+		else if(fingers==2 and band==REGION_MIDDLE)action="Open or close a manual-fed weapon's action.";
+		else if(fingers==2 and band==REGION_BOTTOM)action="Open voice chat settings.";
+		else if(fingers==3 and band==REGION_TOP)action="Operate the weapon-specific control.";
+		else if(fingers==3 and band==REGION_MIDDLE)action="Eject ammunition from a manual-fed weapon.";
+		else if(fingers==3 and band==REGION_BOTTOM)action="Open quickbar and equipment abilities.";
+	} else if (kind=="triple tap and hold") {
+		if (fingers==1 and band==REGION_TOP) action="Open the wielded weapon panel to manage attachments.";
+		else if(fingers==2 and band==REGION_TOP)action="Open quickbar and equipment abilities.";
+		else if(fingers==2 and band==REGION_MIDDLE)action="Insert one round into a manual-fed weapon.";
+		else if(fingers==2 and band==REGION_BOTTOM)action="Toggle hearing your own voice.";
+		else if(fingers==3 and band==REGION_TOP)action="Maintain, vent, or service the weapon.";
+		else if(fingers==3 and band==REGION_MIDDLE)action="Open current-map chat.";
+		else if(fingers==3 and band==REGION_BOTTOM)action="Open global chat.";
+	}
+	return action;
+}
+
+string gesture_practice_announcement(int band, int fingers, string kind, int direction=-1) {
+	string gesture=gesture_practice_fingers(fingers)+" "+kind;
+	if (direction>=0) gesture += " "+gesture_practice_direction(direction);
+	if (gesture_practice_speak_band) gesture=gesture_practice_band_name(band)+", "+gesture;
+	return gesture+". "+gesture_practice_function(band, fingers, kind, direction);
+}
+
+string take_practice_gesture() {
+	if(take_global_gesture_help())return "bottom band, two finger triple tap. Open dynamic gesture help for the current context.";
+	for (int fingers=1; fingers<=4; fingers++) {
+		int direction=gengine.take_swipe(fingers);
+		if (direction!=swipe_touch_direction_none)
+			return gesture_practice_announcement(gengine.region, fingers, "swipe", direction);
+	}
+	for (int fingers=1; fingers<=4; fingers++) {
+		if (gengine.take_triple_tap_hold(fingers)) return gesture_practice_announcement(gengine.region, fingers, "triple tap and hold");
+		if (gengine.take_double_tap_hold(fingers)) return gesture_practice_announcement(gengine.region, fingers, "double tap and hold");
+		if (gengine.take_long_press(fingers)) return gesture_practice_announcement(gengine.region, fingers, "hold");
+		if (gengine.take_triple_tap(fingers)) return gesture_practice_announcement(gengine.region, fingers, "triple tap");
+		if (gengine.take_double_tap(fingers)) return gesture_practice_announcement(gengine.region, fingers, "double tap");
+		if (gengine.take_tap(fingers)) return gesture_practice_announcement(gengine.region, fingers, "tap");
+	}
+	int drag_direction=gengine.drag_dir(1);
+	if (drag_direction!=swipe_touch_direction_none)
+		return gesture_practice_announcement(gengine.region, 1, "drag", drag_direction);
+	return "";
+}
+
+void practice_android_gestures() {
+	gengine.clear_events();
+	string band_setting=gesture_practice_speak_band ? "Band announcements are on." : "Band announcements are off.";
+	speak("Gesture practice mode. Perform any game gesture and its function will be announced without activating it. "+band_setting+" Press escape or the Android back button to finish.");
+	string last_drag="";
+	while (!key_pressed(KEY_ESCAPE)) {
+		wait(5);
+		gengine.update();
+		string result=take_practice_gesture();
+		if (result!="") {
+			bool is_drag=result.find(" drag ")>=0;
+			if (!is_drag or result!=last_drag) speak(result);
+			last_drag=is_drag ? result : "";
+		} else if (gengine.drag_dir(1)==swipe_touch_direction_none) last_drag="";
+	}
+	gengine.clear_events();
+	speak("Leaving gesture practice mode.");
+}
+
+// Native (touch) version of the weapon panel used on Android in place of the
+// iw_form. Shows the weapon's stats and lets the player remove attachments.
+void show_weapon_info_android(string wname) {
+	int gi = find_gun(wname);
+	int base_range = 0, base_damage = 0, base_spread = 0, base_capacity = 0;
+	for (uint i = 0; i < wpn_cache.length(); i++) {
+		if (wpn_cache[i].id == wname) {
+			base_range = wpn_cache[i].range;
+			base_damage = wpn_cache[i].damage;
+			base_spread = wpn_cache[i].spread;
+			break;
+		}
+	}
+	if (gi >= 0) base_capacity = gun_ammos[gi].mag_capacity;
+	string stats_text = "Range: " + base_range + " tiles\n";
+	stats_text += "Damage: " + base_damage + "\n";
+	stats_text += "Spread: " + base_spread + "\n";
+	if (gi >= 0) stats_text += "Max ammo: " + base_capacity;
+	else stats_text += "Max ammo: N/A";
+	if (is_energy_weapon(wname)) stats_text += "\nDurability: " + get_durability(wname) + "%";
+	string[] attached = get_weapon_attachments(wname);
+	if (attached.length() > 0) {
+		stats_text += "\n\nAttachments:";
+		for (uint i = 0; i < attached.length(); i++) {
+			int def_idx = find_attachment_def(attached[i]);
+			if (def_idx >= 0) {
+				string label = attachment_defs[def_idx].display_name + " (" + attachment_defs[def_idx].slot + ")";
+				if (!attachment_defs[def_idx].removable) label += " [permanent]";
+				stats_text += "\n" + label;
+			}
+		}
+	}
+	android_message(get_weapon_display_name(wname), stats_text);
+	if (attached.length() == 0) return;
+	// Offer removal of any removable attachments.
+	string[] rem_names;
+	int[] rem_pos;
+	for (uint i = 0; i < attached.length(); i++) {
+		int def_idx = find_attachment_def(attached[i]);
+		if (def_idx >= 0 and attachment_defs[def_idx].removable) {
+			rem_names.insert_last(attachment_defs[def_idx].display_name);
+			rem_pos.insert_last(int(i));
+		}
+	}
+	if (rem_names.length() == 0) return;
+	rem_names.insert_last("Close");
+	int sel = android_select("Remove attachment", rem_names);
+	if (sel < 0 or sel >= int(rem_pos.length())) return;
+	int ai = rem_pos[sel];
+	if (detach_from_weapon(attached[ai], wname)) {
+		string removed_attachment = attached[ai];
+		give(attached[ai], 1);
+		apply_weapon_stats(wname);
+		p.play_stationary("attachment_" + removed_attachment + "_remove.ogg", false);
+		send_reliable(0, "detach " + attached[ai] + " " + wname, 0);
+		int def_idx = find_attachment_def(attached[ai]);
+		speak((def_idx >= 0 ? attachment_defs[def_idx].display_name : attached[ai]) + " removed. Returned to inventory.");
+	}
+}
+
+// A yes/no confirmation for touch builds. Returns true for yes.
+bool android_yesno(string question) {
+	string[] opts = {"Yes", "No"};
+	int r = android_select(question, opts);
+	return r == 0;
+}
+
+// Native (touch) equipment screen used on Android in place of equipment_menu.
+void android_equipment_menu() {
+	while (true) {
+		string[] slots;
+		slots.insert_last("Armour, head: "+(equipped_armor_head==""?"empty":string_replace(equipped_armor_head,"_"," ",true)+", "+equipped_armor_head_durability+" durability"));
+		slots.insert_last("Armour, torso: "+(equipped_armor_torso==""?"empty":string_replace(equipped_armor_torso,"_"," ",true)+", "+equipped_armor_torso_durability+" durability"));
+		slots.insert_last("Armour, arms: "+(equipped_armor_arms==""?"empty":string_replace(equipped_armor_arms,"_"," ",true)+", "+equipped_armor_arms_durability+" durability"));
+		slots.insert_last("Armour, legs: "+(equipped_armor_legs==""?"empty":string_replace(equipped_armor_legs,"_"," ",true)+", "+equipped_armor_legs_durability+" durability"));
+		string body_label = "Body: ";
+		body_label += (equip_body != "") ? string_replace(equip_body, "_", " ", true) : "empty";
+		slots.insert_last(body_label);
+		slots.insert_last("Holster 1: " + get_holster_slot_label(1));
+		slots.insert_last("Holster 2: " + get_holster_slot_label(2));
+		string bracelet_label = "Bracelet: ";
+		bracelet_label += (equip_bracelet != "") ? string_replace(equip_bracelet, "_", " ", true) : "empty";
+		slots.insert_last(bracelet_label);
+		string medical_label = "Medical: ";
+		if (equip_medical != "") {
+			medical_label += string_replace(equip_medical, "_", " ", true);
+			if (equip_medical == "wirenet")
+				medical_label += " (" + wirenet_charges + " charges, " + (wirenet_active ? "active" : "inactive") + ")";
+		} else medical_label += "empty";
+		slots.insert_last(medical_label);
+		slots.insert_last("Close");
+		int sel = android_select("Equipment. Select a slot to unequip it.", slots);
+		if (sel < 0 or sel == 9) return;
+		if(sel>=0 and sel<=3){string[] regions={"head","torso","arm","leg"};string[] equipped={equipped_armor_head,equipped_armor_torso,equipped_armor_arms,equipped_armor_legs};if(equipped[sel]!=""){send_reliable(0,"armor_unequip "+regions[sel],0);return;}}
+		else if (sel == 4 and equip_body != "") { unequip_item("body"); continue; }
+		else if (sel == 5 and equip_holster1 != "") { unequip_holster(1); continue; }
+		else if (sel == 6 and equip_holster2 != "") { unequip_holster(2); continue; }
+		else if (sel == 7 and equip_bracelet != "") { unequip_item("bracelet"); continue; }
+		else if (sel == 8 and equip_medical != "") { unequip_item("medical"); continue; }
+		else speak("Nothing equipped in this slot.");
+	}
+}
+
+// Native (touch) game menu used on Android in place of the escape_menu form.
+void android_escape_menu() {
+	while (true) {
+		string[] opts = {"Stats", "Equipment", "Team", "Account info", "View rules", "View developers", "Android gestures", "Exit game", "Close"};
+		int sel = android_select("Game Menu", opts);
+		if (sel < 0 or sel == 8) return;
+		if (sel == 0) {
+			string stats_text = "Weapon: " + string_replace(weapons[w], "_", " ", true) + "\n";
+			stats_text += "Location: " + get_location() + "\n";
+			stats_text += "Stamina: " + get_stamina_string() + "\n";
+			stats_text += "Effects: " + get_effects_string() + "\n";
+			stats_text += "Items: " + count_total_items() + " in inventory\n";
+			stats_text += "Map: " + mapname + "\n";
+			stats_text += "Player: " + name + "\n";
+			stats_text += "Version: " + version + ", build " + build_number + " (" + build_date + ")";
+			android_message("Stats", stats_text);
+		} else if (sel == 1) {
+			android_equipment_menu();
+		} else if (sel == 2) {
+			team_menu();
+		} else if (sel == 3) {
+			string info = "Username: " + name;
+			if (account_exists(name)) {
+				savedata acct(get_account_path(name), ACCOUNT_SECRET);
+				acct.load();
+				string em = acct.read("email");
+				if (em != "") info += "\nEmail: " + em;
+			} else info += "\nNo registered account found for this username.";
+			android_message("Account Info", info);
+		} else if (sel == 4) {
+			file rf;
+			string rl = "Rules file not found.";
+			if (rf.open("rules.txt", "rb")) { rl = rf.read(); rf.close(); }
+			android_message("Rules", rl);
+		} else if (sel == 5) {
+			file df;
+			string dv = "Developers file not found.";
+			if (df.open("developers.txt", "rb")) { dv = df.read(); df.close(); }
+			android_message("Developers", dv);
+		} else if (sel == 6) {
+			show_android_gestures();
+		} else if (sel == 7) {
+			if (android_yesno("Are you sure you wish to exit the game?")) {
+				speak("Exiting the game");
+				send_reliable(0, "close", 0);
+				x = true;
+				xtimer.restart();
+				return;
+			}
+		}
+	}
+}

@@ -87,3 +87,27 @@ itemgrabs++;
 if(itemgrabs>itemcount) break;
 }
 }
+
+void give_random_weapon_maintenance_bundle(int player_index)
+{
+if(player_index<0 or player_index>=int(players.length()))return;int kind=random(0,8);string[] grants;
+if(kind==0)grants={"handgun_cleaning_kit 1","chamber_brush 3","action_lubricant 3"};
+else if(kind==1)grants={"rifle_field_tool 1","carbon_scraper 3","action_lubricant 3"};
+else if(kind==2)grants={"precision_bore_guide 1","copper_fouling_solvent 3","precision_cleaning_patches 5"};
+else if(kind==3)grants={"shotgun_cleaning_rod 1","shotgun_bore_swab 4","action_lubricant 3"};
+else if(kind==4)grants={"barrel_wrench 1","heat_resistant_gloves 1","spare_machine_gun_barrel 2"};
+else if(kind==5)grants={"emitter_service_key 1","thermal_vent_cartridge 3","dielectric_coolant 3"};
+else if(kind==6)grants={"fuel_system_wrench 1","burner_nozzle_cleaner 3","pressure_seal_kit 3"};
+else if(kind==7)grants={"drive_service_tool 1","chain_lubricant 3","motor_coolant 3"};
+else grants={"field_honing_stone 1","blade_oil 3","rust_remover 3","weapon_inspection_gauge 1","grip_repair_wrap 3","fastener_compound 3"};
+for(uint i=0;i<grants.length();i++)send_reliable(players[player_index].peer_id,"give "+grants[i],0);
+send_reliable(players[player_index].peer_id,"The container included a "+(kind==0?"handgun":kind==1?"rifle":kind==2?"precision rifle":kind==3?"shotgun":kind==4?"machine gun":kind==5?"energy weapon":kind==6?"fuel weapon":kind==7?"powered tool":"melee weapon")+" maintenance bundle.",2);
+}
+
+void give_random_equipment_service_bundle(int player_index)
+{
+if(player_index<0 or player_index>=int(players.length()))return;int kind=random(0,7);string[] grants;
+if(kind==0)grants={"soft_armor_patch 2","kevlar_weave_patch 2","aramid_repair_tape 2"};else if(kind==1)grants={"plate_carrier_patch 2","ballistic_helmet_patch 1","ceramic_plate_epoxy 2"};else if(kind==2)grants={"heavy_plate_patch 1","heavy_arm_patch 1","armor_rivet_pack 2"};
+else if(kind==3)grants={"gasoline_can 2","empty_fuel_can 1","vehicle_siphon_hose 1"};else if(kind==4)grants={"diesel_can 2","engine_oil 2","vehicle_oil_filter 1"};else if(kind==5)grants={"aviation_fuel_can 2","engine_coolant 2","cooling_system_tester 1"};else if(kind==6)grants={"vehicle_jack 1","tire_patch_kit 2","transmission_fluid 2"};else grants={"fuel_drain_pan 1","fuel_system_flush 2","vehicle_engine_service_kit 1"};
+for(uint i=0;i<grants.length();i++)send_reliable(players[player_index].peer_id,"give "+grants[i],0);send_reliable(players[player_index].peer_id,"The container included "+(kind<3?"armour patching supplies.":"vehicle workshop supplies."),2);
+}

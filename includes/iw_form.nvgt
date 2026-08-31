@@ -1,0 +1,109 @@
+// Infinite Warfare compatibility facade for Ivan Soto's NV_form.
+//
+// The game historically used NVGT's audio_form integer-handle API in more
+// than one hundred dialogs. Keeping that small public surface lets those
+// dialogs move to NV_form immediately while newer screens use typed NV_form
+// controls directly. This altered adapter is game code; NV_form itself is
+// vendored unchanged in includes/nv_form with its original license.
+class iw_form : nv_form
+{
+int create_input_box(const string &in caption, const string &in default_text="", const string &in password_mask="", int max_length=0, bool multiline=false, bool read_only=false, bool unused=false)
+{
+nv_form_input@ control=add_input(caption, "", default_text, password_mask, max_length, read_only, multiline);
+return controls.find_by_ref(control);
+}
+int create_button(const string &in caption, bool primary=false, bool cancel=false)
+{
+nv_form_button@ control=add_button(caption, "", primary, cancel);
+return controls.find_by_ref(control);
+}
+int create_checkbox(const string &in caption, bool checked=false)
+{
+nv_form_checkbox@ control=add_checkbox(caption, "", checked);
+return controls.find_by_ref(control);
+}
+int create_list(const string &in caption, int unused=0, bool multiselect=false)
+{
+nv_form_list_box@ control=add_list(caption, "", multiselect);
+return controls.find_by_ref(control);
+}
+int create_slider(const string &in caption, double value, double minimum, double maximum)
+{
+nv_form_slider@ control=add_slider(caption, "", minimum, maximum, 1, value);
+return controls.find_by_ref(control);
+}
+bool valid_handle(int handle) const
+{
+return handle>=0 and handle<int(controls.length()) and @controls[handle]!=null;
+}
+void focus(int handle)
+{
+if (valid_handle(handle)) controls[handle].focus();
+}
+bool is_pressed(int handle)
+{
+if (!valid_handle(handle)) return false;
+nv_form_button@ button=cast<nv_form_button@>(controls[handle]);
+if (@button==null) return false;
+return nv_form::is_pressed(button);
+}
+string get_text(int handle)
+{
+if (!valid_handle(handle)) return "";
+nv_form_input@ input=cast<nv_form_input@>(controls[handle]);
+return @input==null ? "" : input.text;
+}
+bool is_checked(int handle)
+{
+if (!valid_handle(handle)) return false;
+nv_form_checkbox@ checkbox=cast<nv_form_checkbox@>(controls[handle]);
+return @checkbox!=null and checkbox.state;
+}
+void set_state(int handle, bool state, bool unused=false)
+{
+if (!valid_handle(handle)) return;
+nv_form_checkbox@ checkbox=cast<nv_form_checkbox@>(controls[handle]);
+if (@checkbox!=null) checkbox.state=state;
+}
+void add_list_item(int handle, const string &in text)
+{
+if (!valid_handle(handle)) return;
+nv_form_list_box@ list=cast<nv_form_list_box@>(controls[handle]);
+if (@list==null) return;
+list.add(text);
+if (list.list_position<0) list.set_pos(0);
+}
+void clear_list(int handle)
+{
+if (!valid_handle(handle)) return;
+nv_form_list_box@ list=cast<nv_form_list_box@>(controls[handle]);
+if (@list==null) return;
+list.items.resize(0);
+list.list_position=-1;
+}
+int get_list_position(int handle)
+{
+if (!valid_handle(handle)) return -1;
+nv_form_list_box@ list=cast<nv_form_list_box@>(controls[handle]);
+return @list==null ? -1 : list.list_position;
+}
+void set_list_position(int handle, int position)
+{
+if (!valid_handle(handle)) return;
+nv_form_list_box@ list=cast<nv_form_list_box@>(controls[handle]);
+if (@list!=null) list.set_pos(position);
+}
+string get_list_item(int handle, int position)
+{
+if (!valid_handle(handle)) return "";
+nv_form_list_box@ list=cast<nv_form_list_box@>(controls[handle]);
+if (@list==null or position<0 or position>=int(list.items.length())) return "";
+return list.items[position].text;
+}
+double get_slider(int handle)
+{
+if (!valid_handle(handle)) return 0;
+nv_form_slider@ slider=cast<nv_form_slider@>(controls[handle]);
+return @slider==null ? 0 : slider.value;
+}
+}

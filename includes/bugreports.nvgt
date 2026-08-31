@@ -1,6 +1,6 @@
 void bug_submit()
 {
-audio_form f;
+iw_form f;
 f.create_window("Submit a Bug Report", false, true);
 int f_title=f.create_input_box("Title", "", "", 0, false, false, false);
 int f_body=f.create_input_box("Description", "", "", 0, false, false, true);
@@ -122,7 +122,7 @@ speak("Disconnected from server.");
 return;
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("My Bug Reports", false, true);
 int f_list=f.create_list("Bug reports", 0, false);
 string[] bug_ids;
@@ -208,7 +208,7 @@ string b_title=parts[2];
 string b_flag=parts[3];
 string b_comment=string_replace(parts[4], "<<NL>>", "\n", true);
 string b_body=string_replace(parts[5], "<<NL>>", "\n", true);
-audio_form f;
+iw_form f;
 f.create_window("Bug Report #"+b_id+": "+b_title, false, true);
 f.create_input_box("Title", b_title, "", 0, false, true, false);
 f.create_input_box("Description", b_body, "", 0, false, true, true);
@@ -256,7 +256,7 @@ speak("Disconnected from server.");
 return;
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("All Bug Reports", false, true);
 int f_list=f.create_list("Bug reports", 0, false);
 string[] bug_ids;
@@ -342,7 +342,7 @@ string b_title=parts[2];
 string b_flag=parts[3];
 string b_comment=string_replace(parts[4], "<<NL>>", "\n", true);
 string b_body=string_replace(parts[5], "<<NL>>", "\n", true);
-audio_form f;
+iw_form f;
 f.create_window("Bug Report #"+b_id+": "+b_title, false, true);
 f.create_input_box("Submitted by", b_owner, "", 0, false, true, false);
 f.create_input_box("Title", b_title, "", 0, false, true, false);
@@ -374,7 +374,7 @@ return;
 
 void bug_flag_menu(string bug_id)
 {
-audio_form f;
+iw_form f;
 f.create_window("Flag Bug Report #"+bug_id, false, true);
 int f_list=f.create_list("Select a flag", 0, false);
 f.add_list_item(f_list, "Pending - Report has been seen and is being worked on");

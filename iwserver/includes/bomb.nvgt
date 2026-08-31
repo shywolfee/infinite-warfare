@@ -60,13 +60,20 @@ int z;
 string map;
 timer bombtimer;
 string  owner;
-mortarbomb(int bx,int by,int bz,string bmap,string bowner)
+string payload;
+int blast_radius=20;
+int blast_damage=500;
+mortarbomb(int bx,int by,int bz,string bmap,string bowner,string bpayload="standard_ammunition")
 {
 x=bx;
 y=by;
 z=bz;
 map=bmap;
 owner=bowner;
+payload=bpayload;
+if(payload=="mortar_fragmentation"){blast_radius=25;blast_damage=430;}
+else if(payload=="mortar_thermobaric"){blast_radius=28;blast_damage=620;}
+else if(payload=="mortar_incendiary"){blast_radius=18;blast_damage=280;}
 }
 }
 void mortarloop()
@@ -80,10 +87,11 @@ play("120mm_mortarexplode",mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mo
 send_reliable(0,"distsound 120mm_mortarexplodedist.ogg "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
+if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=mortarbombs[i].blast_radius and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
 {
 players[i2].hitby=mortarbombs[i].owner+"'s 120mm_mortar";
-players[i2].health-=500;
+players[i2].health-=mortarbombs[i].blast_damage;
+if(mortarbombs[i].payload=="mortar_incendiary"){players[i2].burning=true;players[i2].burning_owner=mortarbombs[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
 play("120mm_mortarhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 }
@@ -386,9 +394,9 @@ void spawn_bomb(int x,int y, int z, string map,string owner)
 bomb bomb1(x,y,z,map,owner);
 bombs.insert_last(bomb1);
 }
-void spawn_mortarbomb(int x,int y, int z, string map,string owner)
+void spawn_mortarbomb(int x,int y, int z, string map,string owner,string payload="standard_ammunition")
 {
-mortarbomb bomb1(x,y,z,map,owner);
+mortarbomb bomb1(x,y,z,map,owner,payload);
 mortarbombs.insert_last(bomb1);
 }
 void spawn_planebomb(int x,int y, int z, string map,string owner)

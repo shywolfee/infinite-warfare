@@ -1,4 +1,4 @@
-﻿#include "includes/sizer.nvgt"
+#include "includes/sizer.nvgt"
 #include "bgt_compat.nvgt"
 #include"includes/constants.nvgt"
 #include "includes/key_hold.nvgt"
@@ -7,7 +7,12 @@
 #include"includes/building.nvgt"
 #include"includes/updater.nvgt"
 #include "speech.nvgt"
+#include "includes/nv_form/form.nvgt"
+#include "includes/iw_form.nvgt"
 #include "includes/ammo.nvgt"
+#include "includes/weapon_handling.nvgt"
+#include "includes/item_mechanics.nvgt"
+#include "includes/release_tools.nvgt"
 #include"includes/buffer.nvgt"
 #include"includes/dlg.nvgt"
 #include "includes/attachments.nvgt"
@@ -21,24 +26,61 @@
 #include "includes/src.nvgt"
 #include "includes/sd.nvgt"
 #include "includes/accounts.nvgt"
+#include "includes/vehicle.nvgt"
+#include "includes/content_database.nvgt"
 #include "includes/menu.nvgt"
 #include "includes/lobby.nvgt"
-#include "includes/vehicle.nvgt"
+#include "includes/voice_chat.nvgt"
 #include "includes/support.nvgt"
 #include "includes/bugreports.nvgt"
 #include "includes/feedback.nvgt"
+#include "includes/touch_gestures.nvgt"
 bool menu_wrap_enabled=false;
 bool show_target_hp=false;
 bool remember_me=true;
 bool auto_log_buffers=false;
+bool classic_main_menu=false;
+bool fullscreen_enabled=false;
+bool touch_keyboard_enabled=false;
+bool touch_keyboard_analogue=false;
+bool touch_pc_fullscreen_bands=false;
+bool touch_menu_explore_enabled=true;
+timer sprint_heavy_warning_timer;
+bool auto_bind_starting_loadout=true;
+int gameplay_volume=0;
+int interface_volume=0;
+int notification_volume=0;
+int world_volume=0;
+mixer gameplay_mixer, interface_mixer, notification_mixer, world_mixer;
 bool dev_unlocked=false;
+bool packet_monitor_enabled=false;
+uint64 packet_sequence=0;
+timer packet_session_clock;
+timer nv_form_network_timer;
+class diagnostic_packet
+{
+uint64 sequence;
+string direction,transport,summary,payload,endpoint;
+int peer,channel,size,elapsed_ms;
+}
+void pump_network_for_form()
+{
+process_fullscreen_shortcut();
+if(connected and nv_form_network_timer.elapsed>=10){nv_form_network_timer.restart();netloop();}
+}
+diagnostic_packet@[] diagnostic_packets;
+dictionary fire_sound_count_cache;
+pack_file fire_archive_index;
+string[] recent_pm_senders;
 const string CLIENT_DEV_KEY = "Fluttershy";
 int failed_login_attempts=0;
 timer lockout_timer;
 bool lockout_active=false;
 string af_input(string title, string text="", bool online=false)
 {
-audio_form af;
+// NV_form now owns text entry on every platform, including Android. This keeps
+// gesture navigation and the network/game pump alive while the field is open.
+iw_form af;
 af.create_window(title, false, true);
 int af_n=af.create_input_box(title, text, "", 0, false, false, false);
 int af_ok=af.create_button("&OK", true);
@@ -63,10 +105,32 @@ return "";
 }
 string webdir;
 string gamename="Infinite Warfare";
+string game_window_title(){return gamename+"!, version "+version+", build "+build_number+" ("+build_date+")";}
+bool set_fullscreen_mode(bool enabled,bool announce=true)
+{
+uint flags=enabled?WINDOW_FLAG_FULLSCREEN:0;
+game_window@ changed_window=show_window(game_window_title(),flags);
+if(@changed_window==null){if(announce)speak("Unable to change the game window mode.");return false;}
+fullscreen_enabled=enabled;focus_window();
+if(announce)speak(fullscreen_enabled?"Full screen enabled.":"Full screen disabled. Windowed mode enabled.");
+return true;
+}
+void toggle_fullscreen_mode(){if(set_fullscreen_mode(!fullscreen_enabled,true))writeprefs();}
+void process_fullscreen_shortcut()
+{
+bool ctrl=key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL),shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
+if(ctrl and shift and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(kb("fullscreen_toggle")))toggle_fullscreen_mode();
+}
 string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
 bool melee=false;
 sound plane;
 bool can_fire=false;
+bool replace_occupied_attachments=false;
+bool crossbow_charging=false;
+bool crossbow_full_tension_reported=false;
+timer crossbow_charge_timer;
+int crossbow_charge_sound=-1;
+double crossbow_release_strength=1.0;
 bool pending_health_report=false;
 bool go_reload=false;
 bool can_stop=true; 
@@ -77,6 +141,11 @@ int cameraspeed=50;
 int rctrl=0;
 int mastervol=0;
 timer drawtimer;
+bool sitting=false;
+string[] target_regions={"whole body","head","torso","arms","legs"};
+int target_region_index=0;
+timer seated_jump_timer;
+timer sprint_stamina_timer;
 bool in_plane=false;
 timer flytimer;
 bool bombloaded=false;
@@ -94,19 +163,37 @@ int w;
 string[] weapons;
 bool pinging=false;
 timer pingtimer;
+int[] ping_samples;
 bool x=false;
 bool connected;
 bool show_damage_readout=false;
+bool hear_own_projectile_audio=false;
+bool audio_form_sound_feedback=true;
+void play_nv_form_audio_feedback(bool activation)
+{
+if(!audio_form_sound_feedback)return;
+p.play_stationary(activation?"menuenter.ogg":"menumove.ogg",false);
+}
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.5048;
-int build_number=72;
-string build_date="2026-07-16";
+double version=0.505;
+int build_number=73;
+string build_date="2026-08-29";
+const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
-string mate;
 double facing=0;
 sound_pool p,spool;
 timer rectimer,firetimer, walktimer;
+timer momentum_timer;
+double movement_momentum=0;
+string momentum_direction="";
+int equipped_armor_weight=0;
+string equipped_armor_head="",equipped_armor_torso="",equipped_armor_arms="",equipped_armor_legs="";
+int equipped_armor_head_durability=0,equipped_armor_torso_durability=0,equipped_armor_arms_durability=0,equipped_armor_legs_durability=0;
+timer combat_slow_timer;
+int combat_slow_duration=0;
+timer weapon_sway_timer;
+int weapon_sway_duration=0;
 timer last_server_msg;
 int walktime=170;
 savedata sd(prefsdir+"/settings.dat","hgdfgjkdfsglfggfhguhgyktryjkgseryjkgjkyg323454FAFHYGSYJTYGSTJHJTYgdfgsysdfjfgRhRHGRhdgshgsgyjstjkfgfbghsdfvdgsfgdsfgfG$%^&^%HFGHDTRGHYRHNTRsjk");
@@ -127,6 +214,8 @@ timer jumptimer;
 int jumptime=100;
 int jumpup=0;
 int jumplandz;
+double jump_vertical_position=0;
+double jump_vertical_velocity=0;
 timer usetimer;
 string tracking="";
 int sph_tries=1;
@@ -160,11 +249,46 @@ int walktime;
 bool melee;
 int range;
 int damage;
+int max_damage;
 int spread;
+string projectile_kind;
+double muzzle_velocity;
+double projectile_gravity;
+double projectile_drag;
+double projectile_mass;
+double projectile_diameter;
+double projectile_dispersion;
+double damage_retention;
+double projectile_collision_radius;
+double projectile_explosive_radius;
+int pellet_count;
+int penetration;
 }
 wpn_stats@[] wpn_cache(0);
 
 string[] wpn_class_folders = {"pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
+
+void set_client_ballistics(wpn_stats@ s)
+{
+s.projectile_kind="bullet";s.muzzle_velocity=85;s.projectile_gravity=9.81;s.projectile_drag=.012;s.projectile_mass=8;s.projectile_diameter=9;s.projectile_dispersion=.45;s.damage_retention=.72;s.projectile_collision_radius=.48;s.projectile_explosive_radius=0;s.pellet_count=1;s.penetration=0;
+if(s.wclass=="pistol"){s.muzzle_velocity=72;s.projectile_drag=.018;s.projectile_mass=8;s.projectile_dispersion=.65;}
+else if(s.wclass=="revolver"){s.muzzle_velocity=82;s.projectile_drag=.015;s.projectile_mass=11;s.projectile_diameter=10.9;s.projectile_dispersion=.55;s.penetration=1;}
+else if(s.wclass=="submachine_gun"){s.muzzle_velocity=76;s.projectile_drag=.02;s.projectile_mass=7.5;s.projectile_dispersion=.9;}
+else if(s.wclass=="assault_rifle"){s.muzzle_velocity=112;s.projectile_drag=.009;s.projectile_mass=4.2;s.projectile_diameter=5.56;s.projectile_dispersion=.38;s.penetration=1;}
+else if(s.wclass=="battle_rifle"){s.muzzle_velocity=125;s.projectile_drag=.007;s.projectile_mass=9.5;s.projectile_diameter=7.62;s.projectile_dispersion=.28;s.penetration=2;s.damage_retention=.84;}
+else if(s.wclass=="sniper_rifle"){s.muzzle_velocity=150;s.projectile_drag=.0045;s.projectile_mass=11.3;s.projectile_diameter=7.62;s.projectile_dispersion=.08;s.penetration=3;s.damage_retention=.92;}
+else if(s.wclass=="light_machine_gun"){s.muzzle_velocity=108;s.projectile_drag=.01;s.projectile_mass=8.4;s.projectile_diameter=7.62;s.projectile_dispersion=.75;s.penetration=2;}
+else if(s.wclass=="shotgun"){s.projectile_kind="pellet";s.muzzle_velocity=68;s.projectile_drag=.035;s.projectile_mass=3.5;s.projectile_diameter=4.5;s.projectile_dispersion=3.8;s.damage_retention=.42;s.projectile_collision_radius=.38;s.pellet_count=9;}
+else if(s.wclass=="archery"){s.projectile_kind="bolt";s.muzzle_velocity=36;s.projectile_drag=.025;s.projectile_mass=24;s.projectile_diameter=7;s.projectile_dispersion=.22;s.penetration=2;s.damage_retention=.8;}
+else if(s.wclass=="energy"){s.projectile_kind="laser";s.muzzle_velocity=300;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_diameter=1;s.projectile_dispersion=.05;s.penetration=1;s.damage_retention=.96;s.projectile_collision_radius=.34;}
+else if(s.wclass=="explosive"){s.projectile_kind="shell";s.muzzle_velocity=28;s.projectile_gravity=12;s.projectile_drag=.018;s.projectile_mass=14000;s.projectile_diameter=120;s.projectile_dispersion=1.2;s.damage_retention=.8;s.projectile_collision_radius=.55;s.projectile_explosive_radius=20;}
+else if(s.wclass=="incendiary"){s.projectile_kind="flame particle";s.muzzle_velocity=18;s.projectile_gravity=-1.4;s.projectile_drag=.18;s.projectile_mass=.3;s.projectile_diameter=15;s.projectile_dispersion=4.5;s.damage_retention=.3;s.projectile_collision_radius=.8;s.pellet_count=5;}
+else if(s.wclass=="melee_short_blade"){s.projectile_kind="short melee arc";s.muzzle_velocity=28;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_dispersion=4.5;s.damage_retention=1;s.projectile_collision_radius=.65;}
+else if(s.wclass=="melee_long_blade"){s.projectile_kind="long melee arc";s.muzzle_velocity=24;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_dispersion=7;s.damage_retention=1;s.projectile_collision_radius=.9;s.penetration=1;}
+else if(s.wclass=="melee_blunt"){s.projectile_kind="broad blunt arc";s.muzzle_velocity=18;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_dispersion=10;s.damage_retention=1;s.projectile_collision_radius=1.05;}
+else if(s.wclass=="tool"){s.projectile_kind="powered tool arc";s.muzzle_velocity=22;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_dispersion=8;s.damage_retention=1;s.projectile_collision_radius=.95;}
+double rf=s.range>0?sqrt(double(s.range)/30.0):1.0;if(rf<.7)rf=.7;if(rf>1.45)rf=1.45;if(s.projectile_kind!="laser" and string_contains(s.projectile_kind,"arc",1)<0)s.muzzle_velocity*=rf;if(s.spread>0)s.projectile_dispersion*=1.0+double(s.spread)*.12;
+}
 
 void load_weapon_file(string wpn_dir, string subdir, string fname)
 {
@@ -202,8 +326,22 @@ if (props.get("range", tmp)) ws.range=string_to_number(tmp);
 else ws.range=0;
 if (props.get("min_damage", tmp)) ws.damage=string_to_number(tmp);
 else ws.damage=0;
+if (props.get("max_damage", tmp)) ws.max_damage=string_to_number(tmp);
+else ws.max_damage=ws.damage;
 if (props.get("spread", tmp)) ws.spread=string_to_number(tmp);
 else ws.spread=0;
+set_client_ballistics(ws);
+if(props.get("projectile_kind",tmp))ws.projectile_kind=tmp;
+if(props.get("muzzle_velocity",tmp))ws.muzzle_velocity=string_to_number(tmp);
+if(props.get("gravity",tmp))ws.projectile_gravity=string_to_number(tmp);
+if(props.get("drag",tmp))ws.projectile_drag=string_to_number(tmp);
+if(props.get("mass_grams",tmp))ws.projectile_mass=string_to_number(tmp);
+if(props.get("diameter_mm",tmp))ws.projectile_diameter=string_to_number(tmp);
+if(props.get("dispersion_degrees",tmp))ws.projectile_dispersion=string_to_number(tmp);
+if(props.get("pellet_count",tmp))ws.pellet_count=string_to_number(tmp);
+if(props.get("penetration",tmp))ws.penetration=string_to_number(tmp);
+if(props.get("damage_retention",tmp))ws.damage_retention=string_to_number(tmp);
+if(props.get("explosive_radius",tmp))ws.projectile_explosive_radius=string_to_number(tmp);
 string melee_str;
 if (props.get("melee", melee_str) and melee_str=="true") ws.melee=true;
 else ws.melee=false;
@@ -262,9 +400,11 @@ load_weapon_file(wpn_dir, subdir, sub_files[i]);
 }
 }
 
-void main()
+void application_main()
 {
-sound_global_hrtf=true;
+@default_nv_form_network_pump=@pump_network_for_form;
+@default_nv_form_audio_feedback=@play_nv_form_audio_feedback;
+set_sound_global_hrtf(true);
 
 p.behind_pitch_decrease=6;
 distpool.pan_step=0.2;
@@ -281,6 +421,8 @@ string[] compat_rifle_sup = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1
 register_attachment("rifle_suppressor", "Rifle Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_rifle_sup);
 string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"};
 register_attachment("sniper_suppressor", "Precision Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
+register_expanded_combat_attachments();
+initialize_ammunition_loads();
 // --- Holster registrations ---
 string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle"};
 register_holster("pistol_holster", "Pistol Holster", h_pistol, false, 0, "");
@@ -302,6 +444,8 @@ string[] h_sword = {"machete", "katana"};
 register_holster("sword_scabbard", "Sword Scabbard", h_sword, false, 0, "");
 string[] h_bat = {"baseball_bat"};
 register_holster("bat_holster", "Bat Holster", h_bat, false, 0, "");
+init_vehicle_types();
+initialize_content_database();
 // Starting loadout is given per-spawn in game() via give_starting_loadout().
 create_buffer("all");
 create_buffer("chats");
@@ -319,15 +463,49 @@ accounts_dir="iwserver/accounts";
 if (!directory_exists(accounts_dir))
 directory_create(accounts_dir);
 readprefs();
+if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;fullscreen_enabled=true;}
 kb_init();
+init_gesture_bindings();
+init_server_list();
 kb_update_holds();
-set_sound_storage("sounds.dat");
-set_sound_decryption_key("roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69",true);
+if (!file_exists("sounds.dat"))
+{
+if(!SCRIPT_COMPILED and directory_exists("sounds") and file_exists("pack_creator.nvgt"))
+{
+int build_answer=question("Missing sound archive","sounds.dat is missing, but the sounds source folder is available. Do you want to run pack_creator.nvgt, verify the archive, and restart the game?");
+if(build_answer==1 and source_build_sound_pack())
+{
+alert("Sound archive complete","sounds.dat was created successfully. Infinite Warfare will now restart from source.");run(SCRIPT_EXECUTABLE,"\""+SCRIPT_MAIN_PATH+"/Infinite Warfare.nvgt\"",false,false);exit();
+}
+if(build_answer==1)alert("Sound archive unavailable","The sound pack was not created. Review the pack creator output and try again.");
+else alert("Sound archive required","Infinite Warfare cannot start without sounds.dat.");
+}
+else alert("Missing sound archive", "Infinite Warfare cannot find sounds.dat. Reinstall or extract the complete game into one folder; the executable cannot play audio without this file.");
+exit();
+}
+// NVGT 0.90 opens pack_file archives immediately. The decryption key must be
+// supplied in this call; set_sound_decryption_key afterward does not reopen it.
+if (!set_sound_storage("sounds.dat", sound_pack_key, true))
+{
+alert("Invalid sound archive", "Infinite Warfare could not open sounds.dat with NVGT 0.90. Rebuild the archive with pack_creator.exe or reinstall the complete game.");
+exit();
+}
+fire_archive_index.open("sounds.dat",sound_pack_key);
+@p.mixer=@gameplay_mixer;
+@spool.mixer=@interface_mixer;
+@bufferpool.mixer=@notification_mixer;
+@distpool.mixer=@world_mixer;
+gameplay_mixer.volume=gameplay_volume;
+interface_mixer.volume=interface_volume;
+notification_mixer.volume=notification_volume;
+world_mixer.volume=world_volume;
+voice_apply_devices();
 if(file_exists("net.txt"))
 {
 netaddress="localhost";
 }
-show_game_window(gamename+"!, version "+version+", build "+build_number+" ("+build_date+")");
+game_window@ startup_window=show_window(game_window_title(),fullscreen_enabled?WINDOW_FLAG_FULLSCREEN:0);
+if(@startup_window==null)show_game_window(game_window_title());
 if (screen_reader_is_running(1))
 install_keyhook();
 //cfu("iw","iw.zip",true);
@@ -340,6 +518,27 @@ first_run_welcome();
 }
 mainmenu();
 }
+void write_client_exception_log()
+{
+string folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(folder);string path=folder+"/client_exception_"+ticks()+".log";string report="Infinite Warfare client exception\nVersion: "+version+", build "+build_number+" ("+build_date+")\nCompiled: "+SCRIPT_COMPILED+"\nExecutable: "+SCRIPT_EXECUTABLE+"\nMain path: "+SCRIPT_MAIN_PATH+"\nException: "+get_exception_info()+"\nFunction: "+get_exception_function()+"\nFile: "+get_exception_file()+"\nLine: "+get_exception_line()+"\nLast engine error: "+get_last_error()+"\nCall stack:\n"+last_exception_call_stack+"\n";file_put_contents(path,report,false);alert("Infinite Warfare crashed","A diagnostic log was saved to "+path+". Please share that file with the developers.\n\n"+get_exception_info());
+}
+void write_recoverable_network_error(string context,string detail)
+{
+string folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(folder);file_put_contents(folder+"/client_network_errors.log","At "+ticks()+" ms, "+context+": "+detail+"\n",true);
+}
+void safe_server_ammo_grant(string weapon,string amount_text)
+{
+if(weapon=="" or weapon.length()>80 or string_contains(weapon,"/",1)>=0 or string_contains(weapon,"\\",1)>=0){write_recoverable_network_error("ammunition grant","rejected invalid weapon identifier "+weapon);return;}int amount=string_to_number(amount_text);if(amount<-100000 or amount>100000){write_recoverable_network_error("ammunition grant","rejected out-of-range quantity "+amount_text+" for "+weapon);return;}if(find_gun(weapon)<0){write_recoverable_network_error("ammunition grant","ignored unknown weapon "+weapon+" quantity "+amount);return;}try{ammo_give(weapon,amount);}catch{write_recoverable_network_error("ammunition grant",get_exception_info()+" in "+get_exception_function()+" at "+get_exception_file()+":"+get_exception_line()+"\n"+last_exception_call_stack);speak("An invalid ammunition update was rejected and logged.");}
+}
+void safe_server_item_grant(string item,string amount_text)
+{
+if(item=="" or item.length()>100 or string_contains(item,"/",1)>=0 or string_contains(item,"\\",1)>=0){write_recoverable_network_error("inventory grant","rejected invalid item identifier "+item);return;}int amount=string_to_number(amount_text);if(amount<-100000 or amount>100000){write_recoverable_network_error("inventory grant","rejected out-of-range quantity "+amount_text+" for "+item);return;}try{give(item,amount);}catch{write_recoverable_network_error("inventory grant",get_exception_info()+" in "+get_exception_function()+" at "+get_exception_file()+":"+get_exception_line()+"\n"+last_exception_call_stack);speak("An invalid inventory update was rejected and logged.");}
+}
+void main()
+{
+string session_folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(session_folder);file_put_contents(session_folder+"/latest_client_session.log","Infinite Warfare session started. Version "+version+", build "+build_number+". Compiled: "+SCRIPT_COMPILED+". Executable: "+SCRIPT_EXECUTABLE+". Main path: "+SCRIPT_MAIN_PATH+".\nThis breadcrumb remains available if a native library or operating-system crash bypasses AngelScript exception handling.\n",false);
+try{application_main();}catch{write_client_exception_log();}
+}
 // ---------------------------------------------------------------------------
 // First-run welcome — shown the very first time the game is launched.
 // Displays the preliminary notice, then shows the rules and requires
@@ -347,7 +546,7 @@ mainmenu();
 // ---------------------------------------------------------------------------
 void show_first_run_message()
 {
-audio_form f;
+iw_form f;
 f.create_window("Welcome", false, true);
 f.create_input_box("Notice", "It looks like this is the first time you've run Infinite Warfare. A configuration file will be created for you. If you're new to the game, we suggest you check out the included readme for information on how to play.", "", 0, false, true, false);
 int f_continue=f.create_button("&Continue", true);
@@ -363,7 +562,7 @@ break;
 void first_run_welcome()
 {
 string notice_text = "Notice: The present iteration of this game has been developed with the assistance of agentic artificial-intelligence (Claude code, utilizing the 4.6 opus model). Additionally, this game utilizes unauthorized source code from Redspot: Blood and peril, by Sam Tupy. Credit goes to Sam Tupy for his original ideas, and to Max Vrenken and Djonan Smid of firegaming for the original Infinite Warfair codebase. This game is in an extensive alpha stage. Many features lack sounds or are effectively unfinished. The current server is a test build designed to stress test new features and mechanics. Your data and progress will not persist upon final release of the game. I provide no guarantees of constant server uptime or stability. The game can and will be taken down for maintenance with little or no notice. There are guaranteed bugs and glitches. The goal of this test period is to iron them out. If you wish to play the game despite this, please check the following box to certify that you have read and understood this notice.";
-audio_form f;
+iw_form f;
 f.create_window("Preliminary Notice", false, true);
 f.create_input_box("Notice", notice_text, "", 0, false, true, true);
 int f_certify = f.create_checkbox("I certify that I have read the preliminary notice in it's entirety.", false);
@@ -393,7 +592,7 @@ rf.close();
 }
 else
 rules_text = "Rules file not found. Please check the game folder.";
-audio_form f2;
+iw_form f2;
 f2.create_window("Please Read the Rules", false, true);
 f2.create_input_box("Rules", rules_text, "", 0, false, true, true);
 int f2_agree = f2.create_checkbox("I agree to the rules", false);
@@ -417,14 +616,48 @@ break;
 sd.add("first_run_done", 1);
 sd.save();
 }
+string packet_safe_preview(string value)
+{
+value=string_replace(value,"\r"," ",true);value=string_replace(value,"\n"," ",true);value=string_replace(value,"\t"," ",true);if(value.length()>120)value=string_left(value,120)+"...";return value;
+}
+void record_diagnostic_packet(string direction,string transport,int peer,int channel,string payload)
+{
+if(!(SCRIPT_COMPILED==false or dev_unlocked))return;diagnostic_packet@ r=diagnostic_packet();r.sequence=++packet_sequence;r.direction=direction;r.transport=transport;r.peer=peer;r.channel=channel;r.size=payload.length();r.elapsed_ms=packet_session_clock.elapsed;r.payload=channel==7?"Opus voice payload":packet_safe_preview(payload);r.endpoint=direction=="sent"?name+" to server peer "+peer:"server peer "+peer+" to "+name;r.summary="#"+r.sequence+" "+direction+" "+transport+", "+r.endpoint+", channel "+channel+", "+r.size+" bytes: "+r.payload;diagnostic_packets.insert_last(r);if(diagnostic_packets.length()>500)diagnostic_packets.remove_at(0);if(packet_monitor_enabled)speak(r.summary);
+}
+int available_fire_sound_count(string weapon,string mode)
+{
+if(mode=="normal" and string_contains(weapon,"laser_",1)==0)return 1;
+string base=weapon+(mode=="scattershot" or mode=="focused"?mode:"")+"fire";int count=0;double cached=0;if(fire_sound_count_cache.get(base,cached))return int(cached);
+for(int i=1;i<=20;i++){if(fire_archive_index.file_exists(base+i+".ogg") or fire_archive_index.file_exists(base+i+".flac"))count=i;else if(i>count+2)break;}
+fire_sound_count_cache.set(base,double(count>0?count:1));
+return count>0?count:1;
+}
+void remember_pm_sender(string message)
+{
+if(string_contains(string_to_lower_case(message),"pm from ",1)!=0)return;int colon=string_contains(message,":",1);if(colon<8)return;string sender=string_mid(message,8,colon-8).trim_whitespace();for(int i=int(recent_pm_senders.length())-1;i>=0;i--)if(string_to_lower_case(recent_pm_senders[i])==string_to_lower_case(sender))recent_pm_senders.remove_at(i);recent_pm_senders.insert_at(0,sender);if(recent_pm_senders.length()>30)recent_pm_senders.remove_last();
+}
+void recent_pm_form()
+{
+if(recent_pm_senders.length()==0){speak("Nobody has sent you a private message this session.");return;}nv_form f;f.create_window("Recent private message senders",false,true);nv_form_list_box@ people=f.add_list("People who most recently sent you a private message","people");for(uint i=0;i<recent_pm_senders.length();i++)people.add(recent_pm_senders[i],recent_pm_senders[i]);nv_form_input@ message=f.add_input("Private message. Tab here after selecting a player","message");nv_form_button@ send=f.add_button("Send private message","send",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);f.focus_control(people);while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(send)){int pos=people.list_position;if(pos<0 or pos>=int(recent_pm_senders.length())){speak("Select a player first.");continue;}string body=message.text.trim_whitespace();if(body==""){speak("Enter a message first.");continue;}send_reliable(0,"/pm "+recent_pm_senders[pos]+" "+body,1);return;}}
+}
+void chat_channel_shortcuts()
+{
+bool alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);if(alt and !shift and key_pressed(KEY_BACKSLASH)){recent_pm_form();return;}if(!alt and key_pressed(KEY_BACKSLASH)){if(!shift and mapname=="main"){speak("Map chat is available after entering a game mode.");return;}string text=af_input(shift?"Team chat":"Current map chat","",true).trim_whitespace();if(text!=""){if(shift)send_team_command("chat "+text);else send_reliable(0,text,6);}}
+}
+void packet_diagnostics_viewer()
+{
+if(!(SCRIPT_COMPILED==false or dev_unlocked)){speak("Developer access is required.");return;}nv_form f;f.create_window("Live Packet Diagnostics",false,true);nv_form_list_box@ list=f.add_list("Packets, newest entries appear automatically","packets");nv_form_input@ details=f.add_input("Selected packet details","details","","",0,true,true);nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(list);uint64 last_sequence=0;int last_position=-1;
+while(true){wait(5);f.monitor();if(connected)netloop();uint64 newest=diagnostic_packets.length()>0?diagnostic_packets[diagnostic_packets.length()-1].sequence:0;if(newest!=last_sequence){int preserve=list.list_position;list.list_position=-1;list.items.resize(0);for(uint i=0;i<diagnostic_packets.length();i++)list.add(diagnostic_packets[i].summary,""+diagnostic_packets[i].sequence);if(list.items.length()>0){if(preserve<0)preserve=int(list.items.length())-1;if(preserve>=int(list.items.length()))preserve=int(list.items.length())-1;list.set_pos(preserve,false);}last_sequence=newest;last_position=-1;}if(list.list_position!=last_position and list.list_position>=0 and list.list_position<int(diagnostic_packets.length())){last_position=list.list_position;diagnostic_packet@ r=diagnostic_packets[last_position];details.default_text="Sequence "+r.sequence+"\nDirection: "+r.direction+"\nTransport: "+r.transport+"\nPeer: "+r.peer+"\nChannel: "+r.channel+"\nSize: "+r.size+" bytes\nSession time: "+r.elapsed_ms+" milliseconds\nPayload preview: "+r.payload;}if(f.is_pressed(close))return;}
+}
 // ---------------------------------------------------------------------------
 // Developer Suite (Shift+D) — only available in dev builds.
 // ---------------------------------------------------------------------------
 void dev_suite()
 {
-audio_form f;
+iw_form f;
 f.create_window("Developer Suite", false, true);
 int f_giveall=f.create_button("Give &all items");
+int f_giveitem=f.create_button("Give item from &database");
 int f_spawnveh=f.create_button("&Spawn vehicle");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_giveall);
@@ -443,16 +676,36 @@ else if (f.is_pressed(f_spawnveh))
 {
 dev_spawn_vehicle();
 }
+else if(f.is_pressed(f_giveitem)) dev_database_give();
 else if (f.is_pressed(f_close))
 {
 break;
 }
 }
 }
+
+void dev_database_give()
+{
+refresh_content_database();
+string[] categories={"Weapons","Ammo","Explosives","Healing","Utility","Armour","Attachments","Team","Equipment","Holsters"};
+iw_form cf;cf.create_window("Developer Database Grant",false,true);int cl=cf.create_list("Category",0,false);for(uint i=0;i<categories.length();i++)cf.add_list_item(cl,categories[i]);int next=cf.create_button("Choose category",true),cancel=cf.create_button("Cancel",false,true);cf.focus(cl);int category=-1;
+while(true){wait(5);cf.monitor();if(connected)netloop();if(cf.is_pressed(cancel))return;if(cf.is_pressed(next)){category=cf.get_list_position(cl);break;}}
+if(category<0 or category>=int(categories.length()))return;
+iw_form it;it.create_window("Give "+categories[category],false,true);int il=it.create_list("Database entries",0,false);string[] ids;for(uint i=0;i<content_database.length();i++)if(content_database[i].category==categories[category]){it.add_list_item(il,content_database[i].display_name);ids.insert_last(content_database[i].id);}int grant=it.create_button("Specify quantity and give",true),back=it.create_button("Cancel",false,true);it.focus(il);
+while(true){wait(5);it.monitor();if(connected)netloop();if(it.is_pressed(back))return;if(it.is_pressed(grant)){int selected=it.get_list_position(il);if(selected<0 or selected>=int(ids.length()))return;int quantity=string_to_number(af_input("Quantity to give","1",connected));if(quantity<1)quantity=1;if(quantity>10000)quantity=10000;give(ids[selected],quantity);speak(quantity+" "+string_replace(ids[selected],"_"," ",true)+" given.");return;}}
+}
+
+void dev_teleport_to_poi()
+{
+if(!(SCRIPT_COMPILED==false or dev_unlocked)){speak("Developer access is required.");return;}
+if(pois.length()==0){speak("No points of interest exist on this map.");return;}
+int[] sorted=get_sorted_poi_indices();iw_form f;f.create_window("Developer POI Teleport",false,true);int list=f.create_list("Point of interest",0,false);for(uint i=0;i<sorted.length();i++)f.add_list_item(list,string_replace(pois[sorted[i]].name,"_"," ",true));int go=f.create_button("Teleport",true),cancel=f.create_button("Cancel",false,true);f.focus(list);
+while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(go)){int pos=f.get_list_position(list);if(pos<0 or pos>=int(sorted.length()))return;int pi=sorted[pos];me.x=pois[pi].x;me.y=pois[pi].y;me.z=pois[pi].z;mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);speak("Teleported to "+string_replace(pois[pi].name,"_"," ",true)+".");return;}}
+}
 void dev_spawn_vehicle()
 {
 if (vehicle_types.length() == 0) init_vehicle_types();
-audio_form f;
+iw_form f;
 f.create_window("Spawn Vehicle", false, true);
 int f_list = f.create_list("Select a vehicle type", 0, false);
 for (uint i = 0; i < vehicle_types.length(); i++)
@@ -514,7 +767,7 @@ return "";
 
 string builder_coord_form(string title, bool need_range, bool need_extra, string extra_label)
 {
-audio_form f;
+iw_form f;
 f.create_window(title, false, true);
 string result="";
 if(need_range)
@@ -563,7 +816,7 @@ return "";
 
 string builder_pick_tile()
 {
-audio_form f;
+iw_form f;
 f.create_window("Select Tile Type", false, true);
 int f_list=f.create_list("Tile types", 0, false);
 for(uint i=0; i<builder_tile_types.length(); i++)
@@ -598,7 +851,7 @@ return "";
 
 void builder_add_element()
 {
-audio_form f;
+iw_form f;
 f.create_window("Add Map Element", false, true);
 int f_list=f.create_list("Element type", 0, false);
 f.add_list_item(f_list, "Tile");
@@ -635,7 +888,7 @@ else if(sel==1)
 {
 string coords=builder_coord_form("Zone Coordinates", true, false, "");
 if(coords=="") return;
-audio_form zf;
+iw_form zf;
 zf.create_window("Zone Name", false, true);
 zf.create_input_box("Zone name");
 int zok=zf.create_button("OK", true);
@@ -656,7 +909,7 @@ else if(sel==2)
 {
 string coords=builder_coord_form("Source Coordinates", true, false, "");
 if(coords=="") return;
-audio_form sf;
+iw_form sf;
 sf.create_window("Sound Source", false, true);
 sf.create_input_box("Sound file (e.g. ocean1.ogg)");
 sf.create_input_box("Volume in dB (e.g. -8)");
@@ -679,7 +932,7 @@ else if(sel==3)
 {
 string coords=builder_coord_form("POI Coordinates", false, false, "");
 if(coords=="") return;
-audio_form pf;
+iw_form pf;
 pf.create_window("Point of Interest", false, true);
 pf.create_input_box("POI name");
 int pok=pf.create_button("OK", true);
@@ -700,7 +953,7 @@ else if(sel==4)
 {
 string coords=builder_coord_form("Item Spawn Coordinates", true, false, "");
 if(coords=="") return;
-audio_form isf;
+iw_form isf;
 isf.create_window("Item Spawn", false, true);
 isf.create_input_box("Respawn time (ms)");
 isf.create_input_box("Max items in area");
@@ -728,7 +981,7 @@ else if(sel==5)
 // bunker line the server reads as the source of truth for /bunkers.
 string coords=builder_coord_form("Bunker Coordinates", false, false, "");
 if(coords=="") return;
-audio_form bf;
+iw_form bf;
 bf.create_window("Bunker Name", false, true);
 bf.create_input_box("Bunker name");
 int bok=bf.create_button("OK", true);
@@ -747,7 +1000,7 @@ line="bunker:"+coords+":"+bname;
 }
 else if(sel==6)
 {
-audio_form nf;
+iw_form nf;
 nf.create_window("Map Name", false, true);
 nf.create_input_box("Map name");
 int nok=nf.create_button("OK", true);
@@ -763,7 +1016,7 @@ if(nf.is_pressed(nok)){line="mapname:"+nf.get_text(0);break;}
 }
 else if(sel==7)
 {
-audio_form vf;
+iw_form vf;
 vf.create_window("Map Max X", false, true);
 vf.create_input_box("Max X value");
 int vok=vf.create_button("OK", true);
@@ -779,7 +1032,7 @@ if(vf.is_pressed(vok)){line="maxx:"+vf.get_text(0);break;}
 }
 else if(sel==8)
 {
-audio_form vf;
+iw_form vf;
 vf.create_window("Map Max Y", false, true);
 vf.create_input_box("Max Y value");
 int vok=vf.create_button("OK", true);
@@ -795,7 +1048,7 @@ if(vf.is_pressed(vok)){line="maxy:"+vf.get_text(0);break;}
 }
 else if(sel==9)
 {
-audio_form vf;
+iw_form vf;
 vf.create_window("Map Max Z", false, true);
 vf.create_input_box("Max Z value");
 int vok=vf.create_button("OK", true);
@@ -848,7 +1101,7 @@ break;
 if(found_file==""){speak("Map file not found.");return;}
 string[] lines=delinear(mdata);
 int[] line_indices;
-audio_form f;
+iw_form f;
 f.create_window("Delete Line", false, true);
 int f_list=f.create_list("Map lines", 0, false);
 for(uint i=0; i<lines.length(); i++)
@@ -898,7 +1151,7 @@ break;
 if(found_file==""){speak("Map file not found.");return;}
 string[] lines=delinear(mdata);
 int[] line_indices;
-audio_form f;
+iw_form f;
 f.create_window("Edit Line", false, true);
 int f_list=f.create_list("Map lines", 0, false);
 for(uint i=0; i<lines.length(); i++)
@@ -924,7 +1177,7 @@ if(sel>=0 and sel<int(line_indices.length()))
 {
 int line_idx=line_indices[sel];
 string old_line=lines[line_idx];
-audio_form ef;
+iw_form ef;
 ef.create_window("Edit Line "+(line_idx+1), false, true);
 ef.create_input_box("Line content", old_line);
 int save_btn=ef.create_button("&Save", true);
@@ -964,7 +1217,7 @@ break;
 }
 }
 if(found_file==""){speak("Map file not found.");return;}
-audio_form f;
+iw_form f;
 f.create_window("Edit Map: "+mapname, false, true);
 f.create_input_box("Map data", mdata, "", 0, false, false, true);
 int save_btn=f.create_button("&Save", true);
@@ -1005,7 +1258,7 @@ speak("Map deleted.");
 
 void builder_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Builder - "+mapname, false, true);
 int f_list=f.create_list("Builder options", 0, false);
 f.add_list_item(f_list, "Add element");
@@ -1036,13 +1289,13 @@ else if(sel==4) builder_delete_map();
 
 void command_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Commands", false, true);
 int f_list=f.create_list("Select a command", 0, false);
 // Player commands
 f.add_list_item(f_list, "/bunkers - Show bunker locations");
-f.add_list_item(f_list, "/duomate [name] - Check a player's duo mate");
-f.add_list_item(f_list, "/d [message] - Send a duo chat message");
+f.add_list_item(f_list, "/team info - Show your team, roles, and point pool");
+f.add_list_item(f_list, "/team shop - Show team-shop items and prices");
 f.add_list_item(f_list, "/pm [name] [message] - Private message a player");
 f.add_list_item(f_list, "/bug - Submit a bug report");
 f.add_list_item(f_list, "/bugs - View bug reports");
@@ -1139,40 +1392,12 @@ docs_dir = "docs";
 string[] cat_names = {
 "Gameplay Fundamentals",
 "Game Modes and Maps",
-"Game Systems",
-"Melee Weapons",
-"Pistols",
-"SMGs",
-"Assault Rifles",
-"Battle Rifles",
-"LMGs",
-"Shotguns",
-"Snipers",
-"Special Ordnance",
-"Energy Weapons",
-"Heavy Weapons",
-"Consumables",
-"Potions",
-"Vehicles and Equipment"
+"Game Systems"
 };
 string[][] cat_docs = {
-{"getting_started", "controls", "turning_and_aiming", "fire_modes", "stamina", "commands"},
+{"getting_started", "controls", "turning_and_aiming", "weapon_handling", "fire_modes", "stamina", "commands"},
 {"modes", "shattersea_map", "coruscant_map", "freyas_ascent_map", "turbolifts", "transitions"},
-{"inventory_system", "ammo_system", "equipment", "buffs_debuffs", "duo_system", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "hypercomp"},
-{"machete", "combatknife", "katana", "baseball_bat"},
-{"glock17", "beretta92fs_pistol", "taurus_model66_revolver", "magnum_revolver", "desert_eagle"},
-{"p90_mp", "mp5", "uzi", "mp7"},
-{"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine"},
-{"scar_h_battle_rifle", "fn_fal_battle_rifle", "m1garantBattleRifle"},
-{"rpk_lmg", "m249_saw"},
-{"benelli_m4_shotgun", "ks123shotgun", "spas_12_shotgun"},
-{"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd"},
-{"120mm_mortar", "ballista", "crossbow", "frag_grenade"},
-{"laser_pistol", "laser_smg", "laser_rifle", "laser_sniper", "laser_cannon"},
-{"flamethrower", "chainsaw", "hayvork", "trector_plow"},
-{"health_potion", "ultra_health_potion", "adrenaline_syringe", "nanomatic_multitool", "nanomatic_components"},
-{"energetic_potion_red", "energetic_potion_blue", "energetic_potion_green", "energetic_potion_rainbow"},
-{"vehicles", "translocator", "waypoint_marker", "biomonitor_bracelet", "wirenet", "c4"}
+{"inventory_system", "item_mechanics", "ammo_system", "equipment", "buffs_debuffs", "teams", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "vehicles"}
 };
 for (uint c = 0; c < cat_names.length(); c++)
 {
@@ -1188,6 +1413,21 @@ if (valid.length() > 0)
 help_categories.insert_last(cat_names[c]);
 help_category_entries.insert_last(valid);
 }
+}
+// Content help is generated from the same runtime records used by inventory,
+// the armoury, grants, attachments, and ammunition compatibility.
+string[] database_categories;
+for(uint i=0;i<content_database.length();i++)
+{
+string category=content_database[i].category;bool seen=false;
+for(uint c=0;c<database_categories.length();c++)if(database_categories[c]==category)seen=true;
+if(!seen)database_categories.insert_last(category);
+}
+for(uint c=0;c<database_categories.length();c++)
+{
+string[] entries;
+for(uint i=0;i<content_database.length();i++)if(content_database[i].category==database_categories[c])entries.insert_last(content_database[i].id);
+if(entries.length()>0){help_categories.insert_last(database_categories[c]);help_category_entries.insert_last(entries);}
 }
 if (include_dev)
 {
@@ -1209,6 +1449,23 @@ help_category_entries.insert_last(valid);
 
 string read_help_file(string entry_name)
 {
+int ci=content_find(entry_name);
+if(ci>=0)
+{
+content_record@ record=content_database[ci];
+string result=record.display_name+"\n\nCategory: "+record.category+".\n";
+if(record.category=="Weapons")return result+content_weapon_details(entry_name);
+result+=record.summary;
+if(record.category=="Ammo")
+{
+string[] fed_weapons;
+for(uint i=0;i<gun_ammos.length();i++)if(gun_ammos[i].reserve_item==entry_name)fed_weapons.insert_last(get_weapon_display_name(gun_ammos[i].weapon_name));
+for(uint i=0;i<ammunition_loads.length();i++)if(ammunition_loads[i].reserve_item==entry_name){for(uint w=0;w<ammunition_loads[i].weapons.length();w++)fed_weapons.insert_last(get_weapon_display_name(ammunition_loads[i].weapons[w]));result+="\nAmmunition behavior: "+ammunition_loads[i].description;}
+result+="\nCompatible weapons: "+content_join(fed_weapons)+". Use Alt+R with a weapon drawn to select a compatible load for its next reload.";
+}
+else if(record.category=="Attachments")result+="\nMechanical effect: "+attachment_effect_description(entry_name);
+return result;
+}
 string docs_dir = "iwserver/docs";
 if (!directory_exists(docs_dir))
 docs_dir = "docs";
@@ -1226,31 +1483,31 @@ return content;
 void show_help_entry(string entry_name)
 {
 string content = read_help_file(entry_name);
-audio_form f;
-f.create_window("Help: " + string_replace(entry_name, "_", " ", true), false, true);
-f.create_input_box("Content", content, "", 0, false, true, false);
-int f_close = f.create_button("&Close", true, true);
-f.focus(0);
+int ci=content_find(entry_name);string title=ci>=0?content_database[ci].display_name:string_replace(entry_name, "_", " ", true);
+nv_form f;f.create_window("Help: "+title,false,true);
+nv_form_input@ help_content=f.add_input("Read-only help content","help_content",content,"",0,true,true);
+nv_form_button@ close=f.add_button("Close","close",true,true);
+f.focus_control(help_content);
 while(true)
 {
 wait(5);
 f.monitor();
-if (connected==true)
-netloop();
-if (f.is_pressed(f_close))
-break;
+if(connected)netloop();
+if(f.is_pressed(close))return;
 }
 }
 
 void show_help_list()
 {
+show_help_browser_form();
+return;
 build_help_data(SCRIPT_COMPILED==false);
 if (help_categories.length() == 0)
 {
 speak("No help entries found.");
 return;
 }
-audio_form f;
+iw_form f;
 f.create_window("Help Topics", false, true);
 int f_cats = f.create_list("Category", 0, false);
 for (uint i = 0; i < help_categories.length(); i++)
@@ -1287,6 +1544,7 @@ break;
 
 void show_item_help(string item)
 {
+if(string_contains(item,"__partial__",1)==0){int pidx=string_to_number(string_replace(item,"__partial__","",false));if(pidx>=0 and pidx<int(partial_items.length()))item=partial_items[pidx].base_item;}
 string content = read_help_file(item);
 if (string_contains(content, "No help available", 1) == 0)
 {
@@ -1296,24 +1554,70 @@ return;
 show_help_entry(item);
 }
 
+void show_help_browser_form()
+{
+build_help_data(SCRIPT_COMPILED==false);
+if(help_categories.length()==0) { speak("No help entries found."); return; }
+nv_form f; f.create_window("Help Topics",false,true);
+nv_form_list_box@ categories=f.add_list("Categories","help_categories",false,{},0,-1,true);
+for(uint i=0;i<help_categories.length();i++) categories.add(help_categories[i],""+i);
+nv_form_list_box@ topics=f.add_list("Topics for selected category","help_topics",false,{},0,-1,true);
+nv_form_input@ content=f.add_input("Selected topic content","help_content","","",0,true,true);
+nv_form_button@ close=f.add_button("Close","close",false,true);
+categories.set_pos(0,false);
+int previous_category=-1, previous_topic=-1;
+f.focus_control(categories);
+while(true)
+{
+wait(5); f.monitor(); if(connected) netloop();
+if(f.is_pressed(close)) return;
+int category=categories.list_position;
+if(category!=previous_category and category>=0 and category<int(help_categories.length()))
+{
+previous_category=category; previous_topic=-1;
+topics.items.resize(0); topics.list_position=-1;
+for(uint i=0;i<help_category_entries[category].length();i++)
+{int ci=content_find(help_category_entries[category][i]);topics.add(ci>=0?content_database[ci].display_name:string_replace(help_category_entries[category][i],"_"," ",true),help_category_entries[category][i]);}
+if(topics.items.length()>0) topics.set_pos(0,false);
+content.text="Choose a topic, then press Tab again to read it."; content.cursor=0;
+}
+int topic=topics.list_position;
+if(category>=0 and category<int(help_categories.length()) and topic!=previous_topic and topic>=0 and topic<int(help_category_entries[category].length()))
+{
+previous_topic=topic;
+content.text=read_help_file(help_category_entries[category][topic]);
+content.cursor=0;
+}
+}
+}
+
 // ---------------------------------------------------------------------------
 // Quickbar weapons view (Shift+I).
 // ---------------------------------------------------------------------------
 void show_quickbar_weapons()
 {
-audio_form f;
-f.create_window("Quickbar Weapons", false, true);
-int f_list = f.create_list("Weapons in quickbar", 0, false);
-int count = 0;
+iw_form f;
+f.create_window("Quickbar and equipment abilities", false, true);
+int f_list = f.create_list("Quickbar slots", 0, false);
 for (int i = 0; i < 10; i++)
 {
-if (quickbar[i] != "" and is_weapon(quickbar[i]))
+string entry=quickbar[i];
+string label="Slot "+(i+1)+": ";
+if(entry=="")label+="empty";
+else if(is_equipment_ability(entry))
 {
-string label = "Slot " + (i+1) + ": " + get_weapon_display_name(quickbar[i]);
-int ammo = ammo_check(quickbar[i]);
+label+=equipment_ability_name(entry)+". From "+equipment_ability_source(entry)+". "+equipment_ability_description(entry);
+int remaining=equipment_ability_cooldown_remaining(entry);
+if(entry=="ability_biomonitor_scan")label+=" Cooldown 15 seconds; "+(remaining>0?remaining+" seconds remaining":"ready")+".";
+else if(entry=="ability_wirenet_toggle")label+=" No cooldown; "+wirenet_charges+" charges; "+(wirenet_active?"active":"inactive")+".";
+}
+else if(is_weapon(entry))
+{
+label += get_weapon_display_name(entry);
+int ammo = ammo_check(entry);
 if (ammo >= 0)
 {
-int qgi = find_gun(quickbar[i]);
+int qgi = find_gun(entry);
 if (qgi >= 0 and gun_ammos[qgi].ammo_display == "charge")
 label += " (" + get_ammo_percentage(ammo, gun_ammos[qgi].mag_capacity) + "% charge)";
 else if (qgi >= 0 and gun_ammos[qgi].ammo_display == "fuel")
@@ -1321,14 +1625,11 @@ label += " (" + get_ammo_percentage(ammo, gun_ammos[qgi].mag_capacity) + "% fuel
 else
 label += " (" + ammo + " loaded)";
 }
-f.add_list_item(f_list, label);
-count++;
 }
+else label+=string_replace(entry,"_"," ",true);
+f.add_list_item(f_list,label);
 }
-if (count == 0)
-{
-f.add_list_item(f_list, "No weapons in quickbar.");
-}
+int f_move=f.create_button("&Move selected slot");
 int f_close = f.create_button("&Close", true, true);
 f.focus(f_list);
 while(true)
@@ -1337,6 +1638,20 @@ wait(5);
 f.monitor();
 if (connected==true)
 netloop();
+if(f.is_pressed(f_move))
+{
+int source=f.get_list_position(f_list);
+if(source<0 or source>9)continue;
+iw_form destination;
+destination.create_window("Move quickbar entry",false,true);
+int dl=destination.create_list("Destination slot",0,false);
+for(int d=0;d<10;d++)destination.add_list_item(dl,"Slot "+(d+1)+(quickbar[d]==""?": empty":": "+(is_equipment_ability(quickbar[d])?equipment_ability_name(quickbar[d]):string_replace(quickbar[d],"_"," ",true))));
+int dm=destination.create_button("&Move",true);
+int dc=destination.create_button("&Cancel",false,true);
+destination.focus(dl);
+while(true){wait(5);destination.monitor();if(connected)netloop();if(destination.is_pressed(dc))break;if(destination.is_pressed(dm)){int target=destination.get_list_position(dl);if(target>=0 and target<10){string held=quickbar[target];quickbar[target]=quickbar[source];quickbar[source]=held;speak("Moved to slot "+(target+1)+".");}break;}}
+break;
+}
 if (f.is_pressed(f_close))
 break;
 }
@@ -1362,7 +1677,7 @@ string inv_menu_label(string[] keys, int pos)
 		if (pidx >= 0 and pidx < int(partial_items.length()))
 		{
 			string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
-			string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity);
+			string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity)+", "+ammunition_display_name(partial_items[pidx].ammunition);
 			return base_name + " (" + amt + "). " + (pos+1) + " of " + total;
 		}
 		return "unknown item. " + (pos+1) + " of " + total;
@@ -1410,8 +1725,8 @@ void inv_menu_use(string key)
 	else
 	{
 		on_item_used(key);
-		if (string_contains(key, "energetic_potion", 1) < 0 and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "waypoint_marker" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key) and !is_ammo_reserve_item(key))
-			send_reliable(0, "use " + key, 0);
+		if (string_contains(key, "energetic_potion", 1) < 0 and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key) and !is_ammo_reserve_item(key))
+			send_reliable(0,item_use_command(key),0);
 	}
 }
 
@@ -1535,25 +1850,25 @@ speak("Bomb vest equipped.");
 }
 else if (item == "energetic_potion_red")
 {
-restore_stamina(random(15, 25));
+restore_stamina(int(double(random(15,25))*item_dose_multiplier(item)));
 give("energetic_potion_red", -1);
 speak("Stamina restored. " + get_stamina_string());
 }
 else if (item == "energetic_potion_blue")
 {
-restore_stamina(random(25, 40));
+restore_stamina(int(double(random(25,40))*item_dose_multiplier(item)));
 give("energetic_potion_blue", -1);
 speak("Stamina restored. " + get_stamina_string());
 }
 else if (item == "energetic_potion_green")
 {
-restore_stamina(random(40, 60));
+restore_stamina(int(double(random(40,60))*item_dose_multiplier(item)));
 give("energetic_potion_green", -1);
 speak("Stamina restored. " + get_stamina_string());
 }
 else if (item == "energetic_potion_rainbow")
 {
-restore_stamina(random(75, 100));
+restore_stamina(int(double(random(75,100))*item_dose_multiplier(item)));
 give("energetic_potion_rainbow", -1);
 speak("Stamina fully restored. " + get_stamina_string());
 }
@@ -1584,11 +1899,6 @@ else if (item == "nanomatic_components")
 use_nanomatic_components();
 return;
 }
-else if (item == "waypoint_marker")
-{
-use_waypoint_marker();
-return;
-}
 else if (item == "biomonitor_bracelet")
 {
 if (equip_bracelet != "")
@@ -1598,7 +1908,7 @@ return;
 }
 equip_item("biomonitor_bracelet", "bracelet");
 give("biomonitor_bracelet", -1);
-speak("Biomonitor bracelet equipped. Press Shift+U to scan nearby players.");
+speak("Biomonitor bracelet equipped. Its scan ability was assigned to an available quickbar slot.");
 return;
 }
 else if (item == "wirenet")
@@ -1610,7 +1920,7 @@ return;
 }
 equip_item("wirenet", "medical");
 give("wirenet", -1);
-speak("WireNet equipped with 3 charges. Automatically heals when health drops below 20 percent. Press Alt+U to toggle.");
+speak("WireNet equipped with 3 charges. Its auto-heal toggle was assigned to an available quickbar slot.");
 return;
 }
 else if (item == "c4")
@@ -1740,22 +2050,26 @@ return;
 }
 if(!can_attach_to(item, current_weapon))
 {
-speak("This attachment is not compatible with the "+get_weapon_display_name(current_weapon)+".");
+speak("This attachment is not compatible with the "+get_weapon_display_name(current_weapon)+". It is designed for "+attachment_compatible_class_description(item)+" weapons.");
 return;
 }
 int def_idx=find_attachment_def(item);
 if(def_idx<0) return;
 if(weapon_has_attachment_in_slot(current_weapon, attachment_defs[def_idx].slot))
 {
-speak("This weapon already has an attachment in the "+attachment_defs[def_idx].slot+" slot.");
-return;
+if(!replace_occupied_attachments){speak("This weapon already has an attachment in the "+attachment_defs[def_idx].slot+" slot.");return;}
+string[] installed=get_weapon_attachments(current_weapon);string displaced="";for(uint ia=0;ia<installed.length();ia++){int idi=find_attachment_def(installed[ia]);if(idi>=0 and attachment_defs[idi].slot==attachment_defs[def_idx].slot){displaced=installed[ia];break;}}
+if(displaced=="" or !detach_from_weapon(displaced,current_weapon))return;give(displaced,1);p.play_stationary("attachment_"+displaced+"_remove.ogg",false);send_reliable(0,"detach "+displaced+" "+current_weapon,0);speak("Replaced "+string_replace(displaced,"_"," ",true)+".");
 }
 if(attach_to_weapon(item, current_weapon))
 {
 give(item, -1);
 apply_weapon_stats(current_weapon);
+p.play_stationary("attachment_" + item + "_attach.ogg", false);
 speak(attachment_defs[def_idx].display_name+" attached to "+get_weapon_display_name(current_weapon)+".");
 send_reliable(0, "attach "+item+" "+current_weapon, 0);
+if(attachment_defs[def_idx].slot=="ammunition")speak(ammunition_display_name(item)+" selected. Existing loaded rounds remain unchanged; the new type is loaded on the next reload.");
+else if(attachment_defs[def_idx].slot=="magazine")speak("New capacity: "+effective_magazine_capacity(current_weapon)+" rounds.");
 }
 }
 void equip_holster_item(string item)
@@ -1776,7 +2090,7 @@ else
 slot=2;
 if(equip_holster1!="" and equip_holster2=="")
 {
-audio_form sf;
+iw_form sf;
 sf.create_window("Select Holster Slot", false, true);
 int sl=sf.create_list("Slot", 0, false);
 sf.add_list_item(sl, "Holster 1: "+get_holster_slot_label(1));
@@ -1801,6 +2115,7 @@ break;
 give(item, -1);
 if(slot==1) equip_holster1=item;
 else equip_holster2=item;
+p.play_stationary("holster_"+item+"_equip.ogg", false);
 int idx=find_holster_def(item);
 string dn=(idx>=0)?holster_defs[idx].display_name:string_replace(item,"_"," ",true);
 speak(dn+" equipped in holster "+slot+".");
@@ -1829,9 +2144,23 @@ speak("No empty compatible holster equipped.");
 return;
 }
 int slot=valid_slots[0];
-if(valid_slots.length()>1)
+if(valid_slots.length()>1 and is_android())
 {
-audio_form sf;
+string[] hopts;
+for(uint i=0; i<valid_slots.length(); i++)
+{
+string hid=(valid_slots[i]==1)?equip_holster1:equip_holster2;
+int idx=find_holster_def(hid);
+string dn=(idx>=0)?holster_defs[idx].display_name:hid;
+hopts.insert_last("Holster "+valid_slots[i]+": "+dn);
+}
+int hs=android_select("Select Holster", hopts);
+if(hs<0) return;
+slot=valid_slots[hs];
+}
+else if(valid_slots.length()>1)
+{
+iw_form sf;
 sf.create_window("Select Holster", false, true);
 int sl=sf.create_list("Holster", 0, false);
 for(uint i=0; i<valid_slots.length(); i++)
@@ -1869,6 +2198,8 @@ walktime=200;
 string hid=(slot==1)?equip_holster1:equip_holster2;
 int idx=find_holster_def(hid);
 string dn=(idx>=0)?holster_defs[idx].display_name:hid;
+p.play_stationary(wname+"holster.ogg", false);
+p.play_stationary("holster_"+hid+"_store.ogg", false);
 speak(get_weapon_display_name(wname)+" holstered in "+dn+".");
 }
 void draw_from_holster()
@@ -1885,7 +2216,7 @@ if(h1_has and !h2_has) slot=1;
 else if(!h1_has and h2_has) slot=2;
 else
 {
-audio_form sf;
+iw_form sf;
 sf.create_window("Draw Weapon", false, true);
 int sl=sf.create_list("Holstered weapons", 0, false);
 string h1_label=holster1_weapon;
@@ -1931,16 +2262,27 @@ int reload_amt=(belt_ammo<need)?belt_ammo:need;
 gun_ammos[gi].mag_loaded+=reload_amt;
 if(slot==1) holster1_belt_ammo-=reload_amt;
 else holster2_belt_ammo-=reload_amt;
+p.play_stationary("holster_"+hid+"_autoload.ogg", false);
 speak(reload_amt+" rounds auto-loaded from belt.");
 }
 }
 if(slot==1){holster1_weapon="";holster1_weapon_ammo=0;}
 else{holster2_weapon="";holster2_weapon_ammo=0;}
+p.play_stationary("holster_"+hid+"_weapon_remove.ogg", false);
 draw_weapon(wname);
 }
 void show_weapon_info(string wname)
 {
-audio_form f;
+show_weapon_info_form(wname);
+return;
+// Android: build the same information as a native message, and offer
+// attachment removal through a touch-navigable list instead of a form.
+if(is_android())
+{
+show_weapon_info_android(wname);
+return;
+}
+iw_form f;
 f.create_window(get_weapon_display_name(wname), false, true);
 int gi=find_gun(wname);
 int base_range=0;
@@ -1971,6 +2313,7 @@ if(is_energy_weapon(wname))
 int dur=get_durability(wname);
 stats_text+="\nDurability: "+dur+"%";
 }
+stats_text+="\n\nBallistics:\n"+content_weapon_details(wname);
 string[] attached=get_weapon_attachments(wname);
 if(attached.length()>0)
 {
@@ -2020,8 +2363,10 @@ speak("This attachment cannot be removed.");
 }
 else if(detach_from_weapon(attached[sel], wname))
 {
+string removed_attachment=attached[sel];
 give(attached[sel], 1);
 apply_weapon_stats(wname);
+p.play_stationary("attachment_" + removed_attachment + "_remove.ogg", false);
 send_reliable(0, "detach "+attached[sel]+" "+wname, 0);
 speak(attachment_defs[def_idx].display_name+" removed. Returned to inventory.");
 return;
@@ -2042,6 +2387,95 @@ if(f.is_pressed(close_btn)) return;
 }
 }
 }
+string live_weapon_statistics(string wname)
+{
+wpn_stats@ base=null;
+for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==wname){@base=wpn_cache[i];break;}
+if(@base==null)return "No weapon statistics are registered.";
+double min_damage=base.damage,max_damage=base.max_damage,range=base.range,spread=base.projectile_dispersion,velocity=base.muzzle_velocity,drag=base.projectile_drag,retention=base.damage_retention;
+int penetration=base.penetration,pellets=base.pellet_count;
+string[] attached=get_weapon_attachments(wname);double accuracy=1.0;
+for(uint i=0;i<attached.length();i++)
+{
+string a=attached[i];
+if(a=="long_barrel")velocity*=1.12;else if(a=="short_barrel")velocity*=.9;else if(a=="match_grade_barrel")velocity*=1.05;else if(a=="heavy_barrel")velocity*=1.04;else if(string_contains(a,"suppressor",1)>=0){velocity*=.94;drag*=1.03;retention*=.97;}
+if(a=="red_dot_sight")accuracy*=.92;else if(a=="holographic_sight")accuracy*=.9;else if(a=="two_power_optic")accuracy*=.86;else if(a=="four_power_optic")accuracy*=.75;else if(a=="eight_power_scope")accuracy*=.62;else if(a=="thermal_scope")accuracy*=.72;else if(a=="vertical_grip")accuracy*=.88;else if(a=="angled_grip")accuracy*=.82;else if(a=="bipod")accuracy*=.65;else if(a=="laser_aiming_module")accuracy*=.9;else if(a=="weapon_light")accuracy*=.96;else if(a=="lightweight_stock")accuracy*=1.08;else if(a=="precision_stock")accuracy*=.78;else if(a=="recoil_buffer_stock")accuracy*=.86;else if(a=="muzzle_brake")accuracy*=.9;else if(a=="compensator")accuracy*=.86;else if(a=="choke_full")accuracy*=.92;else if(a=="choke_improved")accuracy*=.96;
+}
+int gi=find_gun(wname);string loaded=gi>=0?gun_ammos[gi].loaded_ammunition:"standard_ammunition";
+string active_mode=has_fire_modes(wname)?fire_mode_name(get_fire_mode(wname)):"fixed";
+if(active_mode=="scattershot"){pellets=base.wclass=="shotgun"?base.pellet_count+4:5;spread*=1.65;}
+else if(active_mode=="focused"){pellets=1;spread*=.25;}
+if(string_contains(loaded,"plus_p",1)>=0){velocity*=1.1;min_damage*=1.08;max_damage*=1.08;}
+if(string_contains(loaded,"subsonic",1)>=0){velocity*=.76;drag*=1.18;min_damage*=.9;max_damage*=.9;}
+if(string_contains(loaded,"match",1)>=0){velocity*=1.06;retention*=1.08;accuracy*=.7;}
+if(string_contains(loaded,"_ap",1)>=0 or string_contains(loaded,"m855a1",1)>=0 or string_contains(loaded,"bodkin",1)>=0 or string_contains(loaded,"barrikada",1)>=0 or string_contains(loaded,"flechette",1)>=0 or string_contains(loaded,"_ion",1)>=0){velocity*=1.04;penetration+=2;min_damage*=.94;max_damage*=.94;}
+if(string_contains(loaded,"jhp",1)>=0 or string_contains(loaded,"expanding",1)>=0 or string_contains(loaded,"softpoint",1)>=0 or string_contains(loaded,"broadhead",1)>=0){min_damage*=1.2;max_damage*=1.2;penetration=0;retention*=.84;}
+if(string_contains(loaded,"hardcast",1)>=0){penetration+=2;retention*=1.12;}
+if(string_contains(loaded,"frangible",1)>=0 or string_contains(loaded,"wadcutter",1)>=0){min_damage*=1.12;max_damage*=1.12;penetration=0;drag*=1.25;}
+if(string_contains(loaded,"breaching",1)>=0){min_damage*=1.3;max_damage*=1.3;range*=.55;drag*=1.4;}
+if(string_contains(loaded,"overcharge",1)>=0){velocity*=1.22;min_damage*=1.28;max_damage*=1.28;}
+if(loaded=="12g_slug" or loaded=="23mm_barrikada"){pellets=1;accuracy*=.24;penetration+=2;}else if(loaded=="12g_number4_buck"){pellets=18;accuracy*=1.3;}else if(loaded=="12g_flechette"){pellets=12;accuracy*=.72;}else if(string_contains(loaded,"shotshell",1)>=0){pellets=7;spread=5.2;}else if(string_contains(loaded,"_scatter",1)>=0){pellets=5;spread=2.4;}
+if(active_mode=="focused"){min_damage*=1.5;max_damage*=1.5;range*=1.3;velocity*=1.15;}
+weapon_handling_state@ live_handling=handling_state(wname);string live_class=get_weapon_class(wname);
+double condition_output=(.65+.35*double(live_handling.mechanical_condition)/100.0)*(1.0-double(live_handling.permanent_damage)/180.0);min_damage*=condition_output;max_damage*=condition_output;velocity*=.75+.25*double(live_handling.mechanical_condition)/100.0;spread*=1.0+double(100-live_handling.alignment+live_handling.permanent_damage)/100.0;range*=.8+.2*double(live_handling.alignment)/100.0;
+if(live_handling.configuration==1 and (live_class=="submachine_gun" or live_class=="battle_rifle" or live_class=="sniper_rifle" or live_class=="light_machine_gun" or live_class=="archery"))accuracy*=.62;
+if(live_class=="assault_rifle"){if(live_handling.configuration==1)accuracy*=1.12;else if(live_handling.configuration==2)accuracy*=.82;}
+if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_class=="melee_blunt") and live_handling.configuration==1){min_damage*=1.42;max_damage*=1.42;}else if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_class=="melee_blunt") and live_handling.configuration==2){min_damage*=.76;max_damage*=.76;penetration++;}
+spread*=accuracy;
+int attached_fire_interval=int(double(base.firetime)*get_attachment_firetime_mult(wname));
+string report="Live loaded configuration\nFire mode: "+active_mode+"\nAmmunition: "+ammunition_display_name(loaded)+"\nDamage: "+int(min_damage)+(int(min_damage)!=int(max_damage)?" to "+int(max_damage):"")+"\nRange: "+int(range)+" tiles\nDispersion: "+round(spread,2)+" degrees\nMuzzle velocity: "+round(velocity,2)+" tiles per second\nDrag: "+round(drag,4)+"\nDamage retention: "+int(retention*100)+" percent\nPenetration: "+penetration+"\nProjectiles per shot: "+pellets+"\nFire interval: "+handling_fire_interval(wname,attached_fire_interval)+" milliseconds\nMovement interval: "+int(double(base.walktime)*get_attachment_walktime_mult(wname)*handling_movement_penalty(wname))+" milliseconds\nHandling: "+weapon_handling_status(wname);
+if(gi>=0)report+="\nLoaded: "+gun_ammos[gi].mag_loaded+" of "+gun_ammos[gi].mag_capacity+"\nSelected for next reload: "+ammunition_display_name(selected_ammunition_for_weapon(wname));
+return report;
+}
+
+void show_weapon_info_form(string wname)
+{
+int gi=find_gun(wname);string stats=live_weapon_statistics(wname);
+if(is_energy_weapon(wname)) stats+="\nDurability: "+get_durability(wname)+"%";
+stats+="\n\nBase weapon reference:\n"+content_weapon_details(wname);
+string[] attached=get_weapon_attachments(wname);
+nv_form f; f.create_window(get_weapon_display_name(wname)+" Weapon Panel",false,true);
+nv_form_input@ stats_control=f.add_input("Weapon statistics","weapon_stats",stats,"",0,true,true);
+nv_form_list_box@ attachments_control=null;
+nv_form_button@ remove_control=null;
+if(attached.length()>0)
+{
+@attachments_control=f.add_list("Installed attachments","attachments",false,{},0,-1,true);
+for(uint i=0;i<attached.length();i++)
+{
+int di=find_attachment_def(attached[i]);
+if(di<0) continue;
+string label=attachment_defs[di].display_name+" ("+attachment_defs[di].slot+")";
+if(!attachment_defs[di].removable) label+=" [permanent]";
+attachments_control.add(label,attached[i]);
+}
+@remove_control=f.add_button("Remove selected attachment","remove");
+}
+nv_form_button@ close=f.add_button("Close","close",false,true); f.focus_control(stats_control);
+while(true)
+{
+wait(5); f.monitor(); if(connected) netloop();
+if(f.is_pressed(close)) return;
+if(@remove_control!=null and f.is_pressed(remove_control) and @attachments_control!=null)
+{
+int sel=attachments_control.list_position;
+if(sel<0 or sel>=int(attachments_control.items.length())) continue;
+string attachment_id=attachments_control.items[sel].id;
+int di=find_attachment_def(attachment_id);
+if(di<0) continue;
+if(!attachment_defs[di].removable) speak("This attachment cannot be removed.");
+else if(detach_from_weapon(attachment_id,wname))
+{
+give(attachment_id,1); apply_weapon_stats(wname);
+p.play_stationary("attachment_"+attachment_id+"_remove.ogg",false);
+send_reliable(0,"detach "+attachment_id+" "+wname,0);
+speak(attachment_defs[di].display_name+" removed and returned to inventory.");
+return;
+}
+}
+}
+}
+
 string[] hypercomp_fetch_bunkers()
 {
 string[] result;
@@ -2067,7 +2501,8 @@ return result;
 }
 void hypercomp_menu()
 {
-audio_form f;
+p.play_stationary("hypercomp_activate.ogg", false);
+iw_form f;
 f.create_window("HyperComp", false, true);
 int f_status=f.create_button("View &bunker status");
 int f_monitor=f.create_button("Toggle &monitor mode");
@@ -2082,18 +2517,22 @@ f.monitor();
 if(connected==true) netloop();
 if(f.is_pressed(f_status))
 {
+p.play_stationary("hypercomp_status.ogg", false);
 send_reliable(0, "hypercomp bunker_status", 0);
 }
 else if(f.is_pressed(f_monitor))
 {
+p.play_stationary("hypercomp_monitor.ogg", false);
 hypercomp_monitor_menu();
 }
 else if(f.is_pressed(f_c4))
 {
+p.play_stationary("hypercomp_c4.ogg", false);
 hypercomp_c4_menu();
 }
 else if(f.is_pressed(f_alarm))
 {
+p.play_stationary("hypercomp_alarm.ogg", false);
 hypercomp_alarm_menu();
 }
 else if(f.is_pressed(f_close))
@@ -2125,7 +2564,7 @@ if(c4count<0)
 speak("Could not retrieve C4 data.");
 return;
 }
-audio_form f;
+iw_form f;
 f.create_window("C4 Management", false, true);
 f.create_input_box("Active C4 charges", ""+c4count, "", 0, false, true, false);
 int f_det=f.create_button("&Detonate");
@@ -2143,7 +2582,7 @@ if(c4count<=0)
 speak("No C4 charges placed.");
 continue;
 }
-audio_form d;
+iw_form d;
 d.create_window("Detonate C4", false, true);
 int d_count=d.create_input_box("How many to detonate (max "+c4count+")", ""+c4count, "", 0, false, false, false);
 int d_go=d.create_button("&Detonate", true);
@@ -2181,7 +2620,7 @@ if(bdata.length()==0)
 speak("You don't own any bunkers.");
 return;
 }
-audio_form f;
+iw_form f;
 f.create_window("Bunker Monitor", false, true);
 int f_list=f.create_list("Select a bunker to toggle monitor mode", 0, false);
 string[] bunker_ids;
@@ -2224,7 +2663,7 @@ if(bdata.length()==0)
 speak("You don't own any bunkers.");
 return;
 }
-audio_form f;
+iw_form f;
 f.create_window("Bunker Alarm", false, true);
 int f_list=f.create_list("Select a bunker to toggle its alarm", 0, false);
 string[] bunker_ids;
@@ -2317,7 +2756,19 @@ speak("No points of interest on this map.");
 return;
 }
 int[] sorted=get_sorted_poi_indices();
-audio_form f;
+if (is_android())
+{
+string[] poi_opts;
+for (uint i=0; i<sorted.length(); i++)
+{
+int idx=sorted[i];
+double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
+poi_opts.insert_last(string_replace(pois[idx].name, "_", " ", true)+" ("+int(dist)+" tiles)");
+}
+android_select("Points of Interest", poi_opts);
+return;
+}
+iw_form f;
 f.create_window("Points of Interest", false, true);
 int f_list=f.create_list("Points of interest", 0, false);
 for (uint i=0; i<sorted.length(); i++)
@@ -2370,7 +2821,7 @@ open_turbolift_menu(t);
 }
 void open_turbolift_menu(turbolift@ t)
 {
-audio_form f;
+iw_form f;
 f.create_window(t.name, false, true);
 int f_list=f.create_list("Select a level. Press Enter to travel.", 0, false);
 for (uint i=0; i<t.level_names.length(); i++)
@@ -2480,18 +2931,15 @@ speak(t.label);
 }
 void show_translocator_interface()
 {
-if (pois.length()==0)
-{
-speak("No points of interest to translocate to.");
-return;
-}
+team_translocator_received=false;send_team_command("translocator state");timer team_wait;while(!team_translocator_received and team_wait.elapsed<1500){wait(5);netloop();}
+if (pois.length()==0 and team_translocator_names.length()==0){speak("No points of interest or available team mates to translocate to.");return;}
 int[] sorted=get_sorted_poi_indices();
-audio_form f;
+iw_form f;
 f.create_window("Translocator", false, true);
 // Battery level display.
-string battery_text="Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%)";
+string battery_text="Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%). Team pool: "+team_translocator_points+" points.";
 f.create_input_box("Status", battery_text, "", 0, false, true, false);
-int f_list=f.create_list("Points of interest", 0, false);
+int f_list=f.create_list("Destinations", 0, false);
 for (uint i=0; i<sorted.length(); i++)
 {
 int idx=sorted[i];
@@ -2500,6 +2948,7 @@ int needed=cells_for_distance(dist);
 string label=string_replace(pois[idx].name, "_", " ", true)+" - "+int(dist)+" tiles ("+needed+" cells)";
 f.add_list_item(f_list, label);
 }
+for(uint i=0;i<team_translocator_names.length();i++)f.add_list_item(f_list,"Team mate: "+team_translocator_names[i]+" ("+team_translocator_cell_cost[i]+" cells or "+team_translocator_point_cost[i]+" team points)");
 int f_go=f.create_button("&Translocate", true);
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_list);
@@ -2512,7 +2961,14 @@ netloop();
 if (f.is_pressed(f_go))
 {
 int sel=f.get_list_position(f_list);
-if (sel>=0 and sel<int(sorted.length()))
+if(sel>=int(sorted.length()) and sel<int(sorted.length()+team_translocator_names.length()))
+{
+int teammate=sel-int(sorted.length());string[] methods={"Use "+team_translocator_cell_cost[teammate]+" translocator cells","Use "+team_translocator_point_cost[teammate]+" shared team points"};int payment=android_select("Payment method",methods);if(payment<0)continue;
+if(payment==0 and team_translocator_cell_cost[teammate]>translocator_cells){speak("Not enough cells.");continue;}
+team_translocator_go_received=false;team_translocator_go_success=false;send_team_command("translocator go "+team_translocator_names[teammate]+" "+(payment==0?"cells":"points"));timer go_wait;while(!team_translocator_go_received and go_wait.elapsed<2500){wait(5);netloop();}if(!team_translocator_go_success){speak("The team translocation could not be completed.");continue;}if(payment==0)translocator_cells-=team_translocator_go_cells;
+speak("Powering up translocator.");for(int t=5;t>=1;t--){speak(t+".");wait(1000);netloop();}me.x=team_translocator_go_x;me.y=team_translocator_go_y;me.z=team_translocator_go_z;mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);checkzone();speak("Translocated to team mate "+team_translocator_go_name+".");break;
+}
+else if (sel>=0 and sel<int(sorted.length()))
 {
 int idx=sorted[sel];
 double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
@@ -2589,6 +3045,16 @@ if (wpn_cache[i].id==wname) return wpn_cache[i].wclass;
 }
 return "";
 }
+void apply_weapon_recoil(string wname)
+{
+string c=get_weapon_class(wname);double pitch=0,yaw=0;
+if(c=="pistol"){pitch=1.4;yaw=.7;}else if(c=="revolver"){pitch=3.8;yaw=1.4;}else if(c=="submachine_gun"){pitch=1.15;yaw=1.1;}else if(c=="assault_rifle"){pitch=1.8;yaw=.9;}else if(c=="battle_rifle"){pitch=3.1;yaw=1.25;}else if(c=="sniper_rifle"){pitch=4.8;yaw=1.0;}else if(c=="light_machine_gun"){pitch=2.4;yaw=1.35;}else if(c=="shotgun"){pitch=4.3;yaw=1.2;}else if(c=="explosive"){pitch=6.5;yaw=1.6;}else return;
+if(sitting){pitch*=.68;yaw*=.7;}if(weapon_has_attachment(wname,"muzzle_brake")){pitch*=.72;yaw*=.8;}if(weapon_has_attachment(wname,"compensator")){pitch*=.62;yaw*=.65;}if(weapon_has_attachment(wname,"flash_hider")){pitch*=.96;yaw*=.96;}if(weapon_is_suppressed(wname)){pitch*=.9;yaw*=.92;}if(weapon_has_attachment(wname,"vertical_grip"))pitch*=.78;if(weapon_has_attachment(wname,"angled_grip"))yaw*=.72;if(weapon_has_attachment(wname,"bipod") and sitting){pitch*=.45;yaw*=.4;}if(weapon_has_attachment(wname,"lightweight_stock")){pitch*=1.12;yaw*=1.18;}if(weapon_has_attachment(wname,"precision_stock")){pitch*=.84;yaw*=.82;}if(weapon_has_attachment(wname,"recoil_buffer_stock")){pitch*=.72;yaw*=.76;}if(stamina<25){pitch*=1.2;yaw*=1.3;}
+double handling_mult=handling_recoil_multiplier(wname);pitch*=handling_mult;yaw*=handling_mult;
+if(weapon_sway_timer.elapsed<weapon_sway_duration){pitch*=1.25;yaw*=1.7;}
+int rise=int(round(pitch,0));if(rise<1)rise=1;turn+=rise;if(turn>180)turn=180;int drift=int(round((double(random(-1000,1000))/1000.0)*yaw,0));facing+=drift;while(facing<0)facing+=360;while(facing>=360)facing-=360;
+p.play_stationary("recoil_"+c+random(1,3)+".ogg",false);send_reliable(0,"turn "+facing,0);send_reliable(0,"turn2 "+turn,0);
+}
 
 bool is_energy_weapon(string wname)
 {
@@ -2617,6 +3083,13 @@ weapon_durability.set(wname, val);
 void on_weapon_break(string wname)
 {
 int components=random(1, 5);
+int broken_gun=find_gun(wname);
+if(broken_gun>=0)
+{
+gun_ammos[broken_gun].reloading=false;
+gun_ammos[broken_gun].reload_audio_manual=false;
+gun_ammos[broken_gun].reload_cycle_pending=false;
+}
 give(wname, -1);
 weapon_durability.delete(wname);
 give("nanomatic_components", components);
@@ -2667,7 +3140,7 @@ speak("No energy weapons need repair.");
 return;
 }
 if (multitool_uses<=0) multitool_uses=5;
-audio_form f;
+iw_form f;
 f.create_window("Nanomatic Multitool", false, true);
 int f_list=f.create_list("Select a weapon to repair ("+multitool_uses+" uses remaining)", 0, false);
 for (uint i=0; i<damaged.length(); i++)
@@ -2736,41 +3209,6 @@ speak("Added 1 use to multitool. Now has "+multitool_uses+" uses.");
 // ---------------------------------------------------------------------------
 // Waypoint Marker — save a position, then track back to it.
 // ---------------------------------------------------------------------------
-bool waypoint_set = false;
-int waypoint_x = 0;
-int waypoint_y = 0;
-int waypoint_z = 0;
-
-void use_waypoint_marker()
-{
-if (!waypoint_set)
-{
-waypoint_x = int(mr.x);
-waypoint_y = int(mr.y);
-waypoint_z = int(me.z);
-waypoint_set = true;
-give("waypoint_marker", -1);
-speak("Waypoint placed at " + waypoint_x + ", " + waypoint_y + ", " + waypoint_z + ".");
-}
-else
-{
-double dx = double(waypoint_x) - mr.x;
-double dy = double(waypoint_y) - mr.y;
-double dz = double(waypoint_z) - me.z;
-double dist = square_root(dx * dx + dy * dy + dz * dz);
-// Calculate bearing to waypoint.
-double angle = calculate_x_y_angle(mr.x, mr.y, double(waypoint_x), double(waypoint_y), 0);
-int snap = int(getdir(angle));
-string dir_name = dir_to_string(snap);
-speak("Waypoint is " + int(dist) + " tiles to the " + dir_name + ". At " + waypoint_x + ", " + waypoint_y + ", " + waypoint_z + ".");
-}
-}
-
-void clear_waypoint()
-{
-waypoint_set = false;
-}
-
 // ---------------------------------------------------------------------------
 // Binoculars — reusable scouting tool, shows POIs and zone info.
 // ---------------------------------------------------------------------------
@@ -2793,11 +3231,26 @@ break;
 }
 firetime=int(firetime*get_attachment_firetime_mult(wname));
 walktime=int(walktime*get_attachment_walktime_mult(wname));
+synchronize_weapon_feed(wname);
+}
+
+bool weapon_allows_sprint(string wname)
+{
+for(uint i=0;i<wpn_cache.length();i++) if(wpn_cache[i].id==wname)
+return wpn_cache[i].walktime<300 and wpn_cache[i].wclass!="explosive" and wpn_cache[i].wclass!="light_machine_gun" and wpn_cache[i].wclass!="sniper_rifle" and wpn_cache[i].wclass!="tool";
+return true;
 }
 
 void draw_weapon(string wname)
 {
 if (drawtimer.elapsed<=1500) return;
+int requested_walktime=200;
+for (uint i=0; i<wpn_cache.length(); i++) if (wpn_cache[i].id==wname) { requested_walktime=wpn_cache[i].walktime; break; }
+if (sitting and requested_walktime>=300)
+{
+speak("You cannot wield that heavy weapon while sitting.");
+return;
+}
 drawtimer.restart();
 weapons[w]=wname;
 apply_weapon_stats(wname);
@@ -2808,6 +3261,7 @@ void use_quickbar_slot(int slot)
 {
 if (quickbar[slot]=="") { speak("Empty slot."); return; }
 string item=quickbar[slot];
+if(is_equipment_ability(item)){activate_equipment_ability(item);return;}
 if (get_item_count(item)<=0)
 {
 speak("You don't have "+string_replace(item, "_", " ", true)+".");
@@ -2823,33 +3277,17 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "waypoint_marker" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item) and !is_ammo_reserve_item(item))
-send_reliable(0, "use "+item, 0);
+if (string_contains(item, "energetic_potion", 1) < 0 and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item) and !is_ammo_reserve_item(item))
+send_reliable(0,item_use_command(item),0);
 }
 }
 void anticheat_scan()
 {
-if (anticheat_timer.elapsed<30000) return;
-anticheat_timer.restart();
-string tmpfile=prefsdir+"/ac.tmp";
-run("cmd.exe", "/c tasklist /NH 2>nul > \""+tmpfile+"\"", true, false);
-if (file_exists(tmpfile))
-{
-file f;
-f.open(tmpfile, "rb");
-string content=string_to_lower_case(f.read());
-f.close();
-file_delete(tmpfile);
-string[] blacklist={"cheatengine", "artmoney", "wemod", "gamehacker", "tsearch", "ce-unpacker"};
-for (uint i=0; i<blacklist.length(); i++)
-{
-if (string_contains(content, blacklist[i], 1)>-1)
-{
-send_reliable(0, "ac_violation", 0);
-exit();
-}
-}
-}
+// The old implementation synchronously launched cmd.exe and tasklist on the
+// gameplay thread every 30 seconds. Slow process enumeration froze the entire
+// client, and executable-name matching was trivial to evade. Movement, firing,
+// ammunition, and state validation are authoritative on the server, so no
+// blocking client process scan is performed here.
 }
 void toggle_afk()
 {
@@ -2890,8 +3328,8 @@ afk_cooldown_timer.restart();
 }
 void game(int first)
 {
+p.play_stationary("modeenter.ogg",false);
 plane.stop();
-clear_waypoint();
 translocator_cells=0;
 jumping=false;
 falling=false;
@@ -2904,13 +3342,13 @@ if (map_vehicles.length() == 0)
 init_vehicle_types();
 spawn_vehicles_on_map();
 }
+register_vehicles_with_server();
 give_starting_loadout();
-weapons[w]=quickbar[0];
+weapons[w]=starting_loadout_weapon;
 apply_weapon_stats(weapons[w]);
 send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);
 send_reliable(1, "draw "+weapons[w], 0);
 send_reliable(0, "send_comp "+comp, 0);
-send_reliable(0, "send_mate "+mate, 0);
 send_reliable(0, "admin", 0);
 if(SCRIPT_COMPILED==false)
 {
@@ -2962,6 +3400,10 @@ mouse_update();
 mousey=MOUSE_Y/3;
 mousex=MOUSE_X/8;
 mousez=MOUSE_Z/6;
+// Translate Android touch gestures into game actions. On non-touch builds
+// this returns immediately. Runs before the key handlers below so the
+// virtual-key flags it sets (gk_fire, gk_use, ...) are read this same frame.
+process_touch_gestures();
 if(pingtimer.elapsed > 20000 and pinging==true)
 {
 p.play_stationary("pingstop.ogg", false);
@@ -3027,11 +3469,27 @@ else
 cycle_inv(1);
 p.play_stationary("invmove.ogg", false);
 }
-if (key_pressed(kb("points_of_interest")))
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("dev_poi_teleport")))
+{
+dev_teleport_to_poi();
+}
+else if (key_pressed(kb("points_of_interest")) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 show_poi_list();
 }
-if (key_pressed(kb("next_category")))
+// NVGT key_pressed consumes the edge. Modified item actions must be sampled
+// before the plain K/M actions that share their physical default keys.
+bool item_shortcut_alt=(key_down(KEY_LMENU) or key_down(KEY_RMENU));
+bool item_shortcut_shift=(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
+bool item_configuration_pressed=false,item_inspect_pressed=false;
+if(item_shortcut_alt and item_shortcut_shift)
+{
+item_configuration_pressed=key_pressed(kb("item_configuration"));
+item_inspect_pressed=key_pressed(kb("item_inspect"));
+if(item_configuration_pressed)cycle_selected_item_configuration();
+if(item_inspect_pressed){string inspect_item=get_selected_item();if(inspect_item=="" or is_weapon(inspect_item))speak("Select an inventory item first.");else speak(item_mechanic_description(inspect_item));}
+}
+if (!item_shortcut_alt and !item_configuration_pressed and !item_inspect_pressed and key_pressed(kb("next_category")))
 {
 if (shift_is_down())
 cycle_category(0);
@@ -3039,7 +3497,7 @@ else
 cycle_category(1);
 p.play_stationary("invmove.ogg", false);
 }
-if (key_pressed(kb("nearby_items")))
+if (!item_shortcut_alt and !item_configuration_pressed and !item_inspect_pressed and key_pressed(kb("nearby_items")))
 {
 pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x), int(mr.y), int(me.z));
 send_reliable(0,"whatnear",0);
@@ -3056,10 +3514,18 @@ if (shift_is_down() and key_pressed(kb("transition")))
 try_use_transition();
 }
 // Fire mode determines if hold-fire is possible.
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_next"))){target_region_index++;if(target_region_index>=int(target_regions.length()))target_region_index=0;speak("Targeting "+target_regions[target_region_index]+".");}
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_previous"))){target_region_index--;if(target_region_index<0)target_region_index=target_regions.length()-1;speak("Targeting "+target_regions[target_region_index]+".");}
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_reset"))){target_region_index=0;speak("Target reset to whole body.");}
 can_fire = can_hold_fire(weapons[w]);
+// key_pressed is consuming in NVGT. Capture the trigger edge exactly once so
+// crossbow setup, burst setup, vehicle warnings, and semi-auto firing all see
+// the same event instead of pistols and shotguns losing it to an earlier read.
+bool physical_fire_pressed=key_pressed(kb("fire")) or (key_pressed(KEY_RCONTROL) and rctrl==1);
+bool physical_fire_down=key_down(kb("fire")) or (key_down(KEY_RCONTROL) and rctrl==1);
 // Start a new burst on press in burst mode.
 int cur_fm = get_fire_mode(weapons[w]);
-if (cur_fm == FIREMODE_BURST and (key_pressed(kb("fire")) or (key_pressed(KEY_RCONTROL) and rctrl==1)))
+if (cur_fm == FIREMODE_BURST and physical_fire_pressed)
 {
 burst_rounds_remaining = 3;
 burst_firing = true;
@@ -3070,12 +3536,15 @@ if (key_up(kb("fire")) and (key_up(KEY_RCONTROL) or rctrl==0))
 burst_firing = false;
 burst_rounds_remaining = 0;
 }
-if(can_move==true and !is_reloading(weapons[w]))
+// Movement locks are used for knockback, menus, stuns, and server corrections.
+// They must not silently turn into a permanent weapon lock if a corresponding
+// movement-start packet is delayed or lost. Reload state is the weapon gate.
+if(!is_reloading(weapons[w]))
 {
 // Vehicle fire restrictions: no melee, must have window down.
 if (in_vehicle and !vehicle_can_fire())
 {
-if (key_pressed(kb("fire")) or key_pressed(KEY_RCONTROL))
+if (physical_fire_pressed)
 {
 if (melee)
 speak("You can't use melee weapons from a vehicle.");
@@ -3083,46 +3552,80 @@ else
 speak("Roll your window down first.");
 }
 }
-if (in_vehicle and melee and (key_pressed(kb("fire")) or key_pressed(KEY_RCONTROL)))
+if (in_vehicle and melee and physical_fire_pressed)
 {
 speak("You can't use melee weapons from a vehicle.");
 }
 bool fire_now = false;
-if (firetimer.elapsed>=firetime and (!in_vehicle or (vehicle_can_fire() and !melee)))
+bool tension_weapon=(weapons[w]=="crossbow");
+if(crossbow_charging and !tension_weapon){if(crossbow_charge_sound>=0)p.destroy_sound(crossbow_charge_sound);crossbow_charging=false;crossbow_charge_sound=-1;}
+if(tension_weapon and physical_fire_pressed and !crossbow_charging and ammo_check(weapons[w])>0 and firetimer.elapsed>=handling_fire_interval(weapons[w],firetime))
 {
-if (cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(kb("fire")) or (key_down(KEY_RCONTROL) and rctrl==1)))
+crossbow_charging=true;crossbow_full_tension_reported=false;crossbow_charge_timer.restart();crossbow_release_strength=.25;crossbow_charge_sound=p.play_stationary("crossbow_charge_loop.ogg",true);
+}
+if(crossbow_charging and !crossbow_full_tension_reported and crossbow_charge_timer.elapsed>=1800){crossbow_full_tension_reported=true;p.play_stationary("crossbow_full_tension.ogg",false);}
+if (sitting and walktime>=300 and (physical_fire_pressed or gk_fire))
+speak("Stand before using this heavy weapon.");
+if (firetimer.elapsed>=handling_fire_interval(weapons[w],firetime) and (!in_vehicle or (vehicle_can_fire() and !melee)) and (!sitting or walktime<300))
+{
+if(tension_weapon and crossbow_charging and !physical_fire_down)
+{
+crossbow_release_strength=double(crossbow_charge_timer.elapsed)/1800.0;if(crossbow_release_strength<.25)crossbow_release_strength=.25;if(crossbow_release_strength>1)crossbow_release_strength=1;if(crossbow_charge_sound>=0)p.destroy_sound(crossbow_charge_sound);crossbow_charge_sound=-1;crossbow_charging=false;fire_now=true;
+}
+else if (!tension_weapon and cur_fm == FIREMODE_BURST and burst_firing and burst_rounds_remaining > 0 and (key_down(kb("fire")) or (key_down(KEY_RCONTROL) and rctrl==1)))
 fire_now = true;
-else if ((key_down(kb("fire")) and can_fire) or (key_down(KEY_RCONTROL) and rctrl==1 and can_fire) or key_pressed(kb("fire")) or (key_pressed(KEY_RCONTROL) and rctrl==1))
+else if (!tension_weapon and ((physical_fire_down and can_fire) or physical_fire_pressed or gk_fire))
 fire_now = true;
+else if(tension_weapon and gk_fire){crossbow_release_strength=.65;fire_now=true;}
+}
+if (fire_now)
+{
+if(!manual_weapon_can_fire(weapons[w],true))fire_now=false;
+if(fire_now and !weapon_handling_can_fire(weapons[w],true))fire_now=false;
 }
 if (fire_now)
 {
 int weapon_ammo=ammo_check(weapons[w]);
 int ammo_cost=1;
 if (cur_fm==FIREMODE_FOCUSED) ammo_cost=3;
-if((weapon_ammo>=ammo_cost or melee==true))
+// A negative value means this registered weapon intentionally has no magazine
+// profile (melee, mounted, or ammo-free content). It must not be treated as an
+// empty firearm and silently blocked.
+if((weapon_ammo<0 or weapon_ammo>=ammo_cost or melee==true))
 {
-ammo_give(weapons[w], -ammo_cost);
+if(weapon_ammo>=0) ammo_give(weapons[w], -ammo_cost);
+manual_weapon_after_fire(weapons[w]);
+weapon_handling_after_fire(weapons[w]);
 firetimer.restart();
 string fire_cmd="fire "+weapons[w];
-if (cur_fm==FIREMODE_SCATTERSHOT) fire_cmd+=" scattershot";
-else if (cur_fm==FIREMODE_FOCUSED) fire_cmd+=" focused";
+string sound_mode="normal";
+if (cur_fm==FIREMODE_SCATTERSHOT) sound_mode="scattershot";
+else if (cur_fm==FIREMODE_FOCUSED) sound_mode="focused";
+if(tension_weapon){if(crossbow_release_strength<.45)sound_mode="lowtension";else if(crossbow_release_strength>=.9)sound_mode="maxtension";else sound_mode="normaltension";}
+int fire_gun_index=find_gun(weapons[w]);string fired_ammunition=fire_gun_index>=0?gun_ammos[fire_gun_index].loaded_ammunition:"standard_ammunition";
+fire_cmd+=" "+sound_mode+" "+random(1,available_fire_sound_count(weapons[w],sound_mode))+" "+string_replace(target_regions[target_region_index],"whole body","body",false)+" "+crossbow_release_strength+" "+fired_ammunition;
+fire_cmd+=" "+handling_state(weapons[w]).configuration+" "+handling_state(weapons[w]).mechanical_condition+" "+handling_state(weapons[w]).alignment+" "+handling_state(weapons[w]).permanent_damage;
 send_reliable(0,fire_cmd,0);
+apply_weapon_recoil(weapons[w]);
 if (cur_fm==FIREMODE_FOCUSED) apply_focused_durability_damage(weapons[w]);
-if (melee) stamina_on_melee();
+if (melee) stamina_on_melee(weapons[w]);
 if (cur_fm == FIREMODE_BURST and burst_firing)
 {
 burst_rounds_remaining--;
 if (burst_rounds_remaining <= 0) burst_firing = false;
 }
 }
-else if(weapon_ammo==0 and firetimer.elapsed>=firetime)
+else if(weapon_ammo<ammo_cost and firetimer.elapsed>=handling_fire_interval(weapons[w],firetime))
 {
 firetimer.restart();
 p.play_stationary(weapons[w]+"empty.ogg",false);
 can_fire=false;
 burst_firing = false;
 int empty_gi=find_gun(weapons[w]);
+if(weapon_ammo>0 and ammo_cost>1)
+speak("This firing mode requires "+ammo_cost+" charge, but only "+weapon_ammo+" remains. Press R to reload or switch firing mode.");
+else
+{
 if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="charge")
 speak(gun_ammos[empty_gi].reserve_label+" depleted. Press R to reload.");
 else if (empty_gi>=0 and gun_ammos[empty_gi].ammo_display=="fuel")
@@ -3132,16 +3635,32 @@ speak("Magazine empty. Press R to reload.");
 }
 }
 }
-if(key_pressed(kb("ammo_check")))
+}
+bool inspect_modifiers=(key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
+bool handling_inspect_pressed=inspect_modifiers and key_pressed(kb("weapon_inspect"));
+if(handling_inspect_pressed)speak(weapon_handling_status(weapons[w]));
+bool ammo_check_pressed=!handling_inspect_pressed and key_pressed(kb("ammo_check"));
+if(ammo_check_pressed)
 {
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+if(MENU_is_down())show_weapon_info_form(weapons[w]);
+else if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 cycle_fire_mode(weapons[w]);
 else
 announce_ammo(weapons[w]);
 }
-if(key_pressed(kb("reload")))
+bool manual_alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),manual_shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
+if(manual_alt and !manual_shift and key_pressed(kb("manual_action")))manual_toggle_action(weapons[w]);
+if(manual_alt and !manual_shift and key_pressed(kb("manual_insert")))manual_insert_round(weapons[w]);
+if(manual_alt and manual_shift and key_pressed(kb("manual_cycle")))manual_cycle_weapon(weapons[w]);
+if(manual_alt and manual_shift and key_pressed(kb("manual_eject")))manual_eject_ammunition(weapons[w]);
+if(manual_alt and !manual_shift and key_pressed(kb("weapon_operation")))operate_weapon(weapons[w]);
+if(manual_alt and manual_shift and key_pressed(kb("weapon_maintenance")))maintain_weapon(weapons[w]);
+if(manual_alt and manual_shift and key_pressed(kb("vehicle_service"))){int service_vehicle=in_vehicle?player_vehicle_index:find_nearest_vehicle(int(mr.x),int(mr.y),int(me.z),5);if(service_vehicle<0)speak("No vehicle is close enough to inspect.");else map_vehicles[service_vehicle].vehicle_service_panel(int(mr.x),int(mr.y),int(me.z));}
+bool reload_pressed=key_pressed(kb("reload"));
+if(reload_pressed or gk_reload)
 {
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+if(MENU_is_down() and reload_pressed)cycle_weapon_ammunition(weapons[w]);
+else if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 unload_mag(weapons[w]);
 else if (needs_reload_menu(weapons[w]))
 {
@@ -3149,10 +3668,14 @@ else if (needs_reload_menu(weapons[w]))
 int gi=find_gun(weapons[w]);
 gun_ammo@ rg=gun_ammos[gi];
 setupmenu();
-int full_count=get_item_count(rg.reserve_item);
+string selected_load=selected_ammunition_for_weapon(weapons[w]);
+string selected_reserve=ammunition_reserve_item(weapons[w],selected_load);
+int full_count=get_item_count(selected_reserve);
 if (full_count>0)
 {
-if (rg.ammo_display=="charge")
+if(selected_load!="standard_ammunition")
+m.add_item_tts(ammunition_display_name(selected_load)+" ("+full_count+" rounds available)","full");
+else if (rg.ammo_display=="charge")
 m.add_item_tts("Full "+rg.reserve_label+" ("+full_count+" available)","full");
 else if (rg.ammo_display=="fuel")
 m.add_item_tts("Full fuel canister ("+full_count+" available)","full");
@@ -3163,7 +3686,7 @@ int[] pindices=get_partial_indices_for(rg.reserve_item);
 for (uint pi=0; pi<pindices.length(); pi++)
 {
 string amt=partial_amount_label(rg.reserve_item, partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
-m.add_item_tts("Partial "+rg.reserve_label+" ("+amt+")", "partial_"+pindices[pi]);
+m.add_item_tts("Partial "+rg.reserve_label+" ("+amt+", "+ammunition_display_name(partial_items[pindices[pi]].ammunition)+")", "partial_"+pindices[pi]);
 }
 int mres=m.run("Select ammunition to load",true);
 string choice=m.get_item_name(mres);
@@ -3178,11 +3701,13 @@ start_reload_partial(weapons[w], pidx);
 else
 start_reload(weapons[w]);
 }
-if (key_pressed(kb("chat")))
+if (key_pressed(kb("chat")) or gk_chat)
 {
 string chat=af_input("Enter your message","",true);
 if (chat=="/afk")
 toggle_afk();
+else if (string_contains(string_to_lower_case(chat), "/t ", 1)==0)
+send_team_command("chat "+string_mid(chat,3,chat.length()-3));
 else if (chat!="")
 send_reliable(0,chat,1);
 }
@@ -3200,7 +3725,19 @@ if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_c
 {
 speak(get_stamina_string() + " " + get_effects_string());
 }
-if (key_pressed(kb("options_menu")))
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("effects_read")))
+{
+speak(get_effects_string());
+}
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("packet_monitor")) and (SCRIPT_COMPILED==false or dev_unlocked))
+{
+packet_monitor_enabled=!packet_monitor_enabled;speak(packet_monitor_enabled?"Live packet reporting enabled.":"Live packet reporting disabled.");
+}
+if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("packet_viewer")) and (SCRIPT_COMPILED==false or dev_unlocked))
+{
+packet_diagnostics_viewer();
+}
+if (key_pressed(kb("options_menu")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 optionsmenu();
 }
@@ -3228,11 +3765,11 @@ dev_suite();
 // Builder menu is dev-only: available when running from source (which the
 // server restricts to developer accounts) or when a developer has unlocked
 // dev features with a valid key on a compiled build.
-if ((SCRIPT_COMPILED==false or dev_unlocked) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
+if ((SCRIPT_COMPILED==false or dev_unlocked) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
 {
 builder_menu();
 }
-else if (key_pressed(kb("zone")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
+else if (key_pressed(kb("zone")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 if (get_zone_at(mr.x,mr.y,me.z)!="")
 {
@@ -3244,7 +3781,8 @@ else
 speak("Current zone: unknown area of "+map_display_name(mapname));
 }
 }
-if (key_pressed(kb("player_list")))
+if((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_F1))key_practice_mode();
+if (key_pressed(kb("player_list")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 speak("Fetching player list, please wait.");
 string[] plist=fetch_player_list();
@@ -3294,7 +3832,7 @@ else
 bufferright();
 }
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
 {
 buffer_manage_menu();
 }
@@ -3306,10 +3844,7 @@ else if (MENU_is_down() and key_pressed(KEY_C))
 {
 command_menu();
 }
-if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_BACKSLASH))
-{
-export_buffers();
-}
+chat_channel_shortcuts();
 if (key_pressed(KEY_DELETE))
 {
 buffer_item_action_menu();
@@ -3329,41 +3864,6 @@ speak("No item selected.");
 if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_BACK))
 {
 holster_current_weapon();
-}
-// Shift+U: activate biomonitor bracelet scan.
-if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(KEY_U))
-{
-if (equip_bracelet == "biomonitor_bracelet")
-{
-if (biomonitor_cooldown.elapsed >= 15000 or biomonitor_ready)
-{
-biomonitor_ready = false;
-biomonitor_cooldown.restart();
-send_reliable(0, "bioscan", 0);
-speak("Scanning.");
-}
-else
-{
-int cd_left = (15000 - biomonitor_cooldown.elapsed) / 1000;
-speak("Biomonitor recharging. " + cd_left + " seconds remaining.");
-}
-}
-else
-speak("No biomonitor bracelet equipped.");
-}
-// Alt+U: toggle WireNet auto-heal.
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_U))
-{
-if (equip_medical == "wirenet")
-{
-wirenet_active = !wirenet_active;
-if (wirenet_active)
-speak("WireNet activated. " + wirenet_charges + " charges remaining.");
-else
-speak("WireNet deactivated.");
-}
-else
-speak("No WireNet equipped.");
 }
 // Alt+S: open support menu.
 if (MENU_is_down() and key_pressed(KEY_S))
@@ -3386,7 +3886,7 @@ if(equip_holster1!="" or equip_holster2!="")
 {
 if(equip_holster1!="" and equip_holster2!="")
 {
-audio_form uf;
+iw_form uf;
 uf.create_window("Unequip Holster", false, true);
 int ul=uf.create_list("Which holster?", 0, false);
 uf.add_list_item(ul, "Holster 1: "+get_holster_slot_label(1));
@@ -3427,7 +3927,7 @@ speak("No item selected.");
 }
 if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
-if((key_pressed(kb("use_item")) or mouse_pressed(2)) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true)
+if((key_pressed(kb("use_item")) or mouse_pressed(2) or gk_use) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true)
 {
 usetimer.restart();
 string sel_item = get_selected_item();
@@ -3440,11 +3940,11 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "waypoint_marker" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item) and !is_ammo_reserve_item(sel_item))
-send_reliable(0, "use " + sel_item, 0);
+if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item) and !is_ammo_reserve_item(sel_item))
+send_reliable(0,item_use_command(sel_item),0);
 }
 }
-if(key_pressed(kb("vehicle_door")) and can_move==true)
+if((key_pressed(kb("vehicle_door")) or gk_interact) and can_move==true)
 {
 if (in_vehicle)
 vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
@@ -3458,7 +3958,7 @@ else
 send_reliable(0, "check_chest", 0);
 }
 }
-if(key_pressed(kb("vehicle_enter")) and can_move==true)
+if((key_pressed(kb("vehicle_enter")) or gk_vehicle) and can_move==true)
 {
 if (in_vehicle)
 vehicle_exit(name);
@@ -3498,11 +3998,22 @@ if(key_pressed(kb("coordinates")))
 {
 speak(mr.x+", "+mr.y+", "+me.z);
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_W) and in_vehicle and can_move==true)
+if (((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_W) or key_pressed(kb("vehicle_window"))) and in_vehicle and can_move==true)
 {
 vehicle_toggle_window();
 }
-if(key_pressed(kb("jump")) and jumping==false and falling==false and can_move==true and !in_vehicle)
+if (MENU_is_down() and key_pressed(KEY_Z) and !in_vehicle)
+{
+sitting=!sitting;
+if (sitting)
+{
+speak("Sitting. Movement is reduced, stamina recovers faster, and heavy weapons cannot be used.");
+if (walktime>=300) speak("Your current heavy weapon is lowered until you stand.");
+}
+else speak("Standing.");
+send_reliable(0, sitting ? "posture sitting" : "posture standing", 0);
+}
+if((key_pressed(kb("jump")) or gk_jump) and jumping==false and falling==false and can_move==true and !in_vehicle and (!sitting or seated_jump_timer.elapsed>=7000))
 {
 p.play_stationary("jump.ogg", false);
 send_reliable(0, "jump", 0);
@@ -3510,7 +4021,16 @@ jumping=true;
 jumptimer.restart();
 jumpup=1;
 jumplandz=me.z;
+jump_vertical_position=me.z;
+jump_vertical_velocity=9.7-total_equipment_weight()*.055-double(walktime>200?walktime-200:0)*.004;
+if(sitting)jump_vertical_velocity=4.8;
+if(jump_vertical_velocity<5.2)jump_vertical_velocity=5.2;
 stamina_on_jump();
+if (sitting)
+{
+degrade_stamina(12);
+seated_jump_timer.restart();
+}
 }
 if(mousez<0) 
 {
@@ -3636,6 +4156,8 @@ if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
 if (in_vehicle)
 {
 // Vehicle controls: arrows control vehicle, not player movement.
+if (current_vehicle_can_fly() and key_pressed(KEY_PAGEUP)) vehicle_change_altitude(1);
+if (current_vehicle_can_fly() and key_pressed(KEY_PAGEDOWN)) vehicle_change_altitude(-1);
 if (key_pressed(kb("move_forward")))
 vehicle_speed_up();
 else if (key_pressed(kb("move_backward")))
@@ -3663,6 +4185,14 @@ vehicle_turn(1);
 else
 {
 // Normal on-foot movement.
+bool wants_sprint=shift_is_down() and !sitting and stamina>0 and (key_down(kb("move_forward")) or key_down(kb("move_backward")) or key_down(kb("move_left")) or key_down(kb("move_right")));
+bool sprinting=wants_sprint and weapon_allows_sprint(weapons[w]);
+if(wants_sprint and !sprinting and sprint_heavy_warning_timer.elapsed>2500){sprint_heavy_warning_timer.restart();speak("This weapon is too heavy to sprint with.");}
+if (sprinting and sprint_stamina_timer.elapsed>=750)
+{
+sprint_stamina_timer.restart();
+degrade_stamina(1);
+}
 if(key_down(kb("move_up")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
@@ -3673,30 +4203,24 @@ else if(key_down(kb("move_down")) and walktimer.elapsed>movetime)
 walktimer.restart();
 move(Down);
 }
-if(key_down(kb("move_forward")) and walktimer.elapsed>movetime)
+string desired_move="";
+if(key_down(kb("move_forward")))desired_move=Forward;else if(key_down(kb("move_backward")))desired_move=Backward;else if(key_down(kb("move_left")))desired_move=Left;else if(key_down(kb("move_right")))desired_move=Right;
+double weight_factor=(1.0+total_equipment_weight()/80.0+double(walktime>200?walktime-200:0)/900.0)*handling_movement_penalty(weapons[w]);
+if(desired_move!="")
 {
-walktimer.restart();
-move(Forward);
-if (walktime >= 300) stamina_on_heavy_move(walktime);
+if(momentum_direction!="" and momentum_direction!=desired_move)movement_momentum*=.45;
+momentum_direction=desired_move;
+int momentum_interval=int(double(movetime)*(1.18-.34*movement_momentum)*weight_factor);
+int minimum_safe_interval=walktime*3/4+5;if(momentum_interval<minimum_safe_interval)momentum_interval=minimum_safe_interval;
+if(walktimer.elapsed>momentum_interval){walktimer.restart();move(desired_move);movement_momentum+=.16/weight_factor;if(movement_momentum>1)movement_momentum=1;if(walktime>=300)stamina_on_heavy_move(walktime);}
+momentum_timer.restart();
 }
-else if(key_down(kb("move_backward")) and walktimer.elapsed>movetime)
+else if(momentum_direction!="" and movement_momentum>.08)
 {
-walktimer.restart();
-move(Backward);
-if (walktime >= 300) stamina_on_heavy_move(walktime);
+int coast_interval=int(double(movetime)*(1.05+(1.0-movement_momentum)*.75)*weight_factor);
+if(walktimer.elapsed>coast_interval){walktimer.restart();move(momentum_direction);movement_momentum-=.22*weight_factor;if(movement_momentum<0)movement_momentum=0;}
 }
-else if(key_down(kb("move_left")) and walktimer.elapsed>movetime)
-{
-walktimer.restart();
-move(Left);
-if (walktime >= 300) stamina_on_heavy_move(walktime);
-}
-else if(key_down(kb("move_right")) and walktimer.elapsed>movetime)
-{
-walktimer.restart();
-move(Right);
-if (walktime >= 300) stamina_on_heavy_move(walktime);
-}
+else{movement_momentum=0;momentum_direction="";}
 }
 }
 if(can_move==true)
@@ -3736,10 +4260,6 @@ if(key_pressed(KEY_9)) use_quickbar_slot(8);
 if(key_pressed(KEY_0)) use_quickbar_slot(9);
 }
 // Grave accent: give all (only when running from source) — legacy shortcut.
-if(key_pressed(KEY_GRAVE) and SCRIPT_COMPILED==false)
-{
-give_all();
-}
 }
 }
 }
@@ -3759,7 +4279,7 @@ speak("There are no actions available for this buffer item.");
 return;
 }
 string item=buffers[bufferpos].items[buffers[bufferpos].pos];
-audio_form f;
+iw_form f;
 f.create_window("Buffer Item Actions", false, true);
 int f_list=f.create_list("Choose an action", 0, false);
 int quote_index=-1;
@@ -3881,8 +4401,6 @@ string saved_name = sd.read("name");
 if (saved_name != "" and account_exists(saved_name))
 name = saved_name;
 }
-if (sd.d.exists("mate"))
-mate=sd.read("mate");
 if (sd.d.exists("rctrl"))
 rctrl=sd.readn("rctrl");
 if (sd.d.exists("cameraspeed"))
@@ -3902,6 +4420,34 @@ if (sd.d.exists("auto_log_buffers"))
 auto_log_buffers=(sd.readn("auto_log_buffers")>=1);
 if (sd.d.exists("show_damage_readout"))
 show_damage_readout=(sd.readn("show_damage_readout")>=1);
+if (sd.d.exists("touch_mode"))
+touch_force_enabled=(sd.readn("touch_mode")>=1);
+if (sd.d.exists("gesture_practice_band"))
+gesture_practice_speak_band=(sd.readn("gesture_practice_band")>=1);
+if (sd.d.exists("classic_main_menu")) classic_main_menu=(sd.readn("classic_main_menu")>=1);
+if (sd.d.exists("fullscreen_enabled")) fullscreen_enabled=(sd.readn("fullscreen_enabled")>=1);
+if (sd.d.exists("touch_keyboard_enabled")) touch_keyboard_enabled=(sd.readn("touch_keyboard_enabled")>=1);
+if (sd.d.exists("touch_keyboard_analogue")) touch_keyboard_analogue=(sd.readn("touch_keyboard_analogue")>=1);
+if (sd.d.exists("touch_pc_fullscreen_bands")) touch_pc_fullscreen_bands=(sd.readn("touch_pc_fullscreen_bands")>=1);
+if (sd.d.exists("touch_menu_explore_enabled")) touch_menu_explore_enabled=(sd.readn("touch_menu_explore_enabled")>=1);
+if (sd.d.exists("gameplay_volume")) gameplay_volume=sd.readn("gameplay_volume");
+if (sd.d.exists("interface_volume")) interface_volume=sd.readn("interface_volume");
+if (sd.d.exists("notification_volume")) notification_volume=sd.readn("notification_volume");
+if (sd.d.exists("world_volume")) world_volume=sd.readn("world_volume");
+if (sd.d.exists("keymap_profile")) kb_active_profile=sd.read("keymap_profile");
+if(sd.d.exists("voice_enabled")) voice_enabled=sd.readn("voice_enabled")>=1;
+if(sd.d.exists("voice_toggle_mode")) voice_toggle_mode=sd.readn("voice_toggle_mode")>=1;
+if(sd.d.exists("voice_input_device")) voice_input_device=sd.readn("voice_input_device");
+if(sd.d.exists("voice_output_device")) voice_output_device=sd.readn("voice_output_device");
+if(sd.d.exists("voice_quality")) voice_quality=sd.readn("voice_quality");
+if(sd.d.exists("voice_input_test_playback")) voice_input_test_playback=sd.readn("voice_input_test_playback")>=1;
+if(sd.d.exists("voice_hear_self")) voice_hear_self=sd.readn("voice_hear_self")>=1;
+if(sd.d.exists("auto_bind_starting_loadout")) auto_bind_starting_loadout=sd.readn("auto_bind_starting_loadout")>=1;
+if(sd.d.exists("replace_occupied_attachments"))replace_occupied_attachments=sd.readn("replace_occupied_attachments")>=1;
+if(sd.d.exists("hear_own_projectile_audio"))hear_own_projectile_audio=sd.readn("hear_own_projectile_audio")>=1;
+if(sd.d.exists("audio_form_sound_feedback"))audio_form_sound_feedback=sd.readn("audio_form_sound_feedback")>=1;
+if(sd.d.exists("netaddress"))netaddress=sd.read("netaddress");
+if(sd.d.exists("netport")){int saved_port=sd.readn("netport");if(saved_port>0 and saved_port<=65535)netport=saved_port;}
 }
 void writeprefs()
 {
@@ -3909,7 +4455,6 @@ if (remember_me)
 sd.add("name",name);
 else
 sd.add("name","");
-sd.add("mate",mate);
 sd.add("rctrl",rctrl);
 sd.add("cameraspeed",cameraspeed);
 sd.add("mastervol",mastervol);
@@ -3918,15 +4463,43 @@ sd.add("show_target_hp",show_target_hp ? 1 : 0);
 sd.add("remember_me",remember_me ? 1 : 0);
 sd.add("auto_log_buffers",auto_log_buffers ? 1 : 0);
 sd.add("show_damage_readout",show_damage_readout ? 1 : 0);
+sd.add("touch_mode",touch_force_enabled ? 1 : 0);
+sd.add("gesture_practice_band",gesture_practice_speak_band ? 1 : 0);
+sd.add("classic_main_menu",classic_main_menu ? 1 : 0);
+sd.add("fullscreen_enabled",fullscreen_enabled ? 1 : 0);
+sd.add("touch_keyboard_enabled",touch_keyboard_enabled ? 1 : 0);
+sd.add("touch_keyboard_analogue",touch_keyboard_analogue ? 1 : 0);
+sd.add("touch_pc_fullscreen_bands",touch_pc_fullscreen_bands ? 1 : 0);
+sd.add("touch_menu_explore_enabled",touch_menu_explore_enabled ? 1 : 0);
+sd.add("gameplay_volume",gameplay_volume);
+sd.add("interface_volume",interface_volume);
+sd.add("notification_volume",notification_volume);
+sd.add("world_volume",world_volume);
+sd.add("keymap_profile",kb_active_profile);
+sd.add("voice_enabled",voice_enabled?1:0);
+sd.add("voice_toggle_mode",voice_toggle_mode?1:0);
+sd.add("voice_input_device",voice_input_device);
+sd.add("voice_output_device",voice_output_device);
+sd.add("voice_quality",voice_quality);
+sd.add("voice_input_test_playback",voice_input_test_playback?1:0);
+sd.add("voice_hear_self",voice_hear_self?1:0);
+sd.add("auto_bind_starting_loadout",auto_bind_starting_loadout?1:0);
+sd.add("replace_occupied_attachments",replace_occupied_attachments?1:0);
+sd.add("hear_own_projectile_audio",hear_own_projectile_audio?1:0);
+sd.add("audio_form_sound_feedback",audio_form_sound_feedback?1:0);
+sd.add("netaddress",netaddress);
+sd.add("netport",netport);
 sd.save();
 }
 void send_reliable(uint peer, string mess, uint channel)
 {
+record_diagnostic_packet("sent","reliable",peer,channel,mess);
 mess=string_encrypt(mess, "_';'_clickclick!");
 n.send_reliable(peer, mess, channel);
 }
 void send_unreliable(uint peer, string mess, uint channel)
 {
+record_diagnostic_packet("sent","unreliable",peer,channel,mess);
 mess=string_encrypt(mess, "_';'_clickclick!");
 n.send_unreliable(peer, mess, channel);
 }
@@ -3942,6 +4515,7 @@ return r;
 }
 void netloop()
 {
+voice_chat_loop();
 e=n.request();
 if (e.type==event_disconnect)
 {
@@ -3964,12 +4538,17 @@ return;
 }
 if (e.type==event_receive)
 {
+record_diagnostic_packet("received","network",e.peer_id,e.channel,get_event_message());
 last_server_msg.restart();
 if (e.channel==0)
 {
 string full_msg=get_event_message();
 string[] parsed=string_split(full_msg," ",true);
-if(parsed[0]=="reset_ammo")
+if(parsed[0]=="motd_response")
+{
+show_readonly_audio_form("Message of the Day",string_replace(full_msg,"motd_response ","",false));
+}
+else if(parsed[0]=="reset_ammo")
 {
 reset_ammo();
 }
@@ -4009,6 +4588,21 @@ int minz=string_to_number(parsed[6]);
 int maxz=string_to_number(parsed[7]);
 move_src(id,lx,rx,miny,maxy,minz,maxz);
 }
+else if(parsed[0]=="projectile_audio_start" and parsed.length()>6)
+{
+int audio_id=string_to_number(parsed[1]);bool own=parsed.length()>7 and parsed[7]==name;if(parsed[6]==mapname and (!own or hear_own_projectile_audio))spawn_source(string_to_number(parsed[3]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[5]),parsed[2],1,false,audio_id);
+}
+else if(parsed[0]=="projectile_audio_move" and parsed.length()>5)
+{
+if(parsed[5]==mapname){int audio_id=string_to_number(parsed[1]),ax=string_to_number(parsed[2]),ay=string_to_number(parsed[3]),az=string_to_number(parsed[4]);move_src(audio_id,ax,ax,ay,ay,az,az);}
+}
+else if(parsed[0]=="projectile_audio_stop" and parsed.length()>1)
+destroy_source(string_to_number(parsed[1]));
+else if(parsed[0]=="projectile_whiz" and parsed.length()>6)
+{
+bool own=parsed[6]==name;
+if(parsed[5]==mapname and (!own or hear_own_projectile_audio))p.play_3d(parsed[1],me.x,me.y,me.z,string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),calculate_theta(facing),false);
+}
 else if(parsed[0]=="plane_crash")
 {
 in_plane=false;
@@ -4039,6 +4633,7 @@ else if(parsed[0]=="mapdata")
 {
 load_map(string_replace(get_event_message(), "mapdata ", "", true));
 spawn_vehicles_on_map();
+register_vehicles_with_server();
 }
 else if(parsed[0]=="wallremove" and parsed.length()>3)
 {
@@ -4088,13 +4683,36 @@ else if(parsed[0]=="veh_damage" and parsed.length()>2)
 {
 int vi=string_to_number(parsed[1]);
 int dmg=string_to_number(parsed[2]);
-if (vi>=0 and vi<int(map_vehicles.length()))
+if (vi>=0 and vi<int(map_vehicles.length()) and (parsed.length()<4 or parsed[3]==mapname))
 {
-bool destroyed=vehicle_take_damage(vi, dmg);
+bool destroyed=false;
+if(parsed.length()>5){map_vehicles[vi].health=string_to_number(parsed[4]);map_vehicles[vi].armor=string_to_number(parsed[5]);destroyed=map_vehicles[vi].health<=0;map_vehicles[vi].destroyed=destroyed;}
+else destroyed=vehicle_take_damage(vi,dmg);
 if (player_vehicle_index==vi)
 {
 speak("Vehicle hit! " + map_vehicles[vi].health + " health remaining.");
 if (destroyed) vehicle_on_destroy(vi);
+}
+}
+else if(parsed[0]=="veh_sync_move" and parsed.length()>6)
+{
+int vi=string_to_number(parsed[1]);
+if(parsed[6]==mapname and vi>=0 and vi<int(map_vehicles.length()))
+{
+map_vehicles[vi].x=string_to_number(parsed[2]);map_vehicles[vi].y=string_to_number(parsed[3]);map_vehicles[vi].z=string_to_number(parsed[4]);map_vehicles[vi].observed_velocity=string_to_number(parsed[5]);
+}
+}
+else if(parsed[0]=="veh_authority" and parsed.length()>8)
+{
+int vi=string_to_number(parsed[1]);
+if(parsed[8]==mapname and vi>=0)
+{
+int type_index=-1;for(uint vt=0;vt<vehicle_types.length();vt++)if(vehicle_audio_id_from_name(vehicle_types[vt].name)==parsed[2]){type_index=int(vt);break;}
+if(type_index>=0)
+{
+while(int(map_vehicles.length())<=vi)map_vehicles.insert_last(vehicle(type_index,string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5])));
+vehicle@ v=map_vehicles[vi];if(v.type_index!=type_index){v.type_index=type_index;v.passengers.resize(vehicle_types[type_index].max_passengers);v.window_down.resize(vehicle_types[type_index].max_passengers);for(int seat=0;seat<vehicle_types[type_index].max_passengers;seat++){v.passengers[seat]="";v.window_down[seat]=false;}}v.x=string_to_number(parsed[3]);v.y=string_to_number(parsed[4]);v.z=string_to_number(parsed[5]);v.health=string_to_number(parsed[6]);v.armor=string_to_number(parsed[7]);v.destroyed=v.health<=0;
+}
 }
 }
 }
@@ -4108,15 +4726,31 @@ map_vehicles[vi].health=0;
 if (player_vehicle_index==vi) vehicle_on_destroy(vi);
 }
 }
+else if(parsed[0]=="team_plane_spawn" and parsed.length()>3)
+{
+spawn_team_plane_vehicle(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]));
+}
 else if(parsed[0]=="ping" and pinging==true)
 {
 p.play_stationary("pingstop.ogg", false);
-speak("the ping took "+pingtimer.elapsed+" milliseconds");
+int sample=int(pingtimer.elapsed);
+ping_samples.insert_last(sample);
+int lowest=ping_samples[0];
+int highest=ping_samples[0];
+int total=0;
+for (uint ps=0; ps<ping_samples.length(); ps++)
+{
+if (ping_samples[ps]<lowest) lowest=ping_samples[ps];
+if (ping_samples[ps]>highest) highest=ping_samples[ps];
+total+=ping_samples[ps];
+}
+int average=total/int(ping_samples.length());
+speak("Ping "+sample+" milliseconds. Lowest "+lowest+", highest "+highest+", average "+average+" across "+ping_samples.length()+" samples.");
 pinging=false;
 }
 else if(parsed[0]=="ammogive" and parsed.length()>2)
 {
-ammo_give(parsed[1], string_to_number(parsed[2]));
+safe_server_ammo_grant(parsed[1],parsed[2]);
 }
 else if(parsed[0]=="weapon_set" and parsed.length()>1)
 {
@@ -4151,21 +4785,51 @@ else if (parsed[0]=="play_s" and parsed.length()>=2)
 {
 p.play_stationary(parsed[1],false);
 }
+else if(parsed[0]=="armor_weight" and parsed.length()>1)
+{
+equipped_armor_weight=string_to_number(parsed[1]);
+}
+else if(parsed[0]=="armor_state" and parsed.length()>9)
+{
+equipped_armor_head=parsed[1]=="none"?"":parsed[1]; equipped_armor_head_durability=string_to_number(parsed[2]);
+equipped_armor_torso=parsed[3]=="none"?"":parsed[3]; equipped_armor_torso_durability=string_to_number(parsed[4]);
+equipped_armor_arms=parsed[5]=="none"?"":parsed[5]; equipped_armor_arms_durability=string_to_number(parsed[6]);
+equipped_armor_legs=parsed[7]=="none"?"":parsed[7]; equipped_armor_legs_durability=string_to_number(parsed[8]);
+equipped_armor_weight=string_to_number(parsed[9]);
+}
+else if(parsed[0]=="combat_slow" and parsed.length()>1)
+{
+combat_slow_duration=string_to_number(parsed[1]);combat_slow_timer.restart();speak("Movement impaired.");
+}
+else if(parsed[0]=="weapon_sway" and parsed.length()>1)
+{
+weapon_sway_duration=string_to_number(parsed[1]);weapon_sway_timer.restart();p.play_stationary("arm_hit_sway.ogg",false);speak("Weapon stability impaired.");
+}
 else if (parsed[0]=="target_hp" and parsed.length()>=2)
 {
 string hp_msg="";
-bool was_headshot=(parsed.length()>=4 and parsed[3]=="headshot");
+bool was_headshot=(parsed.length()>=4 and (parsed[3]=="headshot" or parsed[3]=="head"));
 if (was_headshot)
+{
+p.play_stationary("headshot_indicator.ogg", false);
 hp_msg+="Headshot! ";
+}
 if (show_damage_readout and parsed.length()>=3)
 hp_msg+="Damage: "+parsed[2]+". ";
 if (show_target_hp)
 hp_msg+="Target HP: "+parsed[1];
 if (hp_msg!="") speak(hp_msg);
 }
+else if(parsed[0]=="target_vehicle" and parsed.length()>=3)
+{
+string vehicle_hit_msg="";
+if(show_damage_readout) vehicle_hit_msg+="Vehicle damage: "+parsed[2]+". ";
+if(show_target_hp) vehicle_hit_msg+="Vehicle HP: "+parsed[1]+(parsed.length()>3?", armor "+parsed[3]:"")+".";
+if(vehicle_hit_msg!="")speak(vehicle_hit_msg);
+}
 else if (parsed[0]=="give" and parsed.length()>2)
 {
-give(parsed[1],string_to_number(parsed[2]));
+safe_server_item_grant(parsed[1],parsed[2]);
 }
 else if(parsed[0]=="updating")
 {
@@ -4373,6 +5037,10 @@ if (e.channel==1)
 p.play_stationary("chat.ogg", false);
 add_buffer_item("chats",get_event_message());
 }
+if(e.channel==6)
+{
+p.play_stationary("mapchat.ogg",false);add_buffer_item("chats",get_event_message());
+}
 if(e.channel==4)
 {
 string[] parsed=string_split(get_event_message(), " ", true);
@@ -4399,15 +5067,27 @@ sph_timer.restart();
 if (e.channel==2)
 {
 string ch2msg=get_event_message();
-if (string_contains(ch2msg, "New support ticket", 1)>=0 or string_contains(ch2msg, "ticket", 1)>=0)
+remember_pm_sender(ch2msg);
+if(string_contains(ch2msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);
+if(string_contains(ch2msg,"team_translocator_state|",1)==0)receive_team_translocator_state(ch2msg);
+else if(string_contains(ch2msg,"team_translocator_go|",1)==0)receive_team_translocator_go(ch2msg);
+else if (string_contains(ch2msg,"team_state|",1)==0)
+receive_team_state(ch2msg);
+else if (string_contains(ch2msg, "New support ticket", 1)>=0 or string_contains(ch2msg, "ticket", 1)>=0)
 add_buffer_item("tickets",ch2msg);
 else
 add_buffer_item("misc",ch2msg);
+}
+if(e.channel==7)
+{
+string voice_packet=get_event_message();
+if(string_contains(voice_packet,"voice_data ",1)==0) voice_receive_frame(voice_packet);
 }
 }
 }
 void exitgame()
 {
+p.play_stationary("modeleave.ogg",false);
 if (auto_log_buffers)
 auto_export_buffers();
 plane.stop();
@@ -4435,60 +5115,32 @@ return false;
 }
 void fallloop()
 {
-if(jumptimer.elapsed > jumptime and jumping==true)
+if(jumptimer.elapsed > 8 and jumping==true)
 {
-jumptimer.restart();
-if(jumpup==1)
+double dt=double(jumptimer.elapsed)/1000.0;jumptimer.restart();if(dt>.05)dt=.05;
+double gravity=9.81*(1.0+total_equipment_weight()/300.0);jump_vertical_velocity-=gravity*dt;jump_vertical_position+=jump_vertical_velocity*dt;jumpup=jump_vertical_velocity>0?1:0;
+int target_z=int(floor(jump_vertical_position));bool changed=false;
+while(target_z>me.z)
 {
-if(me.z <=jumplandz+5)
-{
-me.z++;
-send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
-checkzone();
-if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
-{
-jumpup=0;
+string above=get_tile_at(mr.x,mr.y,me.z+1);if(above!="" and above!="blank"){jump_vertical_velocity=-absolute(jump_vertical_velocity)*.2;jump_vertical_position=me.z;break;}
+me.z++;changed=true;checkzone();
 }
-}
-else
+while(target_z<me.z)
 {
-jumpup=0;
+me.z--;changed=true;checkzone();string tile=get_tile_at(mr.x,mr.y,me.z);
+if(tile!="" and tile!="blank"){jump_vertical_position=me.z;jump_vertical_velocity=0;p.play_stationary(tile+"land.ogg",false);send_reliable(1,"land",0);jumping=false;break;}
 }
-}
-else if(jumpup==0)
+if(changed)send_reliable(1,"move_to_a "+me.x+" "+me.y+" "+me.z,0);
+if(jumping and jump_vertical_velocity<0 and me.z<=jumplandz)
 {
-if(me.z > jumplandz)
-{
-me.z--;
-checkzone();
-send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
-if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
-{
-p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
-send_reliable(1, "land", 0);
-jumping=false;
-}
-}
-else
-{
-if(get_tile_at(mr.x, mr.y, me.z)=="" or get_tile_at(mr.x, mr.y, me.z)=="blank" and in_plane==false)
-{
-falling=true;
-falldistance=0;
-falltimer.restart();
-jumping=false;
-return;
-}
-p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
-send_reliable(0, "land", 0);
-jumping=false;
-}
+string tile=get_tile_at(mr.x,mr.y,me.z);if(tile=="" or tile=="blank"){falling=true;falldistance=0;falltimer.restart();jumping=false;}else{p.play_stationary(tile+"land.ogg",false);send_reliable(0,"land",0);jumping=false;}
 }
 }
 }
 void fallcheck()
 {
-if(in_plane==false and get_tile_at(mr.x, mr.y, me.z)=="" and falling==false and jumping==false or get_tile_at(mr.x, mr.y, me.z)=="blank" and falling==false and jumping==false and in_plane==false)
+string fall_tile=get_tile_at(mr.x, mr.y, me.z);
+if(in_plane==false and falling==false and jumping==false and (fall_tile=="" or fall_tile=="blank"))
 {
 falling=true;
 falldistance=0;
@@ -4526,6 +5178,7 @@ send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
 }
 void mainloop()
 {
+process_fullscreen_shortcut();
 ammocheatloop();
 reload_loop_all();
 sourcecheckloop();
@@ -4543,6 +5196,14 @@ movetime=walktime;
 if (has_effect("Adrenaline Rush")) movetime = walktime / 2;
 // Stamina affects movement speed gradually when low.
 if (stamina < 40) movetime = movetime + (40 - stamina) * 3;
+if (sitting) movetime=int(movetime*3.6);
+else if(combat_slow_timer.elapsed<combat_slow_duration)movetime=int(double(movetime)*1.75);
+else if (shift_is_down() and stamina>0 and weapon_allows_sprint(weapons[w]))
+{
+// Full stamina reaches a 25 percent speed boost; exhaustion tapers it away.
+double sprint_factor=1.0-(double(stamina)/400.0);
+movetime=int(double(movetime)*sprint_factor);
+}
 fallloop();
 fallcheck();
 fallingloop();
@@ -4625,6 +5286,7 @@ speak("Press enter to return to the lobby.");
 }
 if(key_pressed(kb("use_item")) or dietimer.elapsed>=45000)
 {
+p.play_stationary("death_return_to_lobby.ogg",false);
 send_reliable(0, "player_remove", 0);
 mapname="main";
 inv.delete_all();
@@ -4644,7 +5306,7 @@ return;
 }
 void playertrackmenu(string[] players)
 {
-audio_form f;
+iw_form f;
 f.create_window("Tracking", false, true);
 int f_list=f.create_list("Select a player to track", 0, false);
 f.add_list_item(f_list, "Stop tracking");
@@ -4695,7 +5357,8 @@ while(true)
 {
 mainloop();
 netloop();
-if (key_pressed(kb("player_list")))
+if((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_F1))key_practice_mode();
+if (key_pressed(kb("player_list")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 speak("Fetching player list, please wait.");
 string[] plist=fetch_player_list();
@@ -4800,7 +5463,7 @@ if (key_pressed(KEY_PERIOD))
 {
 nextbufferitem();
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
 {
 buffer_manage_menu();
 }
@@ -4808,10 +5471,7 @@ if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or ke
 {
 review_buffer_item();
 }
-if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_BACKSLASH))
-{
-export_buffers();
-}
+chat_channel_shortcuts();
 if (key_pressed(KEY_DELETE))
 {
 buffer_item_action_menu();
@@ -4828,7 +5488,8 @@ while(true)
 {
 mainloop();
 netloop();
-if (key_pressed(kb("player_list")))
+if((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_F1))key_practice_mode();
+if (key_pressed(kb("player_list")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 speak("Fetching player list, please wait.");
 string[] plist=fetch_player_list();
@@ -4920,7 +5581,7 @@ if (key_pressed(KEY_PERIOD))
 {
 nextbufferitem();
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B))
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
 {
 buffer_manage_menu();
 }
@@ -4928,14 +5589,10 @@ if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or ke
 {
 review_buffer_item();
 }
-if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_BACKSLASH))
-{
-export_buffers();
-}
+chat_channel_shortcuts();
 if (key_pressed(KEY_DELETE))
 {
 buffer_item_action_menu();
 }
 }
 }
-

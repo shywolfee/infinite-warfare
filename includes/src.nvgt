@@ -59,12 +59,14 @@ if(sources[i].paused!=sources[i].p2)
 {
 if(sources[i].paused==true and sources[i].p2==false)
 {
-p.pause_sound(sources[i].source_sound);
+if(sources[i].dist==1) p.pause_sound(sources[i].source_sound);
+else distpool.pause_sound(sources[i].source_sound);
 sources[i].p2=true;
 }
 else if(sources[i].paused==false and sources[i].p2==true)
 {
-p.resume_sound(sources[i].source_sound);
+if(sources[i].dist==1) p.resume_sound(sources[i].source_sound);
+else distpool.resume_sound(sources[i].source_sound);
 sources[i].p2=false;
 }
 }
@@ -74,8 +76,8 @@ void destroy_all_sources()
 {
 for(uint i=0; i<sources.length(); i++)
 {
-p.destroy_sound(sources[i].source_sound);
-distpool.destroy_sound(sources[i].source_sound);
+if(sources[i].dist==1) p.destroy_sound(sources[i].source_sound);
+else distpool.destroy_sound(sources[i].source_sound);
 }
 sources.resize(0);
 }
@@ -83,8 +85,8 @@ void pause_all_sources()
 {
 for(uint i=0; i<sources.length(); i++)
 {
-p.pause_sound(sources[i].source_sound);
-distpool.pause_sound(sources[i].source_sound);
+if(sources[i].dist==1) p.pause_sound(sources[i].source_sound);
+else distpool.pause_sound(sources[i].source_sound);
 sources[i].paused=true;
 }
 }
@@ -92,8 +94,8 @@ void resume_all_sources()
 {
 for(uint i=0; i<sources.length(); i++)
 {
-p.resume_sound(sources[i].source_sound);
-distpool.resume_sound(sources[i].source_sound);
+if(sources[i].dist==1) p.resume_sound(sources[i].source_sound);
+else distpool.resume_sound(sources[i].source_sound);
 sources[i].paused=false;
 }
 }
@@ -108,9 +110,10 @@ for(uint i=0; i<sources.length(); i++)
 {
 if(sources[i].id==id and id > -1)
 {
-p.destroy_sound(sources[i].source_sound);
-distpool.destroy_sound(sources[i].source_sound);
+if(sources[i].dist==1) p.destroy_sound(sources[i].source_sound);
+else distpool.destroy_sound(sources[i].source_sound);
 sources.remove_at(i);
+i--;
 }
 }
 }
@@ -126,8 +129,16 @@ sources[i].minz=newminiz;
 sources[i].rx=newmaxx;
 sources[i].maxy=newmaxy;
 sources[i].maxz=newmaxz;
+if(sources[i].dist==1)
+{
 p.update_sound_3d(sources[i].source_sound, sources[i].lx, sources[i].miny, sources[i].minz);
 p.update_sound_range_3d(sources[i].source_sound, 0, sources[i].rx-sources[i].lx, 0, sources[i].maxy-sources[i].miny, 0, sources[i].maxz-sources[i].minz);
+}
+else
+{
+distpool.update_sound_3d(sources[i].source_sound, sources[i].lx, sources[i].miny, sources[i].minz);
+distpool.update_sound_range_3d(sources[i].source_sound, 0, sources[i].rx-sources[i].lx, 0, sources[i].maxy-sources[i].miny, 0, sources[i].maxz-sources[i].minz);
+}
 }
 }
 }

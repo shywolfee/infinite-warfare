@@ -35,11 +35,13 @@ string comp="";
 dictionary inv;
 string cachedinv;
 dictionary ammo;
+dictionary weapon_attachment_state;
 string cachedammo;
 int turn=90;
 bool in_plane=false;
 timer life_injectiontimer;
 bool life_injection=false;
+string revive_target="";
 timer buckettimer;
 bool use_bucket=false;
 timer watertanktimer;
@@ -99,9 +101,21 @@ timer move_timer;
 int teleport_warnings=0;
 timer fire_timer;
 int rapid_fire_warnings=0;
+int consecutive_shots=0;
 string current_weapon="";
 int server_firetime=500;
 int server_walktime=200;
+string armor_head="",armor_torso="",armor_arms="",armor_legs="";
+int armor_head_durability=0,armor_torso_durability=0,armor_arms_durability=0,armor_legs_durability=0;
+int equipped_armor_weight=0;
+bool burning=false;
+timer burning_duration_timer;
+timer burning_tick_timer;
+string burning_owner="";
+bool bleeding=false;
+timer bleeding_duration_timer;
+timer bleeding_tick_timer;
+string bleeding_owner="";
 player(int px, int py, int pz, string pmap, string pname, int ppeer_id)
 {
 map=pmap;
@@ -112,10 +126,42 @@ name=pname;
 peer_id=ppeer_id;
 }
 }
+
+string[] server_weapon_attachments(player@ p,string weapon_name){string[] result;string data;if(!p.weapon_attachment_state.get(weapon_name,data) or data=="")return result;return string_split(data,"|",true);}
+bool server_weapon_has_attachment(player@ p,string weapon_name,string attachment){string[] items=server_weapon_attachments(p,weapon_name);for(uint i=0;i<items.length();i++)if(items[i]==attachment)return true;return false;}
+void server_attach_weapon(player@ p,string weapon_name,string attachment){if(server_weapon_has_attachment(p,weapon_name,attachment))return;string data;p.weapon_attachment_state.get(weapon_name,data);if(data!="")data+="|";data+=attachment;p.weapon_attachment_state.set(weapon_name,data);}
+void server_detach_weapon(player@ p,string weapon_name,string attachment){string[] items=server_weapon_attachments(p,weapon_name);string data="";for(uint i=0;i<items.length();i++)if(items[i]!=attachment){if(data!="")data+="|";data+=items[i];}p.weapon_attachment_state.set(weapon_name,data);}
+
+string armor_region_for(string item){if(string_contains(item,"patch",1)>=0 or item=="aramid_repair_tape" or item=="ceramic_plate_epoxy" or item=="armor_rivet_pack")return "";if(string_contains(item,"helmet",1)>=0)return "head";if(string_contains(item,"vest",1)>=0 or string_contains(item,"carrier",1)>=0)return "torso";if(string_contains(item,"sleeves",1)>=0 or string_contains(item,"arm_guards",1)>=0)return "arm";if(string_contains(item,"greaves",1)>=0 or string_contains(item,"leg_",1)>=0)return "leg";return "";}
+int armor_rating_for(string item){if(string_contains(item,"heavy",1)>=0)return 55;if(string_contains(item,"plate",1)>=0 or string_contains(item,"ballistic",1)>=0)return 40;return 25;}
+int armor_durability_for(string item){if(string_contains(item,"heavy",1)>=0)return 1800;if(string_contains(item,"plate",1)>=0 or string_contains(item,"ballistic",1)>=0)return 1250;return 800;}
+int armor_weight_for(string item){if(item=="")return 0;if(string_contains(item,"heavy",1)>=0)return 12;if(string_contains(item,"plate",1)>=0 or string_contains(item,"ballistic",1)>=0)return 7;return 3;}
+void send_player_armor_state(player@ p){send_reliable(p.peer_id,"armor_state "+(p.armor_head==""?"none":p.armor_head)+" "+p.armor_head_durability+" "+(p.armor_torso==""?"none":p.armor_torso)+" "+p.armor_torso_durability+" "+(p.armor_arms==""?"none":p.armor_arms)+" "+p.armor_arms_durability+" "+(p.armor_legs==""?"none":p.armor_legs)+" "+p.armor_legs_durability+" "+p.equipped_armor_weight,0);}
+void update_player_armor_weight(player@ p){p.equipped_armor_weight=armor_weight_for(p.armor_head)+armor_weight_for(p.armor_torso)+armor_weight_for(p.armor_arms)+armor_weight_for(p.armor_legs);send_player_armor_state(p);}
+void equip_player_armor(player@ p,string item){string region=armor_region_for(item);if(region=="")return;string old="";if(region=="head")old=p.armor_head;else if(region=="torso")old=p.armor_torso;else if(region=="arm")old=p.armor_arms;else old=p.armor_legs;if(old==item){send_reliable(p.peer_id,"That armour is already equipped in the "+region+" slot.",2);return;}if(old!="")send_reliable(p.peer_id,"give "+old+" 1",0);int durability=armor_durability_for(item);if(region=="head"){p.armor_head=item;p.armor_head_durability=durability;}else if(region=="torso"){p.armor_torso=item;p.armor_torso_durability=durability;}else if(region=="arm"){p.armor_arms=item;p.armor_arms_durability=durability;}else{p.armor_legs=item;p.armor_legs_durability=durability;}send_reliable(p.peer_id,"give "+item+" -1",0);update_player_armor_weight(p);play("armor_equip",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"Armour equipped in the "+region+" slot. Durability "+durability+". Total armour weight "+p.equipped_armor_weight+".",2);}
+void unequip_player_armor(player@ p,string region){string item="";if(region=="head"){item=p.armor_head;p.armor_head="";p.armor_head_durability=0;}else if(region=="torso"){item=p.armor_torso;p.armor_torso="";p.armor_torso_durability=0;}else if(region=="arm"){item=p.armor_arms;p.armor_arms="";p.armor_arms_durability=0;}else if(region=="leg"){item=p.armor_legs;p.armor_legs="";p.armor_legs_durability=0;}if(item==""){send_reliable(p.peer_id,"That armour slot is already empty.",2);return;}send_reliable(p.peer_id,"give "+item+" 1",0);update_player_armor_weight(p);play("armor_remove",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"Removed "+item+" from the "+region+" slot.",2);}
+int mitigate_player_armor(player@ p,string region,int damage){string item="";int durability=0;if(region=="head"){item=p.armor_head;durability=p.armor_head_durability;}else if(region=="torso"){item=p.armor_torso;durability=p.armor_torso_durability;}else if(region=="arm"){item=p.armor_arms;durability=p.armor_arms_durability;}else if(region=="leg"){item=p.armor_legs;durability=p.armor_legs_durability;}if(item=="" or durability<=0)return damage;int absorbed=int(double(damage)*double(armor_rating_for(item))/100.0);if(absorbed>durability)absorbed=durability;durability-=absorbed;if(region=="head")p.armor_head_durability=durability;else if(region=="torso")p.armor_torso_durability=durability;else if(region=="arm")p.armor_arms_durability=durability;else p.armor_legs_durability=durability;play(durability<=0?"armor_break":"armor_impact"+random(1,3),p.x,p.y,p.z,p.map);if(durability<=0){if(region=="head")p.armor_head="";else if(region=="torso")p.armor_torso="";else if(region=="arm")p.armor_arms="";else p.armor_legs="";send_reliable(p.peer_id,"Your "+item+" broke.",2);update_player_armor_weight(p);}else send_player_armor_state(p);return damage-absorbed;}
+bool apply_armor_patch(player@ p,string patch)
+{
+string region="",required="";if(string_contains(patch,"helmet",1)>=0)region="head";else if(string_contains(patch,"arm_",1)>=0 or string_contains(patch,"sleeve",1)>=0)region="arm";else if(string_contains(patch,"leg_",1)>=0 or patch=="greave_patch")region="leg";else region="torso";
+string item="";int durability=0;if(region=="head"){item=p.armor_head;durability=p.armor_head_durability;}else if(region=="torso"){item=p.armor_torso;durability=p.armor_torso_durability;}else if(region=="arm"){item=p.armor_arms;durability=p.armor_arms_durability;}else{item=p.armor_legs;durability=p.armor_legs_durability;}if(item==""){send_reliable(p.peer_id,"No armour is equipped in the compatible "+region+" slot.",2);return false;}
+bool compatible=patch=="aramid_repair_tape"?(string_contains(item,"light",1)>=0 or string_contains(item,"soft",1)>=0 or string_contains(item,"kevlar",1)>=0):patch=="ceramic_plate_epoxy"?(string_contains(item,"ballistic",1)>=0 or string_contains(item,"plate",1)>=0):patch=="armor_rivet_pack"?string_contains(item,"heavy",1)>=0:string_contains(patch,string_contains(item,"heavy",1)>=0?"heavy":(string_contains(item,"ballistic",1)>=0?"ballistic":"light"),1)>=0 or string_contains(patch,string_contains(item,"plate_carrier",1)>=0?"plate_carrier":(string_contains(item,"soft_armor",1)>=0?"soft_armor":(string_contains(item,"kevlar",1)>=0?"kevlar":(string_contains(item,"greaves",1)>=0?"greave":"none"))),1)>=0;
+if(!compatible){send_reliable(p.peer_id,"That patch is not compatible with "+string_replace(item,"_"," ",true)+".",2);return false;}int maximum=armor_durability_for(item);int ceiling=int(maximum*.60);if(durability>=ceiling){send_reliable(p.peer_id,"Field patches cannot improve this armour beyond sixty percent durability.",2);return false;}int restored=int(maximum*.07);if(durability+restored>ceiling)restored=ceiling-durability;durability+=restored;if(region=="head")p.armor_head_durability=durability;else if(region=="torso")p.armor_torso_durability=durability;else if(region=="arm")p.armor_arms_durability=durability;else p.armor_legs_durability=durability;send_reliable(p.peer_id,"give "+patch+" -1",0);send_player_armor_state(p);play("armor_repair",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"Patched "+string_replace(item,"_"," ",true)+" for "+restored+" durability. Current durability "+durability+" of "+maximum+"; field patches cannot exceed sixty percent.",2);return true;
+}
 void playerloop()
 {
 for(uint i=0; i<players.length(); i++)
 {
+if(players[i].burning)
+{
+if(players[i].burning_duration_timer.elapsed>=8000)players[i].burning=false;
+else if(players[i].burning_tick_timer.elapsed>=1000){players[i].burning_tick_timer.restart();players[i].health-=35;players[i].hitby=players[i].burning_owner+"'s incendiary fire";play("incendiary_burn",players[i].x,players[i].y,players[i].z,players[i].map);}
+}
+if(players[i].bleeding)
+{
+if(players[i].bleeding_duration_timer.elapsed>=10000)players[i].bleeding=false;
+else if(players[i].bleeding_tick_timer.elapsed>=2000){players[i].bleeding_tick_timer.restart();players[i].health-=18;players[i].hitby=players[i].bleeding_owner+"'s ballistic wound";send_reliable(players[i].peer_id,"play_s bleeding_tick"+random(1,3)+".ogg",0);}
+}
 if(players[i].health>=1001)
 {
 players[i].health=1000;
@@ -173,10 +219,10 @@ send_reliable(players[i].peer_id, "movestart", 0);
 if(players[i].life_injectiontimer.elapsed>=6850 and players[i].life_injection==true)
 {
 players[i].life_injectiontimer.restart();
-send_reliable(0, players[i].mate+" is revived.", 2);
+send_reliable(0, players[i].revive_target+" is revived.", 2);
 players[i].life_injection=false;
 send_reliable(players[i].peer_id, "movestart", 0);
-int index2=get_player_index_from(players[i].mate);
+int index2=get_player_index_from(players[i].revive_target);
 if(index2>-1)
 {
 send_reliable(players[index2].peer_id, "revive", 0);
@@ -260,20 +306,14 @@ grief_counts.set(grief_key, gc);
 players[p].kills+=1;
 int kill_credits=random(10,20);
 players[p].credits+=kill_credits;
+add_team_points_for_player(players[p].name, kill_credits);
 send_reliable(players[p].peer_id, "+" + kill_credits + " credits for the kill! Total: " + players[p].credits, 2);
 save_player_credits(players[p].name, players[p].credits);
 }
 }
 
-int index2=get_player_index_from(players[i].mate);
-if(index2>-1)
-{
-if(players[index2].mate==players[i].name)
-{
-send_reliable(players[index2].peer_id, "give life_injection 1", 0);
-send_reliable(players[index2].peer_id, "Your duo mate died! You receive a life injection. Go revive them!", 2);
-} 
-}
+int dead_team=get_team_index_for_member(players[i].name);
+if (dead_team>-1) team_notice(dead_team, players[i].name+" was downed. A nearby teammate can use a life injection or Team Revive Kit.");
 send_reliable(0,killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone),2);
 send_reliable(0, "play_s killalert.ogg", 0);
 send_reliable(players[i].peer_id, "death", 0);

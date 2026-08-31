@@ -1,0 +1,243 @@
+// Live Opus voice chat: capture, configuration, room selection, and playback.
+bool voice_enabled=true;
+bool voice_toggle_mode=false;
+bool voice_toggle_active=false;
+bool voice_settings_open=false;
+bool voice_input_test_playback=false;
+bool voice_hear_self=false;
+int voice_input_device=-1;
+int voice_output_device=-1;
+int voice_quality=1; // 0 low, 1 standard, 2 high
+string voice_room="local";
+microphone@ voice_microphone=null;
+audio_opus_encoder@ voice_encoder=null;
+timer voice_frame_timer;
+mixer voice_capture_mixer;
+bool voice_was_transmitting=false;
+
+class voice_playback_stream
+{
+string player;
+sound@[] clips;
+voice_playback_stream(string name) { player=name; }
+}
+voice_playback_stream@[] voice_streams;
+
+int voice_sample_rate() { if(voice_quality==0) return 16000; if(voice_quality==2) return 48000; return 24000; }
+int voice_bitrate() { if(voice_quality==0) return 16000; if(voice_quality==2) return 48000; return 24000; }
+
+void voice_shutdown_capture()
+{
+if(@voice_microphone!=null) voice_microphone.detach_output_bus(0);
+voice_capture_mixer.effects_chain.clear();
+@voice_encoder=null;
+@voice_microphone=null;
+}
+
+bool voice_start_capture()
+{
+voice_shutdown_capture();
+@voice_microphone=microphone(voice_input_device);
+@voice_encoder=audio_opus_encoder();
+voice_capture_mixer.set_mixer(null);
+// Capture is intentionally silent. The encoder still receives the microphone,
+// but selecting a device must never create a live monitor through the main mix.
+voice_capture_mixer.volume=-100;
+voice_microphone.attach_output_bus(0,voice_capture_mixer,0);
+voice_capture_mixer.effects_chain.add_node(voice_encoder);
+voice_encoder.bitrate=voice_bitrate();
+voice_encoder.application=OPUS_APPLICATION_VOIP;
+voice_encoder.signal_type=OPUS_SIGNAL_VOICE;
+voice_encoder.vbr=true;
+voice_encoder.dtx=true;
+if(!voice_encoder.open(voice_sample_rate(),1)) { voice_shutdown_capture(); return false; }
+return true;
+}
+
+string voice_finish_chunk(bool reopen=true)
+{
+if(@voice_encoder==null) return "";
+voice_encoder.close();
+string data=voice_encoder.read();
+if(reopen) voice_encoder.open(voice_sample_rate(),1);
+return data;
+}
+
+void voice_apply_devices()
+{
+if(voice_output_device>=0) set_sound_output_device(voice_output_device);
+if(voice_enabled and !voice_start_capture()) speak("Voice chat could not open the selected input device.");
+}
+
+voice_playback_stream@ voice_get_stream(string player)
+{
+for(uint i=0;i<voice_streams.length();i++) if(voice_streams[i].player==player) return voice_streams[i];
+voice_playback_stream@ entry=voice_playback_stream(player); voice_streams.insert_last(entry); return entry;
+}
+
+void voice_receive_frame(string packet)
+{
+// voice_data sender route x y z <binary opus data>
+int cursor=0; string[] fields;
+for(int i=0;i<6;i++)
+{
+	int relative=string_contains(string_mid(packet,cursor,packet.length()-cursor)," ",1);
+	int space=relative<0 ? -1 : cursor+relative;
+if(space<0) return;
+fields.insert_last(string_mid(packet,cursor,space-cursor)); cursor=space+1;
+}
+string payload=string_mid(packet,cursor,packet.length()-cursor);
+if(payload=="") return;
+voice_playback_stream@ entry=voice_get_stream(fields[1]);
+for(int i=int(entry.clips.length())-1;i>=0;i--) if(!entry.clips[i].active) entry.clips.remove_at(i);
+sound@ clip=sound();
+if(!clip.load_memory(payload)) return;
+if(fields[2]=="local")
+{
+double dx=string_to_number(fields[3])-me.x;
+double dy=string_to_number(fields[4])-me.y;
+double dz=string_to_number(fields[5])-me.z;
+double distance=sqrt(dx*dx+dy*dy+dz*dz);
+float pan=float(dx/20.0); if(pan<-1) pan=-1; if(pan>1) pan=1;
+float volume=float(-distance); if(volume<-45) volume=-45;
+clip.pan=pan; clip.volume=volume;
+}
+else { clip.pan=0; clip.volume=0; }
+clip.play(); entry.clips.insert_last(clip);
+}
+
+void voice_send_room_state()
+{
+if(connected) send_reliable(0,"voice_join "+voice_room,7);
+}
+
+void voice_chat_loop()
+{
+if(!connected or voice_settings_open) return;
+bool alt=(key_down(KEY_LMENU) or key_down(KEY_RMENU));
+bool shift=(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
+if(shift and key_pressed(kb("voice_settings"))) { voice_settings_menu(); return; }
+if(alt and shift and key_pressed(kb("voice_hear_self")))
+{
+voice_hear_self=!voice_hear_self; writeprefs();
+speak(voice_hear_self ? "You will hear your own voice chat." : "You will no longer hear your own voice chat.");
+return;
+}
+if(!voice_enabled or @voice_encoder==null) return;
+if(alt and !shift and key_pressed(kb("voice_chat")) and voice_toggle_mode)
+{
+voice_toggle_active=!voice_toggle_active;
+}
+if(alt and kb("voice_room")!=KEY_BACKSLASH and key_pressed(kb("voice_room"))) { voice_room_menu(); return; }
+bool transmitting=(is_android() and voice_toggle_active) or (voice_toggle_mode ? voice_toggle_active : (alt and !shift and key_down(kb("voice_chat"))));
+if(transmitting!=voice_was_transmitting)
+{
+if(voice_toggle_mode)
+{
+p.play_stationary(transmitting?"voice_toggle_on.ogg":"voice_toggle_off.ogg",false);
+speak(transmitting?"Toggle voice chat enabled.":"Toggle voice chat disabled.");
+}
+else
+{
+p.play_stationary(transmitting?"voice_push_to_talk_on.ogg":"voice_push_to_talk_off.ogg",false);
+speak(transmitting?"Push to talk transmitting.":"Push to talk released.");
+}
+}
+if(transmitting and !voice_was_transmitting) { voice_finish_chunk(true); voice_frame_timer.restart(); }
+voice_was_transmitting=transmitting;
+if(!transmitting) { if(voice_frame_timer.elapsed>500) { voice_finish_chunk(true); voice_frame_timer.restart(); } return; }
+if(voice_frame_timer.elapsed<120) return;
+string data=voice_finish_chunk(true);
+if(data=="") return;
+voice_frame_timer.restart();
+send_unreliable(0,"voice_frame "+voice_room+" "+me.x+" "+me.y+" "+me.z+" "+data,7);
+if(voice_hear_self) voice_receive_frame("voice_data "+name+" "+voice_room+" "+me.x+" "+me.y+" "+me.z+" "+data);
+}
+
+void voice_room_menu()
+{
+voice_settings_open=true;
+nv_form f; f.create_window("Voice Chat Rooms",false,true);
+nv_form_list_box@ rooms=f.add_list("Choose a live voice feed","voice_rooms");
+rooms.add("Live positional voice on the current map","local");
+rooms.add("Non-positional current map room","map:"+mapname);
+rooms.add("Team voice room","team");
+rooms.add("Current text channel room: "+buffers[bufferpos].name,"channel:"+buffers[bufferpos].name);
+rooms.add("Private-message voice room","private");
+nv_form_button@ join=f.add_button("Enter selected room","join",true);
+nv_form_button@ close=f.add_button("Cancel","cancel",false,true); f.focus_control(rooms);
+while(true)
+{
+wait(5); f.monitor(); if(connected) netloop();
+if(f.is_pressed(close)) { voice_settings_open=false; return; }
+if(f.is_pressed(join) and rooms.list_position>=0)
+{
+string selected=rooms.items[rooms.list_position].id;
+if(selected=="private")
+{
+string target=af_input("Player for private voice room","",true).trim_whitespace();
+if(target=="") { voice_settings_open=false; return; }
+string a=string_to_lower_case(name), b=string_to_lower_case(target);
+selected=(a<b ? "private:"+a+":"+b : "private:"+b+":"+a);
+}
+voice_room=selected; voice_send_room_state(); speak("Entered "+rooms.items[rooms.list_position].text+"."); voice_settings_open=false; return;
+}
+}
+}
+
+void voice_test_microphone()
+{
+voice_settings_open=true;
+if(!voice_start_capture()) { speak("Could not open that microphone."); voice_settings_open=false; return; }
+speak("Recording microphone test for three seconds.");
+string recording=""; timer test;
+while(test.elapsed<3000) wait(10);
+recording=voice_finish_chunk(false);
+voice_shutdown_capture();
+if(recording=="") speak("The microphone produced no audio.");
+else if(voice_input_test_playback) { speak("Playing microphone test."); sound test_sound; if(test_sound.load_memory(recording)) test_sound.play_wait(); else speak("The microphone test could not be decoded."); }
+else speak("Microphone input was detected. Enable test playback if you want to hear the recording.");
+voice_settings_open=false; if(voice_enabled) voice_start_capture();
+}
+
+void voice_settings_menu()
+{
+voice_settings_open=true;
+int original_input=voice_input_device;
+bool original_test_playback=voice_input_test_playback;
+bool original_hear_self=voice_hear_self;
+nv_form f; f.create_window("Voice Chat Settings",false,true);
+nv_form_checkbox@ enabled=f.add_checkbox("Enable voice chat","enabled",voice_enabled);
+nv_form_checkbox@ toggle=f.add_checkbox("Toggle transmission instead of push to talk","toggle",voice_toggle_mode);
+nv_form_checkbox@ hear_self=f.add_checkbox("Hear my own transmitted voice","hear_self",voice_hear_self);
+nv_form_checkbox@ test_playback=f.add_checkbox("Play back microphone test recordings","test_playback",voice_input_test_playback);
+nv_form_list_box@ inputs=f.add_list("Input device","input");
+const string[]@ input_devices=sound_input_devices;
+for(uint i=0;i<input_devices.length();i++) inputs.add(input_devices[i],""+i);
+if(input_devices.length()>0) inputs.set_pos(voice_input_device<0?0:voice_input_device,false);
+nv_form_list_box@ outputs=f.add_list("Output device","output");
+const string[]@ output_devices=sound_output_devices;
+for(uint i=0;i<output_devices.length();i++) outputs.add(output_devices[i],""+i);
+if(output_devices.length()>0) outputs.set_pos(voice_output_device<0?0:voice_output_device,false);
+nv_form_list_box@ quality=f.add_list("Audio quality","quality"); quality.add("Low, 16 kilobits","0"); quality.add("Standard, 24 kilobits","1"); quality.add("High, 48 kilobits","2"); quality.set_pos(voice_quality,false);
+nv_form_button@ test=f.add_button("Test selected input device","test");
+nv_form_button@ save=f.add_button("Save","save",true); nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true); f.focus_control(enabled);
+while(true)
+{
+wait(5); f.monitor(); if(connected) netloop();
+if(f.is_pressed(cancel)) { voice_input_device=original_input; voice_input_test_playback=original_test_playback; voice_hear_self=original_hear_self; voice_settings_open=false; if(voice_enabled) voice_start_capture(); return; }
+if(f.is_pressed(test)) { if(inputs.list_position>=0) voice_input_device=inputs.list_position; voice_input_test_playback=test_playback.state; voice_test_microphone(); voice_settings_open=true; }
+if(f.is_pressed(save))
+{
+bool was_enabled=voice_enabled;
+voice_enabled=enabled.state; voice_toggle_mode=toggle.state; voice_toggle_active=false;
+voice_hear_self=hear_self.state; voice_input_test_playback=test_playback.state;
+if(inputs.list_position>=0) voice_input_device=inputs.list_position;
+if(outputs.list_position>=0) voice_output_device=outputs.list_position;
+if(quality.list_position>=0) voice_quality=quality.list_position;
+voice_settings_open=false; voice_apply_devices(); writeprefs();
+if(was_enabled!=voice_enabled){p.play_stationary(voice_enabled?"voice_enabled.ogg":"voice_disabled.ogg",false);speak(voice_enabled?"Voice chat enabled.":"Voice chat disabled.");}
+else speak("Voice chat settings saved."); return;
+}
+}
+}

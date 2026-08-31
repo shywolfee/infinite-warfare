@@ -5,16 +5,30 @@ dictionary inv;
 string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
 
 // Inventory category system.
-string[] inv_categories = {"All", "Weapons", "Ammo", "Consumables", "Equipment"};
+string[] inv_categories = {"All", "Weapons", "Ammo", "Explosives", "Healing", "Armour", "Armour Repair", "Weapon Maintenance", "Vehicle Supplies", "Attachments", "Holsters", "Team", "Tools", "Electronics", "Containers", "Equipment"};
 int inv_category_index = 0;
 
 string get_item_category(string item)
 {
+int database_index=content_find(item);
+if(database_index>=0)
+{
+string database_category=content_database[database_index].category;
+string[] visible_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Electronics","Containers","Equipment"};
+for(uint c=0;c<visible_categories.length();c++)if(database_category==visible_categories[c])return database_category;
+return "Equipment";
+}
 if (is_weapon(item)) return "Weapons";
 // Any registered weapon reserve item is ammunition, regardless of its name.
 if (is_ammo_reserve_item(item)) return "Ammo";
 if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
-if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe" or item=="waypoint_marker" or item=="nanomatic_multitool" or item=="nanomatic_components") return "Consumables";
+if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe") return "Healing";
+if(item=="bomb_vest")return "Armour";
+if(string_contains(item,"grenade",1)>=0 or string_contains(item,"bomb",1)>=0 or string_contains(item,"semtex",1)>=0 or item=="c4" or item=="claymore" or item=="proximity_mine" or item=="torpedo")return "Explosives";
+if(string_contains(item,"armor",1)>=0 or string_contains(item,"armour",1)>=0 or string_contains(item,"helmet",1)>=0 or string_contains(item,"vest",1)>=0 or string_contains(item,"greaves",1)>=0)return "Armour";
+if(find_attachment_def(item)>=0)return "Attachments";
+if(string_contains(item,"team_",1)==0 or item=="duo_plane_kit")return "Team";
+if(item=="nanomatic_multitool" or item=="nanomatic_components" or item=="translocator" or item=="binoculars" or item=="hypercomp")return "Utility";
 return "Equipment";
 }
 
@@ -39,13 +53,14 @@ string target = (inv_category_index == 0) ? "" : inv_categories[inv_category_ind
 // Walk the categories in display order so items are grouped by category.
 // In the All view this produces Weapons, then Ammo, then Consumables, then
 // Equipment; in a single category only that category's items are returned.
-string[] order = {"Weapons", "Ammo", "Consumables", "Equipment"};
+string[] order = {"Weapons", "Ammo", "Explosives", "Healing", "Utility", "Armour", "Attachments", "Team", "Equipment"};
 string[] filtered;
 for (uint c = 0; c < order.length(); c++)
 {
 if (target != "" and order[c] != target) continue;
 for (uint i = 0; i < all_keys.length(); i++)
 {
+if(all_keys[i]=="waypoint_marker")continue;
 if (get_key_category(all_keys[i]) == order[c])
 filtered.insert_last(all_keys[i]);
 }
@@ -70,6 +85,8 @@ invpos = 0;
 
 void give(string item, int amount)
 {
+if(item=="waypoint_marker"){if(inv.exists(item))inv.delete(item);for(int q=0;q<10;q++)if(quickbar[q]==item)quickbar[q]="";return;}
+content_ensure_item(item);
 int a;
 if (!inv.exists(item))
 {
@@ -119,7 +136,7 @@ if (pidx >= 0 and pidx < int(partial_items.length()))
 {
 string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
 string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity);
-speak(base_name + " (" + amt + "). " + (invpos+1) + " of " + filtered.length());
+speak(base_name + " (" + amt + ", " + ammunition_display_name(partial_items[pidx].ammunition) + "). " + (invpos+1) + " of " + filtered.length());
 }
 }
 else
@@ -187,8 +204,7 @@ return false;
 // Returns true if the item is a drawable weapon (ranged or melee).
 bool is_weapon(string item)
 {
-if (find_gun(item)>=0) return true;
-if (item=="machete" or item=="combatknife" or item=="hayvork" or item=="trector_plow" or item=="katana" or item=="baseball_bat" or item=="chainsaw") return true;
+for(uint i=0;i<wpn_cache.length();i++) if(wpn_cache[i].id==item) return true;
 return false;
 }
 

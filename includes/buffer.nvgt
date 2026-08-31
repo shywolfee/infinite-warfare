@@ -263,12 +263,12 @@ return -1;
 void play_buffer_sound()
 {
 if (bufferbeep==1)
-bufferpool.play_stationary_extended("bufferswitch.ogg",false,0,convert_to_pan(buffers.length(),bufferpos,-20,20),0,100);
+bufferpool.play_stationary_extended("bufferswitch.ogg",false,0,convert_to_pan(buffers.length(),bufferpos,-20,20),-12,100);
 }
 void play_buffer_item_sound()
 {
 if (bufferbeep==1)
-bufferpool.play_stationary_extended("buffermove.ogg",false,0,convert_to_pan(buffers.length(),bufferpos,-20,20),0,convert_to_pan(buffers[bufferpos].items.length(),buffers[bufferpos].pos,25,200));
+bufferpool.play_stationary_extended("buffermove.ogg",false,0,convert_to_pan(buffers.length(),bufferpos,-20,20),-12,convert_to_pan(buffers[bufferpos].items.length(),buffers[bufferpos].pos,25,200));
 }
 void speak_total_buffer()
 {
@@ -288,7 +288,7 @@ void review_buffer_item()
 {
 if (buffers[bufferpos].items.length()==0) return;
 string item=buffers[bufferpos].items[buffers[bufferpos].pos];
-audio_form f;
+iw_form f;
 f.create_window("Review Buffer Item", false, true);
 f.create_input_box("Content", item, "", 0, false, true, true);
 int f_close=f.create_button("&Close", true, true);
@@ -364,7 +364,7 @@ void buffer_manage_menu()
 {
 while(true)
 {
-audio_form f;
+iw_form f;
 f.create_window("Buffers", false, true);
 int f_list=f.create_list("Buffers (press Enter to mute or unmute)", 0, false);
 int[] buf_indices;

@@ -1,6 +1,6 @@
 void feedback_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Feedback", false, true);
 int f_submit=f.create_button("&Submit new feedback", true);
 int f_my=f.create_button("View &my feedback");
@@ -60,7 +60,7 @@ return;
 
 void feedback_submit()
 {
-audio_form f;
+iw_form f;
 f.create_window("Submit Feedback", false, true);
 int f_subject=f.create_input_box("Subject", "", "", 0, false, false, false);
 int f_body=f.create_input_box("Details", "", "", 0, false, false, true);
@@ -152,7 +152,7 @@ speak("Disconnected from server.");
 return;
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("My Feedback", false, true);
 int f_list=f.create_list("Feedback", 0, false);
 string[] fb_ids;
@@ -221,7 +221,7 @@ speak("Disconnected from server.");
 return;
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("All Feedback (Staff)", false, true);
 int f_list=f.create_list("Feedback", 0, false);
 string[] fb_ids;
@@ -308,7 +308,7 @@ string f_owner=parts[1];
 string f_subject=parts[2];
 string f_status=parts[3];
 string f_body=string_replace(parts[4], "<<NL>>", "\n", true);
-audio_form f;
+iw_form f;
 f.create_window("Feedback #"+f_id+": "+f_subject, false, true);
 f.create_input_box("Feedback ID", f_id, "", 0, false, true, false);
 f.create_input_box("Submitted by", f_owner, "", 0, false, true, false);
@@ -358,7 +358,7 @@ return;
 
 void feedback_reply(string fb_id, bool is_staff)
 {
-audio_form f;
+iw_form f;
 f.create_window("Reply to Feedback #"+fb_id, false, true);
 int f_msg=f.create_input_box("Your reply", "", "", 0, false, false, true);
 int f_send=f.create_button("&Send reply", true);
@@ -407,7 +407,7 @@ return;
 
 void feedback_close(string fb_id, bool is_staff)
 {
-audio_form f;
+iw_form f;
 f.create_window("Close Feedback #"+fb_id, false, true);
 int f_reason=f.create_input_box("Reason for closing", "", "", 0, false, false, true);
 int f_close=f.create_button("&Close feedback", true);

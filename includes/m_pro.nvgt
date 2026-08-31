@@ -687,6 +687,56 @@ speak_item = true;
 continue;
 }
 }
+// Touch navigation: on Android, drive this menu with gestures. One-finger
+// swipe up/down moves between items, double tap activates, single tap
+// re-speaks the current item, and a two-finger tap goes back.
+if (is_android()) {
+int __tc = touch_menu_poll();
+float __explore_y=touch_explore_take_y();
+if(__explore_y>=0 and item_count>0){int __explore_pos=1+int(__explore_y*float(item_count));if(__explore_pos<1)__explore_pos=1;if(__explore_pos>item_count)__explore_pos=item_count;if(menu_position!=__explore_pos){menu_position=__explore_pos;initial=false;play_click_sound();speak_item=true;}continue;}
+if (__tc == 1) {
+initial = false;
+if (menu_position == 0) menu_position = item_count;
+else if (menu_position == 1) {
+if (wrap == true) { menu_position = item_count; spool.play_stationary(wrap_sound, false); }
+else { play_edge_sound(); play_click_sound(); speak_item = true; continue; }
+} else menu_position -= 1;
+play_click_sound();
+speak_item = true;
+continue;
+} else if (__tc == 2) {
+initial = false;
+if (menu_position == item_count) {
+if (wrap == true) { menu_position = 1; spool.play_stationary(wrap_sound, false); }
+else { play_edge_sound(); play_click_sound(); speak_item = true; continue; }
+} else menu_position += 1;
+play_click_sound();
+speak_item = true;
+continue;
+} else if (__tc == 3) {
+if (menu_position != 0) {
+play_enter_sound();
+if (item_list[menu_position - 1].activate == true) { running = false; return menu_position; }
+}
+} else if (__tc == 4) {
+if (allow_escape == true) { running = false; return 0; }
+} else if (__tc == 5) {
+speak_item = true;
+continue;
+} else if (__tc == 6) {
+initial = false;
+if (item_count > 0) menu_position = 1;
+play_click_sound();
+speak_item = true;
+continue;
+} else if (__tc == 7) {
+initial = false;
+if (item_count > 0) menu_position = item_count;
+play_click_sound();
+speak_item = true;
+continue;
+}
+}
 wait(3);
 }
 running = false;

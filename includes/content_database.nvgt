@@ -1,0 +1,416 @@
+// Unified runtime catalogue for weapons, ammunition, equipment, consumables,
+// attachments, holsters, and vehicles. Weapon/ammunition/compatibility data is
+// derived from the registries that actually drive gameplay.
+class content_record
+{
+string id, display_name, category, summary;
+int give_amount;
+content_record(string i, string n, string c, string s, int a=1)
+{ id=i; display_name=n; category=c; summary=s; give_amount=a; }
+}
+
+content_record@[] content_database;
+
+int content_find(string id)
+{
+for(uint i=0;i<content_database.length();i++) if(content_database[i].id==id) return i;
+return -1;
+}
+
+void content_register(string id, string name, string category, string summary, int give_amount=1)
+{
+if(id=="" or content_find(id)>=0) return;
+// Normalize broad legacy groups into the focused live-inventory categories.
+if(category=="Consumables")
+category=(string_contains(id,"potion",1)>=0 or string_contains(id,"syringe",1)>=0 or id=="life_injection")?"Healing":"Utility";
+if(category=="Equipment")
+{
+if(id=="bomb_vest")category="Armour";
+else if(string_contains(id,"grenade",1)>=0 or string_contains(id,"bomb",1)>=0 or string_contains(id,"semtex",1)>=0 or id=="c4" or id=="claymore" or id=="proximity_mine" or id=="torpedo")category="Explosives";
+else if(string_contains(id,"team_",1)==0 or id=="duo_plane_kit")category="Team";
+else if(id=="translocator" or id=="nanomatic_multitool" or id=="nanomatic_components" or id=="binoculars" or id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Utility";
+}
+if(item_is_weapon_maintenance(id))category="Weapon Maintenance";
+if(string_contains(id,"armor_patch",1)>=0 or string_contains(id,"armour_patch",1)>=0 or string_contains(id,"plate_patch",1)>=0 or string_contains(id,"helmet_patch",1)>=0)category="Armour Repair";
+if(string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can")category="Vehicle Supplies";
+if(id=="nanomatic_multitool" or id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bag" or id=="box" or id=="bucket" or id=="empty_bucket")category="Containers";
+content_database.insert_last(content_record(id,name,category,summary,give_amount));
+}
+
+void content_ensure_item(string id)
+{
+if(id=="" or id=="waypoint_marker" or content_find(id)>=0) return;
+string category="Equipment";
+if(is_weapon(id)) category="Weapons";
+else if(is_ammo_reserve_item(id) or string_contains(id,"ammo",1)>=0 or string_contains(id,"magazine",1)>=0 or string_contains(id,"shell",1)>=0) category="Ammo";
+else if(string_contains(id,"potion",1)>=0 or string_contains(id,"syringe",1)>=0 or id=="life_injection") category="Healing";
+content_register(id,string_replace(id,"_"," ",true),category,"Runtime-discovered "+category.lower()+" registered automatically when introduced by gameplay.",1);
+}
+
+string content_join(string[] values)
+{
+if(values.length()==0) return "None";
+string result="";
+for(uint i=0;i<values.length();i++)
+{
+if(i>0) result+=i==values.length()-1 ? " and " : ", ";
+result+=values[i];
+}
+return result;
+}
+
+void content_register_standard_items()
+{
+content_register("health_potion","Health Potion","Consumables","Applies residual healing: 500 health every 15 seconds for 2 minutes.",5);
+content_register("ultra_health_potion","Ultra Health Potion","Consumables","Applies residual healing: 1500 health every 25 seconds for 5 minutes.",3);
+content_register("frag_grenade","Fragmentation Grenade","Equipment","Thrown explosive damage.",10);
+content_register("impact_grenade","Impact Grenade","Equipment","Thrown contact-fused explosive with a compact blast.",5);
+content_register("flashbang","Flashbang","Equipment","Thrown optical and movement-disruption device.",5);
+content_register("concussion_grenade","Concussion Grenade","Equipment","Thrown blast that impairs movement for six seconds.",5);
+content_register("incendiary_grenade","Incendiary Grenade","Equipment","Thrown short-radius incendiary explosive.",5);
+content_register("gas_grenade","Irritant Gas Grenade","Equipment","Thrown gas payload that damages and heavily impairs nearby players.",5);
+content_register("proximity_mine","Proximity Mine","Equipment","Arms after placement and detonates when a hostile enters its three-tile sensor radius.",3);
+content_register("claymore","Directional Claymore","Equipment","Arms after placement and detects hostiles only inside its forward cone.",3);
+content_register("time_bomb","Timed Demolition Charge","Equipment","High-yield placed explosive with a ten-second authoritative fuse.",2);
+content_register("semtex","Semtex","Equipment","Adhesive explosive damage.",5);
+content_register("torpedo","Torpedo","Equipment","Anti-vehicle explosive projectile.",5);
+content_register("smoke_bomb","Smoke Bomb","Equipment","Deploys concealment smoke.",5);
+content_register("bomb_vest","Bomb Vest","Equipment","Body equipment that mitigates explosive damage.",2);
+content_register("light_combat_helmet","Light Combat Helmet","Armour","Light head protection; low weight and durability.",1);
+content_register("ballistic_helmet","Ballistic Helmet","Armour","Medium head protection against projectile damage.",1);
+content_register("heavy_assault_helmet","Heavy Assault Helmet","Armour","High head protection with substantial weight.",1);
+content_register("soft_armor_vest","Soft Armour Vest","Armour","Light torso protection.",1);
+content_register("plate_carrier","Plate Carrier","Armour","Medium torso protection using ballistic plates.",1);
+content_register("heavy_plate_carrier","Heavy Plate Carrier","Armour","High torso protection and durability.",1);
+content_register("kevlar_sleeves","Kevlar Sleeves","Armour","Light protection for both arms.",1);
+content_register("ballistic_arm_guards","Ballistic Arm Guards","Armour","Medium protection for both arms.",1);
+content_register("heavy_arm_guards","Heavy Arm Guards","Armour","High protection for both arms.",1);
+content_register("tactical_greaves","Tactical Greaves","Armour","Light protection for both legs.",1);
+content_register("ballistic_leg_plates","Ballistic Leg Plates","Armour","Medium protection for both legs.",1);
+content_register("heavy_leg_armor","Heavy Leg Armour","Armour","High protection for both legs.",1);
+content_register("invisibility","Invisibility","Consumables","Temporarily conceals the player.",2);
+content_register("bucket","Bucket","Equipment","General-purpose container.",2);
+content_register("life_injection","Life Injection","Consumables","Revives an eligible downed teammate.",3);
+content_register("water_tank","Water Tank","Equipment","Stores water.",1);
+content_register("bag","Bag","Equipment","Portable item container.",2);
+content_register("box","Box","Equipment","General item container.",2);
+content_register("rock","Rock","Equipment","Throwable impact item.",10);
+content_register("energetic_potion_red","Red Energetic Potion","Consumables","Restores 15 to 25 stamina.",5);
+content_register("energetic_potion_blue","Blue Energetic Potion","Consumables","Restores 25 to 40 stamina.",3);
+content_register("energetic_potion_green","Green Energetic Potion","Consumables","Restores 40 to 60 stamina.",2);
+content_register("energetic_potion_rainbow","Rainbow Energetic Potion","Consumables","Restores 75 to 100 stamina.",1);
+content_register("translocator","Translocator","Equipment","Teleports to selected points of interest.",1);
+content_register("translocator_cell","Translocator Cell","Ammo","Powers the translocator.",10);
+content_register("adrenaline_syringe","Adrenaline Syringe","Consumables","Provides an emergency stamina and movement boost.",3);
+content_register("nanomatic_multitool","Nanomatic Multitool","Consumables","Repairs compatible equipment using components.",3);
+content_register("nanomatic_components","Nanomatic Components","Ammo","Repair material for the Nanomatic Multitool.",10);
+content_register("biomonitor_bracelet","Biomonitor Bracelet","Equipment","Monitors health and combat status.",1);
+content_register("wirenet","WireNet","Equipment","Provides automatic emergency healing charges.",1);
+content_register("c4","C4","Equipment","Remote explosive charge.",5);
+content_register("bunker_key","Bunker Key","Equipment","Unlocks bunker access.",3);
+content_register("bunker_bomb","Bunker Bomb","Equipment","Special bunker explosive.",2);
+content_register("hypercomp","HyperComp","Equipment","Portable bunker monitoring and control computer.",1);
+content_register("binoculars","Binoculars","Equipment","Scouting tool for zones and points of interest.",1);
+content_register("duo_plane_kit","Duo Plane Kit","Equipment","Deploys the team-owned Duo Plane vehicle.",1);
+content_register("team_supply_beacon","Team Supply Beacon","Equipment","Distributes supplies to online teammates.",1);
+content_register("team_armor_crate","Team Armor Crate","Equipment","Distributes armor to online teammates.",1);
+content_register("team_revive_kit","Team Revive Kit","Equipment","Distributes revival equipment to online teammates.",1);
+content_register("team_recon_scanner","Team Recon Scanner","Equipment","Reports online teammate locations.",1);
+content_register("empty_bucket","Empty Bucket","Equipment","An empty water container.",2);
+content_register("semtex_pack","Semtex Pack","Equipment","Deployable Semtex charge component.",2);
+content_register("semtex_controller","Semtex Controller","Equipment","Remote controller for deployed Semtex.",1);
+content_register("fake_item","Fake Item","Equipment","Decoy item used by special gameplay events.",5);
+content_register("repair_kit","Repair Kit","Utility","Legacy field-repair component found in world loot. No direct use action is currently registered; Nanomatic Multitools and Nanomatic Components provide the active equipment-repair workflow.",1);
+content_register("gun_cleaning_kit","Universal Gun Cleaning Kit","Utility","Durable tools for ordinary firearm field stripping and cleaning.",1);
+content_register("handgun_cleaning_kit","Handgun Cleaning Kit","Utility","Compact durable rods and tools for pistols and revolvers.",1);
+content_register("rifle_field_tool","Rifle Field Tool","Utility","Durable multi-tool for assault-rifle and submachine-gun actions.",1);
+content_register("precision_bore_guide","Precision Bore Guide","Utility","Durable alignment tool required to clean precision and battle-rifle bores safely.",1);
+content_register("shotgun_cleaning_rod","Shotgun Cleaning Rod","Utility","Durable large-bore rod required for shotgun servicing.",1);
+content_register("barrel_wrench","Machine Gun Barrel Wrench","Utility","Durable hot-barrel locking and removal tool.",1);
+content_register("heat_resistant_gloves","Heat-resistant Gloves","Utility","Protective reusable gloves required during machine-gun barrel changes.",1);
+content_register("emitter_service_key","Emitter Service Key","Utility","Reusable interlock key for safely isolating energy weapon emitters.",1);
+content_register("fuel_system_wrench","Fuel System Wrench","Utility","Reusable pressure-safe flamethrower service tool.",1);
+content_register("drive_service_tool","Powered Weapon Drive Tool","Utility","Reusable chainsaw and powered-tool service implement.",1);
+content_register("field_honing_stone","Field Honing Stone","Utility","Reusable edge maintenance stone for bladed melee weapons.",1);
+content_register("weapon_inspection_gauge","Impact Weapon Inspection Gauge","Utility","Reusable alignment and fastener gauge for blunt weapons.",1);
+content_register("cleaning_patches","Cleaning Patches","Utility","Consumable patches used during general firearm cleaning.",10);
+content_register("precision_cleaning_patches","Precision Cleaning Patches","Utility","Lint-free consumable patches for precision bores.",10);
+content_register("bore_solvent","Bore Solvent","Utility","Consumable propellant-residue solvent for general firearms.",6);
+content_register("copper_fouling_solvent","Copper Fouling Solvent","Utility","Consumable solvent that removes precision-bore jacket deposits.",6);
+content_register("carbon_scraper","Carbon Scraper Insert","Utility","Consumable scraper edge used on rifle gas and action deposits.",6);
+content_register("chamber_brush","Chamber Brush","Utility","Consumable handgun chamber and cylinder brush.",6);
+content_register("shotgun_bore_swab","Shotgun Bore Swab","Utility","Consumable large-bore fouling swab.",6);
+content_register("action_lubricant","Action Lubricant","Utility","Consumable lubricant applied after firearm cleaning.",8);
+content_register("thermal_vent_cartridge","Thermal Vent Cartridge","Utility","Single-use energy-weapon heat extraction cartridge.",5);
+content_register("dielectric_coolant","Dielectric Coolant","Utility","Consumable electrically inert emitter coolant.",5);
+content_register("spare_machine_gun_barrel","Spare Machine Gun Barrel","Utility","Replacement barrel consumed during an emergency hot-barrel service.",2);
+content_register("burner_nozzle_cleaner","Burner Nozzle Cleaner","Utility","Consumable flamethrower nozzle cleaning compound.",5);
+content_register("pressure_seal_kit","Pressure Seal Kit","Utility","Single-use seals fitted whenever a fuel system is opened.",5);
+content_register("chain_lubricant","Chain Lubricant","Utility","Consumable high-load lubricant for powered cutting chains.",5);
+content_register("motor_coolant","Motor Coolant","Utility","Consumable powered-weapon drive coolant.",5);
+content_register("blade_oil","Blade Oil","Utility","Consumable protective oil for edged weapons.",8);
+content_register("rust_remover","Weapon Rust Remover","Utility","Consumable corrosion treatment for edged weapons.",5);
+content_register("grip_repair_wrap","Grip Repair Wrap","Utility","Consumable wrap for impact-weapon handles.",5);
+content_register("fastener_compound","Fastener Retaining Compound","Utility","Consumable compound securing blunt-weapon heads and fittings.",5);
+content_register("soft_armor_patch","Soft Armour Patch","Armour Repair","Adhesive aramid patch for light fabric torso armour.",5);
+content_register("kevlar_weave_patch","Kevlar Weave Patch","Armour Repair","Woven patch for Kevlar sleeves and soft armour.",5);
+content_register("plate_carrier_patch","Plate Carrier Patch","Armour Repair","Backing and pocket repair for medium plate carriers.",4);
+content_register("heavy_plate_patch","Heavy Plate Patch","Armour Repair","Rigid field patch for heavy carriers; cannot restore structural integrity.",3);
+content_register("light_helmet_patch","Light Helmet Patch","Armour Repair","Resin-backed patch for light combat helmets.",5);
+content_register("ballistic_helmet_patch","Ballistic Helmet Patch","Armour Repair","Ballistic fibre and resin helmet patch.",4);
+content_register("heavy_helmet_patch","Heavy Helmet Patch","Armour Repair","Rigid patch for heavy assault helmets.",3);
+content_register("kevlar_sleeve_patch","Kevlar Sleeve Patch","Armour Repair","Flexible arm protection patch.",5);
+content_register("ballistic_arm_patch","Ballistic Arm Guard Patch","Armour Repair","Field patch for ballistic arm guards.",4);
+content_register("heavy_arm_patch","Heavy Arm Guard Patch","Armour Repair","Rigid arm-guard patch.",3);
+content_register("greave_patch","Tactical Greave Patch","Armour Repair","Flexible patch for tactical greaves.",5);
+content_register("ballistic_leg_patch","Ballistic Leg Plate Patch","Armour Repair","Field patch for ballistic leg plates.",4);
+content_register("heavy_leg_patch","Heavy Leg Armour Patch","Armour Repair","Rigid patch for heavy leg armour.",3);
+content_register("aramid_repair_tape","Aramid Repair Tape","Armour Repair","General light-armour field tape.",6);
+content_register("ceramic_plate_epoxy","Ceramic Plate Epoxy","Armour Repair","Temporary ceramic crack stabilizer.",4);
+content_register("armor_rivet_pack","Armour Rivet Pack","Armour Repair","Temporary fasteners for heavy armour fittings.",5);
+content_register("gasoline_can","Gasoline Can","Vehicle Supplies","Twenty litres of gasoline for spark-ignition road vehicles.",3);
+content_register("diesel_can","Diesel Can","Vehicle Supplies","Twenty litres of diesel for heavy and utility vehicles.",3);
+content_register("aviation_fuel_can","Aviation Fuel Can","Vehicle Supplies","Twenty litres of aviation fuel for aircraft.",3);
+content_register("empty_fuel_can","Empty Fuel Can","Vehicle Supplies","Empty approved container used when siphoning vehicle fuel.",3);
+content_register("vehicle_siphon_hose","Vehicle Siphon Hose","Vehicle Supplies","Reusable hose for transferring fuel from a nearby vehicle.",1);
+content_register("vehicle_engine_service_kit","Vehicle Engine Service Kit","Vehicle Supplies","Reusable tools for engine inspection and oil service.",1);
+content_register("engine_oil","Engine Oil","Vehicle Supplies","Consumable engine lubricant.",4);
+content_register("vehicle_oil_filter","Vehicle Oil Filter","Vehicle Supplies","Single-use replacement oil filter.",4);
+content_register("vehicle_transmission_tool","Transmission Service Tool","Vehicle Supplies","Reusable transmission fill and diagnostic tool.",1);
+content_register("transmission_fluid","Transmission Fluid","Vehicle Supplies","Consumable transmission hydraulic fluid.",4);
+content_register("vehicle_jack","Vehicle Jack","Vehicle Supplies","Reusable jack required for tyre and suspension work.",1);
+content_register("tire_patch_kit","Tyre Patch Kit","Vehicle Supplies","Consumable temporary tyre repair; cannot restore tyres fully.",4);
+content_register("spare_tire","Spare Tyre","Vehicle Supplies","Full replacement tyre for advanced refitting.",2);
+content_register("cooling_system_tester","Cooling System Tester","Vehicle Supplies","Reusable pressure tester for vehicle cooling systems.",1);
+content_register("engine_coolant","Engine Coolant","Vehicle Supplies","Consumable type-safe engine coolant.",4);
+content_register("fuel_drain_pan","Fuel Drain Pan","Vehicle Supplies","Reusable container required to drain contaminated fuel.",1);
+content_register("fuel_system_flush","Fuel System Flush","Vehicle Supplies","Consumable treatment reducing wrong-fuel contamination.",3);
+content_register("vehicle_diagnostic_scanner","Vehicle Diagnostic Scanner","Vehicle Supplies","Reusable electronic scanner reporting powertrain faults.",1);
+content_register("vehicle_battery","Vehicle Battery","Vehicle Supplies","Replacement starting and electrical-system battery.",2);
+content_register("spark_plug_set","Spark Plug Set","Vehicle Supplies","Service parts for gasoline engines.",3);
+content_register("diesel_glow_plug_set","Diesel Glow Plug Set","Vehicle Supplies","Cold-start service parts for diesel engines.",3);
+content_register("vehicle_air_filter","Vehicle Air Filter","Vehicle Supplies","Replacement engine intake filter.",3);
+content_register("brake_service_kit","Brake Service Kit","Vehicle Supplies","Consumable pads, seals, and hydraulic service parts.",3);
+content_register("vehicle_performance_ecu","Performance ECU","Vehicle Supplies","One-time engine tune increasing speed and fuel demand.",1);
+content_register("offroad_tire_set","Off-road Tyre Set","Vehicle Supplies","One-time traction refit for rough terrain.",1);
+content_register("reinforced_suspension_kit","Reinforced Suspension Kit","Vehicle Supplies","One-time heavy-duty suspension refit.",1);
+content_register("vehicle_auxiliary_armor","Vehicle Auxiliary Armour","Vehicle Supplies","One-time armour package that adds protection and mass.",1);
+content_register("vehicle_turbocharger","Vehicle Turbocharger","Vehicle Supplies","One-time forced-induction performance refit.",1);
+content_register("extended_fuel_tank","Extended Fuel Tank","Vehicle Supplies","One-time tank refit increasing usable fuel capacity.",1);
+content_register("vehicle_tool_chest","Vehicle Tool Chest","Vehicle Supplies","Portable collection of general workshop tools.",1);
+content_register("wiring_harness_kit","Wiring Harness Kit","Vehicle Supplies","Electrical repair and accessory installation materials.",3);
+content_register("vehicle_fuse_pack","Vehicle Fuse Pack","Vehicle Supplies","Replacement electrical protection components.",5);
+content_register("radiator_hose_kit","Radiator Hose Kit","Vehicle Supplies","Replacement cooling-system hoses and clamps.",3);
+content_register("fuel_injector_cleaner","Fuel Injector Cleaner","Vehicle Supplies","Consumable treatment for degraded injectors.",4);
+content_register("vehicle_gasket_set","Vehicle Gasket Set","Vehicle Supplies","Consumable seals for deeper engine refitting.",3);
+content_register("improvised_weapon_tool","Improvised Weapon Tool","Weapon Maintenance","Unsafe makeshift implement that permits maintenance without correct supplies but can damage or permanently ruin a weapon.",1);
+content_register("gunsmith_multitool","Gunsmith Multitool","Weapon Maintenance","Reusable precision tool required for mechanical weapon repair.",1);
+content_register("weapon_replacement_parts","Weapon Replacement Parts","Weapon Maintenance","Consumable springs, pins, extractors, and action components used in repairs.",5);
+content_register("weapon_alignment_gauge","Weapon Alignment Gauge","Weapon Maintenance","Reusable gauge for action, barrel, and sight alignment.",1);
+content_register("replacement_firing_pin","Replacement Firing Pin","Weapon Maintenance","Fire-control replacement part used by deeper repairs.",3);
+content_register("replacement_extractor","Replacement Extractor","Weapon Maintenance","Replacement extraction component for cartridge weapons.",3);
+content_register("replacement_recoil_spring","Replacement Recoil Spring","Weapon Maintenance","Replacement self-loading action spring.",3);
+content_register("trigger_group_parts","Trigger Group Parts","Weapon Maintenance","Replacement sears, pins, and springs.",3);
+content_register("barrel_alignment_shims","Barrel Alignment Shims","Weapon Maintenance","Consumable precision alignment material.",4);
+content_register("receiver_repair_plate","Receiver Repair Plate","Weapon Maintenance","Last-resort structural reinforcement that cannot erase permanent damage.",2);
+content_register("jam_clearing_rod","Jam Clearing Rod","Weapon Maintenance","Reusable rod for clearing obstructed or stuck weapon actions.",1);
+content_register("headspace_gauge_set","Headspace Gauge Set","Weapon Maintenance","Reusable gauges preventing unsafe cartridge fit.",1);
+content_register("electrical_contact_kit","Weapon Electrical Contact Kit","Weapon Maintenance","Consumable contacts and insulation for energy weapons.",3);
+content_register("optic_alignment_target","Optic Alignment Target","Weapon Maintenance","Consumable field target used during sight realignment.",4);
+}
+
+void initialize_content_database()
+{
+content_database.resize(0);
+for(uint i=0;i<wpn_cache.length();i++)
+{
+wpn_stats@ w=wpn_cache[i];
+string kind=w.melee ? "Melee weapon" : "Weapon";
+string damage_text=w.damage==w.max_damage ? ""+w.damage : w.damage+" to "+w.max_damage;
+string stats=kind+". Class "+w.wclass+". Damage "+damage_text+". Range "+w.range+". Fire interval "+w.firetime+" milliseconds. Movement interval "+w.walktime+" milliseconds. Spread "+w.spread+". Handling: "+weapon_handling_description(w.id);
+stats+=" Projectile model: "+w.projectile_kind+". Muzzle velocity "+round(w.muzzle_velocity,2)+" tiles per second. Gravity "+w.projectile_gravity+". Drag "+w.projectile_drag+". Mass "+w.projectile_mass+" grams. Diameter "+w.projectile_diameter+" millimeters. Dispersion "+round(w.projectile_dispersion,2)+" degrees. Damage retained at maximum range "+int(w.damage_retention*100)+" percent. Penetration capacity "+w.penetration+".";
+stats+=" Collision radius "+w.projectile_collision_radius+" tiles.";
+if(w.projectile_explosive_radius>0)stats+=" Detonation radius "+w.projectile_explosive_radius+" tiles.";
+double ideal_flight=w.muzzle_velocity>0?double(w.range)/w.muzzle_velocity:0;
+double ideal_drop=.5*w.projectile_gravity*ideal_flight*ideal_flight;
+stats+=" Ideal muzzle-speed flight time to maximum range "+round(ideal_flight,3)+" seconds; gravity-only vertical change over that interval "+round(ideal_drop,2)+" tiles downward. Actual server flight also includes drag, aim angle, impacts, and retained velocity.";
+if(w.pellet_count>1) stats+=" Projectiles per shot "+w.pellet_count+"; each pellet or particle has an independent trajectory and collision test.";
+content_register(w.id,w.name,"Weapons",stats,1);
+}
+for(uint i=0;i<gun_ammos.length();i++)
+{
+gun_ammo@ g=gun_ammos[i];
+string detail=g.reserve_label+" for "+get_weapon_display_name(g.weapon_name)+". Capacity "+g.mag_capacity+"; starting reserve "+g.starting_reserve+".";
+content_register(g.reserve_item,string_replace(g.reserve_item,"_"," ",true),"Ammo",detail,g.starting_reserve);
+}
+for(uint i=0;i<attachment_defs.length();i++)
+content_register(attachment_defs[i].id,attachment_defs[i].display_name,"Attachments",attachment_defs[i].slot+" attachment compatible with "+attachment_defs[i].compatible_weapons.length()+" weapons. "+attachment_effect_description(attachment_defs[i].id),1);
+for(uint i=0;i<ammunition_loads.length();i++)
+{
+string reserve_name=ammunition_loads[i].display_name+" Reserve";
+if(string_contains(ammunition_loads[i].reserve_item,"_box",1)>=0)reserve_name="Box of "+ammunition_loads[i].display_name;
+else if(string_contains(ammunition_loads[i].reserve_item,"_quiver",1)>=0)reserve_name=ammunition_loads[i].display_name+" Quiver";
+content_register(ammunition_loads[i].reserve_item,reserve_name,"Ammo",ammunition_loads[i].description+" Compatible with "+ammunition_loads[i].weapons.length()+" registered weapons.",ammunition_loads[i].give_amount);
+}
+for(uint i=0;i<holster_defs.length();i++)
+content_register(holster_defs[i].id,holster_defs[i].display_name,"Holsters","Supports "+holster_defs[i].compatible_weapons.length()+" weapons"+(holster_defs[i].has_ammo_storage ? " and stores "+holster_defs[i].ammo_capacity+" rounds." : "."),1);
+if(vehicle_types.length()==0)init_vehicle_types();
+for(uint i=0;i<vehicle_types.length();i++)
+{
+vehicle_type@ v=vehicle_types[i];int window_seats=0;
+for(uint s=0;s<v.seat_has_window.length();s++)if(v.seat_has_window[s])window_seats++;
+string vid=vehicle_audio_id_from_name(v.name);
+string detail="Physical vehicle. Health "+v.max_health+"; armour "+v.armor+"; seats "+v.max_passengers+", with windows at "+window_seats+" seats. Top speed "+round(v.top_speed,2)+" tiles per second; acceleration "+round(v.acceleration,2)+" and braking "+round(v.braking,2)+" tiles per second squared. Fuel: "+v.fuel_type+", "+v.fuel_capacity+" litre standard capacity, consuming approximately "+v.fuel_per_tile+" litres per tile before condition and modification effects. Supports physical collision, occupant seating, doors, per-seat windows, roof riding, projectile damage, fuel contamination, component wear, siphoning, timed servicing, refits and type-specific positional audio.";
+content_register(vid,v.name,"Vehicles",detail,1);
+}
+content_register_standard_items();
+for(uint i=0;i<content_database.length();i++)if(content_database[i].category!="Weapons" and content_database[i].category!="Vehicles")content_database[i].summary+=" Mechanics: "+item_mechanic_description(content_database[i].id);
+}
+
+void refresh_content_database()
+{
+content_record@[] previous;
+for(uint i=0;i<content_database.length();i++) previous.insert_last(content_database[i]);
+initialize_content_database();
+for(uint i=0;i<previous.length();i++)
+if(content_find(previous[i].id)<0) content_register(previous[i].id,previous[i].display_name,previous[i].category,previous[i].summary,previous[i].give_amount);
+// Anything introduced dynamically through gameplay is retained in the same
+// catalogue. This closes the gap where an item could exist in inventory but be
+// absent from the armoury and developer item picker until a restart.
+string[] inventory_items=inv.get_keys();
+for(uint i=0;i<inventory_items.length();i++) content_ensure_item(inventory_items[i]);
+}
+
+string content_weapon_details(string id)
+{
+int ci=content_find(id); string result=ci>=0 ? content_database[ci].summary : id;
+int gi=find_gun(id);
+if(gi>=0)
+result+="\nAmmunition: "+gun_ammos[gi].ammo_type+"; "+gun_ammos[gi].feed_device+"; capacity "+gun_ammos[gi].mag_capacity+"; reload "+gun_ammos[gi].reload_ms+" milliseconds.";
+string[] compatible=get_compatible_attachments(id), attachment_names;
+for(uint i=0;i<compatible.length();i++){int ai=find_attachment_def(compatible[i]); if(ai>=0) attachment_names.insert_last(attachment_defs[ai].display_name);}
+result+="\nCompatible attachments: "+content_join(attachment_names)+".";
+string[] holster_names;
+for(uint i=0;i<holster_defs.length();i++) if(holster_supports_weapon(holster_defs[i].id,id)) holster_names.insert_last(holster_defs[i].display_name);
+result+="\nCompatible holsters: "+content_join(holster_names)+".";
+string[] load_ids=compatible_ammunition_for_weapon(id),load_names;for(uint li=0;li<load_ids.length();li++)load_names.insert_last(ammunition_display_name(load_ids[li]));result+="\nCompatible ammunition loads: "+content_join(load_names)+".";
+return result;
+}
+
+string[] content_sound_files(string category, string id)
+{
+string[] result;
+if(category=="Weapons")
+{
+for(int i=1;i<=3;i++) result.insert_last(id+"fire"+i+".ogg");
+bool supports_suppressor=false; string[] compatible_sounds=get_compatible_attachments(id);
+for(uint a=0;a<compatible_sounds.length();a++) if(string_contains(compatible_sounds[a],"suppressor",1)>=0) supports_suppressor=true;
+if(supports_suppressor) for(int i=1;i<=3;i++) result.insert_last(id+"supressedfire"+i+".ogg");
+result.insert_last(id+"draw.ogg"); result.insert_last(id+"holster.ogg");
+if(find_gun(id)>=0)
+{
+result.insert_last(id+"reload.ogg"); result.insert_last(id+"reload_open.ogg"); result.insert_last(id+"reload_insert.ogg"); result.insert_last(id+"reload_close.ogg"); result.insert_last(id+"reload_cycle.ogg"); result.insert_last(id+"reloadend.ogg"); result.insert_last(id+"unload.ogg");
+}
+for(uint fi=0;fi<fire_modes.length();fi++) if(fire_modes[fi].weapon_name==id) for(uint m=0;m<fire_modes[fi].modes.length();m++) result.insert_last(id+"mode_"+fire_mode_name(fire_modes[fi].modes[m])+".ogg");
+}
+else if(category=="Vehicles")
+{
+if(id=="duoplane") { string[] plane={"duoplanein.ogg","duoplaneout.ogg","duoplaneloop.ogg","duoplaneinside.ogg","duoplanedist.ogg","duoplanecrash.ogg","duoplanecrashdist.ogg"}; for(uint pidx=0;pidx<plane.length();pidx++) result.insert_last(plane[pidx]); return result; }
+string base="vehicle_"+id+"_"; string[] actions={"start","engine","accelerate","decelerate","stop","door_open","door_close","window_open","window_close","seat_switch","enter","exit","turn","crash","destroy"};
+for(uint i=0;i<actions.length();i++) result.insert_last(base+actions[i]+".ogg");
+}
+else
+{
+result.insert_last(id+"use.ogg"); result.insert_last(id+"equip.ogg"); result.insert_last(id+"open.ogg"); result.insert_last(id+"close.ogg");
+if(category=="Attachments") { result.insert_last("attachment_"+id+"_attach.ogg"); result.insert_last("attachment_"+id+"_remove.ogg"); }
+if(category=="Holsters") { result.insert_last("holster_"+id+"_equip.ogg"); result.insert_last("holster_"+id+"_store.ogg"); result.insert_last("holster_"+id+"_weapon_remove.ogg"); }
+}
+return result;
+}
+
+void armoury_database()
+{
+refresh_content_database();
+if(vehicle_types.length()==0) init_vehicle_types();
+nv_form f; f.create_window("Infinite Warfare Armoury",false,true);
+nv_form_list_box@ categories=f.add_list("Database category","category");
+string[] armoury_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Electronics","Containers","Equipment","Vehicles"};for(uint ac=0;ac<armoury_categories.length();ac++)categories.add(armoury_categories[ac],armoury_categories[ac]);categories.set_pos(0,false);
+nv_form_list_box@ entries=f.add_list("Entries","entries");
+nv_form_input@ details=f.add_input("Statistics and compatibility","details","","",0,true,true);
+nv_form_list_box@ sounds=f.add_list("Available sound previews; hit and impact sounds are excluded","sounds");
+nv_form_button@ play=f.add_button("Preview selected sound","play",true); nv_form_button@ close=f.add_button("Close","close",false,true); f.focus_control(categories);
+int last_category=-1,last_entry=-1,last_sound=-1;
+int preview_slot=-1;
+bool preview_paused=false;
+string preview_file="";
+while(true)
+{
+wait(5); f.monitor(); lobby_form_netcheck();
+if(preview_slot>=0 and !preview_paused and !p.sound_is_active(preview_slot))
+{
+preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
+}
+if(categories.list_position!=last_category)
+{
+if(categories.list_position<0 or categories.list_position>=int(categories.items.length())) continue;
+last_category=categories.list_position; last_entry=-1;
+// NV_form intentionally preserves selection while items change. Clear the
+// positions first so a former long-list index cannot address the new list.
+entries.list_position=-1; entries.items.resize(0);
+sounds.list_position=-1; sounds.items.resize(0); details.default_text="";
+last_sound=-1;
+if(preview_slot>=0) p.destroy_sound(preview_slot);
+preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
+string selected_category=armoury_categories[last_category];for(uint i=0;i<content_database.length();i++)if(content_database[i].category==selected_category)entries.add(content_database[i].display_name,content_database[i].id);
+if(entries.items.length()>0) entries.set_pos(0,false);
+}
+if(entries.list_position>=int(entries.items.length()))
+{
+entries.list_position=-1; last_entry=-1;
+if(entries.items.length()>0) entries.set_pos(0,false);
+}
+if(entries.list_position!=last_entry and entries.list_position>=0 and entries.list_position<int(entries.items.length()))
+{
+last_entry=entries.list_position; last_sound=-1; sounds.list_position=-1; sounds.items.resize(0);
+if(preview_slot>=0) p.destroy_sound(preview_slot);
+preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
+string id=entries.items[last_entry].id;string category=armoury_categories[last_category];int ci=content_find(id);if(category=="Weapons")details.default_text=content_weapon_details(id);else details.default_text=ci>=0?content_database[ci].display_name+". "+content_database[ci].category+". "+content_database[ci].summary:id;
+string[] previews=content_sound_files(category,id);
+for(uint i=0;i<previews.length();i++)
+{
+sound probe; if(probe.load(previews[i])) { probe.close(); sounds.add(string_replace(previews[i],"_"," ",true),previews[i]); }
+}
+if(sounds.items.length()>0) sounds.set_pos(0,false); else sounds.add("No authored preview sounds are present in the current sound pack","");
+}
+if(sounds.list_position!=last_sound)
+{
+last_sound=sounds.list_position;
+if(preview_slot>=0) p.destroy_sound(preview_slot);
+preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
+}
+if(f.is_pressed(play) and sounds.list_position>=0 and sounds.list_position<int(sounds.items.length()))
+{
+string filename=sounds.items[sounds.list_position].id;
+if(filename=="") speak("No authored preview sounds are present for this entry.");
+else if(preview_slot>=0 and preview_file==filename)
+{
+if(preview_paused)
+{
+p.resume_sound(preview_slot); preview_paused=false; play.caption="Pause selected sound"; speak("Resumed.");
+}
+else
+{
+p.pause_sound(preview_slot); preview_paused=true; play.caption="Resume selected sound"; speak("Paused.");
+}
+}
+else
+{
+if(preview_slot>=0) p.destroy_sound(preview_slot);
+preview_slot=p.play_stationary(filename,false); preview_file=filename; preview_paused=false;
+if(preview_slot>=0) play.caption="Pause selected sound";
+else { preview_file=""; speak("That sound could not be played."); }
+}
+}
+if(f.is_pressed(close)) { if(preview_slot>=0) p.destroy_sound(preview_slot); return; }
+}
+}

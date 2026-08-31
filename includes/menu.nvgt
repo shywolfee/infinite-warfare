@@ -1,47 +1,142 @@
 dynamic_menu_pro m;
+void classic_mainmenu()
+{
+setupmenu(true,true);
+iw_form f; f.create_window("Main Menu",false,true);
+int connect_btn=f.create_button("Connect to the server and enter the lobby",true);
+int register_btn=-1;
+if(name=="" or !account_exists(name)) register_btn=f.create_button("Register a new account");
+int account_btn=f.create_button("Account management");
+int options_btn=f.create_button("Options");
+int update_btn=f.create_button("Check for updates");
+int changes_btn=f.create_button("Changelog");
+int sounds_btn=f.create_button("Learn game sounds");
+int gestures_btn=f.create_button("Android touch gestures");
+int practice_btn=f.create_button("Practice Android touch gestures");
+int key_practice_btn=f.create_button("Practice keyboard controls");
+int readme_btn=f.create_button("Readme");
+int admin_btn=-1;
+if(SCRIPT_COMPILED==false or dev_unlocked) admin_btn=f.create_button("Administrator panel");
+int release_btn=-1;if(!SCRIPT_COMPILED)release_btn=f.create_button("Compress a release build");
+int exit_btn=f.create_button("Exit the game",false,true); f.focus(connect_btn);
+while(true)
+{
+wait(5); f.monitor();
+if(f.is_pressed(connect_btn)) { m.fade_music(20); connect(); return; }
+if(register_btn>=0 and f.is_pressed(register_btn)) { m.fade_music(20); registermenu(); return; }
+if(f.is_pressed(account_btn)) { m.fade_music(20); accountmenu(); return; }
+if(f.is_pressed(options_btn)) { optionsmenu(); mainmenu(); return; }
+if(f.is_pressed(update_btn)) { cfu("iw","iw.zip"); mainmenu(); return; }
+if(f.is_pressed(changes_btn)) { changelogmenu(); return; }
+if(f.is_pressed(sounds_btn)) { learn_game_sounds(); mainmenu(); return; }
+if(f.is_pressed(gestures_btn)) { show_android_gestures(); mainmenu(); return; }
+if(f.is_pressed(practice_btn)) { practice_android_gestures(); mainmenu(); return; }
+if(f.is_pressed(key_practice_btn)) { key_practice_mode(); mainmenu(); return; }
+if(f.is_pressed(readme_btn)) { show_readme(); mainmenu(); return; }
+if(admin_btn>=0 and f.is_pressed(admin_btn)) { adminpanel(); return; }
+if(release_btn>=0 and f.is_pressed(release_btn)){compress_release_build();mainmenu();return;}
+if(f.is_pressed(exit_btn)) { exit(); return; }
+}
+}
+
 void mainmenu()
 {
+if(classic_main_menu) { classic_mainmenu(); return; }
 setupmenu(true, true);
-m.add_item_tts("connect to the server and enter the lobby.","connect");
-if (name == "" or !account_exists(name))
-m.add_item_tts("register a new account.","register");
-m.add_item_tts("account management.","account");
-m.add_item_tts("view the changelog.","changelog");
-m.add_item_tts("change some options.","options");
-m.add_item_tts("check for new updates.","cfu");
-if(SCRIPT_COMPILED==false)
-m.add_item_tts("Administrator panel.","adminpanel");
-m.add_item_tts("learn game sounds.","learnsounds");
-m.add_item_tts("read the readme.","readme");
-m.add_item_tts("Exit the game.","exit");
-int mres=m.run("Main Menu",true);
+nv_form f;
+f.create_window("Main Menu", false, true);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Sections", "main_sections", true);
+f.add_control(tabs);
+nv_form_tab_page@ play=tabs.add_tab_page("Play");
+nv_form_tab_page@ account_page=tabs.add_tab_page("Account");
+nv_form_tab_page@ settings=tabs.add_tab_page("Settings");
+nv_form_tab_page@ information=tabs.add_tab_page("Information");
+nv_form_tab_page@ admin_page=null;
+bool show_admin=(SCRIPT_COMPILED==false or dev_unlocked);
+if (show_admin) @admin_page=tabs.add_tab_page("Administrator");
+nv_form_button@[] buttons;
+string[] ids;
+buttons.insert_last(play.add_button("Connect to the server and enter the lobby", "connect", true)); ids.insert_last("connect");
+if (name=="" or !account_exists(name)) { buttons.insert_last(account_page.add_button("Register a new account", "register")); ids.insert_last("register"); }
+buttons.insert_last(account_page.add_button("Account management", "account")); ids.insert_last("account");
+buttons.insert_last(settings.add_button("Options", "options")); ids.insert_last("options");
+buttons.insert_last(settings.add_button("Check for updates", "cfu")); ids.insert_last("cfu");
+buttons.insert_last(information.add_button("Changelog", "changelog")); ids.insert_last("changelog");
+buttons.insert_last(information.add_button("Learn game sounds", "learnsounds")); ids.insert_last("learnsounds");
+buttons.insert_last(information.add_button("Android touch gestures", "gestures")); ids.insert_last("gestures");
+buttons.insert_last(information.add_button("Practice Android touch gestures", "gesturepractice")); ids.insert_last("gesturepractice");
+buttons.insert_last(information.add_button("Practice keyboard controls", "keypractice")); ids.insert_last("keypractice");
+buttons.insert_last(information.add_button("Readme", "readme")); ids.insert_last("readme");
+if (show_admin) { buttons.insert_last(admin_page.add_button("Administrator panel", "adminpanel")); ids.insert_last("adminpanel");if(!SCRIPT_COMPILED){buttons.insert_last(admin_page.add_button("Compress a release build", "releasebuild"));ids.insert_last("releasebuild");} }
+buttons.insert_last(settings.add_button("Exit the game", "exit")); ids.insert_last("exit");
+tabs.focus();
+string selected="";
+while (selected=="")
+{
+wait(5);
+nv_form_tab_page@ page=tabs.current_page;
+bool section_left=key_pressed(KEY_LEFT);
+bool section_right=key_pressed(KEY_RIGHT);
+if (section_left or section_right)
+{
+if (@page!=null) page.control_index=-1;
+int next=tabs.pos+(section_right ? 1 : -1);
+if (next<0) next=tabs.page_count-1;
+if (next>=tabs.page_count) next=0;
+tabs.set_pos(next);
+@page=tabs.current_page;
+speak(tabs.speak_tab_item(page));
+}
+if (@page!=null and key_pressed(KEY_DOWN)) page.navigate_form(true);
+else if (@page!=null and key_pressed(KEY_UP)) page.navigate_form(false);
+f.monitor();
+for (uint i=0; i<buttons.length(); i++)
+if (buttons[i].pressed) { buttons[i].pressed=false; selected=ids[i]; break; }
+}
 m.fade_music(20);
-if (m.get_item_name(mres)=="connect")
+if (selected=="connect")
 connect();
-else if (m.get_item_name(mres)=="register")
+else if (selected=="register")
 registermenu();
-else if (m.get_item_name(mres)=="account")
+else if (selected=="account")
 accountmenu();
-else if (m.get_item_name(mres)=="changelog")
+else if (selected=="changelog")
 changelogmenu();
-else if (m.get_item_name(mres)=="cfu")
+else if (selected=="cfu")
 {
 cfu("iw","iw.zip");
 mainmenu();
 }
-else if (m.get_item_name(mres)=="options")
+else if (selected=="options")
 {
 optionsmenu();
 mainmenu();
 }
-else if (m.get_item_name(mres)=="adminpanel")
+else if (selected=="adminpanel")
 adminpanel();
-else if (m.get_item_name(mres)=="learnsounds")
+else if(selected=="releasebuild")
+{compress_release_build();mainmenu();}
+else if (selected=="learnsounds")
 {
 learn_game_sounds();
 mainmenu();
 }
-else if (m.get_item_name(mres)=="readme")
+else if (selected=="gestures")
+{
+show_android_gestures();
+mainmenu();
+}
+else if (selected=="gesturepractice")
+{
+practice_android_gestures();
+mainmenu();
+}
+else if(selected=="keypractice")
+{
+key_practice_mode();
+mainmenu();
+}
+else if (selected=="readme")
 {
 show_readme();
 mainmenu();
@@ -123,7 +218,7 @@ rf.close();
 else
 rules_text="Rules file not found. Please check the game folder.";
 // Single registration form.
-audio_form f;
+iw_form f;
 f.create_window("Register a New Account", false, true);
 int f_user = f.create_input_box("Username (max 20 characters)", "", "", 0, false, false, false);
 int f_pass = f.create_input_box("Password (at least 12 characters, must include uppercase, lowercase, and a number)", "", "*", 0, false, false, false);
@@ -228,9 +323,9 @@ mainmenu();
 // ---------------------------------------------------------------------------
 void show_changelog_form_text(string cl)
 {
-audio_form f;
+iw_form f;
 f.create_window("Changelog", false, true);
-f.create_input_box("Changes", cl, "", 0, false, true, false);
+f.create_input_box("Changes", cl, "", 0, true, true, false);
 int f_close=f.create_button("&Close", true, true);
 f.focus(0);
 while(true)
@@ -326,7 +421,7 @@ if(lockout_active and lockout_timer.elapsed>=900000)
 lockout_active=false;
 failed_login_attempts=0;
 }
-audio_form f;
+iw_form f;
 f.create_window("Login", false, true);
 int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
 int f_pass=f.create_input_box("Password", "", "*", 0, false, false, false);
@@ -397,7 +492,7 @@ accountmenu();
 // ---------------------------------------------------------------------------
 void account_authorize_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Authorize Account", false, true);
 int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
 int f_authcode=f.create_input_box("Authorization code", "", "", 0, false, false, false);
@@ -456,7 +551,7 @@ accountmenu();
 // ---------------------------------------------------------------------------
 void account_reset_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Password Reset", false, true);
 int f_user=f.create_input_box("Username", "", "", 0, false, false, false);
 int f_resetreq=f.create_button("Request &password reset", true);
@@ -587,7 +682,7 @@ accountmenu();
 // ---------------------------------------------------------------------------
 void password_reset_form(string username)
 {
-audio_form f;
+iw_form f;
 f.create_window("Reset Password", false, true);
 int f_newpass=f.create_input_box("New password", "", "*", 0, false, false, false);
 int f_confirm=f.create_input_box("Confirm new password", "", "*", 0, false, false, false);
@@ -690,12 +785,176 @@ return;
 // Escape menu — replaces the old grave-accent game menu.
 // Contains game info, equipment, statistics, and exit.
 // ---------------------------------------------------------------------------
+void send_team_command(string command)
+{
+send_reliable(0, "/team "+command, 1);
+}
+
+bool team_translocator_received=false,team_translocator_go_received=false,team_translocator_go_success=false;
+int team_translocator_points=0,team_translocator_go_cells=0;
+string[] team_translocator_names;double[] team_translocator_x,team_translocator_y,team_translocator_z;int[] team_translocator_cell_cost,team_translocator_point_cost;
+string team_translocator_go_name="";double team_translocator_go_x=0,team_translocator_go_y=0,team_translocator_go_z=0;
+void receive_team_translocator_state(string message){team_translocator_names.resize(0);team_translocator_x.resize(0);team_translocator_y.resize(0);team_translocator_z.resize(0);team_translocator_cell_cost.resize(0);team_translocator_point_cost.resize(0);string[] fields=string_split(message,"|",false);if(fields.length()<3)return;team_translocator_points=string_to_number(fields[1]);if(fields[2]!="-"){string[] entries=string_split(fields[2],",",false);for(uint i=0;i<entries.length();i++){string[] v=string_split(entries[i],"~",false);if(v.length()<6)continue;team_translocator_names.insert_last(v[0]);team_translocator_x.insert_last(string_to_number(v[1]));team_translocator_y.insert_last(string_to_number(v[2]));team_translocator_z.insert_last(string_to_number(v[3]));team_translocator_cell_cost.insert_last(string_to_number(v[4]));team_translocator_point_cost.insert_last(string_to_number(v[5]));}}team_translocator_received=true;}
+void receive_team_translocator_go(string message){string[] f=string_split(message,"|",false);team_translocator_go_received=true;team_translocator_go_success=f.length()>=7;if(!team_translocator_go_success)return;team_translocator_go_name=f[1];team_translocator_go_x=string_to_number(f[2]);team_translocator_go_y=string_to_number(f[3]);team_translocator_go_z=string_to_number(f[4]);team_translocator_go_cells=string_to_number(f[5]);}
+
+bool team_state_received=false;
+bool team_state_member=false;
+bool team_state_invite=false;
+bool team_state_can_invite=false;
+bool team_state_can_remove=false;
+bool team_state_can_shop=false;
+string team_state_name="";
+string team_state_role="";
+string team_state_members="";
+int team_state_points=0;
+int team_state_member_count=0;
+
+void receive_team_state(string message)
+{
+string[] fields=string_split(message,"|",false);
+if(fields.length()<11 or fields[0]!="team_state") return;
+team_state_member=fields[1]=="1";
+team_state_name=fields[2]=="-" ? "" : fields[2];
+team_state_points=string_to_number(fields[3]);
+team_state_role=fields[4]=="-" ? "" : fields[4];
+team_state_can_invite=fields[5]=="1";
+team_state_can_remove=fields[6]=="1";
+team_state_can_shop=fields[7]=="1";
+team_state_invite=fields[8]=="1";
+team_state_member_count=string_to_number(fields[9]);
+team_state_members=fields[10]=="-" ? "" : fields[10];
+team_state_received=true;
+}
+
+bool refresh_team_state()
+{
+team_state_received=false;
+send_team_command("state");
+timer timeout;
+while(!team_state_received and timeout.elapsed<2500) { wait(5); netloop(); }
+if(!team_state_received) speak("Team information could not be refreshed.");
+return team_state_received;
+}
+
+void team_shop_menu()
+{
+iw_form shop;
+shop.create_window("Team Shop", false, true);
+int items=shop.create_list("Items", 0, false);
+shop.add_list_item(items, "Duo Plane Kit - 500 team points");
+shop.add_list_item(items, "Team Supply Beacon - 150 team points");
+shop.add_list_item(items, "Team Armor Crate - 250 team points");
+shop.add_list_item(items, "Team Revive Kit - 300 team points");
+shop.add_list_item(items, "Team Recon Scanner - 200 team points");
+int buy=shop.create_button("Purchase", true);
+int close=shop.create_button("Close", false, true);
+shop.focus(items);
+while (true)
+{
+wait(5); shop.monitor(); if (connected) netloop();
+if (shop.is_pressed(close)) return;
+if (shop.is_pressed(buy))
+{
+string[] keys={"plane", "supply", "armor", "revive", "recon"};
+int selected=shop.get_list_position(items);
+if (selected>=0 and selected<int(keys.length())) send_team_command("buy "+keys[selected]);
+return;
+}
+}
+}
+
+void team_menu()
+{
+if(!refresh_team_state()) return;
+nv_form f; f.create_window("Team",false,true);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f,"Categories","team_categories",true); f.add_control(tabs);
+nv_form_tab_page@ overview=tabs.add_tab_page("Overview");
+nv_form_tab_page@ membership=null;
+nv_form_tab_page@ management=null;
+nv_form_tab_page@ resources=null;
+nv_form_button@ info=null, chat=null, create=null, accept=null, invite=null, remove=null, manager=null, permission=null, shop=null, leave=null;
+if(team_state_member)
+{
+@info=overview.add_button("Team information: "+team_state_name+", "+team_state_points+" points, role "+team_state_role,"info",true);
+@chat=overview.add_button("Send team chat message, or use slash T from chat","chat");
+@membership=tabs.add_tab_page("Membership");
+if(!(team_state_role=="owner" and team_state_member_count>1)) @leave=membership.add_button("Leave team","leave");
+if(team_state_can_invite or team_state_can_remove or team_state_role=="owner")
+{
+@management=tabs.add_tab_page("Management");
+if(team_state_can_invite) @invite=management.add_button("Invite a player","invite");
+if(team_state_can_remove and team_state_member_count>1) @remove=management.add_button("Remove a member","remove");
+if(team_state_role=="owner" and team_state_member_count>1)
+{
+@manager=management.add_button("Appoint or demote a manager","manager");
+@permission=management.add_button("Assign a member permission","permission");
+}
+}
+if(team_state_can_shop) { @resources=tabs.add_tab_page("Resources"); @shop=resources.add_button("Open team shop; pool "+team_state_points+" points","shop"); }
+}
+else
+{
+@create=overview.add_button("Create a team","create",true);
+if(team_state_invite) @accept=overview.add_button("Accept pending team invitation","accept");
+}
+nv_form_button@ close=f.add_button("Close","close",false,true); tabs.focus();
+while (true)
+{
+wait(5); f.monitor(); if (connected) netloop();
+if (f.is_pressed(close)) return;
+if (@info!=null and overview.is_pressed(info)) { send_team_command("info"); return; }
+if (@chat!=null and overview.is_pressed(chat))
+{
+string message=af_input("Team message", "", true).trim_whitespace();
+if (message!="") send_team_command("chat "+message);
+return;
+}
+if (@create!=null and overview.is_pressed(create))
+{
+string value=af_input("Team name", "", true).trim_whitespace();
+if (value!="") send_team_command("create "+value);
+return;
+}
+if (@accept!=null and overview.is_pressed(accept)) { send_team_command("accept"); return; }
+bool invite_pressed=@invite!=null and management.is_pressed(invite);
+bool remove_pressed=@remove!=null and management.is_pressed(remove);
+bool manager_pressed=@manager!=null and management.is_pressed(manager);
+if (invite_pressed or remove_pressed or manager_pressed)
+{
+string value=af_input("Player name", "", true).trim_whitespace();
+if (value!="")
+{
+if (invite_pressed) send_team_command("invite "+value);
+else if (remove_pressed) send_team_command("remove "+value);
+else send_team_command("manager "+value);
+}
+return;
+}
+if (@permission!=null and management.is_pressed(permission))
+{
+string player_name=af_input("Player name", "", true).trim_whitespace();
+string permission_name=af_input("Permission: invite, remove, or shop", "", true).trim_whitespace();
+if (player_name!="" and permission_name!="") send_team_command("permission "+player_name+" "+permission_name);
+return;
+}
+if (@shop!=null and resources.is_pressed(shop)) { team_shop_menu(); return; }
+if (@leave!=null and membership.is_pressed(leave)) { send_team_command("leave"); return; }
+}
+}
+
 void escape_menu()
 {
-audio_form f;
+// Android keeps its purpose-built touch menu; desktop uses NV_form.
+if(is_android())
+{
+android_escape_menu();
+return;
+}
+iw_form f;
 f.create_window("Game Menu", false, true);
 int f_stats = f.create_button("&Stats");
 int f_equip = f.create_button("&Equipment");
+int f_team = f.create_button("&Team");
 int f_changes = f.create_button("View &changes");
 int f_rules = f.create_button("View &rules");
 int f_account = f.create_button("&Account info");
@@ -722,7 +981,7 @@ stats_text+="Items: "+count_total_items()+" in inventory\n";
 stats_text+="Map: "+mapname+"\n";
 stats_text+="Player: "+name+"\n";
 stats_text+="Version: "+version+", build "+build_number+" ("+build_date+")";
-audio_form sf;
+iw_form sf;
 sf.create_window("Stats", false, true);
 sf.create_input_box("Stats", stats_text, "", 0, false, true, true);
 int sf_close=sf.create_button("&Close", true, true);
@@ -738,6 +997,12 @@ if (sf.is_pressed(sf_close)) break;
 else if (f.is_pressed(f_equip))
 {
 equipment_menu();
+escape_menu();
+return;
+}
+else if (f.is_pressed(f_team))
+{
+team_menu();
 escape_menu();
 return;
 }
@@ -758,11 +1023,9 @@ dlg(rl);
 }
 else if (f.is_pressed(f_account))
 {
-audio_form ai;
+iw_form ai;
 ai.create_window("Account Info", false, true);
 ai.create_input_box("Username", name, "", 0, false, true, false);
-if (mate!="")
-ai.create_input_box("Duo mate", mate, "", 0, false, true, false);
 if (account_exists(name))
 {
 savedata acct(get_account_path(name), ACCOUNT_SECRET);
@@ -824,20 +1087,24 @@ return;
 // ---------------------------------------------------------------------------
 void equipment_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Equipment", false, true);
 int f_list = f.create_list("Equipment slots", 0, false);
+f.add_list_item(f_list,"Armour, head: "+(equipped_armor_head==""?"empty":string_replace(equipped_armor_head,"_"," ",true)+", "+equipped_armor_head_durability+" durability"));
+f.add_list_item(f_list,"Armour, torso: "+(equipped_armor_torso==""?"empty":string_replace(equipped_armor_torso,"_"," ",true)+", "+equipped_armor_torso_durability+" durability"));
+f.add_list_item(f_list,"Armour, arms: "+(equipped_armor_arms==""?"empty":string_replace(equipped_armor_arms,"_"," ",true)+", "+equipped_armor_arms_durability+" durability"));
+f.add_list_item(f_list,"Armour, legs: "+(equipped_armor_legs==""?"empty":string_replace(equipped_armor_legs,"_"," ",true)+", "+equipped_armor_legs_durability+" durability"));
 string body_label = "Body: ";
 if (equip_body != "")
-body_label += string_replace(equip_body, "_", " ", true);
+body_label += string_replace(equip_body, "_", " ", true)+", "+round(equipped_item_weight(equip_body),1)+" weight";
 else
 body_label += "empty";
 f.add_list_item(f_list, body_label);
-f.add_list_item(f_list, "Holster 1: "+get_holster_slot_label(1));
-f.add_list_item(f_list, "Holster 2: "+get_holster_slot_label(2));
+f.add_list_item(f_list, "Holster 1: "+get_holster_slot_label(1)+(equip_holster1==""?"":", "+round(equipped_item_weight(equip_holster1),1)+" weight"));
+f.add_list_item(f_list, "Holster 2: "+get_holster_slot_label(2)+(equip_holster2==""?"":", "+round(equipped_item_weight(equip_holster2),1)+" weight"));
 string bracelet_label = "Bracelet: ";
 if (equip_bracelet != "")
-bracelet_label += string_replace(equip_bracelet, "_", " ", true);
+bracelet_label += string_replace(equip_bracelet, "_", " ", true)+", "+round(equipped_item_weight(equip_bracelet),1)+" weight";
 else
 bracelet_label += "empty";
 f.add_list_item(f_list, bracelet_label);
@@ -847,11 +1114,13 @@ if (equip_medical != "")
 medical_label += string_replace(equip_medical, "_", " ", true);
 if (equip_medical == "wirenet")
 medical_label += " (" + wirenet_charges + " charges, " + (wirenet_active ? "active" : "inactive") + ")";
+medical_label += ", "+round(equipped_item_weight(equip_medical),1)+" weight";
 }
 else
 medical_label += "empty";
 f.add_list_item(f_list, medical_label);
-bool has_equipment=(equip_body!="" or equip_holster1!="" or equip_holster2!="" or equip_bracelet!="" or equip_medical!="");
+f.add_list_item(f_list,"Total equipped weight: "+total_equipment_weight());
+bool has_equipment=(equipped_armor_head!="" or equipped_armor_torso!="" or equipped_armor_arms!="" or equipped_armor_legs!="" or equip_body!="" or equip_holster1!="" or equip_holster2!="" or equip_bracelet!="" or equip_medical!="");
 int f_remove=-1;
 if(has_equipment)
 f_remove=f.create_button("&Remove selected");
@@ -866,31 +1135,36 @@ netloop();
 if (f_remove>-1 and f.is_pressed(f_remove))
 {
 int sel = f.get_list_position(f_list);
-if (sel == 0 and equip_body != "")
+if(sel>=0 and sel<=3)
+{
+string[] regions={"head","torso","arm","leg"};string[] equipped={equipped_armor_head,equipped_armor_torso,equipped_armor_arms,equipped_armor_legs};
+if(equipped[sel]=="")speak("Nothing equipped in this armour slot.");else{send_reliable(0,"armor_unequip "+regions[sel],0);speak("Removing "+string_replace(equipped[sel],"_"," ",true)+".");return;}
+}
+else if (sel == 4 and equip_body != "")
 {
 unequip_item("body");
 equipment_menu();
 return;
 }
-else if (sel == 1 and equip_holster1 != "")
+else if (sel == 5 and equip_holster1 != "")
 {
 unequip_holster(1);
 equipment_menu();
 return;
 }
-else if (sel == 2 and equip_holster2 != "")
+else if (sel == 6 and equip_holster2 != "")
 {
 unequip_holster(2);
 equipment_menu();
 return;
 }
-else if (sel == 3 and equip_bracelet != "")
+else if (sel == 7 and equip_bracelet != "")
 {
 unequip_item("bracelet");
 equipment_menu();
 return;
 }
-else if (sel == 4 and equip_medical != "")
+else if (sel == 8 and equip_medical != "")
 {
 unequip_item("medical");
 equipment_menu();
@@ -923,7 +1197,7 @@ rf.close();
 }
 else
 readme_text="Readme file not found. Please check the game folder.";
-audio_form f;
+iw_form f;
 f.create_window("Readme", false, true);
 f.create_input_box("Readme", readme_text, "", 0, false, true, true);
 int f_close=f.create_button("&Close", false, true);
@@ -937,35 +1211,29 @@ if (f.is_pressed(f_close)) return;
 }
 void learn_game_sounds()
 {
-string[] cat_names = {"Movement", "Combat", "Environment", "UI and Alerts", "Vehicles"};
+string[] cat_names = {"Navigation", "Combat warnings", "Important alerts", "Vehicle awareness"};
 string[][] sound_names;
 string[][] sound_files;
-// Movement
-string[] mv_names = {"Footstep (grass)", "Footstep (concrete)", "Footstep (sand)", "Footstep (wood)", "Footstep (ladder)", "Jump", "Fall", "Land (grass)", "Land (concrete)", "Turn"};
-string[] mv_files = {"grassstep1.ogg", "concretestep1.ogg", "sandstep1.ogg", "woodstep1.ogg", "ladderstep1.ogg", "jump.ogg", "fall.ogg", "grassland.ogg", "concreteland.ogg", "turn.ogg"};
+// Only sounds a player benefits from identifying before play are included.
+// Ordinary footsteps, menu navigation, weapon handling, and routine ambience
+// are learned naturally and no longer bury safety-critical cues.
+string[] mv_names = {"Falling", "Ladder", "Map edge or blocked movement", "Camera hazard"};
+string[] mv_files = {"fall.ogg", "ladderstep1.ogg", "menuedge.ogg", "camerahazard.ogg"};
 sound_names.insert_last(mv_names);
 sound_files.insert_last(mv_files);
-// Combat
-string[] cb_names = {"Player hit", "Kill achievement", "Weapon ping", "Grenade explosion", "Semtex explosion", "Smoke bomb", "Mortar explosion", "Torpedo explosion", "Torpedo launch", "Bomb vest explosion", "Bunker bomb", "Bunker bomb warning", "Ballista fire", "Plane bomb launch", "Plane bomb explode"};
-string[] cb_files = {"playerhit1.ogg", "killachievement.ogg", "weaponping.ogg", "fraggrenadedist.ogg", "semtexdist.ogg", "smokebombdist.ogg", "120mm_mortarexplodedist.ogg", "torpedodist.ogg", "torpedolounchdist.ogg", "bombvestdist.ogg", "bunkerbombdist.ogg", "bunkerbombwarndist.ogg", "ballistafire1.ogg", "planebomblounchdist.ogg", "planebombdist.ogg"};
+string[] cb_names = {"You took damage", "Confirmed weapon hit", "Confirmed headshot", "Kill confirmed", "Bunker bomb warning", "Incoming plane bomb", "Torpedo launch"};
+string[] cb_files = {"playerhit1.ogg", "weaponping.ogg", "headshot_indicator.ogg", "killachievement.ogg", "bunkerbombwarndist.ogg", "planebomblounchdist.ogg", "torpedolounchdist.ogg"};
 sound_names.insert_last(cb_names);
 sound_files.insert_last(cb_files);
-// Environment
-string[] env_names = {"Wall (wood)", "Flood start", "Flood stop", "Flood ambient", "Camera air", "Camera hazard", "Ocean ambience"};
-string[] env_files = {"wallwood.ogg", "floodstart.ogg", "floodstop.ogg", "flooddist.ogg", "cameraair.ogg", "camerahazard.ogg", "ocean1.ogg"};
-sound_names.insert_last(env_names);
-sound_files.insert_last(env_files);
-// UI and Alerts
-string[] ui_names = {"Menu click", "Menu enter", "Menu open", "Menu move", "Menu edge", "Chat message", "Notification", "Private message", "New MOTD", "Welcome", "Player online", "Player offline", "Kill alert", "Ping start", "Ping stop", "Buffer switch", "Buffer move", "Inventory move", "Inventory pickup", "Ban", "Disconnect", "Admin join", "Dev join", "Logo"};
-string[] ui_files = {"menuclick.ogg", "menuenter.ogg", "menuopen.ogg", "menumove.ogg", "menuedge.ogg", "chat.ogg", "notify.ogg", "pm.ogg", "newmotd.ogg", "welcome.ogg", "online.ogg", "offline.ogg", "killalert.ogg", "pingstart.ogg", "pingstop.ogg", "bufferswitch.ogg", "buffermove.ogg", "invmove.ogg", "inv1.ogg", "ban.ogg", "dc.ogg", "admin.ogg", "dev.ogg", "logo.ogg"};
+string[] ui_names = {"Chat message", "Private message", "System notification", "Disconnected", "Player online", "Player offline", "Ping started", "Ping lost"};
+string[] ui_files = {"chat.ogg", "pm.ogg", "notify.ogg", "dc.ogg", "online.ogg", "offline.ogg", "pingstart.ogg", "pingstop.ogg"};
 sound_names.insert_last(ui_names);
 sound_files.insert_last(ui_files);
-// Vehicles
-string[] vh_names = {"Plane inside loop", "Plane distant loop", "Plane crash", "Plane removed", "Tracking new target"};
-string[] vh_files = {"duoplaneinside.ogg", "duoplanedist.ogg", "duoplanecrashdist.ogg", "duoplanerem.ogg", "trackingnew.ogg"};
+string[] vh_names = {"Nearby aircraft", "Aircraft crash", "Vehicle collision", "Tracking acquired"};
+string[] vh_files = {"duoplanedist.ogg", "duoplanecrashdist.ogg", "vehicle_jeep_crash.ogg", "trackingnew.ogg"};
 sound_names.insert_last(vh_names);
 sound_files.insert_last(vh_files);
-audio_form f;
+iw_form f;
 f.create_window("Learn Game Sounds", false, true);
 int f_cats=f.create_list("Category", 0, false);
 for (uint i=0; i<cat_names.length(); i++)
@@ -1020,88 +1288,135 @@ if(main==true)
 m.set_callback(main_events, "");
 else
 m.set_callback(cme, "");
-m.click_sound="menuclick.ogg";
+m.click_sound="menumove.ogg";
 m.enter_sound="menuenter.ogg";
 m.wrap=menu_wrap_enabled;
 m.enable_home_and_end=true;
 m.enable_up_and_down=true;
 m.enable_first_letter_navigation=true;
 m.open_sound="menuopen.ogg";
-m.wrap_sound="menumove.ogg";
+m.wrap_sound="menuwrap.ogg";
 m.edge_sound="menuedge.ogg";
 m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
 // ---------------------------------------------------------------------------
-// Options menu — single form with checkboxes for toggles, buttons for values.
+// Options use NV_form property pages. The focused tab strip is deliberately
+// first: Left and Right select a category, then Tab enters that page.
 // ---------------------------------------------------------------------------
 void optionsmenu()
 {
-audio_form f;
+nv_form f;
 f.create_window("Options", false, true);
-// Gameplay
-int f_mate=f.create_input_box("Duo mate (leave blank to clear)", mate, "", 0, false, false, false);
-int f_remember=f.create_checkbox("Remember me (save account on exit)", remember_me);
-int f_target_hp=f.create_checkbox("Show target HP on hit", show_target_hp);
-int f_damage_readout=f.create_checkbox("Show damage readout on hit", show_damage_readout);
-// Controls
-int f_rctrl=f.create_checkbox("Right control detection", rctrl==1);
-int f_wrap=f.create_checkbox("Menu wrapping", menu_wrap_enabled);
-int f_autolog=f.create_checkbox("Automatically log buffers on exit", auto_log_buffers);
-int f_cam=f.create_input_box("Camera speed (1 to 200)", ""+cameraspeed, "", 0, false, false, false);
-// Key Bindings
-int f_keybinds=f.create_button("Open &key binding editor");
-// Audio
-int f_vol=f.create_input_box("Master volume (-60 to 0)", ""+mastervol, "", 0, false, false, false);
-// Buttons
-int f_save=f.create_button("&Save", true);
-int f_close=f.create_button("&Cancel", false, true);
-f.focus(f_mate);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Categories", "categories", true);
+f.add_control(tabs);
+nv_form_tab_page@ gameplay=tabs.add_tab_page("Gameplay");
+nv_form_tab_page@ interface_page=tabs.add_tab_page("Interface");
+nv_form_tab_page@ controls_page=tabs.add_tab_page("Controls");
+nv_form_tab_page@ display_page=tabs.add_tab_page("Display");
+nv_form_tab_page@ network_page=tabs.add_tab_page("Network");
+nv_form_tab_page@ audio_page=tabs.add_tab_page("Audio");
+
+nv_form_checkbox@ f_target_hp=gameplay.add_checkbox("Show target HP on hit", "target_hp", show_target_hp);
+nv_form_checkbox@ f_damage_readout=gameplay.add_checkbox("Show damage readout on hit", "damage", show_damage_readout);
+nv_form_checkbox@ f_auto_quickbar=gameplay.add_checkbox("Automatically bind starting weapons and items to the quickbar", "auto_quickbar", auto_bind_starting_loadout);
+nv_form_checkbox@ f_replace_attachments=gameplay.add_checkbox("Replace an attachment when its slot is already occupied", "replace_attachments", replace_occupied_attachments);
+nv_form_checkbox@ f_remember=interface_page.add_checkbox("Remember me; save account on exit", "remember", remember_me);
+nv_form_checkbox@ f_wrap=interface_page.add_checkbox("Wrap around at menu edges", "wrap", menu_wrap_enabled);
+nv_form_checkbox@ f_autolog=interface_page.add_checkbox("Automatically export message buffers on exit", "autolog", auto_log_buffers);
+nv_form_checkbox@ f_classic_menu=interface_page.add_checkbox("Use classic single-list main menu", "classic_menu", classic_main_menu);
+nv_form_checkbox@ f_rctrl=controls_page.add_checkbox("Right Control detection", "rctrl", rctrl==1);
+nv_form_checkbox@ f_touch=controls_page.add_checkbox("Simulate Android touch mode for gesture testing", "touch", touch_force_enabled);
+nv_form_checkbox@ f_practice_band=controls_page.add_checkbox("Announce screen band in gesture practice mode", "practice_band", gesture_practice_speak_band);
+nv_form_button@ f_keybinds=controls_page.add_button("Open key binding editor", "keybinds");
+nv_form_button@ f_gestures=controls_page.add_button("View Android touch gestures", "gestures");
+nv_form_button@ f_gesture_bindings=controls_page.add_button("Configure and reset Android gesture bindings", "gesture_bindings");
+nv_form_checkbox@ f_fullscreen=display_page.add_checkbox("Full screen; prevents touches outside the game window", "fullscreen", fullscreen_enabled);
+nv_form_checkbox@ f_touch_keyboard=display_page.add_checkbox("Use the Infinite Warfare touch keyboard instead of the system keyboard", "touch_keyboard", touch_keyboard_enabled);
+nv_form_checkbox@ f_analogue_keyboard=display_page.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue_keyboard", touch_keyboard_analogue);
+nv_form_checkbox@ f_pc_touch_bands=display_page.add_checkbox("Expand all touch bands across the full laptop screen; enables touch mode and full screen", "pc_touch_bands", touch_pc_fullscreen_bands);
+nv_form_checkbox@ f_touch_explore=display_page.add_checkbox("Explore menu and audio-form controls by holding, then dragging", "touch_explore", touch_menu_explore_enabled);
+nv_form_input@ f_server_address=network_page.add_input("Server address", "server_address", netaddress);
+nv_form_input@ f_server_port=network_page.add_input("Server port", "server_port", ""+netport);
+nv_form_button@ f_server_manager=null;if(!SCRIPT_COMPILED or dev_unlocked)@f_server_manager=network_page.add_button("Developer server list and manager", "server_manager");
+nv_form_button@ f_voice=audio_page.add_button("Voice chat settings and microphone test", "voice_settings");
+nv_form_checkbox@ f_own_projectiles=audio_page.add_checkbox("Hear your own projectile flight loops and near-miss sounds", "own_projectiles", hear_own_projectile_audio);
+nv_form_checkbox@ f_form_sounds=audio_page.add_checkbox("Play menu navigation and activation sounds in audio forms", "form_sounds", audio_form_sound_feedback);
+nv_form_input@ f_vol=audio_page.add_input("Master volume, minus 60 to 0", "volume", ""+mastervol);
+nv_form_input@ f_gameplay_vol=audio_page.add_input("Weapons, items, and player effects volume, minus 60 to 0", "gameplay_volume", ""+gameplay_volume);
+nv_form_input@ f_world_vol=audio_page.add_input("World and positional ambience volume, minus 60 to 0", "world_volume", ""+world_volume);
+nv_form_input@ f_interface_vol=audio_page.add_input("Menus and interface volume, minus 60 to 0", "interface_volume", ""+interface_volume);
+nv_form_input@ f_notification_vol=audio_page.add_input("Messages and notifications volume, minus 60 to 0", "notification_volume", ""+notification_volume);
+nv_form_button@ f_save=f.add_button("Save", "save", true);
+nv_form_button@ f_close=f.add_button("Cancel", "cancel", false, true);
+tabs.focus();
 while (true)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_keybinds))
+if (controls_page.is_pressed(f_keybinds))
 {
 options_keybinds();
 optionsmenu();
 return;
 }
-if (f.is_pressed(f_save))
+if (controls_page.is_pressed(f_gestures))
 {
-string new_mate=f.get_text(f_mate);
-if (new_mate!="" and string_contains(new_mate, " ", 1)>=0)
-{
-dlg("Duo mate name must not contain spaces.");
+show_android_gestures();
 continue;
 }
-mate=new_mate;
-remember_me=f.is_checked(f_remember);
-show_target_hp=f.is_checked(f_target_hp);
-show_damage_readout=f.is_checked(f_damage_readout);
-rctrl=(f.is_checked(f_rctrl) ? 1 : 0);
-menu_wrap_enabled=f.is_checked(f_wrap);
-auto_log_buffers=f.is_checked(f_autolog);
-string cam_str=f.get_text(f_cam);
-int newcam=string_to_number(cam_str);
-if (newcam<1) newcam=1;
-if (newcam>200) newcam=200;
-cameraspeed=newcam;
-kleft.setting_2=cameraspeed;
-kright.setting_2=cameraspeed;
-kup.setting_2=cameraspeed;
-kdown.setting_2=cameraspeed;
-kpgdn.setting_2=cameraspeed;
-kpgup.setting_2=cameraspeed;
-string vol_str=f.get_text(f_vol);
+if (controls_page.is_pressed(f_gesture_bindings))
+{
+gesture_bindings_menu();
+continue;
+}
+if (audio_page.is_pressed(f_voice))
+{
+voice_settings_menu();
+continue;
+}
+if(@f_server_manager!=null and network_page.is_pressed(f_server_manager)){server_manager();continue;}
+if (f.is_pressed(f_save))
+{
+remember_me=f_remember.state;
+show_target_hp=f_target_hp.state;
+show_damage_readout=f_damage_readout.state;
+auto_bind_starting_loadout=f_auto_quickbar.state;
+replace_occupied_attachments=f_replace_attachments.state;
+hear_own_projectile_audio=f_own_projectiles.state;
+audio_form_sound_feedback=f_form_sounds.state;
+rctrl=(f_rctrl.state ? 1 : 0);
+menu_wrap_enabled=f_wrap.state;
+auto_log_buffers=f_autolog.state;
+classic_main_menu=f_classic_menu.state;
+touch_force_enabled=f_touch.state;
+gesture_practice_speak_band=f_practice_band.state;
+bool requested_fullscreen=f_fullscreen.state;
+if(requested_fullscreen!=fullscreen_enabled)set_fullscreen_mode(requested_fullscreen,true);
+touch_keyboard_enabled=f_touch_keyboard.state;
+touch_keyboard_analogue=f_analogue_keyboard.state;
+touch_pc_fullscreen_bands=f_pc_touch_bands.state;
+touch_menu_explore_enabled=f_touch_explore.state;
+if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;if(!fullscreen_enabled)set_fullscreen_mode(true,true);}
+string requested_address=f_server_address.text.trim_whitespace();int requested_port=string_to_number(f_server_port.text);if(requested_address!="")netaddress=requested_address;if(requested_port>0 and requested_port<=65535)netport=requested_port;else speak("Invalid server port; keeping port "+netport+".");
+string vol_str=f_vol.text;
 int newvol=string_to_number(vol_str);
 if (newvol<-60) newvol=-60;
 if (newvol>0) newvol=0;
 mastervol=newvol;
 set_sound_master_volume(mastervol);
+gameplay_volume=string_to_number(f_gameplay_vol.text); if(gameplay_volume<-60) gameplay_volume=-60; if(gameplay_volume>0) gameplay_volume=0;
+world_volume=string_to_number(f_world_vol.text); if(world_volume<-60) world_volume=-60; if(world_volume>0) world_volume=0;
+interface_volume=string_to_number(f_interface_vol.text); if(interface_volume<-60) interface_volume=-60; if(interface_volume>0) interface_volume=0;
+notification_volume=string_to_number(f_notification_vol.text); if(notification_volume<-60) notification_volume=-60; if(notification_volume>0) notification_volume=0;
+gameplay_mixer.volume=gameplay_volume;
+world_mixer.volume=world_volume;
+interface_mixer.volume=interface_volume;
+notification_mixer.volume=notification_volume;
 writeprefs();
+p.play_stationary("savedoptions.ogg",false);
 speak("Options saved.");
 break;
 }
@@ -1173,24 +1488,32 @@ dlg("Could not verify administrator access. The server may be offline.");
 mainmenu();
 return;
 }
-// Show admin panel form
-audio_form f;
+// Categorized NV_form property sheet.
+nv_form f;
 f.create_window("Administrator Panel", false, true);
-int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
-int f_save_auth=f.create_button("&Save authorization mode");
-int f_viewunauth=f.create_button("&View unauthenticated players");
-int f_viewresets=f.create_button("View password &reset requests");
-int f_tickets=f.create_button("Manage support &tickets");
-int f_devkey=f.create_button("Enter &developer unlock key");
-int f_close=f.create_button("&Close", false, true);
-f.focus(f_authmode);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Categories", "admin_categories", true);
+f.add_control(tabs);
+nv_form_tab_page@ accounts=tabs.add_tab_page("Accounts and authorization");
+nv_form_tab_page@ services=tabs.add_tab_page("Player services");
+nv_form_tab_page@ developer=tabs.add_tab_page("Developer access");
+nv_form_checkbox@ f_authmode=accounts.add_checkbox("Authorization mode; new accounts require approval", "authmode", current_authmode);
+nv_form_button@ f_save_auth=accounts.add_button("Save authorization mode", "save_auth");
+nv_form_button@ f_viewunauth=accounts.add_button("View unauthenticated players", "unauth");
+nv_form_button@ f_viewresets=accounts.add_button("View password reset requests", "resets");
+nv_form_button@ f_tickets=services.add_button("Manage support tickets", "tickets");
+nv_form_button@ f_devkey=developer.add_button("Enter developer unlock key", "devkey");
+nv_form_button@ f_release=null;
+if(!SCRIPT_COMPILED)@f_release=developer.add_button("Compress a release build", "release_build");
+nv_form_button@ f_close=f.add_button("Close", "close", false, true);
+tabs.focus();
 while(true)
 {
 wait(5);
 f.monitor();
-if (f.is_pressed(f_save_auth))
+if(@f_release!=null and developer.is_pressed(f_release)){compress_release_build();return;}
+if (accounts.is_pressed(f_save_auth))
 {
-string val=(f.is_checked(f_authmode) ? "1" : "0");
+string val=(f_authmode.state ? "1" : "0");
 string msg_str="admin_set_authmode "+val+" "+comp+" "+name;
 string msg=string_encrypt(msg_str, "_';'_clickclick!");
 an.send_reliable(0, msg, 0);
@@ -1212,11 +1535,11 @@ break;
 }
 }
 if(saved)
-speak("Authorization mode "+(f.is_checked(f_authmode) ? "enabled" : "disabled")+" and saved.");
+speak("Authorization mode "+(f_authmode.state ? "enabled" : "disabled")+" and saved.");
 else
 dlg("Failed to save setting. Server may not have responded.");
 }
-else if (f.is_pressed(f_viewunauth))
+else if (accounts.is_pressed(f_viewunauth))
 {
 string msg_str="admin_get_unauth "+comp+" "+name;
 string msg=string_encrypt(msg_str, "_';'_clickclick!");
@@ -1239,7 +1562,7 @@ break;
 }
 }
 // Show unauthenticated players in a sub-form
-audio_form uf;
+iw_form uf;
 uf.create_window("Unauthenticated Players", false, true);
 if(data=="")
 {
@@ -1265,7 +1588,7 @@ if(uf.is_pressed(uf_close))
 break;
 }
 }
-else if (f.is_pressed(f_viewresets))
+else if (accounts.is_pressed(f_viewresets))
 {
 string msg_str="admin_get_resets "+comp+" "+name;
 string msg=string_encrypt(msg_str, "_';'_clickclick!");
@@ -1288,7 +1611,7 @@ break;
 }
 }
 // Show password reset requests in a sub-form
-audio_form rf;
+iw_form rf;
 rf.create_window("Password Reset Requests", false, true);
 if(data=="")
 {
@@ -1314,11 +1637,11 @@ if(rf.is_pressed(rf_close))
 break;
 }
 }
-else if (f.is_pressed(f_tickets))
+else if (services.is_pressed(f_tickets))
 {
 admin_support_tickets(an, comp);
 }
-else if(f.is_pressed(f_devkey))
+else if(developer.is_pressed(f_devkey))
 {
 string key=af_input("Enter developer unlock key");
 if(key!="")
@@ -1406,24 +1729,29 @@ if(!verified)
 dlg("Could not verify administrator access. The server may not have responded.");
 return;
 }
-audio_form f;
+nv_form f;
 f.create_window("Administrator Panel", false, true);
-int f_authmode=f.create_checkbox("Authorization mode (new accounts require admin approval)", current_authmode);
-int f_save_auth=f.create_button("&Save authorization mode");
-int f_viewunauth=f.create_button("&View unauthenticated players");
-int f_viewresets=f.create_button("View password &reset requests");
-int f_tickets=f.create_button("Manage support &tickets");
-int f_devkey=f.create_button("Enter &developer unlock key");
-int f_close=f.create_button("&Close", false, true);
-f.focus(f_authmode);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Categories", "admin_categories", true);
+f.add_control(tabs);
+nv_form_tab_page@ accounts=tabs.add_tab_page("Accounts and authorization");
+nv_form_tab_page@ services=tabs.add_tab_page("Player services");
+nv_form_tab_page@ developer=tabs.add_tab_page("Developer access");
+nv_form_checkbox@ f_authmode=accounts.add_checkbox("Authorization mode; new accounts require approval", "authmode", current_authmode);
+nv_form_button@ f_save_auth=accounts.add_button("Save authorization mode", "save_auth");
+nv_form_button@ f_viewunauth=accounts.add_button("View unauthenticated players", "unauth");
+nv_form_button@ f_viewresets=accounts.add_button("View password reset requests", "resets");
+nv_form_button@ f_tickets=services.add_button("Manage support tickets", "tickets");
+nv_form_button@ f_devkey=developer.add_button("Enter developer unlock key", "devkey");
+nv_form_button@ f_close=f.add_button("Close", "close", false, true);
+tabs.focus();
 while(true)
 {
 wait(5);
 f.monitor();
 if(connected==true) netloop();
-if(f.is_pressed(f_save_auth))
+if(accounts.is_pressed(f_save_auth))
 {
-string val=(f.is_checked(f_authmode) ? "1" : "0");
+string val=(f_authmode.state ? "1" : "0");
 send_reliable(0, "admin_set_authmode "+val+" "+comp+" "+name, 0);
 timer rt;
 bool saved=false;
@@ -1442,11 +1770,11 @@ break;
 }
 }
 if(saved)
-speak("Authorization mode "+(f.is_checked(f_authmode) ? "enabled" : "disabled")+" and saved.");
+speak("Authorization mode "+(f_authmode.state ? "enabled" : "disabled")+" and saved.");
 else
 dlg("Failed to save setting. Server may not have responded.");
 }
-else if(f.is_pressed(f_viewunauth))
+else if(accounts.is_pressed(f_viewunauth))
 {
 send_reliable(0, "admin_get_unauth "+comp+" "+name, 0);
 string data="";
@@ -1465,7 +1793,7 @@ break;
 }
 }
 }
-audio_form uf;
+iw_form uf;
 uf.create_window("Unauthenticated Players", false, true);
 if(data=="")
 {
@@ -1492,7 +1820,7 @@ if(uf.is_pressed(uf_close))
 break;
 }
 }
-else if(f.is_pressed(f_viewresets))
+else if(accounts.is_pressed(f_viewresets))
 {
 send_reliable(0, "admin_get_resets "+comp+" "+name, 0);
 string data="";
@@ -1511,7 +1839,7 @@ break;
 }
 }
 }
-audio_form rf;
+iw_form rf;
 rf.create_window("Password Reset Requests", false, true);
 if(data=="")
 {
@@ -1538,12 +1866,12 @@ if(rf.is_pressed(rf_close))
 break;
 }
 }
-else if(f.is_pressed(f_tickets))
+else if(services.is_pressed(f_tickets))
 {
 support_view_all_tickets();
 return;
 }
-else if(f.is_pressed(f_devkey))
+else if(developer.is_pressed(f_devkey))
 {
 string key=af_input("Enter developer unlock key", "", true);
 if(key!="")

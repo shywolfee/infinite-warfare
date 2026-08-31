@@ -1,0 +1,264 @@
+// Persistent server-authoritative team system.
+team@[] teams;
+dictionary pending_team_invites;
+
+class team_member
+{
+string name;
+string role="member";
+bool can_invite=false;
+bool can_remove=false;
+bool can_shop=false;
+team_member(string n, string r="member") { name=n; role=r; }
+}
+
+class team
+{
+string name;
+int points=0;
+team_member@[] members;
+team(string n) { name=n; }
+}
+
+int get_team_index_by_name(string value)
+{
+for (uint i=0; i<teams.length(); i++) if (string_to_lower_case(teams[i].name)==string_to_lower_case(value)) return i;
+return -1;
+}
+
+int get_team_index_for_member(string pname)
+{
+for (uint i=0; i<teams.length(); i++)
+for (uint j=0; j<teams[i].members.length(); j++)
+if (string_to_lower_case(teams[i].members[j].name)==string_to_lower_case(pname)) return i;
+return -1;
+}
+
+int get_team_member_index(int ti, string pname)
+{
+if (ti<0 or ti>=int(teams.length())) return -1;
+for (uint i=0; i<teams[ti].members.length(); i++)
+if (string_to_lower_case(teams[ti].members[i].name)==string_to_lower_case(pname)) return i;
+return -1;
+}
+
+bool same_team(string a, string b)
+{
+int ta=get_team_index_for_member(a);
+return ta>-1 and ta==get_team_index_for_member(b);
+}
+
+void save_teams()
+{
+file f;
+if (!f.open("teams.svr", "wb")) return;
+for (uint i=0; i<teams.length(); i++)
+{
+f.write("team:"+teams[i].name+":"+teams[i].points+"\n");
+for (uint j=0; j<teams[i].members.length(); j++)
+{
+team_member@ m=teams[i].members[j];
+string flags=(m.can_invite?"i":"")+(m.can_remove?"r":"")+(m.can_shop?"s":"");
+f.write("member:"+teams[i].name+":"+m.name+":"+m.role+":"+flags+"\n");
+}
+}
+f.close();
+}
+
+void load_teams()
+{
+teams.resize(0);
+if (!file_exists("teams.svr")) return;
+file f;
+if (!f.open("teams.svr", "rb")) return;
+string[] lines=string_split(string_replace(f.read(), "\r", "", true), "\n", false);
+f.close();
+for (uint i=0; i<lines.length(); i++)
+{
+string[] p=string_split(lines[i], ":", false);
+if (p.length()>=3 and p[0]=="team")
+{
+team t(p[1]); t.points=string_to_number(p[2]); teams.insert_last(t);
+}
+else if (p.length()>=5 and p[0]=="member")
+{
+int ti=get_team_index_by_name(p[1]);
+if (ti<0) continue;
+team_member m(p[2], p[3]);
+m.can_invite=string_contains(p[4], "i", 1)>=0;
+m.can_remove=string_contains(p[4], "r", 1)>=0;
+m.can_shop=string_contains(p[4], "s", 1)>=0;
+teams[ti].members.insert_last(m);
+}
+}
+}
+
+void team_notice(int ti, string text)
+{
+if (ti<0 or ti>=int(teams.length())) return;
+for (uint i=0; i<teams[ti].members.length(); i++)
+{
+int pi=get_player_index_from(teams[ti].members[i].name);
+if (pi>-1) send_reliable(players[pi].peer_id, "Team: "+text, 2);
+}
+}
+
+bool team_can_manage(team_member@ m, string permission)
+{
+if (@m==null) return false;
+if (m.role=="owner") return true;
+if (permission=="invite") return m.role=="manager" or m.can_invite;
+if (permission=="remove") return m.role=="manager" or m.can_remove;
+if (permission=="shop") return m.role=="manager" or m.can_shop;
+return false;
+}
+
+void add_team_points_for_player(string pname, int amount)
+{
+int ti=get_team_index_for_member(pname);
+if (ti<0 or amount<=0) return;
+teams[ti].points+=amount;
+save_teams();
+team_notice(ti, "+"+amount+" team points. Pool: "+teams[ti].points+".");
+}
+
+string team_shop_description()
+{
+return "Duo Plane Kit, 500; Team Supply Beacon, 150; Team Armor Crate, 250; Team Revive Kit, 300; Team Recon Scanner, 200";
+}
+bool lobby_team_chat(string pname,uint peer,string raw)
+{
+string prefix=string_contains(raw,"/t ",1)==0?"/t ":"/team chat ";if(string_contains(raw,prefix,1)!=0)return false;int ti=get_team_index_for_member(pname);if(ti<0){send_reliable_id(peer,"You are not on a team.",2);return true;}string message=string_replace(raw,prefix,"",false).trim_whitespace();if(message=="")return true;
+for(uint tm=0;tm<teams[ti].members.length();tm++)for(uint li=0;li<lobby_clients.length();li++)if(string_to_lower_case(lobby_clients[li].name)==string_to_lower_case(teams[ti].members[tm].name))send_reliable_id(lobby_clients[li].peer_id,"Team: "+pname+": "+message,2);
+team_notice(ti,pname+": "+message);return true;
+}
+
+bool handle_team_command(int pi, string raw)
+{
+if (pi<0) return false;
+string[] p=string_split(raw, " ", true);
+if (p.length()==0) return false;
+if (p[0]=="/t")
+{
+string short_message=string_replace(raw,"/t","",false).trim_whitespace();
+raw="/team chat "+short_message;
+p=string_split(raw," ",true);
+}
+if (p[0]!="/team") return false;
+string pname=players[pi].name;
+string action=p.length()>1 ? string_to_lower_case(p[1]) : "info";
+int ti=get_team_index_for_member(pname);
+int mi=get_team_member_index(ti, pname);
+team_member@ actor=(mi>-1 ? teams[ti].members[mi] : null);
+if(action=="state")
+{
+string invited;
+bool has_invite=pending_team_invites.get(string_to_lower_case(pname),invited);
+string tname="", role="", members=""; int points=0, member_count=0;
+bool can_invite=false, can_remove=false, can_shop=false;
+if(ti>-1)
+{
+tname=teams[ti].name; points=teams[ti].points; member_count=teams[ti].members.length();
+if(@actor!=null) { role=actor.role; can_invite=team_can_manage(actor,"invite"); can_remove=team_can_manage(actor,"remove"); can_shop=team_can_manage(actor,"shop"); }
+for(uint i=0;i<teams[ti].members.length();i++) { if(i>0) members+=", "; members+=teams[ti].members[i].name+" ("+teams[ti].members[i].role+")"; }
+}
+send_reliable(players[pi].peer_id,"team_state|"+(ti>-1?"1":"0")+"|"+(tname==""?"-":tname)+"|"+points+"|"+(role==""?"-":role)+"|"+(can_invite?"1":"0")+"|"+(can_remove?"1":"0")+"|"+(can_shop?"1":"0")+"|"+(has_invite?"1":"0")+"|"+member_count+"|"+(members==""?"-":members),2);
+return true;
+}
+if(action=="translocator")
+{
+if(ti<0){send_reliable(players[pi].peer_id,"team_translocator_state|0|-",2);return true;}
+if(p.length()>2 and string_to_lower_case(p[2])=="go")
+{
+if(p.length()<5){send_reliable(players[pi].peer_id,"Team translocator request was incomplete.",2);return true;}
+string target_name=p[3],payment=string_to_lower_case(p[4]);int target=get_player_index_from(target_name);
+if(target<0 or target==pi or !same_team(pname,players[target].name) or players[target].death or players[target].map!=players[pi].map){send_reliable(players[pi].peer_id,"That teammate is no longer an available translocator destination.",2);return true;}
+int cells=int(get_3d_distance(players[pi].x,players[pi].y,players[pi].z,players[target].x,players[target].y,players[target].z)/100.0)+1;if(cells<1)cells=1;int point_cost=cells*25;
+if(payment=="points")
+{
+if(teams[ti].points<point_cost){send_reliable(players[pi].peer_id,"The team pool needs "+point_cost+" points for that translocation; it has "+teams[ti].points+".",2);return true;}
+teams[ti].points-=point_cost;save_teams();team_notice(ti,pname+" used "+point_cost+" team points to translocate to "+players[target].name+". Pool: "+teams[ti].points+".");
+}
+send_reliable(players[pi].peer_id,"team_translocator_go|"+players[target].name+"|"+players[target].x+"|"+players[target].y+"|"+players[target].z+"|"+cells+"|"+payment,2);return true;
+}
+string destinations="";for(uint m=0;m<teams[ti].members.length();m++){int target=get_player_index_from(teams[ti].members[m].name);if(target<0 or target==pi or players[target].death or players[target].map!=players[pi].map)continue;int cells=int(get_3d_distance(players[pi].x,players[pi].y,players[pi].z,players[target].x,players[target].y,players[target].z)/100.0)+1;if(cells<1)cells=1;if(destinations!="")destinations+=",";destinations+=players[target].name+"~"+players[target].x+"~"+players[target].y+"~"+players[target].z+"~"+cells+"~"+(cells*25);}
+send_reliable(players[pi].peer_id,"team_translocator_state|"+teams[ti].points+"|"+(destinations==""?"-":destinations),2);return true;
+}
+if (action=="create" and p.length()>2)
+{
+string tname=string_replace(raw, "/team create ", "", false).trim_whitespace();
+if (ti>-1) { send_reliable(players[pi].peer_id, "You already belong to a team.", 2); return true; }
+if (tname=="" or string_contains(tname, ":", 1)>=0 or string_contains(tname, "|", 1)>=0 or get_team_index_by_name(tname)>-1) { send_reliable(players[pi].peer_id, "That team name is invalid or already used.", 2); return true; }
+team t(tname); team_member owner(pname, "owner"); owner.can_invite=true; owner.can_remove=true; owner.can_shop=true; t.members.insert_last(owner); teams.insert_last(t); save_teams();
+send_reliable(players[pi].peer_id, "Created team "+tname+". You are its owner.", 2); return true;
+}
+if (action=="accept")
+{
+string invited; if (!pending_team_invites.get(string_to_lower_case(pname), invited)) { send_reliable(players[pi].peer_id, "You have no pending team invitation.", 2); return true; }
+if (ti>-1) { send_reliable(players[pi].peer_id, "Leave your current team first.", 2); return true; }
+int nti=get_team_index_by_name(invited); if (nti<0) return true;
+teams[nti].members.insert_last(team_member(pname)); pending_team_invites.delete(string_to_lower_case(pname)); save_teams(); team_notice(nti, pname+" joined the team."); return true;
+}
+if (ti<0) { send_reliable(players[pi].peer_id, "You are not on a team. Create one or accept an invitation.", 2); return true; }
+if (action=="info")
+{
+string text=teams[ti].name+", "+teams[ti].points+" points. Members: ";
+for (uint i=0; i<teams[ti].members.length(); i++) { if (i>0) text+=", "; text+=teams[ti].members[i].name+" ("+teams[ti].members[i].role+")"; }
+send_reliable(players[pi].peer_id, text, 2); return true;
+}
+if (action=="chat" and p.length()>2)
+{
+string message=string_replace(raw, "/team chat ", "", false).trim_whitespace();
+if (message!="")team_notice(ti,pname+": "+message);
+return true;
+}
+if (action=="invite" and p.length()>2)
+{
+if (!team_can_manage(actor, "invite")) { send_reliable(players[pi].peer_id, "You do not have invitation permission.", 2); return true; }
+int target=get_player_index_from(p[2]); if (target<0 or get_team_index_for_member(players[target].name)>-1) { send_reliable(players[pi].peer_id, "That player is unavailable or already on a team.", 2); return true; }
+pending_team_invites.set(string_to_lower_case(players[target].name), teams[ti].name); send_reliable(players[target].peer_id, pname+" invited you to team "+teams[ti].name+". Open Team in the game menu and choose Accept invitation.", 2); send_reliable(players[pi].peer_id, "Invitation sent.", 2); return true;
+}
+if (action=="remove" and p.length()>2)
+{
+if (!team_can_manage(actor, "remove")) { send_reliable(players[pi].peer_id, "You do not have member-removal permission.", 2); return true; }
+int target=get_team_member_index(ti, p[2]); if (target<0 or teams[ti].members[target].role=="owner") { send_reliable(players[pi].peer_id, "That member cannot be removed.", 2); return true; }
+string removed=teams[ti].members[target].name; teams[ti].members.remove_at(target); save_teams(); team_notice(ti, removed+" was removed by "+pname+"."); return true;
+}
+if (action=="manager" and p.length()>2)
+{
+if (@actor==null or actor.role!="owner") { send_reliable(players[pi].peer_id, "Only the team owner can appoint managers.", 2); return true; }
+int target=get_team_member_index(ti, p[2]); if (target<0 or teams[ti].members[target].role=="owner") return true;
+teams[ti].members[target].role=(teams[ti].members[target].role=="manager" ? "member" : "manager"); save_teams(); team_notice(ti, teams[ti].members[target].name+" is now "+teams[ti].members[target].role+"."); return true;
+}
+if (action=="permission" and p.length()>3)
+{
+if (@actor==null or actor.role!="owner") { send_reliable(players[pi].peer_id, "Only the owner can assign permissions.", 2); return true; }
+int target=get_team_member_index(ti, p[2]); if (target<0 or teams[ti].members[target].role=="owner") return true;
+string perm=string_to_lower_case(p[3]);
+if (perm=="invite") teams[ti].members[target].can_invite=!teams[ti].members[target].can_invite;
+else if (perm=="remove") teams[ti].members[target].can_remove=!teams[ti].members[target].can_remove;
+else if (perm=="shop") teams[ti].members[target].can_shop=!teams[ti].members[target].can_shop;
+else { send_reliable(players[pi].peer_id, "Permission must be invite, remove, or shop.", 2); return true; }
+save_teams(); send_reliable(players[pi].peer_id, "Permission updated for "+teams[ti].members[target].name+".", 2); return true;
+}
+if (action=="shop") { send_reliable(players[pi].peer_id, "Team shop: "+team_shop_description()+". Pool: "+teams[ti].points+".", 2); return true; }
+if (action=="buy" and p.length()>2)
+{
+if (!team_can_manage(actor, "shop")) { send_reliable(players[pi].peer_id, "You do not have team-shop permission.", 2); return true; }
+string key=string_to_lower_case(p[2]); string item; int cost=0;
+if (key=="plane") { item="duo_plane_kit"; cost=500; }
+else if (key=="supply") { item="team_supply_beacon"; cost=150; }
+else if (key=="armor") { item="team_armor_crate"; cost=250; }
+else if (key=="revive") { item="team_revive_kit"; cost=300; }
+else if (key=="recon") { item="team_recon_scanner"; cost=200; }
+else { send_reliable(players[pi].peer_id, "Unknown team-shop item.", 2); return true; }
+if (teams[ti].points<cost) { send_reliable(players[pi].peer_id, "The team pool does not have enough points.", 2); return true; }
+teams[ti].points-=cost; save_teams(); send_reliable(players[pi].peer_id, "give "+item+" 1", 0); team_notice(ti, pname+" purchased "+string_replace(item, "_", " ", true)+" for "+cost+" points. Pool: "+teams[ti].points+"."); return true;
+}
+if (action=="leave")
+{
+if (@actor!=null and actor.role=="owner" and teams[ti].members.length()>1) { send_reliable(players[pi].peer_id, "The owner must remove members or appoint a successor before leaving.", 2); return true; }
+teams[ti].members.remove_at(mi); if (teams[ti].members.length()==0) teams.remove_at(ti); save_teams(); send_reliable(players[pi].peer_id, "You left the team.", 2); return true;
+}
+send_reliable(players[pi].peer_id, "Unknown team action.", 2); return true;
+}

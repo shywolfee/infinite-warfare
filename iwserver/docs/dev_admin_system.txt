@@ -10,3 +10,14 @@ Players use /start_admin to activate their admin role if their computer ID is in
 Admin panel: Accessible from the main menu when running from source. Connects to the server and verifies access. Allows toggling authorization mode and viewing unauthenticated players with their authorization codes.
 
 Developers automatically have admin privileges when running from source (SCRIPT_COMPILED==false). The developer suite (Shift+D) provides a give-all function for testing.
+Source-only Release Builder
+
+When Infinite Warfare is running directly from Infinite Warfare.nvgt, the Developer access category of the Administrator Panel includes Compress a release build. Compiled clients never expose this control. The builder asks before replacing an existing client executable, compiles with NVGT release mode, creates a clean release folder, copies Infinite Warfare.exe, sounds.dat, the complete recursive lib folder, changes.txt and readme.html, then creates release.zip.
+
+The build remains in an NV_form containing a detailed activity log and progress bar. Each stage reports its current operation and percentage; file-copy progress is calculated from the complete recursive file count. Completion reports success or the exact caught failure, output path and elapsed time.
+
+If sounds.dat is missing but the sounds directory and pack_creator.nvgt are present, the builder offers a native Yes/No prompt to run and verify the pack creator before continuing. Source startup provides the same recovery offer before audio initialization and restarts the source game after a successful archive build. Replacing an existing release executable also requires an explicit native Yes response.
+
+Client Diagnostics
+
+The client entry point catches unhandled AngelScript exceptions and writes a shareable log under the local application-data iw/crash_logs folder. It records the game version/build, source or compiled state, executable and main paths, NVGT exception information, throwing function, source file, line, last engine error and the exception call stack. latest_client_session.log is written before normal initialization so useful environment breadcrumbs remain if a native library or operating-system crash occurs outside AngelScript exception handling.

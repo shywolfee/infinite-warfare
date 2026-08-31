@@ -1,13 +1,7 @@
 Weapon Attachments
 
-Attachments modify your weapon's stats. Use an attachment item from your inventory to attach it to your currently drawn weapon if compatible. Weapons with attachments display a prefix when drawn or browsed in inventory, for example "silenced glock 17". Each weapon slot can hold one attachment.
+Attachments are runtime database records with a slot, compatibility list and mechanical effect. Use one from inventory while its compatible weapon is drawn. Each slot accepts one component; Gameplay options can either reject an occupied slot or safely replace its component and return the old one to inventory.
 
-Available suppressors:
-  Compact Suppressor: fits Glock 17, Beretta 92FS, and Desert Eagle.
-  Tactical Suppressor: fits MP5, UZI, MP7, and P90.
-  Rifle Suppressor: fits HK G36, AK-47, TAR-21, FAMAS, M4A1, SCAR-H, and FN FAL.
-  Precision Suppressor: fits Steyr SSG 08, AWP, and Dragunov SVD.
+Attachment families include optics, barrels, muzzle devices, suppressors, grips, bipods, rail devices, stocks, magazines, shotgun chokes and shell carriers. Their effects are applied by the authoritative projectile system and may change dispersion, recoil, velocity, drag, capacity, reload time, firing interval or movement handling.
 
-Suppressors reduce weapon sound at the cost of slightly increased fire delay. Revolvers, shotguns, LMGs, and special weapons cannot be suppressed.
-
-Press Shift+Enter on a weapon in your inventory to open the weapon info panel showing stats with attachment modifiers applied and a list of attached items. Use the Remove button to detach removable attachments.
+Alt+A opens the drawn weapon panel. Shift+Enter opens the panel for the selected inventory weapon. The panel reports the live combined configuration and allows removable components to be detached. Individual attachment compatibility and effects are generated in the Help browser from the same database rather than maintained in this file.

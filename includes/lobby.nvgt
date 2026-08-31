@@ -13,6 +13,65 @@
 // Keeps the connection alive and handles abnormal server events.
 // ---------------------------------------------------------------------------
 timer lobby_keepalive_timer;
+bool lobby_typing_chat=false;
+
+void lobby_chat_prompt()
+{
+nv_form chat_form;
+lobby_typing_chat=true;
+chat_form.create_window("Lobby chat", false, true);
+nv_form_input@ message=chat_form.add_input("Message", "message");
+nv_form_button@ send=chat_form.add_button("Send", "send", true);
+nv_form_button@ cancel=chat_form.add_button("Cancel", "cancel", false, true);
+message.focus();
+while (true)
+{
+wait(5);
+chat_form.monitor();
+lobby_form_netcheck();
+if (chat_form.is_pressed(cancel))
+{
+lobby_typing_chat=false;
+return;
+}
+if (chat_form.is_pressed(send))
+{
+string text=message.text.trim_whitespace();
+if (text!="") send_reliable(0, text, 1);
+lobby_typing_chat=false;
+return;
+}
+}
+}
+
+void lobby_buffer_controls()
+{
+if (key_pressed(kb("chat"))) lobby_chat_prompt();
+chat_channel_shortcuts();
+if (key_pressed(kb("buffer_left")))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) firstbuffer();
+else bufferleft();
+}
+if (key_pressed(kb("buffer_right")))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) lastbuffer();
+else bufferright();
+}
+if (key_pressed(KEY_COMMA))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) topbufferitem();
+else prevbufferitem();
+}
+if (key_pressed(KEY_PERIOD))
+{
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) bottombufferitem();
+else nextbufferitem();
+}
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B)) buffer_manage_menu();
+if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_C)) review_buffer_item();
+if (key_pressed(KEY_DELETE)) buffer_item_action_menu();
+}
 
 void lobby_form_netcheck()
 {
@@ -39,7 +98,14 @@ if (e.type==event_receive)
 {
 last_server_msg.restart();
 string msg=get_event_message();
-if (msg=="updating")
+if (e.channel==1)
+{
+p.play_stationary("chat.ogg", false);
+add_buffer_item("chats", msg);
+}
+else if (e.channel==2)
+{remember_pm_sender(msg);if(string_contains(msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);add_buffer_item("misc", msg);}
+else if (msg=="updating")
 {
 dlg("The server is restarting for an update. Please reconnect shortly.");
 connected=false;
@@ -51,7 +117,22 @@ sources.resize(0);
 can_move=true;
 mainmenu();
 }
+else if (string_contains(msg, "server_status ", 1)==0)
+speak(string_replace(msg, "server_status ", "", false));
+else if (msg=="ping" and pinging)
+{
+p.play_stationary("pingstop.ogg", false);
+int sample=int(pingtimer.elapsed);
+ping_samples.insert_last(sample);
+int lowest=ping_samples[0], highest=ping_samples[0], total=0;
+for (uint i=0; i<ping_samples.length(); i++) { if (ping_samples[i]<lowest) lowest=ping_samples[i]; if (ping_samples[i]>highest) highest=ping_samples[i]; total+=ping_samples[i]; }
+speak("Ping "+sample+" milliseconds. Lowest "+lowest+", highest "+highest+", average "+(total/int(ping_samples.length()))+" across "+ping_samples.length()+" samples.");
+pinging=false;
 }
+else if (string_contains(msg, "server message:", 1)==0 or string_contains(msg, "no message of the day", 1)==0)
+speak(msg);
+}
+if (!lobby_typing_chat) lobby_buffer_controls();
 }
 
 // ---------------------------------------------------------------------------
@@ -86,10 +167,24 @@ if(e.type==event_receive)
 {
 string msg=get_event_message();
 string[] parsed=string_split(msg, " ", false);
+if (e.channel==1)
+{
+p.play_stationary("chat.ogg", false);
+add_buffer_item("chats", msg);
+continue;
+}
+if (e.channel==2)
+{
+remember_pm_sender(msg);
+if(string_contains(msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);
+add_buffer_item("misc", msg);
+continue;
+}
 if(parsed[0]=="mapdata")
 {
 load_map(string_replace(msg, "mapdata ", "", false));
 spawn_vehicles_on_map();
+register_vehicles_with_server();
 got_map=true;
 }
 else if(parsed[0]=="x")
@@ -133,7 +228,7 @@ game(1);
 // ---------------------------------------------------------------------------
 bool freeforall_map_select()
 {
-audio_form f;
+iw_form f;
 f.create_window("Select a Free for All Map", false, true);
 int f_bg=f.create_button("&Shattersea - the coastal city of Meridian", true);
 int f_ha=f.create_button("&Coruscant - the galaxy-spanning city-planet");
@@ -180,7 +275,7 @@ return false;
 // ---------------------------------------------------------------------------
 void modes_tab()
 {
-audio_form f;
+iw_form f;
 f.create_window("Modes", false, true);
 int f_ffa=f.create_button("&Free for All - Battle everyone across a choice of maps", true);
 int f_back=f.create_button("Go &back", false, true);
@@ -232,6 +327,19 @@ return;
 if(e.type==event_receive)
 {
 string msg=get_event_message();
+if (e.channel==1)
+{
+p.play_stationary("chat.ogg", false);
+add_buffer_item("chats", msg);
+continue;
+}
+if (e.channel==2)
+{
+remember_pm_sender(msg);
+if(string_contains(msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);
+add_buffer_item("misc", msg);
+continue;
+}
 if(string_contains(msg, "lobby_credits ", 1)==0)
 {
 credits_str=string_replace(msg, "lobby_credits ", "", false);
@@ -239,7 +347,7 @@ break;
 }
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("Account Info", false, true);
 f.create_input_box("Username", name, "", 0, false, true, false);
 string status="no registered account";
@@ -255,7 +363,6 @@ if (em!="")
 f.create_input_box("Email", em, "", 0, false, true, false);
 f.create_input_box("Status", status, "", 0, false, true, false);
 f.create_input_box("Credits", credits_str, "", 0, false, true, false);
-f.create_input_box("Duo mate", (mate!="" ? mate : "not set"), "", 0, false, true, false);
 int f_close=f.create_button("&Close", true, true);
 f.focus(0);
 while(true)
@@ -298,6 +405,19 @@ return result;
 if (e.type==event_receive)
 {
 string msg=get_event_message();
+if (e.channel==1)
+{
+p.play_stationary("chat.ogg", false);
+add_buffer_item("chats", msg);
+continue;
+}
+if (e.channel==2)
+{
+remember_pm_sender(msg);
+if(string_contains(msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);
+add_buffer_item("misc", msg);
+continue;
+}
 if (string_contains(msg, "lobby_plist ", 1)==0)
 {
 data=string_replace(msg, "lobby_plist ", "", false);
@@ -346,7 +466,41 @@ if(string_to_lower_case(pn)==string_to_lower_case(name)) continue;
 }
 shown.insert_last(plist[i]);
 }
-audio_form f;
+// Android keeps its purpose-built touch list; desktop uses NV_form.
+if (is_android())
+{
+if (shown.length()==0)
+{
+android_message(title, "No players are currently online.");
+return;
+}
+string[] opts=shown;
+if (allow_tracking)
+{
+opts.insert_last("Stop tracking");
+}
+int sel=android_select(title, opts);
+if (sel<0) return;
+if (allow_tracking and sel==int(shown.length()))
+{
+speak("Stopped tracking.");
+tracking="";
+return;
+}
+if (allow_tracking and sel>=0 and sel<int(shown.length()))
+{
+string sel_name=shown[sel];
+int dash=string_contains(sel_name, " - ", 1);
+if(dash>0) sel_name=string_left(sel_name, dash);
+int space=string_contains(sel_name, " (", 1);
+if(space>0) sel_name=string_left(sel_name, space);
+p.play_stationary("trackingnew.ogg", false);
+speak("You are now tracking "+sel_name);
+tracking=sel_name;
+}
+return;
+}
+iw_form f;
 f.create_window(title, false, true);
 int f_list=f.create_list("Players", 0, false);
 if (shown.length()==0)
@@ -371,9 +525,12 @@ wait(5);
 f.monitor();
 if (connected)
 {
-lobby_form_netcheck();
+if (allow_tracking)
+{
 netloop();
-if (allow_tracking) fallloop();
+fallloop();
+}
+else lobby_form_netcheck();
 }
 if (f_track>-1 and f.is_pressed(f_track))
 {
@@ -420,7 +577,7 @@ show_player_list_form("Players", plist);
 // ---------------------------------------------------------------------------
 void rewards_tab()
 {
-audio_form f;
+iw_form f;
 f.create_window("Killstreak Rewards", false, true);
 f.create_input_box("3 kills", "You receive 5 frag grenades", "", 0, false, true, false);
 f.create_input_box("5 kills", "You receive an ultra health potion and 40 bonus credits", "", 0, false, true, false);
@@ -473,21 +630,23 @@ mainmenu();
 // ---------------------------------------------------------------------------
 void lobby()
 {
+ping_samples.resize(0);
 send_reliable(0, "enter_lobby "+name+" "+comp, 0);
 if(SCRIPT_COMPILED==false)
 send_reliable(0, "lobby_is_dev", 0);
 lobby_keepalive_timer.restart();
 last_server_msg.restart();
 speak("Welcome to the lobby, "+name
-+". Use Tab to navigate and press Enter to select. Press F1 to view the player list.");
++". Use Tab to navigate and Enter to select. Chat and message-buffer keys remain available throughout the lobby. Press F1 to view the player list.");
 while(true)
 {
-audio_form f;
+iw_form f;
 f.create_window("Lobby", false, true);
 int f_modes=f.create_button("&Modes", true);
 int f_acct=f.create_button("&Account Info");
 int f_players=f.create_button("&Players");
 int f_rewards=f.create_button("Killstreak &Rewards");
+int f_armoury=f.create_button("Dynamic &Armoury");
 int f_leave=f.create_button("&Leave Lobby", false, true);
 f.focus(f_modes);
 bool selected=false;
@@ -520,6 +679,20 @@ else if (f.is_pressed(f_rewards))
 {
 rewards_tab();
 selected=true;
+}
+else if (f.is_pressed(f_armoury))
+{
+armoury_database();
+selected=true;
+}
+else if(key_pressed(kb("motd"))) send_reliable(0,"motd",0);
+else if(key_pressed(kb("server_uptime"))) send_reliable(0,"uptime",0);
+else if(key_pressed(kb("ping")) and !pinging)
+{
+pinging=true;
+pingtimer.restart();
+p.play_stationary("pingstart.ogg", false);
+send_reliable(0, "ping", 0);
 }
 else if (f.is_pressed(f_leave))
 {

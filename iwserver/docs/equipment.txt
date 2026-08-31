@@ -1,6 +1,14 @@
 Equipment System
 
-Some items can be worn as equipment.
-Currently the bomb vest can be equipped on your body slot.
-View and manage your equipment from the escape menu under Equipment.
-Equipped items provide their effects passively until removed.
+Alt+E opens the equipment panel. Equipment is divided into functional slots, including two holsters and independent head, torso, arm and leg armour regions. Each armour region accepts one piece; replacing or removing it returns the prior item to inventory.
+
+Armour protection, durability and weight are server-authoritative. Only the armour covering the body region actually hit can absorb damage. Its durability falls by the absorbed amount, broken equipment clears its slot, and total weight affects acceleration, stopping distance, jumping and heavy-weapon handling.
+
+Compatible armour patches can extend damaged equipment in the field. Each patch restores seven percent of that armour type's original durability and is consumed. Patches cannot raise a piece beyond sixty percent durability, cannot rebuild broken armour, and reject incompatible construction or body-region combinations.
+
+Press Alt+Shift+V beside a vehicle to open its live workshop. Vehicles require gasoline, diesel, or aviation fuel according to type, consume fuel while moving, accumulate component wear, and can be siphoned, serviced, flushed after wrong-fuel contamination, or fitted with performance and protection packages using physical inventory supplies.
+
+The inventory and Help browser retrieve individual armour, holster and utility descriptions from the content database. This topic describes the shared system only.
+Equipment occupies defined body, bracelet, medical, armour and holster slots. Every equipped item contributes weight, including the Bomb Vest, Biomonitor Bracelet, WireNet and holsters; total equipment weight affects movement, jumping and gravity and is reported in the Equipment form.
+
+Active equipment exposes an equipment ability instead of reserving a hardcoded gameplay key. Equipping a Biomonitor Bracelet or WireNet automatically binds its ability to the first empty quickbar slot. Press that slot's number to activate it. Shift+I opens the quickbar manager, where every ability reports its description, source equipment, cooldown, remaining time or charges and can be moved by swapping slots. Unequipping the source removes its ability.

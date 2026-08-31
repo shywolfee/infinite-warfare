@@ -1,0 +1,192 @@
+// Data-driven physical handling layered over ammunition, ballistics and fire modes.
+// A state belongs to a weapon instance in the player's inventory, not the drawn slot.
+class weapon_handling_state
+{
+string weapon;
+bool safety_on=false;
+bool deployed=false;
+bool powered=false;
+bool action_ready=true;
+int configuration=0;
+int heat=0;
+int fouling=0;
+timer cooling;
+timer maintenance_cooldown;
+bool maintenance_performed=false;
+int mechanical_condition=100,alignment=100,permanent_damage=0;
+bool jammed=false;
+weapon_handling_state(string id){weapon=id;}
+}
+weapon_handling_state@[] weapon_handling_states;
+
+weapon_handling_state@ handling_state(string weapon)
+{
+for(uint i=0;i<weapon_handling_states.length();i++)if(weapon_handling_states[i].weapon==weapon)return weapon_handling_states[i];
+weapon_handling_state state(weapon);
+string c=get_weapon_class(weapon);
+if(c=="explosive")state.deployed=false;
+if(c=="incendiary" or c=="tool")state.powered=false;
+if(weapon=="ballista")state.action_ready=false;
+weapon_handling_states.insert_last(state);
+return weapon_handling_states[weapon_handling_states.length()-1];
+}
+
+bool handling_is_manual_bolt(string w){return w=="awp_sniper_rifle" or w=="sg08_sniper_rifle";}
+bool handling_has_heat(string w)
+{
+string c=get_weapon_class(w);return c=="submachine_gun" or c=="light_machine_gun" or c=="energy" or c=="incendiary" or c=="tool";
+}
+bool handling_has_fouling(string w)
+{
+string c=get_weapon_class(w);return c=="pistol" or c=="revolver" or c=="submachine_gun" or c=="assault_rifle" or c=="battle_rifle" or c=="sniper_rifle" or c=="light_machine_gun" or c=="shotgun";
+}
+string melee_stance_name(int n){if(n==1)return "power";if(n==2)return "guard";return "balanced";}
+string rifle_configuration(string c,int n)
+{
+if(c=="pistol")return n==0?"safety off":"safety on";
+if(c=="submachine_gun")return n==0?"stock collapsed":"stock extended";
+if(c=="assault_rifle")return n==0?"normal gas setting":(n==1?"adverse gas setting":"suppressed gas setting");
+if(c=="battle_rifle")return n==0?"mobile shoulder position":"braced shoulder position";
+if(c=="sniper_rifle")return n==0?"unsupported position":"steadied position";
+if(c=="light_machine_gun")return n==0?"bipod folded":"bipod deployed";
+if(c=="energy")return n==0?"standard cooling":"high-output cooling";
+if(c=="archery")return n==0?"field hold":"precision hold";
+if(c=="melee_short_blade" or c=="melee_long_blade" or c=="melee_blunt")return melee_stance_name(n)+" stance";
+return "standard configuration";
+}
+
+string weapon_handling_description(string w)
+{
+string c=get_weapon_class(w);
+if(c=="pistol")return "A manually controlled safety can prevent discharge. Compact handling recovers rapidly, but firing accumulates fouling.";
+if(c=="submachine_gun")return "Its folding stock trades movement for stability. Sustained automatic fire builds heat and fouling.";
+if(c=="assault_rifle")return "Its gas regulator selects normal, adverse, or suppressed operation, trading recoil against reliability and fouling.";
+if(c=="battle_rifle")return "A braced shoulder position controls the heavy cartridge at the cost of movement and transition speed.";
+if(c=="sniper_rifle")return handling_is_manual_bolt(w)?"The bolt must be cycled after every shot. A steadied position improves deliberate fire but limits mobility.":"The marksman action self-loads; a steadied position improves deliberate fire but limits mobility.";
+if(c=="light_machine_gun")return "The bipod may be deployed while sitting. Long bursts build barrel heat; an overheated barrel must cool or be serviced.";
+if(c=="energy")return "Energy discharge builds emitter heat independently of cell charge. High-output cooling and manual venting manage thermal lockout.";
+if(c=="explosive")return "The weapon must be deployed on the ground before firing and packed before normal movement.";
+if(c=="incendiary")return "The pilot and pressure system must be started before fuel can discharge. Continuous use builds dangerous heat.";
+if(c=="tool")return "The motor must be started before the powered cutting head can engage. Load builds heat and consumes stamina.";
+if(c=="archery")return w=="crossbow"?"Hold the trigger to set draw strength; release to launch. Precision hold trades movement for stability.":"The mechanism must be cocked before each launch; precision hold trades movement for stability.";
+if(c=="melee_short_blade")return "Balanced, power and guard stances trade recovery, stamina and commitment. Short blades recover fastest and favor precision.";
+if(c=="melee_long_blade")return "Balanced, power and guard stances trade recovery, stamina and commitment. Long blades control a wider arc.";
+if(c=="melee_blunt")return "Balanced, power and guard stances trade recovery, stamina and commitment. Blunt weapons demand the most stamina and commitment.";
+if(c=="revolver" or c=="shotgun")return "The feed and action are operated manually; ammunition type, chamber state and action position are physically retained.";
+return "Firing accumulates mechanical fouling which can be inspected and serviced.";
+}
+
+void cool_weapon_handling(weapon_handling_state@ s)
+{
+if(!handling_has_heat(s.weapon))return;
+int ticks=s.cooling.elapsed/700;
+if(ticks>0 and s.heat>0){s.heat-=ticks;if(s.heat<0)s.heat=0;s.cooling.restart();}
+}
+
+bool weapon_handling_can_fire(string w,bool report=true)
+{
+weapon_handling_state@ s=handling_state(w);cool_weapon_handling(s);string c=get_weapon_class(w);
+if(s.safety_on){if(report)speak("The safety is on. Use "+kb_binding_label("weapon_operation")+" to disengage it.");return false;}
+if(s.mechanical_condition<=0){if(report)speak("The weapon is mechanically broken and cannot fire. It requires parts and a gunsmith repair; some damage may be permanent.");return false;}if(s.jammed){if(report)speak("The weapon is jammed. Operate the action with "+kb_binding_label("weapon_operation")+" before firing.");return false;}int failure_chance=(100-s.mechanical_condition)+(100-s.alignment)/2+s.permanent_damage;if(failure_chance>0 and random(1,500)<=failure_chance){s.jammed=true;if(report)speak("The damaged mechanism malfunctioned and jammed.");return false;}
+if(c=="explosive" and !s.deployed){if(report)speak("Deploy the "+get_weapon_display_name(w)+" before firing.");return false;}
+if((c=="incendiary" or c=="tool") and !s.powered){if(report)speak("Start the "+get_weapon_display_name(w)+" before using it.");return false;}
+if((handling_is_manual_bolt(w) or w=="ballista") and !s.action_ready){if(report)speak((w=="ballista"?"The ballista is not cocked.":"The bolt is not cycled.")+" Use "+kb_binding_label("weapon_operation")+".");return false;}
+if(handling_has_heat(w) and s.heat>=100){if(report)speak("The weapon is thermally locked. Let it cool or use "+kb_binding_label("weapon_maintenance")+" to service it.");return false;}
+if(handling_has_fouling(w) and s.fouling>=100){if(report)speak("The action is too fouled to operate reliably. Use "+kb_binding_label("weapon_maintenance")+".");return false;}
+return true;
+}
+
+void weapon_handling_after_fire(string w)
+{
+weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
+if(handling_is_manual_bolt(w) or w=="ballista")s.action_ready=false;
+if(handling_has_heat(w)){int added_heat=(c=="energy"?9:(c=="light_machine_gun"?5:(c=="incendiary" or c=="tool"?4:3)));s.heat+=added_heat;if(s.heat>100)s.heat=100;}
+if(handling_has_fouling(w))s.fouling+=c=="assault_rifle" and s.configuration==1?0:1;
+if(s.fouling>100)s.fouling=100;s.cooling.restart();
+}
+
+void operate_weapon(string w)
+{
+weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
+if(s.jammed){if(get_item_count("jam_clearing_rod")<=0 and get_item_count("gunsmith_multitool")<=0){speak("Clearing this malfunction requires a jam clearing rod or gunsmith multitool.");return;}s.jammed=false;s.mechanical_condition--;p.play_stationary(w+"reload_cycle.ogg",false);speak("Malfunction cleared. Mechanical condition "+s.mechanical_condition+" percent.");return;}
+if(is_manual_fed_weapon(w)){manual_toggle_action(w);return;}
+if(handling_is_manual_bolt(w) or w=="ballista")
+{if(s.action_ready){speak(w=="ballista"?"The ballista is already cocked.":"The bolt is already in battery.");return;}s.action_ready=true;p.play_stationary(w+"reload_cycle.ogg",false);speak(w=="ballista"?"Ballista cocked.":"Bolt cycled; chamber ready.");return;}
+if(c=="explosive"){s.deployed=!s.deployed;p.play_stationary(s.deployed?"modeenter.ogg":"modeleave.ogg",false);speak(get_weapon_display_name(w)+(s.deployed?" deployed. Movement is restricted.":" packed for movement."));return;}
+if(c=="incendiary" or c=="tool"){s.powered=!s.powered;p.play_stationary(s.powered?"modeenter.ogg":"modeleave.ogg",false);speak(get_weapon_display_name(w)+(s.powered?" started.":" stopped."));return;}
+if(c=="pistol"){s.safety_on=!s.safety_on;s.configuration=s.safety_on?1:0;p.play_stationary("ammo_cycle.ogg",false);speak(s.safety_on?"Safety on.":"Safety off.");return;}
+if(c=="melee_short_blade" or c=="melee_long_blade" or c=="melee_blunt")s.configuration=(s.configuration+1)%3;
+else if(c=="assault_rifle")s.configuration=(s.configuration+1)%3;
+else s.configuration=s.configuration==0?1:0;
+if(c=="light_machine_gun" and s.configuration==1 and !sitting){s.configuration=0;speak("Sit before deploying the bipod.");return;}
+p.play_stationary("ammo_cycle.ogg",false);speak(rifle_configuration(c,s.configuration)+".");
+}
+
+void maintain_weapon(string w)
+{
+weapon_handling_state@ s=handling_state(w);cool_weapon_handling(s);string c=get_weapon_class(w);
+if(w=="" or w=="empty"){speak("Wield a weapon before attempting maintenance.");return;}
+int cooldown=45000;if(s.maintenance_performed and s.maintenance_cooldown.elapsed<cooldown){speak("This weapon was just serviced. Wait "+int((cooldown-s.maintenance_cooldown.elapsed+999)/1000)+" seconds before servicing it again.");return;}
+if(s.mechanical_condition<100 or s.alignment<100)
+{
+if(s.permanent_damage>=60){speak("The receiver and critical geometry are permanently ruined. Field parts cannot make this weapon serviceable again.");return;}if(get_item_count("gunsmith_multitool")<=0 or get_item_count("weapon_replacement_parts")<=0 or get_item_count("weapon_alignment_gauge")<=0){speak("Mechanical repair requires a gunsmith multitool, replacement weapon parts, and a weapon alignment gauge.");return;}bool oldmove=can_move;can_move=false;speak("Beginning mechanical repair and alignment. Twenty seconds.");timer repair;while(repair.elapsed<20000){wait(5);if(connected)netloop();}can_move=oldmove;give("weapon_replacement_parts",-1);s.mechanical_condition+=random(14,24);s.alignment+=random(10,18);if(s.mechanical_condition>100-s.permanent_damage)s.mechanical_condition=100-s.permanent_damage;if(s.alignment>100-s.permanent_damage/2)s.alignment=100-s.permanent_damage/2;s.jammed=false;s.maintenance_performed=true;s.maintenance_cooldown.restart();p.play_stationary("armor_repair.ogg",false);speak("Repair complete. Mechanical condition "+s.mechanical_condition+" percent, alignment "+s.alignment+" percent. Permanent damage remains "+s.permanent_damage+" percent.");return;
+}
+bool thermal=handling_has_heat(w) and s.heat>0;bool dirty=handling_has_fouling(w) and s.fouling>0;bool melee=c=="melee_short_blade" or c=="melee_long_blade" or c=="melee_blunt";
+if(!thermal and !dirty and !melee){speak(get_weapon_display_name(w)+" does not currently require maintenance.");return;}
+string tool="gun_cleaning_kit",material="cleaning_patches",secondary="bore_solvent",operation="field stripping and cleaning";int duration=12000,heat_removed=0,fouling_removed=0;
+if(c=="energy"){tool="emitter_service_key";material="thermal_vent_cartridge";secondary="dielectric_coolant";operation="isolating the cell system and venting the emitter";duration=9000;heat_removed=s.configuration==1?55:35;}
+else if(c=="light_machine_gun" and thermal){tool="barrel_wrench";material="spare_machine_gun_barrel";secondary="heat_resistant_gloves";operation="locking the action and changing the hot barrel";duration=15000;heat_removed=75;}
+else if(c=="incendiary"){tool="fuel_system_wrench";material="burner_nozzle_cleaner";secondary="pressure_seal_kit";operation="depressurizing and servicing the fuel system";duration=14000;heat_removed=50;}
+else if(c=="tool"){tool="drive_service_tool";material="chain_lubricant";secondary="motor_coolant";operation="isolating and cooling the drive system";duration=11000;heat_removed=50;}
+else if(melee){tool=c=="melee_blunt"?"weapon_inspection_gauge":"field_honing_stone";material=c=="melee_blunt"?"grip_repair_wrap":"blade_oil";secondary=c=="melee_blunt"?"fastener_compound":"rust_remover";operation=c=="melee_blunt"?"tightening the head and renewing the grip":"honing, cleaning, and oiling the edge";duration=8000;}
+else if(c=="shotgun"){tool="shotgun_cleaning_rod";material="shotgun_bore_swab";secondary="action_lubricant";duration=13000;fouling_removed=70;}
+else if(c=="revolver" or c=="pistol"){tool="handgun_cleaning_kit";material="chamber_brush";secondary="action_lubricant";duration=10000;fouling_removed=75;}
+else if(c=="sniper_rifle" or c=="battle_rifle"){tool="precision_bore_guide";material="copper_fouling_solvent";secondary="precision_cleaning_patches";duration=18000;fouling_removed=85;}
+else if(c=="assault_rifle" or c=="submachine_gun"){tool="rifle_field_tool";material="carbon_scraper";secondary="action_lubricant";duration=14000;fouling_removed=70;if(thermal)heat_removed=25;}
+else {fouling_removed=65;}
+if(get_item_count(tool)<=0 or get_item_count(material)<=0 or get_item_count(secondary)<=0){string missing=(get_item_count(tool)<=0?string_replace(tool,"_"," ",true)+". ":"")+(get_item_count(material)<=0?string_replace(material,"_"," ",true)+". ":"")+(get_item_count(secondary)<=0?string_replace(secondary,"_"," ",true)+".":"");if(get_item_count("improvised_weapon_tool")<=0 or question("Improvised maintenance","Required supplies are missing: "+missing+" Attempt unsafe improvised maintenance anyway? This can damage or permanently ruin the weapon.")!=1){speak("Maintenance cancelled. Missing: "+missing);return;}int mistake=random(8,28);s.mechanical_condition-=mistake;s.alignment-=random(4,18);if(random(1,100)<=20)s.permanent_damage+=random(3,12);if(s.mechanical_condition<0)s.mechanical_condition=0;if(s.alignment<0)s.alignment=0;s.maintenance_performed=true;s.maintenance_cooldown.restart();p.play_stationary("armor_break.ogg",false);speak("The improvised service went wrong. Mechanical condition "+s.mechanical_condition+" percent, alignment "+s.alignment+" percent, permanent damage "+s.permanent_damage+" percent.");return;}
+bool previous_move=can_move;can_move=false;speak("Beginning "+operation+". Keep the weapon idle for "+(duration/1000)+" seconds.");timer service;int last_second=-1;while(service.elapsed<duration){wait(5);if(connected)netloop();int remaining=(duration-service.elapsed+999)/1000;if(remaining!=last_second and (remaining==5 or remaining==3 or remaining==1)){speak(remaining+".");last_second=remaining;}}can_move=previous_move;
+give(material,-1);give(secondary,-1);if(heat_removed>0){s.heat-=heat_removed;if(s.heat<0)s.heat=0;}if(fouling_removed==0 and dirty)fouling_removed=65;if(fouling_removed>0){s.fouling-=fouling_removed;if(s.fouling<0)s.fouling=0;}s.maintenance_performed=true;s.maintenance_cooldown.restart();p.play_stationary("modeleave.ogg",false);speak("Maintenance complete. "+(handling_has_heat(w)?"Heat "+s.heat+" percent. ":"")+(handling_has_fouling(w)?"Fouling "+s.fouling+" percent.":""));
+}
+
+string weapon_handling_status(string w)
+{
+weapon_handling_state@ s=handling_state(w);cool_weapon_handling(s);string c=get_weapon_class(w);string result=weapon_handling_description(w)+" Current state: "+rifle_configuration(c,s.configuration);
+if(handling_has_heat(w))result+=", heat "+s.heat+" percent";
+if(handling_has_fouling(w))result+=", fouling "+s.fouling+" percent";
+if(c=="explosive")result+=s.deployed?", deployed":", packed";
+if(c=="incendiary" or c=="tool")result+=s.powered?", running":", stopped";
+if(handling_is_manual_bolt(w) or w=="ballista")result+=s.action_ready?", action ready":", action requires cycling";
+result+=", mechanical condition "+s.mechanical_condition+" percent, alignment "+s.alignment+" percent, permanent damage "+s.permanent_damage+" percent"+(s.jammed?", jammed":"");
+return result+".";
+}
+
+double handling_recoil_multiplier(string w)
+{
+weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
+double damage_multiplier=1.0+double(100-s.alignment+s.permanent_damage)/140.0;
+if(c=="submachine_gun" and s.configuration==1)return .72*damage_multiplier;
+if(c=="assault_rifle")return s.configuration==1?1.18:(s.configuration==2?.82:1.0);
+if(c=="battle_rifle" and s.configuration==1)return .68;
+if(c=="sniper_rifle" and s.configuration==1)return .58;
+if(c=="light_machine_gun" and s.configuration==1)return .45;
+return damage_multiplier;
+}
+
+double handling_melee_stamina_multiplier(string w){int n=handling_state(w).configuration;return n==1?1.55:(n==2?.75:1.0);}
+int handling_fire_interval(string w,int base)
+{
+weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);double mult=1.0;
+if(c=="melee_short_blade" or c=="melee_long_blade" or c=="melee_blunt")mult=s.configuration==1?1.45:(s.configuration==2?.78:1.0);
+if((c=="energy" or c=="light_machine_gun" or c=="submachine_gun") and s.heat>60)mult*=1.0+double(s.heat-60)/100.0;
+mult*=1.0+double(100-s.mechanical_condition+s.permanent_damage)/160.0;
+int result=int(double(base)*mult);return result<1?1:result;
+}
+double handling_movement_penalty(string w)
+{
+weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
+if(c=="explosive" and s.deployed)return 2.8;if(c=="light_machine_gun" and s.configuration==1)return 2.1;
+if((c=="battle_rifle" or c=="sniper_rifle" or c=="archery") and s.configuration==1)return 1.45;
+if(c=="submachine_gun" and s.configuration==0)return .88;if(c=="melee_short_blade" and s.configuration==2)return .92;
+return 1.0;
+}

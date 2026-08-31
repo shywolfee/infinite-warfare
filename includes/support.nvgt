@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 void support_menu()
 {
-audio_form f;
+iw_form f;
 f.create_window("Support", false, true);
 int f_open=f.create_button("&Open a new ticket", true);
 int f_myopen=f.create_button("View my &open tickets");
@@ -79,7 +79,7 @@ return;
 // ---------------------------------------------------------------------------
 void support_open_ticket()
 {
-audio_form f;
+iw_form f;
 f.create_window("Open a Support Ticket", false, true);
 int f_subject=f.create_input_box("Subject", "", "", 0, false, false, false);
 int f_body=f.create_input_box("Description", "", "", 0, false, false, true);
@@ -134,6 +134,7 @@ return;
 }
 if(result!="")
 {
+p.play_stationary("ticket_open.ogg",false);
 dlg("Your support ticket has been submitted. Staff have been notified.");
 }
 else
@@ -178,7 +179,7 @@ speak("Disconnected from server.");
 return;
 }
 }
-audio_form f;
+iw_form f;
 string title=(filter=="open" ? "My Open Tickets" : "My Closed Tickets");
 f.create_window(title, false, true);
 int f_list=f.create_list("Tickets", 0, false);
@@ -252,7 +253,7 @@ speak("Disconnected from server.");
 return;
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("All Open Tickets", false, true);
 int f_list=f.create_list("Tickets", 0, false);
 string[] ticket_ids;
@@ -345,7 +346,7 @@ string t_subject=parts[2];
 string t_status=parts[3];
 string t_close_reason=parts[4];
 string t_body=string_replace(parts[5], "<<NL>>", "\n", true);
-audio_form f;
+iw_form f;
 f.create_window("Ticket #"+t_id+": "+t_subject, false, true);
 f.create_input_box("Ticket ID", t_id, "", 0, false, true, false);
 f.create_input_box("Submitted by", t_owner, "", 0, false, true, false);
@@ -409,7 +410,7 @@ e=n.request();
 if(e.type==event_receive)
 {
 string msg=get_event_message();
-if(msg=="ticket_closed") break;
+if(msg=="ticket_closed"){p.play_stationary("ticketclose.ogg",false);break;}
 }
 if(e.type==event_disconnect) break;
 }
@@ -431,7 +432,7 @@ return;
 // ---------------------------------------------------------------------------
 void support_reply_ticket(string ticket_id, bool is_staff)
 {
-audio_form f;
+iw_form f;
 f.create_window("Reply to Ticket #"+ticket_id, false, true);
 int f_msg=f.create_input_box("Your reply", "", "", 0, false, false, true);
 int f_send=f.create_button("&Send reply", true);
@@ -483,7 +484,7 @@ return;
 // ---------------------------------------------------------------------------
 void support_close_ticket_staff(string ticket_id, bool is_staff)
 {
-audio_form f;
+iw_form f;
 f.create_window("Close Ticket #"+ticket_id, false, true);
 int f_reason=f.create_input_box("Reason for closing", "", "", 0, false, false, true);
 int f_close=f.create_button("&Close ticket", true);
@@ -514,7 +515,7 @@ e=n.request();
 if(e.type==event_receive)
 {
 string msg=get_event_message();
-if(msg=="ticket_closed") break;
+if(msg=="ticket_closed"){p.play_stationary("ticketclose.ogg",false);break;}
 }
 if(e.type==event_disconnect) break;
 }
@@ -559,7 +560,7 @@ break;
 }
 }
 }
-audio_form f;
+iw_form f;
 f.create_window("Support Tickets (Admin Panel)", false, true);
 int f_list=f.create_list("Open Tickets", 0, false);
 string[] ticket_ids;
@@ -639,7 +640,7 @@ string t_subject=parts[2];
 string t_status=parts[3];
 string t_close_reason=parts[4];
 string t_body=string_replace(parts[5], "<<NL>>", "\n", true);
-audio_form f;
+iw_form f;
 f.create_window("Ticket #"+t_id+": "+t_subject, false, true);
 f.create_input_box("Ticket ID", t_id, "", 0, false, true, false);
 f.create_input_box("Submitted by", t_owner, "", 0, false, true, false);
@@ -693,7 +694,7 @@ return;
 // ---------------------------------------------------------------------------
 void admin_reply_ticket(network@ an, string comp_id, string ticket_id)
 {
-audio_form f;
+iw_form f;
 f.create_window("Reply to Ticket #"+ticket_id, false, true);
 int f_msg=f.create_input_box("Your reply", "", "", 0, false, false, true);
 int f_send=f.create_button("&Send reply", true);
@@ -748,7 +749,7 @@ return;
 // ---------------------------------------------------------------------------
 void admin_close_ticket(network@ an, string comp_id, string ticket_id)
 {
-audio_form f;
+iw_form f;
 f.create_window("Close Ticket #"+ticket_id, false, true);
 int f_reason=f.create_input_box("Reason for closing", "", "", 0, false, false, true);
 int f_close=f.create_button("&Close ticket", true);
@@ -783,7 +784,7 @@ if(ev.type==event_receive)
 {
 string r=ev.message;
 if(r!="") r=string_decrypt(r, "masonandsamare2bitches");
-if(r=="ticket_closed") break;
+if(r=="ticket_closed"){p.play_stationary("ticketclose.ogg",false);break;}
 }
 }
 dlg("Ticket closed.");

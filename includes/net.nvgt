@@ -1,5 +1,11 @@
 string netaddress="localhost";
 int netport=1316;
+class saved_server{string name,address;int port;saved_server(string n,string a,int p){name=n;address=a;port=p;}}
+saved_server@[] saved_servers;
+const string SERVER_LIST_PATH=DIRECTORY_LOCAL_APPDATA+"/iw/servers.json";
+void save_server_list(){string data="{\n  \"servers\": [\n";for(uint i=0;i<saved_servers.length();i++)data+="    \""+saved_servers[i].name+"|"+saved_servers[i].address+"|"+saved_servers[i].port+"\""+(i+1<saved_servers.length()?",":"")+"\n";data+="  ]\n}\n";file_put_contents(SERVER_LIST_PATH,data,false);}
+void init_server_list(){saved_servers.resize(0);saved_servers.insert_last(saved_server("Localhost","localhost",1316));if(file_exists(SERVER_LIST_PATH)){string[] lines=string_split(file_get_contents(SERVER_LIST_PATH),"\n",false);for(uint i=0;i<lines.length();i++){string[] q=string_split(lines[i],"\"",false);if(q.length()<2 or string_contains(q[1],"|",1)<0)continue;string[] p=string_split(q[1],"|",false);if(p.length()!=3 or string_to_lower_case(p[1])=="localhost")continue;int port=string_to_number(p[2]);if(port>0 and port<=65535)saved_servers.insert_last(saved_server(p[0],p[1],port));}}save_server_list();}
+void server_manager(){if(SCRIPT_COMPILED and !dev_unlocked){speak("Developer access is required.");return;}while(true){nv_form f;f.create_window("Server Manager",false,true);nv_form_list_box@ list=f.add_list("Saved servers","servers");for(uint i=0;i<saved_servers.length();i++)list.add(saved_servers[i].name+": "+saved_servers[i].address+":"+saved_servers[i].port,""+i);nv_form_button@ use=f.add_button("Use selected server","use",true);nv_form_button@ add=f.add_button("Add server","add");nv_form_button@ remove=f.add_button("Remove selected server","remove");nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(list);bool refresh=false;while(true){wait(5);f.monitor();if(f.is_pressed(close))return;if(f.is_pressed(use)){int pos=list.list_position;if(pos>=0 and pos<int(saved_servers.length())){netaddress=saved_servers[pos].address;netport=saved_servers[pos].port;writeprefs();speak("Selected "+saved_servers[pos].name+".");}return;}if(f.is_pressed(add)){string label=af_input("Server name","",false).trim_whitespace();string address=af_input("Server address","",false).trim_whitespace();int port=string_to_number(af_input("Server port","1316",false));if(label!="" and address!="" and port>0 and port<=65535 and string_contains(label,"|",1)<0 and string_contains(address,"|",1)<0){saved_servers.insert_last(saved_server(label,address,port));save_server_list();refresh=true;}else speak("The server name, address, or port is invalid.");break;}if(f.is_pressed(remove)){int pos=list.list_position;if(pos==0)speak("Localhost is permanent and cannot be removed.");else if(pos>0 and pos<int(saved_servers.length())){saved_servers.remove_at(pos);save_server_list();speak("Server removed.");refresh=true;}break;}}if(!refresh)return;}}
 uint peer_id=0;
 // Probe the server with a temporary connection and return true if it responds.
 // Times out after 5 seconds. Uses its own local network object so it does not
@@ -21,9 +27,24 @@ return false;
 }
 return false;
 }
+
+// Always discard the state of a failed or abandoned connection.  Reusing an
+// ENet host after a timeout left queued events and the old peer id alive,
+// which could corrupt the next login when the server returned.
+void reset_connection_attempt()
+{
+connected=false;
+prevconnected=false;
+peer_id=0;
+pinging=false;
+e=network_event();
+n.setup_client(20,500);
+}
 void connect()
 {
+reset_connection_attempt();
 timer connectiontimer;
+timer reconnect_sound_timer;
 if(lockout_active and lockout_timer.elapsed<900000)
 {
 int remaining=(900000-lockout_timer.elapsed)/1000;
@@ -61,7 +82,6 @@ return;
 }
 if(connected==false and prevconnected==false)
 {
-n.setup_client(20, 500);
 n.connect(netaddress, netport);
 speak("connecting to the server.");
 }
@@ -78,21 +98,24 @@ connectiontimer.restart();
 while(true)
 {
 wait(5);
+if(!connected and reconnect_sound_timer.elapsed>=3000){p.play_stationary("reconnecting.ogg",false);reconnect_sound_timer.restart();}
 e=n.request();
 if (key_pressed(KEY_ESCAPE))
 {
+reset_connection_attempt();
 mainmenu();
 return;
 }
 if(e.type==event_disconnect)
 {
 dlg("The server is currently down or under maintenance. Try connecting later.");
+reset_connection_attempt();
 mainmenu();
 return;
 }
 if(connected==false and connectiontimer.elapsed>=5000)
 {
-audio_form cf;
+iw_form cf;
 cf.create_window("Connection Timeout", false, true);
 cf.create_input_box("Notice", "Unable to connect to the server. The server may be down or your connection may be slow.", "", 0, false, true, false);
 int cf_wait=cf.create_button("&Keep waiting", true);
@@ -112,6 +135,7 @@ break;
 if(e.type==event_disconnect)
 {
 dlg("The server is currently down or under maintenance. Try connecting later.");
+reset_connection_attempt();
 mainmenu();
 return;
 }
@@ -123,6 +147,7 @@ break;
 }
 if(cf.is_pressed(cf_back))
 {
+reset_connection_attempt();
 mainmenu();
 return;
 }
@@ -154,26 +179,31 @@ else if(e.type==event_receive and get_event_message()=="ver")
 {
 dlg("you don't have the updated version of infinite warfare, get the latest version at http://darkserver.ru/iw/iw.zip or use the in game updater.");
 
+reset_connection_attempt();
 mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="dev_denied")
 {
 dlg("Access denied. Only authorized developers may connect when running from source. Use the administrator panel to enter a developer unlock key.");
+reset_connection_attempt();
 mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="alreadyin")
 {
 dlg("Sorry, this name is already in use.");
+reset_connection_attempt();
 mainmenu();
 }
 else if(e.type==event_receive and get_event_message()=="error")
 {
 dlg("An unknown error occurred.");
+reset_connection_attempt();
 mainmenu();
 }
-else if(e.type==event_receive and get_event_message()=="banned")
+else if(e.type==event_receive and string_contains(get_event_message(),"banned",1)==0)
 {
-dlg("You are banned from this server.");
+string ban_message=get_event_message();string reason=string_replace(ban_message,"banned","",false).trim_whitespace();dlg("You are banned from this server."+(reason!=""?" Reason: "+reason:""));
+reset_connection_attempt();
 mainmenu();
 }
 else if(e.type==event_receive)

@@ -475,7 +475,7 @@ if(!SCRIPT_COMPILED and directory_exists("sounds") and file_exists("pack_creator
 int build_answer=question("Missing sound archive","sounds.dat is missing, but the sounds source folder is available. Do you want to run pack_creator.nvgt, verify the archive, and restart the game?");
 if(build_answer==1 and source_build_sound_pack())
 {
-alert("Sound archive complete","sounds.dat was created successfully. Infinite Warfare will now restart from source.");run(SCRIPT_EXECUTABLE,"\""+SCRIPT_MAIN_PATH+"/Infinite Warfare.nvgt\"",false,false);exit();
+alert("Sound archive complete","sounds.dat was created successfully. Infinite Warfare will now restart from source.");string[] restart_args={SCRIPT_EXECUTABLE,SCRIPT_MAIN_PATH+"/Infinite Warfare.nvgt"};run(restart_args,PROCESS_BACKGROUND,SCRIPT_MAIN_PATH);exit();
 }
 if(build_answer==1)alert("Sound archive unavailable","The sound pack was not created. Review the pack creator output and try again.");
 else alert("Sound archive required","Infinite Warfare cannot start without sounds.dat.");

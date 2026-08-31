@@ -19,7 +19,8 @@ string[] dirs=find_directories(source+"/*");for(uint i=0;i<dirs.length();i++)if(
 bool source_build_sound_pack()
 {
 if(SCRIPT_COMPILED or !directory_exists(SCRIPT_MAIN_PATH+"/sounds") or !file_exists(SCRIPT_MAIN_PATH+"/pack_creator.nvgt"))return false;
-return run(SCRIPT_EXECUTABLE,"\""+SCRIPT_MAIN_PATH+"/pack_creator.nvgt\" -- /s",true,false) and file_exists(SCRIPT_MAIN_PATH+"/sounds.dat");
+string[] args={SCRIPT_EXECUTABLE,SCRIPT_MAIN_PATH+"/pack_creator.nvgt","--","/s"};process@ child=run(args,0,SCRIPT_MAIN_PATH);
+return child !is null and child.valid and child.wait()==0 and file_exists(SCRIPT_MAIN_PATH+"/sounds.dat");
 }
 string release_nvgt_root()
 {
@@ -48,7 +49,8 @@ try
 {
 if(!file_exists(root+"/sounds.dat")){release_status(f,status,progress,"Building sound archive",0,"Running pack_creator.nvgt and verifying its output.");if(!source_build_sound_pack())throw("pack_creator.nvgt failed or did not produce sounds.dat");release_status(f,status,progress,"Building sound archive",100,"sounds.dat created and verified by the pack creator.");}
 release_status(f,status,progress,"Compiling client",0,"Running NVGT 0.90 release compilation for Infinite Warfare.nvgt.");
-if(!run(SCRIPT_EXECUTABLE,"-c \""+root+"/Infinite Warfare.nvgt\"",true,false) or !file_exists(client))throw("NVGT could not compile Infinite Warfare.exe");
+string[] compile_args={SCRIPT_EXECUTABLE,"-c",root+"/Infinite Warfare.nvgt"};process@ compiler=run(compile_args,0,root);
+if(compiler is null or !compiler.valid or compiler.wait()!=0 or !file_exists(client))throw("NVGT could not compile Infinite Warfare.exe");
 release_status(f,status,progress,"Compiling client",100,"Release executable created at "+client+".");
 if(directory_exists(release) and !release_delete_tree(release))throw("Could not remove the previous release folder");if(!directory_create(release))throw("Could not create a clean release folder");
 string[] sources={client,root+"/sounds.dat",root+"/changes.txt",root+"/readme.html"};string[] names={"Infinite Warfare.exe","sounds.dat","changes.txt","readme.html"};
@@ -57,12 +59,8 @@ release_status(f,status,progress,"Copying core release files",100,"Executable, s
 if(!directory_exists(root+"/lib"))throw("The lib folder is missing");int total=release_count_files(root+"/lib"),completed=0;if(!release_copy_tree(root+"/lib",release+"/lib",f,status,progress,total,completed))throw("Could not copy the complete lib folder");
 release_stage_current_plugins(release,f,status,progress);
 release_status(f,status,progress,"Compressing release",0,"Creating "+archive+" from the completed release folder.");if(file_exists(archive))file_delete(archive);
-string psargs="-NoProfile -NonInteractive -Command \"Compress-Archive -Path '"+release+"/*' -DestinationPath '"+archive+"' -Force\"";
-// NVGT's run return value is not a reliable child exit-code result for this
-// PowerShell invocation. The old check reported failure after Compress-Archive
-// had already completed. The fresh archive is the authoritative result.
-run("powershell.exe",psargs,true,true);
-if(!file_exists(archive))throw("PowerShell Compress-Archive did not create release.zip");
+string pscommand="Compress-Archive -Path '"+release+"/*' -DestinationPath '"+archive+"' -Force";string[] zip_args={"powershell.exe","-NoProfile","-NonInteractive","-Command",pscommand};process@ zipper=run(zip_args,PROCESS_BACKGROUND,root);
+if(zipper is null or !zipper.valid or zipper.wait()!=0 or !file_exists(archive))throw("PowerShell Compress-Archive did not create release.zip");
 release_status(f,status,progress,"Compressing release",100,"Archive created successfully at "+archive+".");success=true;
 }
 catch{failure=get_exception_info()+" in "+get_exception_function()+" at "+get_exception_file()+":"+get_exception_line();release_build_log+="Failure call stack:\n"+last_exception_call_stack+"\n";status.text=release_build_log;}

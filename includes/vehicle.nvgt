@@ -217,6 +217,8 @@ bool vehicle_is_roof_position(vehicle@ v,double wx,double wy,double wz){double l
 string vehicle_zone_at(vehicle@ v,double wx,double wy,double wz){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);if(vehicle_is_roof_position(v,wx,wy,wz))return "on the roof";if(vehicle_cabin_contains_position(v,wx,wy,wz) and wz>v.z+.35)return "inside the cabin";if(absolute(forward)<=length*.5 and absolute(side)<=width*.5)return "under the vehicle";if(forward>length*.5 and absolute(side)<=width*.75)return "in front of the engine";if(forward<length*-.5 and absolute(side)<=width*.75)return "behind the vehicle";return side<0?"along the left side":"along the right side";}
 void vehicle_seat_local_position(vehicle@ v,int seat,double &out forward,double &out side,double &out height){double length,width,h;vehicle_dimensions(v,length,width,h);int row=seat/2;forward=length*.27-double(row)*1.35;side=(seat%2==0?-.22:.22)*width;height=.5;}
 void vehicle_seat_world_position(vehicle@ v,int seat,double &out sx,double &out sy,double &out sz){double lf,ls,lz;vehicle_seat_local_position(v,seat,lf,ls,lz);double rad=v.facing*3.14159265358979323846/180.0;sx=v.x+sine(rad)*lf+cosine(rad)*ls;sy=v.y+cosine(rad)*lf-sine(rad)*ls;sz=v.z+lz;}
+void vehicle_door_world_position(vehicle@ v,double &out dx,double &out dy,double &out dz){double length,width,height,rad=v.facing*3.14159265358979323846/180.0;vehicle_dimensions(v,length,width,height);double forward=length*.165,side=width*.48;dx=v.x+sine(rad)*forward+cosine(rad)*side;dy=v.y+cosine(rad)*forward-sine(rad)*side;dz=v.z+.5;}
+double vehicle_door_distance(vehicle@ v,double px,double py,double pz){double dx,dy,dz;vehicle_door_world_position(v,dx,dy,dz);return get_3d_distance(px,py,pz,dx,dy,dz);}
 
 void ensure_vehicle_map_element(vehicle@ v,int owner)
 {
@@ -291,11 +293,14 @@ void play_vehicle_audio(vehicle@ v, string action)
 {
 if (v.get_name()=="Duo Plane")
 {
-string cue="duoplaneloop.ogg";
+string cue="";
 if (action=="enter" or action=="door_open" or action=="start") cue="duoplanein.ogg";
 else if (action=="exit" or action=="door_close" or action=="stop") cue="duoplaneout.ogg";
 else if (action=="crash" or action=="destroy") cue="duoplanecrash.ogg";
-p.play_stationary(cue, false);
+else if(action=="turn")cue="vehicle_apc_turn.ogg";
+else if(action=="accelerate")cue="modeenter.ogg";
+else if(action=="decelerate")cue="modeleave.ogg";
+if(cue!="")p.play_stationary(cue, false);
 return;
 }
 p.play_stationary("vehicle_"+vehicle_audio_id(v)+"_"+action+".ogg", false);
@@ -393,9 +398,10 @@ double best_dist = 999999;
 for (uint i = 0; i < map_vehicles.length(); i++)
 {
 if (map_vehicles[i].destroyed) continue;
-double dx = double(map_vehicles[i].x - px);
-double dy = double(map_vehicles[i].y - py);
-double dz = double(map_vehicles[i].z - pz);
+double local_forward,local_side,length,width,height;vehicle_local_position(map_vehicles[i],px,py,local_forward,local_side);vehicle_dimensions(map_vehicles[i],length,width,height);
+double dx=absolute(local_forward)-length*.5;if(dx<0)dx=0;
+double dy=absolute(local_side)-width*.5;if(dy<0)dy=0;
+double dz=absolute(double(map_vehicles[i].z-pz));
 double dist = square_root(dx * dx + dy * dy + dz * dz);
 if (dist <= range and dist < best_dist)
 {
@@ -406,15 +412,25 @@ best = int(i);
 return best;
 }
 
+int find_nearest_vehicle_door(double px,double py,double pz,double range)
+{
+int best=-1;double best_distance=999999;
+for(uint i=0;i<map_vehicles.length();i++){if(map_vehicles[i].destroyed)continue;double distance=vehicle_door_distance(map_vehicles[i],px,py,pz);if(distance<=range and distance<best_distance){best=int(i);best_distance=distance;}}
+return best;
+}
+
 // Toggle door open/close for nearest vehicle.
 void vehicle_toggle_door(int px, int py, int pz)
 {
-int vi = in_vehicle ? player_vehicle_index : find_nearest_vehicle(px, py, pz, 5);
+int vi = in_vehicle ? player_vehicle_index : find_nearest_vehicle_door(me.x,me.y,me.z,1.75);
 if (vi < 0)
 {
 speak("No vehicle nearby.");
 return;
 }
+vehicle@ door_vehicle=map_vehicles[vi];
+if(!in_vehicle and vehicle_door_distance(door_vehicle,me.x,me.y,me.z)>1.75){speak("Move next to the vehicle door first.");return;}
+if(in_vehicle and player_seat>1){speak("This seat cannot reach the vehicle door controls.");return;}
 map_vehicles[vi].door_open = !map_vehicles[vi].door_open;
 if (map_vehicles[vi].door_open) play_vehicle_audio(map_vehicles[vi], "door_open");
 else play_vehicle_audio(map_vehicles[vi], "door_close");
@@ -438,7 +454,7 @@ if (in_vehicle)
 speak("You are already in a vehicle.");
 return;
 }
-int vi = find_nearest_vehicle(px, py, pz, 5);
+int vi = vehicle_interior_index>=0?vehicle_interior_index:find_nearest_vehicle_door(me.x,me.y,me.z,1.75);
 if (vi < 0)
 {
 speak("No vehicle nearby.");
@@ -449,7 +465,9 @@ if (map_vehicles[vi].destroyed)
 speak("This vehicle is destroyed.");
 return;
 }
-if (!map_vehicles[vi].door_open and !vehicle_cabin_contains_position(map_vehicles[vi],me.x,me.y,me.z,.15))
+bool already_in_cabin=vehicle_interior_index==vi and vehicle_cabin_contains_position(map_vehicles[vi],me.x,me.y,me.z,.15);
+if(!already_in_cabin and vehicle_door_distance(map_vehicles[vi],me.x,me.y,me.z)>1.75){speak("Move next to the vehicle door first.");return;}
+if (!map_vehicles[vi].door_open and !already_in_cabin)
 {
 speak("The door is closed. Press O to open it first.");
 return;
@@ -465,9 +483,10 @@ if(map_vehicles[vi].passengers[occupied]!="") vehicle_was_empty=false;
 int seat = map_vehicles[vi].find_empty_seat();
 // When the player physically explored the cabin, interact with the closest
 // available seat. V from outside retains the existing automatic entry path.
-if(vehicle_cabin_contains_position(map_vehicles[vi],me.x,me.y,me.z,.15))
+if(already_in_cabin)
 {
 double nearest=9999;for(int candidate=0;candidate<map_vehicles[vi].get_max_passengers();candidate++){if(map_vehicles[vi].passengers[candidate]!="")continue;double sx,sy,sz;vehicle_seat_world_position(map_vehicles[vi],candidate,sx,sy,sz);double d=get_3d_distance(me.x,me.y,me.z,sx,sy,sz);if(d<nearest){nearest=d;seat=candidate;}}
+if(nearest>1.0){speak("Move next to an empty seat before sitting down.");return;}
 }
 if (seat < 0)
 {
@@ -619,6 +638,7 @@ return;
 }
 vehicle_decelerating = false;
 vehicle@ v = map_vehicles[player_vehicle_index];
+bool starting_engine=vehicle_target_velocity<=0;
 if(vehicle_target_velocity>=v.vehicle_effective_top_speed(v))
 {
 speak("Already at maximum speed.");
@@ -628,7 +648,7 @@ vehicle_target_velocity+=v.vehicle_effective_top_speed(v)*0.1;
 if(vehicle_target_velocity>v.vehicle_effective_top_speed(v)) vehicle_target_velocity=v.vehicle_effective_top_speed(v);
 speak("Target speed "+vehicle_speed_percent(v)+" percent.");
 play_vehicle_audio(v, "accelerate");
-play_vehicle_audio(v, "engine");
+if(starting_engine)play_vehicle_audio(v, "engine");
 }
 
 // Decrease speed (DOWN arrow in vehicle).
@@ -909,9 +929,9 @@ me.y=v.y+cosine(seated_rad)*seated_forward-sine(seated_rad)*seated_side;
 me.z=v.z+seated_height;
 mr.x = round(me.x, 0);
 mr.y = round(me.y, 0);
-// Play driving sound.
-if (flying) p.play_stationary("duoplaneinside.ogg", false);
-else p.play_stationary(tile + "step1.ogg", false);
+// Engine and acceleration cues are state transitions, not footsteps. Playing
+// one on every occupied map tile stacked long vehicle clips and made terrain
+// collisions sound like engines.
 send_reliable(1, "move_to " + mr.x + " " + mr.y + " " + me.z, 0);
 send_reliable(0, "veh_move " + player_vehicle_index + " " + v.x + " " + v.y+" "+v.z+" "+vehicle_current_velocity+" "+mapname, 0);
 checkzone();

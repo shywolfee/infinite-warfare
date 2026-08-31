@@ -44,3 +44,5 @@ void dynamic_map_move(int id,double x,double y,double z,double facing){if(id>=0 
 void dynamic_map_destroy(int id){if(id>=0 and id<int(dynamic_map_elements.length()))dynamic_map_elements[id].destroy();}
 string dynamic_map_tile_at(double x,double y,double z)
 {for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);for(int t=int(dynamic_map_elements[e].tiles.length())-1;t>=0;t--)if(dynamic_map_elements[e].tiles[t].solid and dynamic_map_elements[e].tiles[t].contains(lx,ly,lz))return dynamic_map_elements[e].tiles[t].material;}return "";}
+string dynamic_map_description_at(double x,double y,double z)
+{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);string zone=dynamic_map_elements[e].zone_at_local(lx,ly,lz);if(zone!="")return dynamic_map_elements[e].name+", "+zone;}return "";}

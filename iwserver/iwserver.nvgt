@@ -3067,7 +3067,8 @@ if(players[index].suppressed_weapons[s]==wname){suppressed=true;break;}
 }
 // Alternate firing modes have their own authored reports. Suppression still
 // takes precedence for conventional firearms fitted with a suppressor.
-if(!suppressed and (fire_mode_str=="scattershot" or fire_mode_str=="focused" or fire_mode_str=="lowtension" or fire_mode_str=="normaltension" or fire_mode_str=="maxtension"))
+int sound_stats_index=find_wpn_stats(wname);bool focused_energy=fire_mode_str=="focused" and sound_stats_index>=0 and wpn_stats_cache[sound_stats_index].wclass=="energy";
+if(!suppressed and !focused_energy and (fire_mode_str=="scattershot" or fire_mode_str=="focused" or fire_mode_str=="lowtension" or fire_mode_str=="normaltension" or fire_mode_str=="maxtension"))
 {
 play(sound_weapon+fire_mode_str+"fire"+fire_variant, players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(0, "distsound "+sound_weapon+fire_mode_str+"dist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
@@ -3079,6 +3080,7 @@ send_reliable(0, "distsound "+wname+"supresseddist.ogg "+players[index].x+" "+pl
 }
 else
 {
+if(focused_energy)fire_variant=1;
 play(sound_weapon+"fire"+fire_variant, players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(0, "distsound "+sound_weapon+"dist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
 } 

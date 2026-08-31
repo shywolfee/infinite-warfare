@@ -3726,7 +3726,7 @@ send_reliable(0,"health",0);
 pending_health_report=true;
 }
 }
-if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_check")))
+if ((key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_check")))
 {
 speak(get_stamina_string() + " " + get_effects_string());
 }
@@ -3949,7 +3949,8 @@ if (string_contains(sel_item, "energetic_potion", 1) < 0 and sel_item != "bomb_v
 send_reliable(0,item_use_command(sel_item),0);
 }
 }
-if((key_pressed(kb("vehicle_door")) or gk_interact) and can_move==true)
+bool vehicle_key_alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),vehicle_key_shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
+if(((key_pressed(kb("vehicle_door")) and !vehicle_key_alt and !vehicle_key_shift) or gk_interact) and can_move==true)
 {
 if (in_vehicle)
 vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
@@ -3963,7 +3964,7 @@ else
 send_reliable(0, "check_chest", 0);
 }
 }
-if((key_pressed(kb("vehicle_enter")) or gk_vehicle) and can_move==true)
+if(((key_pressed(kb("vehicle_enter")) and !vehicle_key_alt and !vehicle_key_shift) or gk_vehicle) and can_move==true)
 {
 if (in_vehicle)
 vehicle_exit(name);
@@ -5254,6 +5255,8 @@ return "uncharted area on "+map_display_name(mapname);
 }
 void playcamera()
 {
+string dynamic_camera_description=dynamic_map_description_at(camera.x,camera.y,camera.z);
+if(dynamic_camera_description!=currentcameratile){currentcameratile=dynamic_camera_description;if(dynamic_camera_description!="")speak(dynamic_camera_description+".");}
 if (gct()=="" or gct()=="blank")
 {
 p.play_3d("cameraair.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);

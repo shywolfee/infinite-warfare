@@ -93,7 +93,8 @@ return;
 fire_modes[i].current_mode++;
 if (fire_modes[i].current_mode >= int(fire_modes[i].modes.length()))
 fire_modes[i].current_mode = 0;
-p.play_stationary(wname + "mode_" + fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]) + ".ogg", false);
+if(get_weapon_class(wname)=="energy")p.play_stationary("ammo_cycle.ogg",false);
+else p.play_stationary(wname + "mode_" + fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]) + ".ogg", false);
 speak(fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]));
 return;
 }
@@ -1051,7 +1052,9 @@ g.reload_audio_manual=(!g.is_magazine and g.ammo_display=="rounds");
 g.reload_audio_rounds=rounds;
 g.reload_audio_inserted=0;
 g.reload_cycle_pending=false;
-if(g.reload_audio_manual)
+if(get_weapon_class(g.weapon_name)=="energy")
+p.play_stationary("attachment_extended_magazine_remove.ogg",false);
+else if(g.reload_audio_manual)
 p.play_stationary(g.weapon_name+"reload_open.ogg", false);
 else
 p.play_stationary(g.weapon_name+"reload.ogg", false);
@@ -1091,6 +1094,7 @@ g.reload_cycle_pending=true;
 g.reload_cycle_timer.restart();
 g.reload_audio_manual=false;
 }
+else if(get_weapon_class(g.weapon_name)=="energy")p.play_stationary("attachment_extended_magazine_attach.ogg",false);
 else p.play_stationary(g.weapon_name+"reloadend.ogg", false);
 if (g.ammo_display=="fuel")
 {

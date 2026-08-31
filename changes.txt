@@ -1,4 +1,15 @@
 New in 0.5.0.5, build 78 (2026-08-29)
+Fixed modified V shortcuts falling through into ordinary vehicle entry and exit, so Alt+Shift+V reliably opens the vehicle workshop without also consuming the underlying V action.
+Rebuilt vehicle interaction proximity around physical doorway and seat positions: doors can no longer be operated remotely, rear occupants cannot reach front door controls, exterior entry requires standing beside the door, and interior seating requires standing beside the selected seat.
+Made door and entry searches choose the nearest actual doorway rather than first choosing a nearby vehicle body, preventing large vehicles from stealing interactions intended for a closer door.
+Changed nearby-vehicle searches to measure distance from the full rotated vehicle footprint instead of its center, making large vehicles and aircraft discoverable and serviceable from their actual edges.
+Integrated movable vehicle zones into camera exploration so the camera announces the vehicle and the specific interior, chassis, roof or seat region under inspection instead of reporting only the displaced static ground.
+Stopped walking into a parked vehicle from playing its engine/crash audio and replaced the Duo Plane's long, loud loop fallback with short, explicit turn, acceleration and deceleration cues.
+Stopped vehicle movement from layering an engine or terrain-footstep clip on every crossed tile, and now starts the engine cue only when accelerating from rest rather than on every speed increase.
+Redesigned voice rooms as exclusive non-positional rooms accessed with Shift+V. Ordinary positional voice is no longer listed as a room, the panel clearly reports current routing, and players must leave their current room before joining another.
+Moved the stamina-and-effects report to Control+Shift+V so it no longer fires alongside the new Shift+V voice-room control.
+Replaced energy-weapon focus-mode selector sounds and misleading fire-like reload audio with short selector and physical cell removal/insertion cues; focused firing retains its distinct projectile behavior without using those unfitting UI and reload sounds.
+Replaced the poor focused-energy firing reports with each laser weapon's authored primary fire cue while preserving focused mode's higher charge cost, accuracy, damage, range and projectile velocity.
 Added a repeatable sound-coverage audit that compares literal client, server, map and documentation audio references against the packed source library case-insensitively and reports unresolved cues and byte-identical placeholder/duplicate groups without modifying or fabricating audio.
 Replaced silent voice-chat state references with existing distinct audible cues for global enable/disable, push-to-talk press/release and toggled transmission state.
 Reworked vehicle workshop feedback so refuelling, siphoning, installing parts, beginning service and completing service use available context-appropriate liquid, attachment, tool and confirmation sounds instead of a missing empty-bucket cue or armour-repair placeholders.

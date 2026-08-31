@@ -376,9 +376,13 @@ else if (mode_parts[m]=="scattershot") modes.insert_last(FIREMODE_SCATTERSHOT);
 else if (mode_parts[m]=="focused") modes.insert_last(FIREMODE_FOCUSED);
 }
 }
-if (ws.wclass=="shotgun") modes.insert_last(FIREMODE_SCATTERSHOT);
-if (ws.wclass=="energy") modes.insert_last(FIREMODE_FOCUSED);
-if (modes.length()>1)
+// Preserve fixed single modes too: an auto-only weapon must not fall through
+// to get_fire_mode's semi-automatic fallback merely because it has no selector.
+bool has_auto=false,has_scatter=false,has_focused=false;for(uint mi=0;mi<modes.length();mi++){if(modes[mi]==FIREMODE_AUTO)has_auto=true;else if(modes[mi]==FIREMODE_SCATTERSHOT)has_scatter=true;else if(modes[mi]==FIREMODE_FOCUSED)has_focused=true;}
+if((ws.wclass=="light_machine_gun" or ws.wclass=="incendiary") and !has_auto)modes.insert_last(FIREMODE_AUTO);
+if (ws.wclass=="shotgun" and !has_scatter) modes.insert_last(FIREMODE_SCATTERSHOT);
+if (ws.wclass=="energy" and !has_focused) modes.insert_last(FIREMODE_FOCUSED);
+if (modes.length()>0)
 register_fire_modes(wid, modes);
 }
 

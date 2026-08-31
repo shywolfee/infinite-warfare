@@ -2,8 +2,17 @@
 // single tokens (no spaces) because they travel inside space-delimited network
 // messages such as spawn_player, so a friendly name with spaces is mapped here
 // instead of being stored on the map itself.
+string map_protocol_id(string name)
+{
+if (name=="Ghost Town" or name=="freeforall") return "freeforall";
+if (name=="Coruscant" or name=="habitat_alpha") return "habitat_alpha";
+if (name=="Shattersea" or name=="battlegrounds") return "battlegrounds";
+if (name=="Freya's Ascent" or name=="freyas_ascent") return "freyas_ascent";
+return string_replace(name, " ", "_", false);
+}
 string map_display_name(string id)
 {
+id=map_protocol_id(id);
 if (id=="freeforall") return "Ghost Town";
 if (id=="habitat_alpha") return "Coruscant";
 if (id=="battlegrounds") return "Shattersea";
@@ -133,7 +142,8 @@ return final;
 }
 string[] delinear(string a)
 {
-return string_split(a, "\r\n", false);
+a=string_replace(a,"\r\n","\n",false);
+return string_split(a, "\n", false);
 }
 string get_zone_at(int x, int y, int z)
 {
@@ -174,7 +184,10 @@ for(uint i=0; i<ldata.length(); i++)
 string[] parsed=string_split(ldata[i], ":", true);
 if(parsed[0]=="mapname")
 {
-mapname=string_replace(ldata[i], "mapname:", "", false);
+// Never allow a friendly map title into the space-delimited network protocol.
+// Among other things, it would shift the final words into the username field
+// of spawn_player. Presentation code expands this stable identifier again.
+mapname=map_protocol_id(string_replace(ldata[i], "mapname:", "", false));
 }
 else if(parsed[0]=="tile")
 {

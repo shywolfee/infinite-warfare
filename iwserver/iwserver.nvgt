@@ -127,14 +127,6 @@ spawn_all_map_bunkers();
 load_teams();
 load_moderation();
 init_bunker_alarms();
-spawn_ballista(45,250,0,"main");
-spawn_ballista(295,250,0,"main");
-spawn_ballista(300,20,0,"main");
-spawn_ballista(300,480,0,"main");
-spawn_watertank(31,251,-50,"main");
-spawn_watertank(309,251,-50,"main");
-spawn_watertank(299,6,-50,"main");
-spawn_watertank(299,494,-50,"main");
 while(true)
 {
 wait(5);
@@ -156,7 +148,7 @@ exit();
 if(spawn_chesttimer.elapsed>=300000 and chests.length()<=10)
 {
 spawn_chesttimer.restart();
-spawn_chest(random(0,400),random(0,500),0,"main",in_chest[random(0,in_chest.length()-1)]);
+spawn_chest(random(230,290),random(290,310),0,"battlegrounds",in_chest[random(0,in_chest.length()-1)]);
 send_reliable(0, "there is a chest spawned", 2);  
 }
 if(key_pressed(KEY_ESCAPE))
@@ -680,10 +672,10 @@ file mf;
 mf.open("content/maps/habitat_alpha/habitat_alpha.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
-// Deploy into Monument Plaza on the Main Level of Coruscant, west of Umate.
-send_reliable(e.peer_id, "x "+random(700, 766), 0);
-send_reliable(e.peer_id, "y "+random(660, 696), 0);
-send_reliable(e.peer_id, "z 1020", 0);
+// Raised transit forum on the rebuilt Civic Level.
+send_reliable(e.peer_id, "x "+random(290, 350), 0);
+send_reliable(e.peer_id, "y "+random(290, 350), 0);
+send_reliable(e.peer_id, "z 225", 0);
 }
 else if(parsed[1]=="battlegrounds")
 {
@@ -691,9 +683,9 @@ file mf;
 mf.open("content/maps/battlegrounds/main.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
-// Deploy into Meridian Plaza in North Meridian (guaranteed walkable ground).
-send_reliable(e.peer_id, "x "+random(662, 700), 0);
-send_reliable(e.peer_id, "y "+random(988, 1010), 0);
+// Open central New Aurelia, north of the Crown Canal.
+send_reliable(e.peer_id, "x "+random(245, 275), 0);
+send_reliable(e.peer_id, "y "+random(290, 310), 0);
 send_reliable(e.peer_id, "z 0", 0);
 }
 else if(parsed[1]=="freeforall")
@@ -712,10 +704,10 @@ file mf;
 mf.open("content/maps/freyas_ascent/freyas_ascent.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
-// Deploy into the Deck 1 aft junction (inside the ship, above the surface).
-send_reliable(e.peer_id, "x "+random(360, 518), 0);
-send_reliable(e.peer_id, "y "+random(260, 288), 0);
-send_reliable(e.peer_id, "z 60", 0);
+// Open ground around the Lower Settlement's central Freya Road.
+send_reliable(e.peer_id, "x "+random(260, 300), 0);
+send_reliable(e.peer_id, "y "+random(115, 135), 0);
+send_reliable(e.peer_id, "z 0", 0);
 }
 lobby_clients.remove_at(li);
 }

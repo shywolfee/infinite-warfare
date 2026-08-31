@@ -981,7 +981,7 @@ stats_text+="Location: "+get_location()+"\n";
 stats_text+="Stamina: "+get_stamina_string()+"\n";
 stats_text+="Effects: "+get_effects_string()+"\n";
 stats_text+="Items: "+count_total_items()+" in inventory\n";
-stats_text+="Map: "+mapname+"\n";
+stats_text+="Map: "+map_display_name(mapname)+"\n";
 stats_text+="Player: "+name+"\n";
 stats_text+="Version: "+version+", build "+build_number+" ("+build_date+")";
 iw_form sf;

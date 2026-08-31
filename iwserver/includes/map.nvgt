@@ -256,7 +256,8 @@ return final;
 }
 string[] delinear(string a)
 {
-return string_split(a, "\r\n", false);
+a=string_replace(a,"\r\n","\n",false);
+return string_split(a, "\n", false);
 }
 string get_map_data(string map, string data)
 {

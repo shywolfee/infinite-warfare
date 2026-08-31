@@ -67,7 +67,7 @@ LOOT=["frag_grenade","smoke_bomb","nanocyte_reconstruction_solution","AK47_ammo_
 
 
 def shattersea():
-    m=Map("Shattersea",520,520,80); m.section("THE SHATTERSEA AND NEW AURELIA ISLAND")
+    m=Map("battlegrounds",520,520,80); m.section("THE SHATTERSEA AND NEW AURELIA ISLAND")
     m.ground(0,520,0,520,0,"shallow","the Shattersea","water"); m.src(0,520,0,520,0,8,"ocean1.ogg",-14)
     m.ground(35,485,35,485,0,"sand","New Aurelia beach","beach"); m.ground(55,465,55,465,0,"concrete2","New Aurelia","plaza")
     m.section("CANALS, STREETS AND NAMED JUNCTIONS")
@@ -84,7 +84,7 @@ def shattersea():
 
 
 def coruscant():
-    m=Map("Coruscant",640,640,520); m.section("THE ABYSS AND THREE INDEPENDENT CITY DECKS")
+    m=Map("habitat_alpha",640,640,520); m.section("THE ABYSS AND THREE INDEPENDENT CITY DECKS")
     m.ground(0,640,0,640,0,"rocks1","the lightless Coruscant undercity","void"); m.src(0,640,0,640,0,8,"rumble.ogg",-16)
     levels=[("Works Level",60),("Civic Level",220),("Sky Level",380)]
     for li,(lname,z) in enumerate(levels):
@@ -104,7 +104,7 @@ def coruscant():
 
 
 def freya():
-    m=Map("Freya's Ascent",560,680,100); m.section("FREYA VALLEY")
+    m=Map("freyas_ascent",560,680,100); m.section("FREYA VALLEY")
     m.ground(0,560,0,680,0,"grass3","Freya Valley","valley"); m.src(0,560,0,680,0,8,"forest.ogg",-14)
     for x,n in [(110,"Pilgrim Trail"),(280,"Freya Road"),(450,"Hunter's Track")]:m.street_ns(x,20,650,n)
     m.section("THE FOUR ASCENDING TERRACES")

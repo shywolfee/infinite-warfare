@@ -134,12 +134,12 @@ if(transmitting!=voice_was_transmitting)
 {
 if(voice_toggle_mode)
 {
-p.play_stationary(transmitting?"voice_toggle_on.ogg":"voice_toggle_off.ogg",false);
+p.play_stationary(transmitting?"modeenter.ogg":"modeleave.ogg",false);
 speak(transmitting?"Toggle voice chat enabled.":"Toggle voice chat disabled.");
 }
 else
 {
-p.play_stationary(transmitting?"voice_push_to_talk_on.ogg":"voice_push_to_talk_off.ogg",false);
+p.play_stationary(transmitting?"pingstart.ogg":"pingstop.ogg",false);
 speak(transmitting?"Push to talk transmitting.":"Push to talk released.");
 }
 }
@@ -236,7 +236,7 @@ if(inputs.list_position>=0) voice_input_device=inputs.list_position;
 if(outputs.list_position>=0) voice_output_device=outputs.list_position;
 if(quality.list_position>=0) voice_quality=quality.list_position;
 voice_settings_open=false; voice_apply_devices(); writeprefs();
-if(was_enabled!=voice_enabled){p.play_stationary(voice_enabled?"voice_enabled.ogg":"voice_disabled.ogg",false);speak(voice_enabled?"Voice chat enabled.":"Voice chat disabled.");}
+if(was_enabled!=voice_enabled){p.play_stationary(voice_enabled?"online.ogg":"offline.ogg",false);speak(voice_enabled?"Voice chat enabled.":"Voice chat disabled.");}
 else speak("Voice chat settings saved."); return;
 }
 }

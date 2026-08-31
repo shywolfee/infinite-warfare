@@ -21,7 +21,80 @@ poi:600:560:0:North Field
 // BASE LAYER
 // ============================================================
 tile:0:1100:0:700:0:0:grass
-zone:0:1100:0:700:0:10:open field
+// Complete terrain fabric. Later streets and interiors override these local
+// fallback areas, so no part of Ghost Town reports a map-wide generic zone.
+tile:0:179:0:169:0:0:grass2
+zone:0:179:0:169:0:10:Southwest windbreak
+openspace:0:179:0:169:0:10:Southwest windbreak:grass:field
+tile:180:379:0:169:0:0:dirt
+zone:180:379:0:169:0:10:Old fairground flats
+openspace:180:379:0:169:0:10:Old fairground flats:dirt:field
+tile:380:579:0:169:0:0:rocks1
+zone:380:579:0:169:0:10:South quarry verge
+openspace:380:579:0:169:0:10:South quarry verge:rock:field
+tile:580:779:0:169:0:0:grass3
+zone:580:779:0:169:0:10:Railworkers meadow
+openspace:580:779:0:169:0:10:Railworkers meadow:grass:field
+tile:780:979:0:169:0:0:sand
+zone:780:979:0:169:0:10:Dry creek basin
+openspace:780:979:0:169:0:10:Dry creek basin:sand:field
+tile:980:1100:0:169:0:0:grass2
+zone:980:1100:0:169:0:10:Southeast radio field
+openspace:980:1100:0:169:0:10:Southeast radio field:grass:field
+tile:0:179:170:349:0:0:forest
+zone:0:179:170:349:0:10:West cedar belt
+openspace:0:179:170:349:0:10:West cedar belt:wood:forest
+tile:180:379:170:349:0:0:grass2
+zone:180:379:170:349:0:10:Hospital commons
+openspace:180:379:170:349:0:10:Hospital commons:grass:field
+tile:380:579:170:349:0:0:concrete3
+zone:380:579:170:349:0:10:Civic demolition lots
+openspace:380:579:170:349:0:10:Civic demolition lots:concrete:plaza
+tile:580:779:170:349:0:0:dirt
+zone:580:779:170:349:0:10:West Maple construction tract
+openspace:580:779:170:349:0:10:West Maple construction tract:dirt:field
+tile:780:979:170:349:0:0:grass3
+zone:780:979:170:349:0:10:East Maple neighborhood green
+openspace:780:979:170:349:0:10:East Maple neighborhood green:grass:field
+tile:980:1100:170:349:0:0:rocks1
+zone:980:1100:170:349:0:10:East boundary escarpment
+openspace:980:1100:170:349:0:10:East boundary escarpment:rock:field
+tile:0:179:350:529:0:0:grass3
+zone:0:179:350:529:0:10:West residential greenbelt
+openspace:0:179:350:529:0:10:West residential greenbelt:grass:field
+tile:180:379:350:529:0:0:dirt
+zone:180:379:350:529:0:10:Abandoned school grounds
+openspace:180:379:350:529:0:10:Abandoned school grounds:dirt:field
+tile:380:579:350:529:0:0:concrete3
+zone:380:579:350:529:0:10:Industrial transfer lots
+openspace:380:579:350:529:0:10:Industrial transfer lots:concrete:plaza
+tile:580:779:350:529:0:0:grass2
+zone:580:779:350:529:0:10:West Walnut neighborhood green
+openspace:580:779:350:529:0:10:West Walnut neighborhood green:grass:field
+tile:780:979:350:529:0:0:grass3
+zone:780:979:350:529:0:10:East Walnut neighborhood green
+openspace:780:979:350:529:0:10:East Walnut neighborhood green:grass:field
+tile:980:1100:350:529:0:0:sand
+zone:980:1100:350:529:0:10:Old eastern drainage basin
+openspace:980:1100:350:529:0:10:Old eastern drainage basin:sand:field
+tile:0:179:530:700:0:0:forest
+zone:0:179:530:700:0:10:Northwest pine reserve
+openspace:0:179:530:700:0:10:Northwest pine reserve:wood:forest
+tile:180:379:530:700:0:0:grass2
+zone:180:379:530:700:0:10:North cemetery meadow
+openspace:180:379:530:700:0:10:North cemetery meadow:grass:field
+tile:380:579:530:700:0:0:rocks1
+zone:380:579:530:700:0:10:North quarry ridge
+openspace:380:579:530:700:0:10:North quarry ridge:rock:field
+tile:580:779:530:700:0:0:grass3
+zone:580:779:530:700:0:10:Holly Street north common
+openspace:580:779:530:700:0:10:Holly Street north common:grass:field
+tile:780:979:530:700:0:0:dirt
+zone:780:979:530:700:0:10:Abandoned freight approach
+openspace:780:979:530:700:0:10:Abandoned freight approach:dirt:field
+tile:980:1100:530:700:0:0:forest
+zone:980:1100:530:700:0:10:Northeast shelter woods
+openspace:980:1100:530:700:0:10:Northeast shelter woods:wood:forest
 
 // ============================================================
 // STREET GRID

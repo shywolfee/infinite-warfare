@@ -1,61 +1,287 @@
 mapname:battleroyale
 maxx:500
 maxy:500
-maxz:500
-tile:0:500:0:500:0:0:water
-zone:0:500:0:500:0:500:the battle royale map 
+maxz:100
 
-src:0:500:0:500:0:0:ocean.ogg:-5
-tile:20:480:20:480:0:0:sand
-tile:29:471:29:471:0:25:sand
-tile:30:470:30:470:0:24:wallstone
-ispawn:30:470:30:470:25:25:200:100:m1garantbattle.rifle_ammo_10_20:hk.g36_ammo_10_20:AK47_ammo_10_20:beretta92fs.pistol_ammo_10_20:benelli.m4.shotgun_ammo_10_20:taurus.model66.revolver_ammo_10_20:magnum.revolver_ammo_10_20:frag_grenade:famas.f1.assault.rifle_ammo_10_20:tar.21.assault.rifle_ammo_10_20
-src:0:500:0:500:20:500:calm.ogg:-2
-src:35:465:35:465:25:80:birds3.ogg:-3
-src:35:465:35:465:25:80:birds5.ogg:-7
-tile:35:465:35:465:25:25:grass5
-src:0:500:0:500:81:500:wind1.ogg:-2
-src:0:500:0:500:65:500:wind2.ogg:-1
-src:0:500:0:500:191:500:helicopter.ogg:0
-src:0:500:0:500:215:500:winter.ogg:-12
-zone:20:480:20:480:0:70:the beach of an island
-zone:29:471:29:471:0:70:climbable part of the island.
-zone:30:470:30:470:25:70:the island.
-tile:220:280:220:280:25:25:concrete12
-zone:220:280:220:280:25:50:a village
-tile:248:252:248:252:25:25:water1
-tile:248:248:248:252:25:26:wallstone
-tile:248:248:248:252:27:27:cement
-tile:252:252:248:252:25:26:wallstone
-tile:252:252:248:252:27:27:cement
-tile:248:252:252:252:25:26:wallstone
-tile:248:252:252:252:27:27:cement
-tile:248:252:248:248:25:26:wallstone
-tile:248:252:248:248:27:27:cement
-zone:247:253:247:253:25:50:a fountain
-src:249:251:249:251:25:27:waves2.ogg:-5
-tile:240:260:285:305:25:25:hardwood
-tile:240:245:285:285:25:40:wallwood
-tile:255:260:285:285:25:40:wallwood
-tile:260:260:285:305:25:40:wallwood
-tile:240:260:305:305:25:40:wallwood
-tile:240:240:285:305:25:40:wallwood
-tile:240:260:285:305:40:40:wallwood
-tile:240:260:285:305:41:41:plank
-zone:240:260:285:305:25:50:house
-src:245:255:285"285:25:40:entrance.ogg:-5
-tile:240:260:195:215:25:25:hardwood
-tile:240:245:215:215:25:40:wallwood
-tile:255:260:215:215:25:40:wallwood
-tile:260:260:195:215:25:40:wallwood
-tile:240:260:195:195:25:40:wallwood
-tile:240:240:195:215:25:40:wallwood
-tile:240:260:195:215:40:40:wallwood
-tile:240:260:195:215:41:41:plank
-zone:240:260:195:215:25:50:house
-src:245:255:195"195:25:40:entrance.ogg:-5
+// ================================================================
+// NAMED COASTAL APPROACHES
+// ================================================================
+tile:0:249:0:249:0:0:water
+zone:0:249:0:249:0:8:Southwest shoals
+openspace:0:249:0:249:0:8:Southwest shoals:water:water
+tile:250:500:0:249:0:0:water
+zone:250:500:0:249:0:8:Southeast tidal reach
+openspace:250:500:0:249:0:8:Southeast tidal reach:water:water
+tile:0:249:250:500:0:0:water
+zone:0:249:250:500:0:8:Northwest reef water
+openspace:0:249:250:500:0:8:Northwest reef water:water:water
+tile:250:500:250:500:0:0:water
+zone:250:500:250:500:0:8:Northeast channel
+openspace:250:500:250:500:0:8:Northeast channel:water:water
+tile:15:485:15:485:0:0:sand
+zone:15:485:15:485:0:8:the island beach ring
+openspace:15:485:15:485:0:8:the island beach ring:sand:beach
+tile:35:245:35:245:0:0:grass2
+zone:35:245:35:245:0:8:Southwest landing quarter
+openspace:35:245:35:245:0:8:Southwest landing quarter:grass2:courtyard
+tile:255:465:35:245:0:0:grass3
+zone:255:465:35:245:0:8:Southeast orchard quarter
+openspace:255:465:35:245:0:8:Southeast orchard quarter:grass3:courtyard
+tile:35:245:255:465:0:0:rocks1
+zone:35:245:255:465:0:8:Northwest quarry quarter
+openspace:35:245:255:465:0:8:Northwest quarry quarter:rocks1:courtyard
+tile:255:465:255:465:0:0:dirt
+zone:255:465:255:465:0:8:Northeast village quarter
+openspace:255:465:255:465:0:8:Northeast village quarter:dirt:courtyard
 
-// Generated acoustic and occlusion layer
-openspace:0:500:0:500:-30:500:battleroyale:ground:open
-space:240:260:285:305:25:50:house:concrete:room
-space:240:260:195:215:25:50:house:concrete:room
+// ================================================================
+// ISLAND ROADS AND INTERIORS
+// ================================================================
+tile:121:129:35:465:0:0:concrete5
+zone:121:129:35:465:0:8:Landing Road
+openspace:121:129:35:465:0:8:Landing Road:concrete5:street
+tile:118:120:35:465:0:0:cement
+zone:118:120:35:465:0:8:west pavement of Landing Road
+openspace:118:120:35:465:0:8:west pavement of Landing Road:cement:street
+tile:130:132:35:465:0:0:cement
+zone:130:132:35:465:0:8:east pavement of Landing Road
+openspace:130:132:35:465:0:8:east pavement of Landing Road:cement:street
+tile:246:254:35:465:0:0:concrete5
+zone:246:254:35:465:0:8:Island Spine
+openspace:246:254:35:465:0:8:Island Spine:concrete5:street
+tile:243:245:35:465:0:0:cement
+zone:243:245:35:465:0:8:west pavement of Island Spine
+openspace:243:245:35:465:0:8:west pavement of Island Spine:cement:street
+tile:255:257:35:465:0:0:cement
+zone:255:257:35:465:0:8:east pavement of Island Spine
+openspace:255:257:35:465:0:8:east pavement of Island Spine:cement:street
+tile:371:379:35:465:0:0:concrete5
+zone:371:379:35:465:0:8:Orchard Road
+openspace:371:379:35:465:0:8:Orchard Road:concrete5:street
+tile:368:370:35:465:0:0:cement
+zone:368:370:35:465:0:8:west pavement of Orchard Road
+openspace:368:370:35:465:0:8:west pavement of Orchard Road:cement:street
+tile:380:382:35:465:0:0:cement
+zone:380:382:35:465:0:8:east pavement of Orchard Road
+openspace:380:382:35:465:0:8:east pavement of Orchard Road:cement:street
+tile:35:465:121:129:0:0:concrete5
+zone:35:465:121:129:0:8:South Beach Road
+openspace:35:465:121:129:0:8:South Beach Road:concrete5:street
+tile:35:465:118:120:0:0:cement
+zone:35:465:118:120:0:8:south pavement of South Beach Road
+openspace:35:465:118:120:0:8:south pavement of South Beach Road:cement:street
+tile:35:465:130:132:0:0:cement
+zone:35:465:130:132:0:8:north pavement of South Beach Road
+openspace:35:465:130:132:0:8:north pavement of South Beach Road:cement:street
+tile:35:465:246:254:0:0:concrete5
+zone:35:465:246:254:0:8:Ridge Traverse
+openspace:35:465:246:254:0:8:Ridge Traverse:concrete5:street
+tile:35:465:243:245:0:0:cement
+zone:35:465:243:245:0:8:south pavement of Ridge Traverse
+openspace:35:465:243:245:0:8:south pavement of Ridge Traverse:cement:street
+tile:35:465:255:257:0:0:cement
+zone:35:465:255:257:0:8:north pavement of Ridge Traverse
+openspace:35:465:255:257:0:8:north pavement of Ridge Traverse:cement:street
+tile:35:465:371:379:0:0:concrete5
+zone:35:465:371:379:0:8:North Village Road
+openspace:35:465:371:379:0:8:North Village Road:concrete5:street
+tile:35:465:368:370:0:0:cement
+zone:35:465:368:370:0:8:south pavement of North Village Road
+openspace:35:465:368:370:0:8:south pavement of North Village Road:cement:street
+tile:35:465:380:382:0:0:cement
+zone:35:465:380:382:0:8:north pavement of North Village Road
+openspace:35:465:380:382:0:8:north pavement of North Village Road:cement:street
+tile:55:105:55:105:0:0:tile1
+zone:56:104:56:104:0:10:Coast Guard Store
+space:56:104:56:104:0:10:Coast Guard Store:stone:store
+tile:55:78:55:55:0:11:wallstone
+tile:82:105:55:55:0:11:wallstone
+tile:79:81:55:55:4:11:wallstone
+portal:79:81:55:55:0:3:Coast Guard Store entrance:opening
+tile:55:55:55:105:0:11:wallstone
+tile:105:105:55:105:0:11:wallstone
+tile:55:105:105:105:0:11:wallstone
+tile:55:105:55:105:11:11:wallstone
+zone:55:105:55:105:12:19:roof of Coast Guard Store
+poi:80:80:0:Coast Guard Store
+tile:145:210:55:105:0:0:tile1
+zone:146:209:56:104:0:10:Southwest Infirmary
+space:146:209:56:104:0:10:Southwest Infirmary:stone:clinic
+tile:145:175:55:55:0:11:wallstone
+tile:179:210:55:55:0:11:wallstone
+tile:176:178:55:55:4:11:wallstone
+portal:176:178:55:55:0:3:Southwest Infirmary entrance:opening
+tile:145:145:55:105:0:11:wallstone
+tile:210:210:55:105:0:11:wallstone
+tile:145:210:105:105:0:11:wallstone
+tile:145:210:55:105:11:11:wallstone
+zone:145:210:55:105:12:19:roof of Southwest Infirmary
+poi:177:80:0:Southwest Infirmary
+tile:290:355:55:105:0:0:tile1
+zone:291:354:56:104:0:10:Orchard Supply Hall
+space:291:354:56:104:0:10:Orchard Supply Hall:stone:store
+tile:290:320:55:55:0:11:wallstone
+tile:324:355:55:55:0:11:wallstone
+tile:321:323:55:55:4:11:wallstone
+portal:321:323:55:55:0:3:Orchard Supply Hall entrance:opening
+tile:290:290:55:105:0:11:wallstone
+tile:355:355:55:105:0:11:wallstone
+tile:290:355:105:105:0:11:wallstone
+tile:290:355:55:105:11:11:wallstone
+zone:290:355:55:105:12:19:roof of Orchard Supply Hall
+poi:322:80:0:Orchard Supply Hall
+tile:395:445:55:105:0:0:tile1
+zone:396:444:56:104:0:10:Weather Station
+space:396:444:56:104:0:10:Weather Station:stone:control
+tile:395:418:55:55:0:11:wallstone
+tile:422:445:55:55:0:11:wallstone
+tile:419:421:55:55:4:11:wallstone
+portal:419:421:55:55:0:3:Weather Station entrance:opening
+tile:395:395:55:105:0:11:wallstone
+tile:445:445:55:105:0:11:wallstone
+tile:395:445:105:105:0:11:wallstone
+tile:395:445:55:105:11:11:wallstone
+zone:395:445:55:105:12:19:roof of Weather Station
+poi:420:80:0:Weather Station
+tile:55:105:290:350:0:0:tile1
+zone:56:104:291:349:0:10:Quarry Office
+space:56:104:291:349:0:10:Quarry Office:stone:office
+tile:55:78:350:350:0:11:wallstone
+tile:82:105:350:350:0:11:wallstone
+tile:79:81:350:350:4:11:wallstone
+portal:79:81:350:350:0:3:Quarry Office entrance:opening
+tile:55:55:290:350:0:11:wallstone
+tile:105:105:290:350:0:11:wallstone
+tile:55:105:290:290:0:11:wallstone
+tile:55:105:290:350:11:11:wallstone
+zone:55:105:290:350:12:19:roof of Quarry Office
+poi:80:320:0:Quarry Office
+tile:145:210:290:350:0:0:tile1
+zone:146:209:291:349:0:10:Stonecutters Hall
+space:146:209:291:349:0:10:Stonecutters Hall:stone:factory
+tile:145:175:350:350:0:11:wallstone
+tile:179:210:350:350:0:11:wallstone
+tile:176:178:350:350:4:11:wallstone
+portal:176:178:350:350:0:3:Stonecutters Hall entrance:opening
+tile:145:145:290:350:0:11:wallstone
+tile:210:210:290:350:0:11:wallstone
+tile:145:210:290:290:0:11:wallstone
+tile:145:210:290:350:11:11:wallstone
+zone:145:210:290:350:12:19:roof of Stonecutters Hall
+poi:177:320:0:Stonecutters Hall
+tile:290:355:290:350:0:0:tile1
+zone:291:354:291:349:0:10:Village Assembly House
+space:291:354:291:349:0:10:Village Assembly House:stone:hall
+tile:290:320:350:350:0:11:wallstone
+tile:324:355:350:350:0:11:wallstone
+tile:321:323:350:350:4:11:wallstone
+portal:321:323:350:350:0:3:Village Assembly House entrance:opening
+tile:290:290:290:350:0:11:wallstone
+tile:355:355:290:350:0:11:wallstone
+tile:290:355:290:290:0:11:wallstone
+tile:290:355:290:350:11:11:wallstone
+zone:290:355:290:350:12:19:roof of Village Assembly House
+poi:322:320:0:Village Assembly House
+tile:395:445:290:350:0:0:tile1
+zone:396:444:291:349:0:10:Northeast Barracks
+space:396:444:291:349:0:10:Northeast Barracks:stone:base
+tile:395:418:350:350:0:11:wallstone
+tile:422:445:350:350:0:11:wallstone
+tile:419:421:350:350:4:11:wallstone
+portal:419:421:350:350:0:3:Northeast Barracks entrance:opening
+tile:395:395:290:350:0:11:wallstone
+tile:445:445:290:350:0:11:wallstone
+tile:395:445:290:290:0:11:wallstone
+tile:395:445:290:350:11:11:wallstone
+zone:395:445:290:350:12:19:roof of Northeast Barracks
+poi:420:320:0:Northeast Barracks
+tile:55:105:395:445:0:0:tile1
+zone:56:104:396:444:0:10:Reef Watch House
+space:56:104:396:444:0:10:Reef Watch House:stone:control
+tile:55:78:445:445:0:11:wallstone
+tile:82:105:445:445:0:11:wallstone
+tile:79:81:445:445:4:11:wallstone
+portal:79:81:445:445:0:3:Reef Watch House entrance:opening
+tile:55:55:395:445:0:11:wallstone
+tile:105:105:395:445:0:11:wallstone
+tile:55:105:395:395:0:11:wallstone
+tile:55:105:395:445:11:11:wallstone
+zone:55:105:395:445:12:19:roof of Reef Watch House
+poi:80:420:0:Reef Watch House
+tile:145:210:395:445:0:0:tile1
+zone:146:209:396:444:0:10:Northwest Lodge
+space:146:209:396:444:0:10:Northwest Lodge:stone:house
+tile:145:175:445:445:0:11:wallstone
+tile:179:210:445:445:0:11:wallstone
+tile:176:178:445:445:4:11:wallstone
+portal:176:178:445:445:0:3:Northwest Lodge entrance:opening
+tile:145:145:395:445:0:11:wallstone
+tile:210:210:395:445:0:11:wallstone
+tile:145:210:395:395:0:11:wallstone
+tile:145:210:395:445:11:11:wallstone
+zone:145:210:395:445:12:19:roof of Northwest Lodge
+poi:177:420:0:Northwest Lodge
+tile:290:355:395:445:0:0:tile1
+zone:291:354:396:444:0:10:Island Market
+space:291:354:396:444:0:10:Island Market:stone:shop
+tile:290:320:445:445:0:11:wallstone
+tile:324:355:445:445:0:11:wallstone
+tile:321:323:445:445:4:11:wallstone
+portal:321:323:445:445:0:3:Island Market entrance:opening
+tile:290:290:395:445:0:11:wallstone
+tile:355:355:395:445:0:11:wallstone
+tile:290:355:395:395:0:11:wallstone
+tile:290:355:395:445:11:11:wallstone
+zone:290:355:395:445:12:19:roof of Island Market
+poi:322:420:0:Island Market
+tile:395:445:395:445:0:0:tile1
+zone:396:444:396:444:0:10:Channel Clinic
+space:396:444:396:444:0:10:Channel Clinic:stone:clinic
+tile:395:418:445:445:0:11:wallstone
+tile:422:445:445:445:0:11:wallstone
+tile:419:421:445:445:4:11:wallstone
+portal:419:421:445:445:0:3:Channel Clinic entrance:opening
+tile:395:395:395:445:0:11:wallstone
+tile:445:445:395:445:0:11:wallstone
+tile:395:445:395:395:0:11:wallstone
+tile:395:445:395:445:11:11:wallstone
+zone:395:445:395:445:12:19:roof of Channel Clinic
+poi:420:420:0:Channel Clinic
+tile:185:315:180:320:6:6:stone
+zone:185:315:180:320:6:14:Crown Ridge
+openspace:185:315:180:320:6:14:Crown Ridge:stone:plaza
+tile:225:232:155:179:0:0:rocks1
+tile:233:240:155:179:1:1:rocks1
+tile:233:240:155:179:0:0:wallstone
+tile:241:247:155:179:2:2:rocks1
+tile:241:247:155:179:1:1:wallstone
+tile:248:254:155:179:3:3:rocks1
+tile:248:254:155:179:2:2:wallstone
+tile:255:261:155:179:4:4:rocks1
+tile:255:261:155:179:3:3:wallstone
+tile:262:268:155:179:5:5:rocks1
+tile:262:268:155:179:4:4:wallstone
+tile:269:275:155:179:6:6:rocks1
+tile:269:275:155:179:5:5:wallstone
+zone:225:275:155:179:0:13:Crown Ridge south path
+openspace:225:275:155:179:0:13:Crown Ridge south path:rocks1:platform
+tile:225:232:321:345:6:6:rocks1
+tile:225:232:321:345:5:5:wallstone
+tile:233:240:321:345:5:5:rocks1
+tile:233:240:321:345:4:4:wallstone
+tile:241:247:321:345:4:4:rocks1
+tile:241:247:321:345:3:3:wallstone
+tile:248:254:321:345:3:3:rocks1
+tile:248:254:321:345:2:2:wallstone
+tile:255:261:321:345:2:2:rocks1
+tile:255:261:321:345:1:1:wallstone
+tile:262:268:321:345:1:1:rocks1
+tile:262:268:321:345:0:0:wallstone
+tile:269:275:321:345:0:0:rocks1
+zone:225:275:321:345:0:13:Crown Ridge north path
+openspace:225:275:321:345:0:13:Crown Ridge north path:rocks1:platform
+poi:250:250:6:Crown Ridge lookout
+ispawn:35:245:35:245:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+ispawn:255:465:35:245:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+ispawn:35:245:255:465:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+ispawn:255:465:255:465:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent

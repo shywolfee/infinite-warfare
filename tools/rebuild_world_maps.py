@@ -1,4 +1,4 @@
-"""Ground-up generators for Shattersea, Coruscant and Freya's Ascent.
+"""Ground-up generators for Shattersea, Coruscant, Freya's Ascent and Battle Royale.
 
 This deliberately shares no layout data with the retired generators.  Each
 composite writes geometry, a radio-useful zone, acoustics, portals and POIs as
@@ -74,6 +74,19 @@ def shattersea():
     m.ground(25,1015,25,1015,0,"sand","New Aurelia beach","beach")
     districts=[(55,495,55,495,"Southwatch Ward"),(545,985,55,495,"Eastwater Ward"),(55,495,545,985,"Lantern Ward"),(545,985,545,985,"Northwall Ward")]
     for x1,x2,y1,y2,n in districts:m.ground(x1,x2,y1,y2,0,"concrete2",n,"plaza")
+    m.section("NAMED NEW AURELIA BLOCKS AND TERRAIN")
+    # These blocks cover every non-canal city coordinate continuously; streets
+    # emitted below override them with a still more precise location.
+    xbands=[(55,209),(210,374),(375,544),(545,714),(715,879),(880,985)]
+    ybands=[(55,199),(200,349),(350,449),(450,495),(545,599),(600,759),(760,919),(920,985)]
+    colnames=["Tidegate","Saltglass","Lantern","Founders","Crown","Breakwater"]
+    rownames=["South Strand","Mariners","Market","Canalside South","Canalside North","Civic","Stormglass","North Strand"]
+    block_mats=["concrete2","cement","stone","tile2","concrete3","hardwood2"]
+    for row,(y1,y2) in enumerate(ybands):
+        for col,(x1,x2) in enumerate(xbands):
+            block=rownames[row]+", "+colnames[col]+" precinct"
+            m.ground(x1,x2,y1,y2,0,block_mats[(row+col)%len(block_mats)],block,"courtyard" if (row+col)%4==0 else "plaza")
+            if (row*len(xbands)+col)%7==0:m.poi((x1+x2)//2,(y1+y2)//2,0,block+" public square")
     m.section("THE CROWN CANAL, FIVE BRIDGES AND THE CITY GRID")
     m.ground(55,985,500,540,0,"water1","the Crown Canal","water")
     north_south=[(120,"Tideway"),(300,"Lantern Avenue"),(520,"Founders Road"),(740,"Crown Boulevard"),(920,"Breakwater Drive")]
@@ -102,35 +115,74 @@ def shattersea():
 
 
 def coruscant():
-    m=Map("habitat_alpha",640,640,520); m.section("THE ABYSS AND THREE INDEPENDENT CITY DECKS")
-    m.ground(0,640,0,640,0,"rocks1","the lightless Coruscant undercity","void"); m.src(0,640,0,640,0,8,"rumble.ogg",-16)
-    levels=[("Works Level",60),("Civic Level",220),("Sky Level",380)]
+    # 1280 square is exactly four times the old 640-square footprint. Four
+    # complete levels replace the old broad deck fallbacks with 144 individually
+    # named and materially varied precincts.
+    m=Map("habitat_alpha",1280,1280,620); m.section("FOUR COMPLETE CORUSCANT CITY LEVELS")
+    levels=[("Undercity Foundations",0),("Works Level",120),("Civic Level",300),("Sky Level",500)]
+    roads=[160,400,640,880,1120]
+    plots=[(40,145),(175,385),(415,625),(655,865),(895,1105),(1135,1240)]
+    coverage=[(40,239),(240,439),(440,639),(640,839),(840,1039),(1040,1240)]
+    level_data=[
+      (["Ash","Pylon","Cinder","Drain","Vault","Shadow"],["Reach","Ward","Conduit","Basin","Maze","Shelf"],["reclamation depot","pressure station","salvage hall","coolant works","shelter clinic","power vault"],"rocks1","wallstone"),
+      (["Furnace","Droid","Turbine","Freight","Reactor","Foundry"],["Works","Exchange","Yard","Concourse","Sector","Annex"],["droid foundry","machine hall","freight office","reactor control","workers clinic","tool exchange"],"metal4","wallmetal"),
+      (["Archive","Judicial","Senate","Monument","Embassy","Republic"],["Quarter","Forum","Promenade","District","Court","Terrace"],["public archive","judicial chamber","civic exchange","security bureau","medical ministry","assembly rotunda"],"concrete2","wallstone"),
+      (["Orbital","Diplomatic","Aurora","Celestial","Executive","Skyline"],["Port","Residence","Gallery","Overlook","Spire","Garden"],["orbital customs","diplomatic salon","sky observatory","landing control","aerial clinic","executive gallery"],"metal2","wallmetal")]
+    kinds=["factory","control","warehouse","office","clinic","hall"]
+    mats=["metal2","stone","tile1","metal4","hardwood","concrete2"]
     for li,(lname,z) in enumerate(levels):
-        lo,hi=40,600; m.ground(lo,hi,lo,hi,z,"metal4",lname,"platform"); m.src(lo,hi,lo,hi,z,z+8,"city.ogg",-18)
-        for x,n in [(130,"Aurora Spine"),(320,"Republic Axis"),(510,"Centax Way")]:m.street_ns(x,lo,hi,lname+", "+n,z)
-        for y,n in [(130,"Senate Traverse"),(320,"Monument Row"),(510,"Orbital Road")]:m.street_ew(y,lo,hi,lname+", "+n,z)
-        names=[["Droid Foundry","Transit Machine Hall","Power Regulation Vault","Underdeck Clinic"],["Republic Archive","Judicial Hall","Galactic Exchange","Civic Security Bureau"],["Orbital Customs","Diplomatic Residence","Skyline Observatory","Executive Landing Control"]][li]
-        kinds=[["factory","garage","reactor","clinic"],["hall","hall","office","base"],["control","apartment","hall","control"]][li]
-        plots=[(55,115,150,205),(145,205,335,395),(335,395,150,205),(430,585,335,395)]
-        for (x1,x2,y1,y2),n,k in zip(plots,names,kinds):m.room(x1,x2,y1,y2,z,12,lname+", "+n,"metal2","wallmetal",k)
-        m.ground(270,370,270,370,z+5,"metal5",lname+", the raised transit forum","platform"); m.ramp(300,340,250,269,z,z+5,lname+", forum south ramp","metal4"); m.ramp(300,340,371,390,z+5,z,lname+", forum north ramp","metal4")
-        m.ispawn(lo,hi,lo,hi,z,LOOT)
-    m.section("TURBOLIFT SHAFTS AND OPEN LANDING PORTALS")
-    m.turbolift(312,328,300,316,60,380,"Republic Axis grand turbolift",levels)
-    for n,z in levels:m.portal(312,328,300,300,z,z+5,n+" turbolift doors")
-    m.poi(320,335,220,"Coruscant civic deploy point"); return m
+        row_names,col_names,roles,base_mat,wall=level_data[li]
+        m.section(lname.upper()+" PRECINCT FABRIC")
+        m.tile(40,1240,40,1240,z,z,base_mat)
+        for row,(cy1,cy2) in enumerate(coverage):
+            for col,(cx1,cx2) in enumerate(coverage):
+                x1,x2=plots[col];y1,y2=plots[row]
+                precinct=lname+", "+row_names[row]+" "+col_names[col]
+                material=mats[(row+col+li)%len(mats)]
+                m.ground(cx1,cx2,cy1,cy2,z,material,precinct,"courtyard" if (row+col)%3==0 else "plaza")
+                if (row+col)%2==0:
+                    role=roles[(row*2+col)%len(roles)]
+                    m.room(x1+10,x2-10,y1+10,y2-10,z,14,precinct+" "+role,material,wall,kinds[(row+col+li)%len(kinds)],"S" if row<3 else "N")
+                else:
+                    rise=2+(row+col)%4; court=precinct+" raised "+("market" if li<2 else "garden" if li==3 else "memorial court")
+                    m.ground(x1+18,x2-18,y1+28,y2-18,z+rise,"metal5" if li<2 else "stone",court,"platform")
+                    cx=(x1+x2)//2;m.ramp(cx-12,cx+12,y1+8,y1+27,z,z+rise,court+" approach",material);m.poi(cx,(y1+y2)//2,z+rise,court)
+        m.section(lname.upper()+" TRANSIT GRID")
+        ns_names=["Aurora Spine","Republic Axis","Centax Way","Hydian Avenue","Corellian Causeway"]
+        ew_names=["Senate Traverse","Monument Row","Orbital Road","Foundry Cross","Galactic Promenade"]
+        for x,n in zip(roads,ns_names):m.street_ns(x,40,1240,lname+", "+n,z)
+        for y,n in zip(roads,ew_names):m.street_ew(y,40,1240,lname+", "+n,z)
+        m.ground(616,664,616,664,z+5,"metal5",lname+", Republic Axis transit forum","platform")
+        m.ramp(628,652,591,615,z,z+5,lname+", forum south approach","metal4");m.ramp(628,652,665,689,z+5,z,lname+", forum north approach","metal4")
+        m.ispawn(40,1240,40,1240,z,LOOT);m.src(40,1240,40,1240,z,z+8,"city.ogg",-22)
+    m.section("REPUBLIC AXIS GRAND TURBOLIFT")
+    m.turbolift(632,648,600,616,0,500,"Republic Axis grand turbolift",levels)
+    for n,z in levels:m.portal(632,648,600,600,z,z+5,n+" turbolift doors")
+    m.poi(640,640,305,"Coruscant Civic Level deploy point"); return m
 
 
 def freya():
     # Five broad tiers and a multi-chamber undercroft provide over three times
     # the former authored footprint while preserving deliberate vertical travel.
     m=Map("freyas_ascent",1000,1200,140); m.section("GREATER FREYA VALLEY")
-    m.ground(0,1000,0,1200,0,"grass3","Greater Freya Valley","valley"); m.src(0,1000,0,1200,0,8,"forest.ogg",-18)
+    m.tile(0,1000,0,1200,0,0,"grass3"); m.src(0,1000,0,1200,0,8,"forest.ogg",-18)
+    wilderness=[
+      (0,329,0,299,"southwestern birch foothills","grass2"),(330,669,0,299,"southern Freya meadow","grass3"),(670,1000,0,299,"southeastern hunter woods","forest"),
+      (0,329,300,599,"western pine ravines","forest"),(330,669,300,599,"Pinewatch lower slopes","dirt"),(670,1000,300,599,"eastern granite shelf","rocks1"),
+      (0,329,600,899,"western shield woods","forest"),(330,669,600,899,"Shieldmaiden high meadow","grass2"),(670,1000,600,899,"Valkyrie eastern crags","rocks1"),
+      (0,329,900,1200,"northwestern snow line","snow"),(330,669,900,1200,"Citadel crown slopes","stone"),(670,1000,900,1200,"northeastern wind ridge","snow")]
+    for x1,x2,y1,y2,n,mat in wilderness:m.ground(x1,x2,y1,y2,0,mat,n,"forest" if "wood" in n or "pine" in n else "field");m.poi((x1+x2)//2,(y1+y2)//2,0,n)
     m.section("THE FIVE ASCENDING SETTLEMENTS")
     terraces=[(60,940,60,250,0,"Lower Settlement"),(90,910,300,490,8,"Pinewatch Terrace"),(120,880,540,730,16,"Shieldmaiden Terrace"),(150,850,780,970,24,"Valkyrie Terrace"),(190,810,1020,1170,32,"Freya Citadel")]
     building_roles=[("western lodge","house","hardwood","wallwood"),("craft hall","factory","stone","wallstone"),("assembly hall","hall","hardwood","wallstone"),("provision house","store","stone","wallstone"),("eastern guard house","base","stone","wallstone")]
     for i,(x1,x2,y1,y2,z,name) in enumerate(terraces):
         m.ground(x1,x2,y1,y2,z,"stone",name,"courtyard"); m.poi((x1+x2)//2,(y1+y2)//2,z,name)
+        sector_width=(x2-x1+1)//5
+        sector_names=["western homesteads","craft quarter","gathering green","provision quarter","eastern watch"]
+        sector_mats=["hardwood2","stone","grass2","tile2","rocks1"]
+        for sector in range(5):
+            sx1=x1+sector*sector_width;sx2=x2 if sector==4 else sx1+sector_width-1
+            m.ground(sx1,sx2,y1,y2,z,sector_mats[sector],name+", "+sector_names[sector],"courtyard")
         m.street_ew((y1+y2)//2,x1,x2,name+" high street",z)
         if i:
             prev=terraces[i-1]
@@ -152,6 +204,23 @@ def freya():
     m.poi(500,125,0,"Freya Valley deploy point"); return m
 
 
+def battle_royale():
+    m=Map("battleroyale",500,500,100);m.section("NAMED COASTAL APPROACHES")
+    waters=[(0,249,0,249,"Southwest shoals"),(250,500,0,249,"Southeast tidal reach"),(0,249,250,500,"Northwest reef water"),(250,500,250,500,"Northeast channel")]
+    for x1,x2,y1,y2,n in waters:m.ground(x1,x2,y1,y2,0,"water",n,"water")
+    m.ground(15,485,15,485,0,"sand","the island beach ring","beach")
+    districts=[(35,245,35,245,"Southwest landing quarter","grass2"),(255,465,35,245,"Southeast orchard quarter","grass3"),(35,245,255,465,"Northwest quarry quarter","rocks1"),(255,465,255,465,"Northeast village quarter","dirt")]
+    for x1,x2,y1,y2,n,mat in districts:m.ground(x1,x2,y1,y2,0,mat,n,"courtyard")
+    m.section("ISLAND ROADS AND INTERIORS")
+    for x,n in [(125,"Landing Road"),(250,"Island Spine"),(375,"Orchard Road")]:m.street_ns(x,35,465,n)
+    for y,n in [(125,"South Beach Road"),(250,"Ridge Traverse"),(375,"North Village Road")]:m.street_ew(y,35,465,n)
+    buildings=[(55,105,55,105,"Coast Guard Store","store"),(145,210,55,105,"Southwest Infirmary","clinic"),(290,355,55,105,"Orchard Supply Hall","store"),(395,445,55,105,"Weather Station","control"),(55,105,290,350,"Quarry Office","office"),(145,210,290,350,"Stonecutters Hall","factory"),(290,355,290,350,"Village Assembly House","hall"),(395,445,290,350,"Northeast Barracks","base"),(55,105,395,445,"Reef Watch House","control"),(145,210,395,445,"Northwest Lodge","house"),(290,355,395,445,"Island Market","shop"),(395,445,395,445,"Channel Clinic","clinic")]
+    for x1,x2,y1,y2,n,k in buildings:m.room(x1,x2,y1,y2,0,11,n,"tile1","wallstone",k,"S" if y1<250 else "N")
+    m.ground(185,315,180,320,6,"stone","Crown Ridge","plaza");m.ramp(225,275,155,179,0,6,"Crown Ridge south path","rocks1");m.ramp(225,275,321,345,6,0,"Crown Ridge north path","rocks1");m.poi(250,250,6,"Crown Ridge lookout")
+    for x1,x2,y1,y2,n,mat in districts:m.ispawn(x1,x2,y1,y2,0,LOOT)
+    return m
+
+
 if __name__ == "__main__":
-    outputs=[(shattersea(),MAPS/"battlegrounds"/"main.map"),(coruscant(),MAPS/"habitat_alpha"/"habitat_alpha.map"),(freya(),MAPS/"freyas_ascent"/"freyas_ascent.map")]
+    outputs=[(shattersea(),MAPS/"battlegrounds"/"main.map"),(coruscant(),MAPS/"habitat_alpha"/"habitat_alpha.map"),(freya(),MAPS/"freyas_ascent"/"freyas_ascent.map"),(battle_royale(),MAPS/"battleroyale"/"battleroyale.map")]
     for m,path in outputs:m.write(path);print(f"{path.relative_to(ROOT)}: {len(m.lines)} entirely new records")

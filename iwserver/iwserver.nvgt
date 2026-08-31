@@ -672,10 +672,10 @@ file mf;
 mf.open("content/maps/habitat_alpha/habitat_alpha.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
-// Raised transit forum on the rebuilt Civic Level.
-send_reliable(e.peer_id, "x "+random(290, 350), 0);
-send_reliable(e.peer_id, "y "+random(290, 350), 0);
-send_reliable(e.peer_id, "z 225", 0);
+// Raised Republic Axis transit forum on the expanded Civic Level.
+send_reliable(e.peer_id, "x "+random(628, 652), 0);
+send_reliable(e.peer_id, "y "+random(635, 655), 0);
+send_reliable(e.peer_id, "z 305", 0);
 }
 else if(parsed[1]=="battlegrounds")
 {

@@ -2241,7 +2241,8 @@ if(parsed[1]=="frag_grenade" or parsed[1]=="impact_grenade" or parsed[1]=="flash
 {
 if(players[index].fraggrenadetimer.elapsed>5000)
 {
-spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration);
+int cooked_ms=parsed.length()>3?string_to_number(parsed[3]):0;if(cooked_ms<0)cooked_ms=0;if(cooked_ms>6000)cooked_ms=6000;
+spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration,cooked_ms);
 send_reliable(players[index].peer_id, "give "+parsed[1]+" -1", 0);
 players[index].fraggrenadetimer.restart();
 }

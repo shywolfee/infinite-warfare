@@ -120,6 +120,7 @@ bool alt=(key_down(KEY_LMENU) or key_down(KEY_RMENU));
 bool shift=(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
 bool control=(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL));
 if(shift and key_pressed(kb("voice_settings"))) { voice_settings_menu(); return; }
+if(shift and !alt and !control and key_pressed(kb("voice_ptt_mode"))){voice_toggle_mode=!voice_toggle_mode;voice_toggle_active=false;writeprefs();p.play_stationary(voice_toggle_mode?"modeenter.ogg":"modeleave.ogg",false);speak(voice_toggle_mode?"Voice transmission now latches on and off.":"Voice transmission now uses push to talk.");return;}
 if(alt and shift and key_pressed(kb("voice_hear_self")))
 {
 voice_hear_self=!voice_hear_self; writeprefs();

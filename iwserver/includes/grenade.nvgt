@@ -19,7 +19,7 @@ int radius=16;
 int damage=500;
 int audio_id=-1;
 timer audio_update_timer;
-fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner,string gkind="frag_grenade",bool play_launch=true,int delivery=1)
+fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner,string gkind="frag_grenade",bool play_launch=true,int delivery=1,int cooked_ms=0)
 {
 x=gx;
 y=gy;
@@ -37,6 +37,7 @@ else if(kind=="flashbang"){fuse=1800;radius=18;damage=0;}
 else if(kind=="concussion_grenade"){fuse=2000;radius=16;damage=60;}
 else if(kind=="incendiary_grenade"){fuse=1500;radius=10;damage=350;}
 else if(kind=="gas_grenade"){fuse=1800;radius=14;damage=140;}
+if(cooked_ms<0)cooked_ms=0;if(cooked_ms>fuse-1)cooked_ms=fuse-1;fuse-=cooked_ms;
 if(play_launch)play(kind=="frag_grenade"?"fraggrenadethrow":kind+"_throw",x,y,z,map);
 simulationtimer.restart();
 }
@@ -124,9 +125,9 @@ continue;
 }
 }
 }
-void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int delivery=1)
+void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int delivery=1,int cooked_ms=0)
 {
-fraggrenade e1(x,y,z,dir,map,owner,kind,true,delivery);
+fraggrenade e1(x,y,z,dir,map,owner,kind,true,delivery,cooked_ms);
 e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();send_reliable(0,"projectile_audio_start "+e1.audio_id+" "+kind+"_flight_loop.ogg "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map,0);
 fraggrenades.insert_last(e1);
 }

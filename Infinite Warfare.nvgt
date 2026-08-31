@@ -694,7 +694,7 @@ break;
 void dev_database_give()
 {
 refresh_content_database();
-string[] categories={"Weapons","Ammo","Explosives","Healing","Utility","Armour","Attachments","Team","Equipment","Holsters"};
+string[] categories;for(uint record_index=0;record_index<content_database.length();record_index++){string dynamic_category=content_database[record_index].category;if(dynamic_category=="Vehicles")continue;bool known=false;for(uint category_index=0;category_index<categories.length();category_index++)if(categories[category_index]==dynamic_category){known=true;break;}if(!known)categories.insert_last(dynamic_category);}for(uint left=0;left<categories.length();left++)for(uint right=left+1;right<categories.length();right++)if(categories[right]<categories[left]){string swap_category=categories[left];categories[left]=categories[right];categories[right]=swap_category;}
 iw_form cf;cf.create_window("Developer Database Grant",false,true);int cl=cf.create_list("Category",0,false);for(uint i=0;i<categories.length();i++)cf.add_list_item(cl,categories[i]);int next=cf.create_button("Choose category",true),cancel=cf.create_button("Cancel",false,true);cf.focus(cl);int category=-1;
 while(true){wait(5);cf.monitor();if(connected)netloop();if(cf.is_pressed(cancel))return;if(cf.is_pressed(next)){category=cf.get_list_position(cl);break;}}
 if(category<0 or category>=int(categories.length()))return;
@@ -1698,6 +1698,8 @@ string inv_menu_label(string[] keys, int pos)
 		display_name = string_replace(key, "_", " ", true);
 	if (is_ammo_container(key))
 		return display_name + " (" + a + "). " + (pos+1) + " of " + total;
+	else if(item_is_liquid_medication(key))
+		return display_name+" ("+round(medication_amount_remaining(key),2)+" fluid ounces left)"+(a>1?", "+a+" bottles":"")+". "+(pos+1)+" of "+total;
 	else if (a == 1)
 		return display_name + ". " + (pos+1) + " of " + total;
 	else
@@ -1752,10 +1754,13 @@ void inventory_menu()
 	// Wait for the opening key to release so it is not read immediately.
 	int open_key = kb("inventory");
 	while (key_down(open_key) or key_down(KEY_RETURN)) { wait(5); if (connected == true) netloop(); }
+	get_characters();string inventory_prefix="";timer inventory_prefix_timer;
 	while (true)
 	{
 		wait(5);
 		if (connected == true) netloop();
+		bool grenade_was_cooking=cooked_grenade!="";grenade_cook_loop();if(grenade_was_cooking and cooked_grenade=="")return;
+		if(inventory_prefix_timer.elapsed>1000)inventory_prefix="";string typed=get_characters().lower();if(typed!="" and !string_is_digits(typed)){inventory_prefix_timer.restart();inventory_prefix+=typed;int match=-1;for(uint candidate=0;candidate<keys.length();candidate++){string candidate_name=string_replace(inv_menu_item_id(keys[candidate]),"_"," ",true).lower();if(candidate_name.length()>=inventory_prefix.length() and string_left(candidate_name,inventory_prefix.length())==inventory_prefix){match=int(candidate);break;}}if(match<0 and inventory_prefix!=typed){inventory_prefix=typed;for(uint candidate=0;candidate<keys.length();candidate++){string candidate_name=string_replace(inv_menu_item_id(keys[candidate]),"_"," ",true).lower();if(candidate_name.length()>=inventory_prefix.length() and string_left(candidate_name,inventory_prefix.length())==inventory_prefix){match=int(candidate);break;}}}if(match>=0){pos=match;p.play_stationary("invmove.ogg",false);speak(inv_menu_label(keys,pos));}else {p.play_stationary("menuwrap.ogg",false);inventory_prefix="";}continue;}
 		if (key_pressed(KEY_ESCAPE))
 		{
 			speak("Closed inventory.");
@@ -1802,6 +1807,7 @@ void inventory_menu()
 		{
 			if (keys.length() == 0) continue;
 			string key = keys[pos];
+			if(!MENU_is_down() and !shift_is_down() and grenade_pin_or_throw(inv_menu_item_id(key))){if(cooked_grenade=="")return;while(key_down(KEY_RETURN)){wait(5);if(connected)netloop();grenade_cook_loop();}continue;}
 			if (MENU_is_down())
 			{
 				// Alt+Enter: open the help entry, keeping the menu open.
@@ -4809,6 +4815,10 @@ else if(parsed[0]=="armor_weight" and parsed.length()>1)
 {
 equipped_armor_weight=string_to_number(parsed[1]);
 }
+else if(parsed[0]=="medication_remaining" and parsed.length()>2)
+{
+double medication_amount=string_to_number(parsed[2]);if(medication_amount<=0)client_medication_remaining.delete(parsed[1]);else client_medication_remaining.set(parsed[1],medication_amount);
+}
 else if(parsed[0]=="armor_state" and parsed.length()>9)
 {
 equipped_armor_head=parsed[1]=="none"?"":parsed[1]; equipped_armor_head_durability=string_to_number(parsed[2]);
@@ -5216,6 +5226,7 @@ reload_loop_all();
 sourcecheckloop();
 stamina_loop();
 vehicle_loop();
+grenade_cook_loop();
 int heal_tick = effects_loop();
 if (heal_tick > 0)
 send_reliable(0, "heal " + heal_tick, 0);

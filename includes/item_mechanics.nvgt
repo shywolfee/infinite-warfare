@@ -1,14 +1,27 @@
 // Persistent per-item operating configuration. Inventory quantity remains in
 // the authoritative inventory; this stores how the player intends to use it.
 dictionary item_configurations;
+dictionary client_medication_remaining;
+string cooked_grenade="";timer cooked_grenade_timer;
 int item_configuration(string item){int value=1;if(item_configurations.exists(item))item_configurations.get(item,value);return value;}
 void set_item_configuration(string item,int value){if(value<0)value=0;if(value>2)value=2;item_configurations.set(item,value);}
 bool item_is_thrown_explosive(string i){return i=="frag_grenade" or i=="impact_grenade" or i=="flashbang" or i=="concussion_grenade" or i=="incendiary_grenade" or i=="gas_grenade";}
+int grenade_fuse_ms(string i){if(i=="frag_grenade")return 2200;if(i=="impact_grenade")return 5000;if(i=="flashbang")return 1800;if(i=="concussion_grenade")return 2000;if(i=="incendiary_grenade")return 1500;if(i=="gas_grenade")return 1800;return 2000;}
+bool grenade_pin_or_throw(string item)
+{
+if(!item_is_thrown_explosive(item))return false;
+if(cooked_grenade==""){cooked_grenade=item;cooked_grenade_timer.restart();p.play_stationary("ammo_cycle.ogg",false);speak("Pin pulled from "+string_replace(item,"_"," ",true)+". Press enter again to throw. The fuse is running.");return true;}
+if(cooked_grenade!=item){speak("You are already cooking a "+string_replace(cooked_grenade,"_"," ",true)+". Return to it before selecting another grenade.");return true;}
+int cooked=int(cooked_grenade_timer.elapsed);send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);cooked_grenade="";speak("Grenade thrown after "+round(double(cooked)/1000.0,2)+" seconds of cooking.");return true;
+}
+void grenade_cook_loop(){if(cooked_grenade=="")return;if(cooked_grenade_timer.elapsed<grenade_fuse_ms(cooked_grenade))return;string item=cooked_grenade;int cooked=int(cooked_grenade_timer.elapsed);cooked_grenade="";send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);speak("The cooked grenade detonates as it leaves your hand!");}
 bool item_is_deployable_explosive(string i){return i=="proximity_mine" or i=="claymore" or i=="time_bomb";}
 bool item_is_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
 bool item_is_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}
 bool item_is_loose_pill(string i){return string_contains(i,"loose_",1)==0 and (string_contains(i,"tablet",1)>=0 or string_contains(i,"capsule",1)>=0);}
 bool item_is_medication(string i){return item_is_liquid_medication(i) or item_is_pill_bottle(i) or item_is_loose_pill(i);}
+double medication_container_capacity(string i){if(i=="nanocyte_solution_bottle")return 8;if(i=="trauma_repair_serum_bottle")return 6;if(i=="coagulant_serum_bottle")return 4;if(i=="medigel_tonic_bottle")return 10;if(i=="regenex_tablet_bottle")return 12;if(i=="pain_blocker_capsule_bottle")return 16;if(i=="clotting_tablet_bottle")return 10;if(i=="combat_stimulant_tablet_bottle")return 8;if(i=="antitoxin_tablet_bottle")return 10;return 1;}
+double medication_amount_remaining(string i){double amount;if(client_medication_remaining.get(i,amount))return amount;return medication_container_capacity(i);}
 bool item_is_medical(string i){return item_is_medication(i) or i=="life_injection" or i=="adrenaline_syringe" or string_contains(i,"energetic_potion",1)>=0;}
 double medication_liquid_dose(string i,int mode){double recommended=i=="coagulant_serum_bottle"?.5:(i=="trauma_repair_serum_bottle"?.75:(i=="medigel_tonic_bottle"?1.5:1.0));return recommended*(mode==0?.5:(mode==2?2.0:1.0));}
 int medication_pill_dose(string i,int mode){int recommended=i=="pain_blocker_capsule_bottle"?2:1;return mode==0?1:(mode==1?recommended:recommended+1);}

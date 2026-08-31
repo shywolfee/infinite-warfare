@@ -2,7 +2,7 @@ Inventory System
 
 Press I to open the inventory. Up and Down browse the current group, Left and Right change group, Enter selects, Shift+Enter uses the focused entry, and Alt+Enter opens its database documentation.
 
-The live groups are All, Weapons, Ammo, Explosives, Healing, Armour, Armour Repair, Weapon Maintenance, Vehicle Supplies, Attachments, Holsters, Team, Tools, Electronics, Containers and Equipment. The inventory traverses this same live category registry for both filtered views and All, so a database category cannot be visible in the selector but omitted from item browsing. Content is classified by the same runtime database used by the armoury and developer grant tools, so newly registered content does not require another hardcoded help list.
+The live groups are All, Weapons, Ammo, Explosives, Healing, Armour, Armour Repair, Weapon Maintenance, Vehicle Supplies, Attachments, Holsters, Team, Tools, Electronics, Containers and Equipment. Only All and groups containing at least one current item participate in Left/Right or K/Shift+K navigation; a group appears automatically when its first item is received and disappears from cycling when its last item is removed. The inventory traverses this same live category registry for both filtered views and All, so a database category cannot be visible in the selector but omitted from item browsing. Content is classified by the same runtime database used by the armoury and developer grant tools, so newly registered content does not require another hardcoded help list.
 
 Tab and Shift+Tab cycle items without opening the form. K and Shift+K cycle categories. Alt plus a number assigns the current entry to that quickbar slot; the number alone activates it.
 

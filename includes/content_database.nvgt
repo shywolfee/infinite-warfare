@@ -10,11 +10,11 @@ content_record(string i, string n, string c, string s, int a=1)
 }
 
 content_record@[] content_database;
+dictionary content_database_index;
 
 int content_find(string id)
 {
-for(uint i=0;i<content_database.length();i++) if(content_database[i].id==id) return i;
-return -1;
+int index=-1;if(content_database_index.get(id,index) and index>=0 and index<int(content_database.length()) and content_database[index].id==id)return index;return -1;
 }
 
 void content_register(string id, string name, string category, string summary, int give_amount=1)
@@ -34,7 +34,7 @@ if(item_is_weapon_maintenance(id))category="Weapon Maintenance";
 if(string_contains(id,"armor_patch",1)>=0 or string_contains(id,"armour_patch",1)>=0 or string_contains(id,"plate_patch",1)>=0 or string_contains(id,"helmet_patch",1)>=0)category="Armour Repair";
 if(!item_is_weapon_maintenance(id) and (string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can"))category="Vehicle Supplies";
 if(id=="nanomatic_multitool" or id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bag" or id=="box" or id=="bucket" or id=="empty_bucket")category="Containers";
-content_database.insert_last(content_record(id,name,category,summary,give_amount));
+content_database.insert_last(content_record(id,name,category,summary,give_amount));content_database_index.set(id,int(content_database.length())-1);
 }
 
 void content_ensure_item(string id)
@@ -222,6 +222,7 @@ content_register("optic_alignment_target","Optic Alignment Target","Weapon Maint
 void initialize_content_database()
 {
 content_database.resize(0);
+content_database_index.delete_all();
 for(uint i=0;i<wpn_cache.length();i++)
 {
 wpn_stats@ w=wpn_cache[i];

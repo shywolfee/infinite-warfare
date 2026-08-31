@@ -670,7 +670,6 @@ netloop();
 if (f.is_pressed(f_giveall))
 {
 give_all();
-speak("All items given.");
 }
 else if (f.is_pressed(f_spawnveh))
 {
@@ -1732,6 +1731,7 @@ void inv_menu_use(string key)
 
 void inventory_menu()
 {
+	if(!inventory_category_has_items(inv_category_index) and inventory_category_has_items(0))move_inventory_category(1);
 	string[] keys = get_filtered_keys();
 	if (keys.length() == 0)
 	{
@@ -1764,11 +1764,7 @@ void inventory_menu()
 			// rebuilt for the new category and browsing restarts at the top. The
 			// shared category/position state is updated so Tab cycling stays in
 			// sync after the menu closes.
-			if (cat_next) inv_category_index++;
-			else inv_category_index--;
-			if (inv_category_index >= int(inv_categories.length())) inv_category_index = 0;
-			else if (inv_category_index < 0) inv_category_index = int(inv_categories.length()) - 1;
-			invpos = 0;
+			move_inventory_category(cat_next?1:0);
 			keys = get_filtered_keys();
 			pos = 0;
 			p.play_stationary("invmove.ogg", false);

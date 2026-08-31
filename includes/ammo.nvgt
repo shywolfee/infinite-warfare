@@ -1559,15 +1559,17 @@ holster2_belt_ammo=0;
 // Developer cheat: give every weapon, all ammo, and all items.
 void give_all()
 {
-// Rebuild from the live registries so newly loaded weapons, reserves,
-// attachments, holsters, armour, and runtime-discovered items cannot be left
-// out by a stale startup snapshot.
-refresh_content_database();
+// Registries are finalized before the startup catalogue is initialized, and
+// runtime items register themselves when first introduced. Bulk insertion can
+// therefore update the authoritative inventory dictionary directly instead of
+// rebuilding the catalogue and re-validating every known record against it.
+if(content_database.length()==0)initialize_content_database();
 for(uint i=0;i<content_database.length();i++)
 {
 if(content_database[i].category=="Vehicles")continue;
-int wanted=content_database[i].give_amount; int have=get_item_count(content_database[i].id);
-if(have<wanted) give(content_database[i].id,wanted-have);
+int wanted=content_database[i].give_amount,have=0;inv.get(content_database[i].id,have);
+if(have<wanted)inv.set(content_database[i].id,wanted);
+if(i>0 and i%48==0){wait(1);if(connected)netloop();}
 }
 partial_items.resize(0); reset_ammo();
 speak("All weapons, ammunition, and items given.");

@@ -67,19 +67,36 @@ filtered.insert_last(all_keys[i]);
 return filtered;
 }
 
+bool inventory_category_has_items(int category_index)
+{
+if(category_index<0 or category_index>=int(inv_categories.length()))return false;
+if(category_index==0)return inv.get_size()>0 or partial_items.length()>0;
+string category=inv_categories[category_index];
+if(category=="Ammo" and partial_items.length()>0)return true;
+string[] keys=inv.get_keys();
+for(uint i=0;i<keys.length();i++)if(keys[i]!="waypoint_marker" and get_key_category(keys[i])==category)return true;
+return false;
+}
+
+void move_inventory_category(int dir)
+{
+if(!inventory_category_has_items(0)){inv_category_index=0;invpos=0;return;}
+int step=dir==1?1:-1;
+for(uint checked=0;checked<inv_categories.length();checked++)
+{
+inv_category_index+=step;
+if(inv_category_index>=int(inv_categories.length()))inv_category_index=0;
+else if(inv_category_index<0)inv_category_index=int(inv_categories.length())-1;
+if(inventory_category_has_items(inv_category_index)){invpos=0;return;}
+}
+inv_category_index=0;invpos=0;
+}
+
 void cycle_category(int dir)
 {
-if (dir == 1)
-inv_category_index++;
-else
-inv_category_index--;
-if (inv_category_index >= int(inv_categories.length()))
-inv_category_index = 0;
-else if (inv_category_index < 0)
-inv_category_index = int(inv_categories.length()) - 1;
+move_inventory_category(dir);
 string[] filtered = get_filtered_keys();
 speak(inv_categories[inv_category_index] + ". " + filtered.length() + " items.");
-invpos = 0;
 }
 
 void give(string item, int amount)
@@ -167,11 +184,11 @@ return filtered[invpos];
 
 int count_total_items()
 {
-int amount=0;
-for (uint i=0; i<inv.get_keys().length(); i++)
+int amount=0;string[] keys=inv.get_keys();
+for (uint i=0; i<keys.length(); i++)
 {
 int a;
-inv.get(inv.get_keys()[i],a);
+inv.get(keys[i],a);
 amount+=a;
 }
 amount += int(partial_items.length());
@@ -179,15 +196,7 @@ return amount;
 }
 int get_item_count(string item)
 {
-int amount=0;
-for (uint i=0; i<inv.get_keys().length(); i++)
-{
-int a=0;
-if (inv.get_keys()[i]==item)
-inv.get(inv.get_keys()[i],a);
-amount+=a;
-}
-return amount;
+int amount=0;inv.get(item,amount);return amount;
 }
 
 // Returns true if the item is an ammo container that holds individual rounds

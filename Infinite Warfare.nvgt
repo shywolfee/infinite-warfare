@@ -54,6 +54,8 @@ int world_volume=0;
 mixer gameplay_mixer, interface_mixer, notification_mixer, world_mixer;
 bool dev_unlocked=false;
 bool packet_monitor_enabled=false;
+bool packet_viewer_active=false;
+int client_network_drain_depth=0;
 uint64 packet_sequence=0;
 timer packet_session_clock;
 timer nv_form_network_timer;
@@ -622,7 +624,7 @@ value=string_replace(value,"\r"," ",true);value=string_replace(value,"\n"," ",tr
 }
 void record_diagnostic_packet(string direction,string transport,int peer,int channel,string payload)
 {
-if(!(SCRIPT_COMPILED==false or dev_unlocked))return;diagnostic_packet@ r=diagnostic_packet();r.sequence=++packet_sequence;r.direction=direction;r.transport=transport;r.peer=peer;r.channel=channel;r.size=payload.length();r.elapsed_ms=packet_session_clock.elapsed;r.payload=channel==7?"Opus voice payload":packet_safe_preview(payload);r.endpoint=direction=="sent"?name+" to server peer "+peer:"server peer "+peer+" to "+name;r.summary="#"+r.sequence+" "+direction+" "+transport+", "+r.endpoint+", channel "+channel+", "+r.size+" bytes: "+r.payload;diagnostic_packets.insert_last(r);if(diagnostic_packets.length()>500)diagnostic_packets.remove_at(0);if(packet_monitor_enabled)speak(r.summary);
+if(!(SCRIPT_COMPILED==false or dev_unlocked) or (!packet_monitor_enabled and !packet_viewer_active))return;diagnostic_packet@ r=diagnostic_packet();r.sequence=++packet_sequence;r.direction=direction;r.transport=transport;r.peer=peer;r.channel=channel;r.size=payload.length();r.elapsed_ms=packet_session_clock.elapsed;r.payload=channel==7?"Opus voice payload":packet_safe_preview(payload);r.endpoint=direction=="sent"?name+" to server peer "+peer:"server peer "+peer+" to "+name;r.summary="#"+r.sequence+" "+direction+" "+transport+", "+r.endpoint+", channel "+channel+", "+r.size+" bytes: "+r.payload;diagnostic_packets.insert_last(r);if(diagnostic_packets.length()>500)diagnostic_packets.remove_at(0);if(packet_monitor_enabled)speak(r.summary);
 }
 int available_fire_sound_count(string weapon,string mode)
 {
@@ -646,8 +648,8 @@ bool alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),shift=key_down(KEY_LSHIFT) o
 }
 void packet_diagnostics_viewer()
 {
-if(!(SCRIPT_COMPILED==false or dev_unlocked)){speak("Developer access is required.");return;}nv_form f;f.create_window("Live Packet Diagnostics",false,true);nv_form_list_box@ list=f.add_list("Packets, newest entries appear automatically","packets");nv_form_input@ details=f.add_input("Selected packet details","details","","",0,true,true);nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(list);uint64 last_sequence=0;int last_position=-1;
-while(true){wait(5);f.monitor();if(connected)netloop();uint64 newest=diagnostic_packets.length()>0?diagnostic_packets[diagnostic_packets.length()-1].sequence:0;if(newest!=last_sequence){int preserve=list.list_position;list.list_position=-1;list.items.resize(0);for(uint i=0;i<diagnostic_packets.length();i++)list.add(diagnostic_packets[i].summary,""+diagnostic_packets[i].sequence);if(list.items.length()>0){if(preserve<0)preserve=int(list.items.length())-1;if(preserve>=int(list.items.length()))preserve=int(list.items.length())-1;list.set_pos(preserve,false);}last_sequence=newest;last_position=-1;}if(list.list_position!=last_position and list.list_position>=0 and list.list_position<int(diagnostic_packets.length())){last_position=list.list_position;diagnostic_packet@ r=diagnostic_packets[last_position];details.default_text="Sequence "+r.sequence+"\nDirection: "+r.direction+"\nTransport: "+r.transport+"\nPeer: "+r.peer+"\nChannel: "+r.channel+"\nSize: "+r.size+" bytes\nSession time: "+r.elapsed_ms+" milliseconds\nPayload preview: "+r.payload;}if(f.is_pressed(close))return;}
+if(!(SCRIPT_COMPILED==false or dev_unlocked)){speak("Developer access is required.");return;}packet_viewer_active=true;nv_form f;f.create_window("Live Packet Diagnostics",false,true);nv_form_list_box@ list=f.add_list("Packets, newest entries appear automatically","packets");nv_form_input@ details=f.add_input("Selected packet details","details","","",0,true,true);nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(list);uint64 last_sequence=0;int last_position=-1;
+while(true){wait(5);f.monitor();if(connected)netloop();uint64 newest=diagnostic_packets.length()>0?diagnostic_packets[diagnostic_packets.length()-1].sequence:0;if(newest!=last_sequence){int preserve=list.list_position;list.list_position=-1;list.items.resize(0);for(uint i=0;i<diagnostic_packets.length();i++)list.add(diagnostic_packets[i].summary,""+diagnostic_packets[i].sequence);if(list.items.length()>0){if(preserve<0)preserve=int(list.items.length())-1;if(preserve>=int(list.items.length()))preserve=int(list.items.length())-1;list.set_pos(preserve,false);}last_sequence=newest;last_position=-1;}if(list.list_position!=last_position and list.list_position>=0 and list.list_position<int(diagnostic_packets.length())){last_position=list.list_position;diagnostic_packet@ r=diagnostic_packets[last_position];details.default_text="Sequence "+r.sequence+"\nDirection: "+r.direction+"\nTransport: "+r.transport+"\nPeer: "+r.peer+"\nChannel: "+r.channel+"\nSize: "+r.size+" bytes\nSession time: "+r.elapsed_ms+" milliseconds\nPayload preview: "+r.payload;}if(f.is_pressed(close)){packet_viewer_active=false;return;}}
 }
 // ---------------------------------------------------------------------------
 // Developer Suite (Shift+D) — only available in dev builds.
@@ -4509,9 +4511,9 @@ return "";
 r=string_decrypt(r, "masonandsamare2bitches");
 return r;
 }
-void netloop()
+void netloop(bool service_periodic=true)
 {
-voice_chat_loop();
+if(service_periodic)voice_chat_loop();
 e=n.request();
 if (e.type==event_disconnect)
 {
@@ -5083,6 +5085,14 @@ if(e.channel==7)
 string voice_packet=get_event_message();
 if(string_contains(voice_packet,"voice_data ",1)==0) voice_receive_frame(voice_packet);
 }
+}
+// Bound the amount of queued traffic handled per call. Recursive calls skip
+// periodic audio service so packet bursts cannot multiply unrelated work.
+if(e.type==event_receive and client_network_drain_depth<31)
+{
+client_network_drain_depth++;
+netloop(false);
+client_network_drain_depth--;
 }
 }
 void exitgame()

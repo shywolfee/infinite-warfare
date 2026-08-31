@@ -138,7 +138,13 @@ spawn_watertank(299,494,-50,"main");
 while(true)
 {
 wait(5);
-netloop();
+// Service simulation once, then drain a bounded packet burst without
+// multiplying world updates or starving the next frame.
+for(int packet_drain=0;packet_drain<32;packet_drain++)
+{
+netloop(packet_drain==0);
+if(e.type!=event_receive and e.type!=event_disconnect)break;
+}
 if (reboot_scheduled and reboot_schedule_timer.elapsed>=reboot_delay_ms)
 {
 send_reliable(0, "Server rebooting now. Reason: "+reboot_reason, 2);
@@ -159,7 +165,9 @@ exit();
 }
 }
 }
-void netloop()
+void netloop(bool service_world=true)
+{
+if(service_world)
 {
 bunkerloop();
 bunker_alarm_loop();
@@ -183,12 +191,13 @@ bodyfallloop();
 playerloop();
 itemloop();
 maploop();
+}
 e=n.request();
-if(key_pressed(KEY_H))
+if(service_world and key_pressed(KEY_H))
 {
 hide_window();
 }
-if(file_exists("updating.txt"))
+if(service_world and file_exists("updating.txt"))
 {
 send_reliable(0, "updating", 0);
 file_delete("updating.txt");

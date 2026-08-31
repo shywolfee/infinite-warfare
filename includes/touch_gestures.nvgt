@@ -45,11 +45,13 @@ class iw_touch_band_interface : touch_interface {
 	int band;
 	bool[] ev_tap(5), ev_dtap(5), ev_ttap(5), ev_long(5), ev_dhold(5), ev_thold(5);
 	int[] ev_swipe(5), ev_drag(5);
+	bool[] drag_claimed(5);
+	int[] pending_swipe(5);
 
 	iw_touch_band_interface(touch_gesture_manager@ manager, int region, float min_y, float max_y) {
 		super(manager, 0.0f, 1.0f, min_y, max_y);
 		band = region;
-		for (int i=0; i<5; i++) { ev_swipe[i]=-1; ev_drag[i]=-1; }
+		for (int i=0; i<5; i++) { ev_swipe[i]=-1; ev_drag[i]=-1; pending_swipe[i]=-1; }
 	}
 	int finger_slot(uint count) {
 		if (count<1) return 1;
@@ -67,7 +69,10 @@ class iw_touch_band_interface : touch_interface {
 	}
 	void on_swipe(touch_screen_finger@ finger, int direction) {
 		int f=finger_slot(max_fingers_in_sequence>0 ? max_fingers_in_sequence : 1);
-		ev_swipe[f]=direction;
+		// A middle-band one-finger contact may become the continuous movement drag.
+		// Hold its discrete aim gesture until release so movement cannot also aim.
+		if (band==REGION_MIDDLE and f==1) pending_swipe[f]=direction;
+		else ev_swipe[f]=direction;
 	}
 	void on_flick(touch_screen_finger@ finger, int direction, float velocity) {
 		on_swipe(finger, direction);
@@ -76,7 +81,10 @@ class iw_touch_band_interface : touch_interface {
 		if (directions.length()>0) on_swipe(finger, directions[directions.length()-1]);
 	}
 	void on_drag(touch_screen_finger@ finger, int direction, uint fingers) {
-		ev_drag[finger_slot(fingers)]=direction;
+		int f=finger_slot(fingers);
+		ev_drag[f]=direction;
+		drag_claimed[f]=true;
+		if (band==REGION_MIDDLE and f==1) pending_swipe[f]=-1;
 	}
 	void on_touch_move(touch_screen_finger@ finger,uint fingers){if(touch_keyboard_running and fingers==1){touch_keyboard_pointer_x=finger.x;touch_keyboard_pointer_y=finger.y;touch_keyboard_pointer_moved=true;}}
 	void on_long_press(touch_screen_finger@ finger, uint fingers) {
@@ -88,13 +96,16 @@ class iw_touch_band_interface : touch_interface {
 	}
 	void on_released_finger(touch_screen_finger@ finger) {
 		if(touch_keyboard_running){touch_keyboard_pointer_x=finger.x;touch_keyboard_pointer_y=finger.y;touch_keyboard_pointer_released=true;}
-		for (int i=0; i<5; i++) ev_drag[i]=-1;
+		for (int i=0; i<5; i++) {
+			if (pending_swipe[i]>=0 and !drag_claimed[i]) ev_swipe[i]=pending_swipe[i];
+			pending_swipe[i]=-1; drag_claimed[i]=false; ev_drag[i]=-1;
+		}
 	}
 	void clear_events() {
 		for (int i=0; i<5; i++) {
 			ev_tap[i]=false; ev_dtap[i]=false; ev_ttap[i]=false;
 			ev_long[i]=false; ev_dhold[i]=false; ev_thold[i]=false;
-			ev_swipe[i]=-1; ev_drag[i]=-1;
+			ev_swipe[i]=-1; ev_drag[i]=-1; pending_swipe[i]=-1; drag_claimed[i]=false;
 		}
 		tap_count=0;@last_tap_func=null;@last_tapped_finger=null;max_fingers_in_sequence=0;
 	}

@@ -19,4 +19,8 @@ Player state: Managed in the players array on the server. Each player tracks pos
 
 Projectile audio transport: Ballistics, collision, damage, flight-loop timing and the 50-millisecond positional update cadence remain server-authoritative. Start and stop events are reliable and routed only to players on the projectile's map. Active projectile coordinates are aggregated into bounded unreliable projectile_audio_batch packets built and encrypted once per occupied map instead of once per bullet or listener. The client applies every contained source position independently, preserving the same spatial result while preventing automatic weapons from flooding ENet queues.
 
+Queue servicing: Each client update and server frame drains a bounded burst of pending receive events. Voice service on the client and world simulation on the server still run only once per original update, so draining traffic cannot accelerate mechanics or multiply periodic work. The bound prevents a sustained sender from monopolizing a frame.
+
+Packet diagnostics: Packet summaries and payload previews are captured only while live packet reporting is enabled or the packet viewer is open. Opening the viewer begins live capture; closing it disables capture unless reporting remains enabled. This keeps the diagnostic tools available without allocating and trimming a 500-entry string history during ordinary source-build play.
+
 Lobby state: Pre-spawn clients are tracked in lobby_clients array, separate from the in-game players array.

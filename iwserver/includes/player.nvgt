@@ -81,6 +81,9 @@ int health=1000;
 int x;
 int y;
 int z;
+double model_x,model_y,model_z,model_target_x,model_target_y,model_target_z;
+double model_vx=0,model_vy=0,model_vz=0;
+timer model_motion_timer;
 string map;
 string zone;
 string name;
@@ -122,6 +125,8 @@ map=pmap;
 x=px;
 y=py;
 z=pz;
+model_x=px;model_y=py;model_z=pz;
+model_target_x=px;model_target_y=py;model_target_z=pz;
 name=pname;
 peer_id=ppeer_id;
 }
@@ -148,10 +153,21 @@ string item="";int durability=0;if(region=="head"){item=p.armor_head;durability=
 bool compatible=patch=="aramid_repair_tape"?(string_contains(item,"light",1)>=0 or string_contains(item,"soft",1)>=0 or string_contains(item,"kevlar",1)>=0):patch=="ceramic_plate_epoxy"?(string_contains(item,"ballistic",1)>=0 or string_contains(item,"plate",1)>=0):patch=="armor_rivet_pack"?string_contains(item,"heavy",1)>=0:string_contains(patch,string_contains(item,"heavy",1)>=0?"heavy":(string_contains(item,"ballistic",1)>=0?"ballistic":"light"),1)>=0 or string_contains(patch,string_contains(item,"plate_carrier",1)>=0?"plate_carrier":(string_contains(item,"soft_armor",1)>=0?"soft_armor":(string_contains(item,"kevlar",1)>=0?"kevlar":(string_contains(item,"greaves",1)>=0?"greave":"none"))),1)>=0;
 if(!compatible){send_reliable(p.peer_id,"That patch is not compatible with "+string_replace(item,"_"," ",true)+".",2);return false;}int maximum=armor_durability_for(item);int ceiling=int(maximum*.60);if(durability>=ceiling){send_reliable(p.peer_id,"Field patches cannot improve this armour beyond sixty percent durability.",2);return false;}int restored=int(maximum*.07);if(durability+restored>ceiling)restored=ceiling-durability;durability+=restored;if(region=="head")p.armor_head_durability=durability;else if(region=="torso")p.armor_torso_durability=durability;else if(region=="arm")p.armor_arms_durability=durability;else p.armor_legs_durability=durability;send_reliable(p.peer_id,"give "+patch+" -1",0);send_player_armor_state(p);play("armor_repair",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"Patched "+string_replace(item,"_"," ",true)+" for "+restored+" durability. Current durability "+durability+" of "+maximum+"; field patches cannot exceed sixty percent.",2);return true;
 }
+void set_player_model_target(player@ p,int nx,int ny,int nz)
+{
+double dx=double(nx)-p.model_x,dy=double(ny)-p.model_y,dz=double(nz)-p.model_z;
+if(sqrt(dx*dx+dy*dy+dz*dz)>2.25){p.model_x=nx;p.model_y=ny;p.model_z=nz;p.model_vx=0;p.model_vy=0;p.model_vz=0;}
+p.model_target_x=nx;p.model_target_y=ny;p.model_target_z=nz;
+}
+void update_player_physical_model(player@ p)
+{
+double dt=double(p.model_motion_timer.elapsed)/1000.0;if(dt<.005)return;if(dt>.08)dt=.08;p.model_motion_timer.restart();double dx=p.model_target_x-p.model_x,dy=p.model_target_y-p.model_y,dz=p.model_target_z-p.model_z;double distance=sqrt(dx*dx+dy*dy+dz*dz);if(distance<.002){p.model_x=p.model_target_x;p.model_y=p.model_target_y;p.model_z=p.model_target_z;p.model_vx=0;p.model_vy=0;p.model_vz=0;return;}double speed=1000.0/double(p.server_walktime>0?p.server_walktime:200);double desired_x=dx/distance*speed,desired_y=dy/distance*speed,desired_z=dz/distance*speed;double response=dt*18.0;if(response>1)response=1;p.model_vx+=(desired_x-p.model_vx)*response;p.model_vy+=(desired_y-p.model_vy)*response;p.model_vz+=(desired_z-p.model_vz)*response;double step=sqrt(p.model_vx*p.model_vx+p.model_vy*p.model_vy+p.model_vz*p.model_vz)*dt;if(step>=distance){p.model_x=p.model_target_x;p.model_y=p.model_target_y;p.model_z=p.model_target_z;p.model_vx=0;p.model_vy=0;p.model_vz=0;}else{p.model_x+=p.model_vx*dt;p.model_y+=p.model_vy*dt;p.model_z+=p.model_vz*dt;}
+}
 void playerloop()
 {
 for(uint i=0; i<players.length(); i++)
 {
+update_player_physical_model(players[i]);
 if(players[i].burning)
 {
 if(players[i].burning_duration_timer.elapsed>=8000)players[i].burning=false;

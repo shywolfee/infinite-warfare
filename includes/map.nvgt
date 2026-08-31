@@ -355,21 +355,27 @@ if(!in_vehicle)
 for(uint vi=0;vi<map_vehicles.length();vi++)
 {
 vehicle@ obstacle=map_vehicles[vi];
-if(obstacle.destroyed or obstacle.x!=int(mr.x) or obstacle.y!=int(mr.y)) continue;
-if(int(round(me.z,0))==obstacle.z+1)
+if(obstacle.destroyed) continue;
+double vehicle_length,vehicle_width,vehicle_height,local_forward,local_side;vehicle_dimensions(obstacle,vehicle_length,vehicle_width,vehicle_height);vehicle_local_position(obstacle,me.x,me.y,local_forward,local_side);
+bool near_vehicle=absolute(local_forward)<=vehicle_length*.5+1.1 and absolute(local_side)<=vehicle_width*.5+1.1 and me.z>=obstacle.z-.2 and me.z<=obstacle.z+vehicle_height+.8;
+if(near_vehicle){string zone=obstacle.get_name()+", "+vehicle_zone_at(obstacle,me.x,me.y,me.z);if(zone!=last_vehicle_zone){last_vehicle_zone=zone;speak(zone+".");}}
+if(vehicle_is_roof_position(obstacle,me.x,me.y,me.z))
 {
 vehicle_roof_index=int(vi);vehicle_roof_last_x=obstacle.x;vehicle_roof_last_y=obstacle.y;vehicle_roof_last_z=obstacle.z;
+vehicle_local_position(obstacle,me.x,me.y,vehicle_roof_local_forward,vehicle_roof_local_side);
 break;
 }
-if(me.z>=obstacle.z and me.z<obstacle.z+1)
+if(vehicle_contains_position(obstacle,me.x,me.y,me.z))
 {
+if(obstacle.door_open and vehicle_cabin_contains_position(obstacle,me.x,me.y,me.z)){vehicle_interior_index=int(vi);continue;}
 play_vehicle_audio(obstacle,"crash");
-speak(obstacle.get_name()+" blocking the way.");
+speak(obstacle.get_name()+" body blocking the way. Open its door to enter the interior.");
 me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);
 return;
 }
 }
-if(vehicle_roof_index>=0 and (vehicle_roof_index>=int(map_vehicles.length()) or map_vehicles[vehicle_roof_index].x!=int(mr.x) or map_vehicles[vehicle_roof_index].y!=int(mr.y))) vehicle_roof_index=-1;
+if(vehicle_roof_index>=0 and (vehicle_roof_index>=int(map_vehicles.length()) or !vehicle_is_roof_position(map_vehicles[vehicle_roof_index],me.x,me.y,me.z))) vehicle_roof_index=-1;
+if(vehicle_interior_index>=0 and (vehicle_interior_index>=int(map_vehicles.length()) or !vehicle_cabin_contains_position(map_vehicles[vehicle_interior_index],me.x,me.y,me.z)))vehicle_interior_index=-1;
 }
 for(int i=0; i<walls.length(); i++)
 {

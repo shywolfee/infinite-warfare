@@ -188,6 +188,8 @@ vehicle@[] map_vehicles;
 int player_vehicle_index = -1; // index into map_vehicles, -1 = not in vehicle
 int player_seat = -1;
 bool in_vehicle = false;
+int vehicle_interior_index = -1;
+string last_vehicle_zone="";
 timer vehicle_move_timer;
 timer vehicle_stamina_timer;
 double vehicle_current_velocity=0; // tiles per second
@@ -199,6 +201,18 @@ int vehicle_roof_index = -1;
 int vehicle_roof_last_x = 0;
 int vehicle_roof_last_y = 0;
 int vehicle_roof_last_z = 0;
+double vehicle_roof_local_forward=0,vehicle_roof_local_side=0;
+
+void vehicle_dimensions(vehicle@ v,double &out length,double &out width,double &out height)
+{
+length=3.6;width=1.8;height=1.65;string n=v.get_name();if(n=="Buggy"){length=3;width=1.7;height=1.35;}else if(n=="Pickup Truck" or n=="Van"){length=4.8;width=2;height=2.15;}else if(n=="Humvee"){length=4.7;width=2.2;height=2;}else if(n=="APC"){length=6.8;width=2.9;height=2.7;}else if(n=="Tank"){length=7.2;width=3.5;height=2.8;}else if(n=="Duo Plane"){length=8.5;width=10.5;height=3.1;}
+}
+void vehicle_local_position(vehicle@ v,double wx,double wy,double &out forward,double &out side){double rad=v.facing*3.14159265358979323846/180.0,dx=wx-v.x,dy=wy-v.y;forward=dx*sine(rad)+dy*cosine(rad);side=dx*cosine(rad)-dy*sine(rad);}
+bool vehicle_contains_position(vehicle@ v,double wx,double wy,double wz,double margin=0){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);return absolute(forward)<=length*.5+margin and absolute(side)<=width*.5+margin and wz>=v.z and wz<=v.z+height;}
+bool vehicle_cabin_contains_position(vehicle@ v,double wx,double wy,double wz,double margin=0){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);double rear=-length*.18,front=length*.42,cabin_width=width*.43;string n=v.get_name();if(n=="Van" or n=="APC"){rear=-length*.42;front=length*.4;cabin_width=width*.42;}else if(n=="Tank"){rear=-length*.12;front=length*.22;cabin_width=width*.27;}else if(n=="Pickup Truck"){rear=length*.02;front=length*.43;}else if(n=="Duo Plane"){rear=-length*.3;front=length*.35;cabin_width=width*.16;}else if(n=="Buggy")cabin_width=width*.48;return forward>=rear-margin and forward<=front+margin and absolute(side)<=cabin_width+margin and wz>=v.z and wz<=v.z+height;}
+bool vehicle_is_roof_position(vehicle@ v,double wx,double wy,double wz){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);return absolute(forward)<=length*.5 and absolute(side)<=width*.5 and wz>=v.z+height-.25 and wz<=v.z+height+.65;}
+string vehicle_zone_at(vehicle@ v,double wx,double wy,double wz){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);if(vehicle_is_roof_position(v,wx,wy,wz))return "on the roof";if(vehicle_cabin_contains_position(v,wx,wy,wz) and wz>v.z+.35)return "inside the cabin";if(absolute(forward)<=length*.5 and absolute(side)<=width*.5)return "under the vehicle";if(forward>length*.5 and absolute(side)<=width*.75)return "in front of the engine";if(forward<length*-.5 and absolute(side)<=width*.75)return "behind the vehicle";return side<0?"along the left side":"along the right side";}
+void vehicle_seat_world_position(vehicle@ v,int seat,double &out sx,double &out sy,double &out sz){double length,width,height;vehicle_dimensions(v,length,width,height);int row=seat/2;double local_forward=length*.24-double(row)*.75,local_side=(seat%2==0?-.28:.28)*width;double rad=v.facing*3.14159265358979323846/180.0;sx=v.x+sine(rad)*local_forward+cosine(rad)*local_side;sy=v.y+cosine(rad)*local_forward-sine(rad)*local_side;sz=v.z+.45;}
 
 string vehicle_audio_id_from_name(string vehicle_name)
 {
@@ -367,7 +381,7 @@ if (map_vehicles[vi].destroyed)
 speak("This vehicle is destroyed.");
 return;
 }
-if (!map_vehicles[vi].door_open)
+if (!map_vehicles[vi].door_open and !vehicle_cabin_contains_position(map_vehicles[vi],me.x,me.y,me.z,.15))
 {
 speak("The door is closed. Press O to open it first.");
 return;
@@ -381,6 +395,12 @@ bool vehicle_was_empty=true;
 for(uint occupied=0; occupied<map_vehicles[vi].passengers.length(); occupied++)
 if(map_vehicles[vi].passengers[occupied]!="") vehicle_was_empty=false;
 int seat = map_vehicles[vi].find_empty_seat();
+// When the player physically explored the cabin, interact with the closest
+// available seat. V from outside retains the existing automatic entry path.
+if(vehicle_cabin_contains_position(map_vehicles[vi],me.x,me.y,me.z,.15))
+{
+double nearest=9999;for(int candidate=0;candidate<map_vehicles[vi].get_max_passengers();candidate++){if(map_vehicles[vi].passengers[candidate]!="")continue;double sx,sy,sz;vehicle_seat_world_position(map_vehicles[vi],candidate,sx,sy,sz);double d=get_3d_distance(me.x,me.y,me.z,sx,sy,sz);if(d<nearest){nearest=d;seat=candidate;}}
+}
 if (seat < 0)
 {
 speak("No empty seats.");
@@ -416,20 +436,16 @@ speak("Stop the vehicle first.");
 return;
 }
 vehicle@ v = map_vehicles[player_vehicle_index];
-if (!v.door_open)
-{
-speak("Open the door first. Press O.");
-return;
-}
 int seat = v.find_player_seat(pname);
 if (seat >= 0)
 {
 v.passengers[seat] = "";
 v.window_down[seat] = false;
 }
-speak("Exited " + v.get_name() + ".");
+speak("Stood up from the " + v.seat_label(seat) + " inside " + v.get_name() + ".");
 play_vehicle_audio(v, "exit");
 send_reliable(0, "veh_exit " + player_vehicle_index+" "+mapname, 0);
+double stand_x,stand_y,stand_z;vehicle_seat_world_position(v,seat,stand_x,stand_y,stand_z);me.x=stand_x;me.y=stand_y;me.z=stand_z;mr.x=round(me.x,0);mr.y=round(me.y,0);vehicle_interior_index=player_vehicle_index;
 player_vehicle_index = -1;
 player_seat = -1;
 in_vehicle = false;
@@ -736,7 +752,7 @@ speak(aircraft_launch?"Thrown from the aircraft as it launched.":"Thrown from th
 }
 else
 {
-me.x=roof.x;me.y=roof.y;me.z=roof.z+1;mr.x=roof.x;mr.y=roof.y;
+double roof_length,roof_width,roof_height;vehicle_dimensions(roof,roof_length,roof_width,roof_height);double roof_rad=roof.facing*3.14159265358979323846/180.0;me.x=roof.x+sine(roof_rad)*vehicle_roof_local_forward+cosine(roof_rad)*vehicle_roof_local_side;me.y=roof.y+cosine(roof_rad)*vehicle_roof_local_forward-sine(roof_rad)*vehicle_roof_local_side;me.z=roof.z+roof_height;mr.x=round(me.x,0);mr.y=round(me.y,0);
 if(roof.x!=vehicle_roof_last_x or roof.y!=vehicle_roof_last_y or roof.z!=vehicle_roof_last_z)
 send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);
 }

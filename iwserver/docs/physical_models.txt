@@ -1,0 +1,9 @@
+Physical Player and Vehicle Models
+
+Map navigation continues to use whole coordinate units for predictable audio navigation. Combat does not treat those coordinates as point targets. The server maintains a continuous physical transform for each player and eases the body from its current position to each accepted navigation coordinate at the player's unchanged movement rate. Spawn, translocation and other large coordinate changes snap the transform intentionally.
+
+The player body is a facing-aware compound model made from a skull, neck, chest, pelvis, paired upper and lower arms, thighs and shins. Moving limbs use a stride offset. Projectiles intersect those volumes at their continuous world positions and then map the exact volume back to the established head, torso, arm or leg damage and armour region.
+
+Each vehicle type defines an oriented length, width and height. Its server model moves continuously between network coordinates and includes the body plus four wheel volumes. Projectile and collision tests rotate world positions into vehicle-local space, so facing and the actual footprint matter.
+
+On the client, the same dimensions create front, rear, side, cabin, underside and roof zones. An open door exposes the cabin for ordinary walking. Seat positions are generated within each type's dimensions and V interacts with the closest available interior seat. Automatic V entry remains available. The roof is a moving surface: the player's local forward/side offset is retained as the vehicle translates or turns.

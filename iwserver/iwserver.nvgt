@@ -2512,6 +2512,7 @@ if (players[index].teleport_warnings>0) players[index].teleport_warnings--;
 players[index].x=new_x;
 players[index].y=new_y;
 players[index].z=new_z;
+set_player_model_target(players[index],new_x,new_y,new_z);
 players[index].last_x=new_x;
 players[index].last_y=new_y;
 players[index].last_z=new_z;
@@ -3011,6 +3012,10 @@ else if(parsed[0]=="veh_seat" and parsed.length()>2)
 {
 int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant(string_to_number(parsed[1]),players[index].map,players[index].name,string_to_number(parsed[2]));
 }
+else if(parsed[0]=="veh_turn" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map);if(vi>=0)authoritative_vehicles[vi].facing=string_to_number(parsed[2]);}
+}
 else if(parsed[0]=="veh_move" and parsed.length()>6)
 {
 int index=get_player_index(e.peer_id);if(index>=0 and players[index].map==parsed[6])authoritative_vehicle_move(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),parsed[6],players[index].name);
@@ -3249,6 +3254,7 @@ string name=players[index].name;
 players[index].x=new_x;
 players[index].y=new_y;
 players[index].z=new_z;
+set_player_model_target(players[index],new_x,new_y,new_z);
 players[index].last_x=new_x;
 players[index].last_y=new_y;
 players[index].last_z=new_z;

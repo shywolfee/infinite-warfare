@@ -2079,13 +2079,18 @@ play("duoplaneout", players[index].x, players[index].y, players[index].z, player
 players[index].in_plane=false;
 }
 }
+else if(parsed[0]=="extract_pill" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);if(index>=0)extract_server_pill(players[index],parsed[1]);
+}
 else if(parsed[0]=="use" and parsed.length()>1)
 {
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
 int item_configuration=parsed.length()>2?string_to_number(parsed[2]):1;if(item_configuration<0 or item_configuration>2)item_configuration=1;
-if(parsed[1]=="duo_plane_kit")
+if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
+else if(parsed[1]=="duo_plane_kit")
 {
 int team_index=get_team_index_for_member(players[index].name);
 if (team_index<0) send_reliable(players[index].peer_id, "Only a team member can deploy a Duo Plane Kit.", 2);
@@ -2100,13 +2105,17 @@ send_reliable(players[index].peer_id, "give duo_plane_kit -1", 0);
 team_notice(team_index, players[index].name+" deployed the team's Duo Plane.");
 }
 }
+else if(parsed[1]=="humvee_kit" or parsed[1]=="apc_kit" or parsed[1]=="tank_kit")
+{
+int team_index=get_team_index_for_member(players[index].name);if(team_index<0)send_reliable(players[index].peer_id,"Only a team member can deploy a vehicle kit.",2);else{string vehicle_name=parsed[1]=="humvee_kit"?"Humvee":(parsed[1]=="apc_kit"?"APC":"Tank");for(uint tm=0;tm<teams[team_index].members.length();tm++){int recipient=get_player_index_from(teams[team_index].members[tm].name);if(recipient>-1 and players[recipient].map==players[index].map)send_reliable(players[recipient].peer_id,"team_vehicle_spawn "+vehicle_name+" "+players[index].x+" "+players[index].y+" "+players[index].z,0);}send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);team_notice(team_index,players[index].name+" deployed the team's "+vehicle_name+".");}
+}
 else if(parsed[1]=="team_supply_beacon")
 {
 int ti=get_team_index_for_member(players[index].name);
 if (ti<0) send_reliable(players[index].peer_id, "You must be on a team to use this beacon.", 2);
 else
 {
-for (uint tm=0; tm<teams[ti].members.length(); tm++) { int recipient=get_player_index_from(teams[ti].members[tm].name); if (recipient>-1) { send_reliable(players[recipient].peer_id, "give health_potion 2", 0); send_reliable(players[recipient].peer_id, "give frag_grenade 2", 0); } }
+for (uint tm=0; tm<teams[ti].members.length(); tm++) { int recipient=get_player_index_from(teams[ti].members[tm].name); if (recipient>-1) { send_reliable(players[recipient].peer_id, "give nanocyte_solution_bottle 2", 0); send_reliable(players[recipient].peer_id, "give frag_grenade 2", 0); } }
 send_reliable(players[index].peer_id, "give team_supply_beacon -1", 0); team_notice(ti, players[index].name+" deployed a supply beacon. Online members received supplies.");
 }
 }
@@ -2192,7 +2201,7 @@ players[index].health=1000;
 if(parsed[1]=="bag")
 {
 send_reliable(players[index].peer_id, "give bag -1", 0);
-send_reliable(players[index].peer_id, "give health_potion "+(item_configuration==0?4:2), 0);
+send_reliable(players[index].peer_id, "give nanocyte_solution_bottle "+(item_configuration==0?4:2), 0);
 send_reliable(players[index].peer_id, "give bomb_vest 1", 0);
 play("bagopen", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_unreliable(players[index].peer_id, "ammogive benelli_m4_shotgun "+(item_configuration==2?30:15), 0);
@@ -2218,9 +2227,9 @@ send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds befor
 if(parsed[1]=="box")
 {
 send_reliable(players[index].peer_id, "give box -1", 0);
-send_reliable(players[index].peer_id, "give health_potion "+(item_configuration==0?8:5), 0);
+send_reliable(players[index].peer_id, "give nanocyte_solution_bottle "+(item_configuration==0?8:5), 0);
 send_reliable(players[index].peer_id, "give fake_item "+(item_configuration==2?3:5), 0);
-send_reliable(players[index].peer_id, "give ultra_health_potion "+(item_configuration==0?2:1), 0);
+send_reliable(players[index].peer_id, "give trauma_repair_serum_bottle "+(item_configuration==0?2:1), 0);
 int ammo_pack=item_configuration==2?160:100;
 send_unreliable(players[index].peer_id, "ammogive glock17 "+ammo_pack, 0);
 send_unreliable(players[index].peer_id, "ammogive hk_g36 "+ammo_pack, 0);
@@ -2455,6 +2464,7 @@ for(uint ui=0; ui<usable_items.length(); ui++)
 if(parsed[1]==usable_items[ui]){is_usable=true;break;}
 }
 if(armor_region!="")is_usable=true;
+if(server_medication(parsed[1]) or parsed[1]=="humvee_kit" or parsed[1]=="apc_kit" or parsed[1]=="tank_kit")is_usable=true;
 if(string_contains(parsed[1],"_patch",1)>=0 or parsed[1]=="aramid_repair_tape" or parsed[1]=="ceramic_plate_epoxy" or parsed[1]=="armor_rivet_pack")is_usable=true;
 if(!is_usable and string_contains(parsed[1], "corpse_", 1)<0)
 send_reliable(players[index].peer_id, "This item cannot be used directly.", 2);

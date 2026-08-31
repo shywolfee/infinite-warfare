@@ -842,6 +842,9 @@ iw_form shop;
 shop.create_window("Team Shop", false, true);
 int items=shop.create_list("Items", 0, false);
 shop.add_list_item(items, "Duo Plane Kit - 500 team points");
+shop.add_list_item(items, "Humvee Kit - 450 team points; independent 5 minute timer");
+shop.add_list_item(items, "APC Kit - 700 team points; independent 5 minute timer");
+shop.add_list_item(items, "Tank Kit - 900 team points; independent 5 minute timer");
 shop.add_list_item(items, "Team Supply Beacon - 150 team points");
 shop.add_list_item(items, "Team Armor Crate - 250 team points");
 shop.add_list_item(items, "Team Revive Kit - 300 team points");
@@ -855,7 +858,7 @@ wait(5); shop.monitor(); if (connected) netloop();
 if (shop.is_pressed(close)) return;
 if (shop.is_pressed(buy))
 {
-string[] keys={"plane", "supply", "armor", "revive", "recon"};
+string[] keys={"plane", "humvee", "apc", "tank", "supply", "armor", "revive", "recon"};
 int selected=shop.get_list_position(items);
 if (selected>=0 and selected<int(keys.length())) send_team_command("buy "+keys[selected]);
 return;

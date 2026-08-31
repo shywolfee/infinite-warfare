@@ -61,8 +61,16 @@ return result;
 
 void content_register_standard_items()
 {
-content_register("health_potion","Health Potion","Consumables","Applies residual healing: 500 health every 15 seconds for 2 minutes.",5);
-content_register("ultra_health_potion","Ultra Health Potion","Consumables","Applies residual healing: 1500 health every 25 seconds for 5 minutes.",3);
+content_register("nanocyte_solution_bottle","Nanocyte Reconstruction Solution","Healing","Eight-fluid-ounce multi-dose bottle. Recommended dose one ounce; restores tissue immediately and over twenty seconds.",2);
+content_register("trauma_repair_serum_bottle","Trauma Repair Serum","Healing","Six-fluid-ounce multi-dose bottle. Recommended dose 0.75 ounces; strong rapid healing with higher toxicity.",2);
+content_register("coagulant_serum_bottle","Hemostatic Coagulant Serum","Healing","Four-fluid-ounce multi-dose bottle. Recommended dose 0.5 ounces; stops bleeding and restores modest health.",2);
+content_register("medigel_tonic_bottle","Medigel Recovery Tonic","Healing","Ten-fluid-ounce multi-dose bottle. Recommended dose 1.5 ounces; slow sustained healing with low toxicity.",2);
+content_register("regenex_tablet_bottle","Regenex Tablet Bottle","Healing","Twelve tablets. Recommended dose one; sustained regenerative treatment.",2);
+content_register("pain_blocker_capsule_bottle","Neural Pain-Blocker Capsules","Healing","Sixteen capsules. Recommended dose two; immediate stabilization with moderate toxicity.",2);
+content_register("clotting_tablet_bottle","Synth-Clot Tablet Bottle","Healing","Ten tablets. Recommended dose one; stops bleeding and provides limited recovery.",2);
+content_register("combat_stimulant_tablet_bottle","Valkyr Combat Stimulant Tablets","Healing","Eight tablets. Recommended dose one; restores stamina and a small amount of health, but is highly toxic.",2);
+content_register("antitoxin_tablet_bottle","Broad-Spectrum Antitoxin Tablets","Healing","Ten tablets. Recommended dose one; reduces accumulated medication toxicity.",2);
+content_register("loose_regenex_tablet","Loose Regenex Tablet","Healing","One transferable Regenex tablet.",3);content_register("loose_pain_blocker_capsule","Loose Neural Pain-Blocker Capsule","Healing","One transferable pain-blocker capsule.",3);content_register("loose_clotting_tablet","Loose Synth-Clot Tablet","Healing","One transferable clotting tablet.",3);content_register("loose_combat_stimulant_tablet","Loose Valkyr Combat Stimulant Tablet","Healing","One transferable combat stimulant tablet.",3);content_register("loose_antitoxin_tablet","Loose Broad-Spectrum Antitoxin Tablet","Healing","One transferable antitoxin tablet.",3);
 content_register("frag_grenade","Fragmentation Grenade","Equipment","Thrown explosive damage.",10);
 content_register("impact_grenade","Impact Grenade","Equipment","Thrown contact-fused explosive with a compact blast.",5);
 content_register("flashbang","Flashbang","Equipment","Thrown optical and movement-disruption device.",5);
@@ -112,6 +120,9 @@ content_register("bunker_bomb","Bunker Bomb","Equipment","Special bunker explosi
 content_register("hypercomp","HyperComp","Equipment","Portable bunker monitoring and control computer.",1);
 content_register("binoculars","Binoculars","Equipment","Scouting tool for zones and points of interest.",1);
 content_register("duo_plane_kit","Duo Plane Kit","Equipment","Deploys the team-owned Duo Plane vehicle.",1);
+content_register("humvee_kit","Humvee Kit","Team","Deploys a team Humvee. Its shop purchase has an independent five-minute cooldown.",1);
+content_register("apc_kit","APC Kit","Team","Deploys a team APC. Its shop purchase has an independent five-minute cooldown.",1);
+content_register("tank_kit","Tank Kit","Team","Deploys a team Tank. Its shop purchase has an independent five-minute cooldown.",1);
 content_register("team_supply_beacon","Team Supply Beacon","Equipment","Distributes supplies to online teammates.",1);
 content_register("team_armor_crate","Team Armor Crate","Equipment","Distributes armor to online teammates.",1);
 content_register("team_revive_kit","Team Revive Kit","Equipment","Distributes revival equipment to online teammates.",1);

@@ -101,6 +101,7 @@ speak(inv_categories[inv_category_index] + ". " + filtered.length() + " items.")
 
 void give(string item, int amount)
 {
+if(item=="health_potion")item="nanocyte_solution_bottle";else if(item=="ultra_health_potion")item="trauma_repair_serum_bottle";
 if(item=="waypoint_marker"){if(inv.exists(item))inv.delete(item);for(int q=0;q<10;q++)if(quickbar[q]==item)quickbar[q]="";return;}
 content_ensure_item(item);
 int a;

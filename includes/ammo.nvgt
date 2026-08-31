@@ -1498,6 +1498,19 @@ if (diff>0) give(gun_ammos[i].reserve_item, diff);
 }
 
 string starting_loadout_weapon="";
+void give_starting_weapon_maintenance(string weapon)
+{
+string c=get_weapon_class(weapon);
+if(c=="pistol" or c=="revolver"){give("handgun_cleaning_kit",1);give("chamber_brush",3);give("action_lubricant",3);}
+else if(c=="assault_rifle" or c=="battle_rifle" or c=="submachine_gun"){give("rifle_field_tool",1);give("carbon_scraper",3);give("action_lubricant",3);}
+else if(c=="sniper_rifle"){give("precision_bore_guide",1);give("copper_fouling_solvent",3);give("precision_cleaning_patches",6);}
+else if(c=="shotgun"){give("shotgun_cleaning_rod",1);give("shotgun_bore_swab",4);give("action_lubricant",3);}
+else if(c=="light_machine_gun"){give("barrel_wrench",1);give("heat_resistant_gloves",1);give("spare_machine_gun_barrel",2);give("action_lubricant",3);}
+else if(c=="energy"){give("emitter_service_key",1);give("thermal_vent_cartridge",3);give("dielectric_coolant",3);}
+else if(c=="incendiary"){give("fuel_system_wrench",1);give("burner_nozzle_cleaner",3);give("pressure_seal_kit",3);}
+else if(c=="tool"){give("drive_service_tool",1);give("chain_lubricant",3);give("motor_coolant",3);}
+else if(string_contains(c,"melee",1)>=0){give("field_honing_stone",1);give("blade_oil",3);give("grip_repair_wrap",3);}
+}
 // Give a random starting loadout: 1 melee, 1 sidearm, 1 primary, plus ammo.
 void give_starting_loadout()
 {
@@ -1518,10 +1531,14 @@ give(chosen_primary, 1);
 // Give ammo for the weapons the player now owns.
 partial_items.resize(0);
 reset_ammo();
+give_starting_weapon_maintenance(chosen_melee);
+give_starting_weapon_maintenance(chosen_sidearm);
+give_starting_weapon_maintenance(chosen_primary);
 
 // A few utility items to start with.
-give("health_potion", 2);
-give("frag_grenade", 3);
+give("nanocyte_solution_bottle", 2);
+string[] starting_explosives={"frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade"};
+string chosen_explosive=starting_explosives[random(0,starting_explosives.length()-1)];give(chosen_explosive,2);
 
 // Auto-assigning is optional; disabling it leaves a genuinely blank quickbar.
 for (int i=0; i<10; i++) quickbar[i] = "";
@@ -1530,8 +1547,8 @@ if (auto_bind_starting_loadout)
 quickbar[0] = chosen_melee;
 quickbar[1] = chosen_sidearm;
 quickbar[2] = chosen_primary;
-quickbar[3] = "health_potion";
-quickbar[4] = "frag_grenade";
+quickbar[3] = "nanocyte_solution_bottle";
+quickbar[4] = chosen_explosive;
 for (int i=5; i<10; i++) quickbar[i] = "";
 }
 
@@ -1568,8 +1585,8 @@ for(uint i=0;i<content_database.length();i++)
 {
 if(content_database[i].category=="Vehicles")continue;
 int wanted=content_database[i].give_amount,have=0;inv.get(content_database[i].id,have);
-if(have<wanted)inv.set(content_database[i].id,wanted);
-if(i>0 and i%48==0){wait(1);if(connected)netloop();}
+if(have<wanted)give(content_database[i].id,wanted-have);
+if(i>0 and i%32==0){wait(1);if(connected)netloop();}
 }
 partial_items.resize(0); reset_ammo();
 speak("All weapons, ammunition, and items given.");

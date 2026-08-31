@@ -17,6 +17,8 @@ class team
 string name;
 int points=0;
 team_member@[] members;
+timer plane_kit_timer,humvee_kit_timer,tank_kit_timer,apc_kit_timer;
+bool plane_kit_bought=false,humvee_kit_bought=false,tank_kit_bought=false,apc_kit_bought=false;
 team(string n) { name=n; }
 }
 
@@ -124,7 +126,7 @@ team_notice(ti, "+"+amount+" team points. Pool: "+teams[ti].points+".");
 
 string team_shop_description()
 {
-return "Duo Plane Kit, 500; Team Supply Beacon, 150; Team Armor Crate, 250; Team Revive Kit, 300; Team Recon Scanner, 200";
+return "Duo Plane Kit, 500; Humvee Kit, 450; APC Kit, 700; Tank Kit, 900. Each vehicle kit has its own five-minute purchase timer. Team Supply Beacon, 150; Team Armor Crate, 250; Team Revive Kit, 300; Team Recon Scanner, 200";
 }
 bool lobby_team_chat(string pname,uint peer,string raw)
 {
@@ -247,13 +249,20 @@ if (action=="buy" and p.length()>2)
 if (!team_can_manage(actor, "shop")) { send_reliable(players[pi].peer_id, "You do not have team-shop permission.", 2); return true; }
 string key=string_to_lower_case(p[2]); string item; int cost=0;
 if (key=="plane") { item="duo_plane_kit"; cost=500; }
+else if(key=="humvee") { item="humvee_kit"; cost=450; }
+else if(key=="apc") { item="apc_kit"; cost=700; }
+else if(key=="tank") { item="tank_kit"; cost=900; }
 else if (key=="supply") { item="team_supply_beacon"; cost=150; }
 else if (key=="armor") { item="team_armor_crate"; cost=250; }
 else if (key=="revive") { item="team_revive_kit"; cost=300; }
 else if (key=="recon") { item="team_recon_scanner"; cost=200; }
 else { send_reliable(players[pi].peer_id, "Unknown team-shop item.", 2); return true; }
+if(key=="plane" or key=="humvee" or key=="apc" or key=="tank")
+{
+bool bought=key=="plane"?teams[ti].plane_kit_bought:(key=="humvee"?teams[ti].humvee_kit_bought:(key=="apc"?teams[ti].apc_kit_bought:teams[ti].tank_kit_bought));int elapsed=key=="plane"?teams[ti].plane_kit_timer.elapsed:(key=="humvee"?teams[ti].humvee_kit_timer.elapsed:(key=="apc"?teams[ti].apc_kit_timer.elapsed:teams[ti].tank_kit_timer.elapsed));if(bought and elapsed<300000){send_reliable(players[pi].peer_id,"That "+string_replace(item,"_"," ",true)+" is available again in "+((300000-elapsed+999)/1000)+" seconds. Every vehicle kit has an independent timer.",2);return true;}
+}
 if (teams[ti].points<cost) { send_reliable(players[pi].peer_id, "The team pool does not have enough points.", 2); return true; }
-teams[ti].points-=cost; save_teams(); send_reliable(players[pi].peer_id, "give "+item+" 1", 0); team_notice(ti, pname+" purchased "+string_replace(item, "_", " ", true)+" for "+cost+" points. Pool: "+teams[ti].points+"."); return true;
+teams[ti].points-=cost;if(key=="plane"){teams[ti].plane_kit_bought=true;teams[ti].plane_kit_timer.restart();}else if(key=="humvee"){teams[ti].humvee_kit_bought=true;teams[ti].humvee_kit_timer.restart();}else if(key=="apc"){teams[ti].apc_kit_bought=true;teams[ti].apc_kit_timer.restart();}else if(key=="tank"){teams[ti].tank_kit_bought=true;teams[ti].tank_kit_timer.restart();}save_teams(); send_reliable(players[pi].peer_id, "give "+item+" 1", 0); team_notice(ti, pname+" purchased "+string_replace(item, "_", " ", true)+" for "+cost+" points. Pool: "+teams[ti].points+"."); return true;
 }
 if (action=="leave")
 {

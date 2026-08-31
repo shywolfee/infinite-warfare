@@ -296,6 +296,11 @@ register_vehicle_with_server(int(map_vehicles.length())-1);
 speak("Your team's Duo Plane has been deployed nearby. Open its door and enter it like any other vehicle.");
 }
 
+void spawn_team_vehicle(string type_name,int x,int y,int z)
+{
+if(vehicle_types.length()==0)init_vehicle_types();int type_index=-1;for(uint i=0;i<vehicle_types.length();i++)if(vehicle_types[i].name==type_name){type_index=int(i);break;}if(type_index<0)return;map_vehicles.insert_last(vehicle(type_index,x,y,z));register_vehicle_with_server(int(map_vehicles.length())-1);speak("Your team deployed a "+type_name+" nearby.");
+}
+
 bool current_vehicle_can_fly()
 {
 return in_vehicle and player_vehicle_index>=0 and player_vehicle_index<int(map_vehicles.length()) and map_vehicles[player_vehicle_index].get_name()=="Duo Plane";

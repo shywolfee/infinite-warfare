@@ -3486,6 +3486,7 @@ item_configuration_pressed=key_pressed(kb("item_configuration"));
 item_inspect_pressed=key_pressed(kb("item_inspect"));
 if(item_configuration_pressed)cycle_selected_item_configuration();
 if(item_inspect_pressed){string inspect_item=get_selected_item();if(inspect_item=="" or is_weapon(inspect_item))speak("Select an inventory item first.");else speak(item_mechanic_description(inspect_item));}
+if(key_pressed(kb("extract_pill"))){string pill_item=get_selected_item();if(!item_is_pill_bottle(pill_item))speak("Select a pill bottle first.");else send_reliable(0,"extract_pill "+pill_item,0);}
 }
 if (!item_shortcut_alt and !item_configuration_pressed and !item_inspect_pressed and key_pressed(kb("next_category")))
 {
@@ -4732,6 +4733,10 @@ else if(parsed[0]=="team_plane_spawn" and parsed.length()>3)
 {
 spawn_team_plane_vehicle(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]));
 }
+else if(parsed[0]=="team_vehicle_spawn" and parsed.length()>4)
+{
+spawn_team_vehicle(parsed[1],string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]));
+}
 else if(parsed[0]=="ping" and pinging==true)
 {
 p.play_stationary("pingstop.ogg", false);
@@ -4802,6 +4807,10 @@ equipped_armor_weight=string_to_number(parsed[9]);
 else if(parsed[0]=="combat_slow" and parsed.length()>1)
 {
 combat_slow_duration=string_to_number(parsed[1]);combat_slow_timer.restart();speak("Movement impaired.");
+}
+else if(parsed[0]=="stamina_restore" and parsed.length()>1)
+{
+restore_stamina(string_to_number(parsed[1]));
 }
 else if(parsed[0]=="weapon_sway" and parsed.length()>1)
 {

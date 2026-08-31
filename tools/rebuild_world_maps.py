@@ -67,20 +67,38 @@ LOOT=["frag_grenade","smoke_bomb","nanocyte_reconstruction_solution","AK47_ammo_
 
 
 def shattersea():
-    m=Map("battlegrounds",520,520,80); m.section("THE SHATTERSEA AND NEW AURELIA ISLAND")
-    m.ground(0,520,0,520,0,"shallow","the Shattersea","water"); m.src(0,520,0,520,0,8,"ocean1.ogg",-14)
-    m.ground(35,485,35,485,0,"sand","New Aurelia beach","beach"); m.ground(55,465,55,465,0,"concrete2","New Aurelia","plaza")
-    m.section("CANALS, STREETS AND NAMED JUNCTIONS")
-    m.ground(55,465,246,274,0,"water1","the Crown Canal","water")
-    for x,n in [(105,"Tideway"),(205,"Lantern Avenue"),(315,"Founders Road"),(415,"Breakwater Drive")]: m.street_ns(x,55,465,n)
-    for y,n in [(105,"South Quay Road"),(195,"Market Street"),(325,"Civic Way"),(415,"Northwall Road")]: m.street_ew(y,55,465,n)
-    for x in (105,205,315,415):
-        m.ground(x-5,x+5,246,274,2,"bridge","a Crown Canal bridge","bridge"); m.ramp(x-5,x+5,235,245,0,2,"south bridge approach","stone"); m.ramp(x-5,x+5,275,285,2,0,"north bridge approach","stone")
-    m.section("FOUR COMPLETE DISTRICTS")
-    buildings=[(65,135,125,175,"Saltglass Exchange","office"),(145,195,125,175,"Mariners Clinic","clinic"),(225,295,125,175,"Southwatch Armoury","armoury"),(335,395,125,175,"Ash & Anchor Tavern","bar"),(65,135,345,395,"Northwall Apartments","apartment"),(145,215,345,405,"Aurelia Library","hall"),(235,305,345,405,"Storm Market","shop"),(335,435,345,405,"Harbour Warehouse","warehouse"),(65,135,285,315,"Canal Customs House","office"),(145,215,285,315,"Ferrymaster's Hall","hall"),(305,365,285,315,"Crown Workshops","factory"),(385,445,285,315,"East Lock Station","control")]
-    for x1,x2,y1,y2,n,k in buildings:m.room(x1,x2,y1,y2,0,12,n,"tile1","wallbrick",k,"S" if y1<260 else "N")
-    m.ground(225,295,205,235,4,"stone","the elevated Founders Memorial","plaza"); m.ramp(245,275,196,204,0,4,"Founders Memorial south ramp","stone"); m.poi(260,220,4,"Founders Memorial")
-    m.ispawn(55,465,55,465,0,LOOT); m.poi(260,300,0,"New Aurelia central deploy point"); return m
+    # 970 by 970 authored island versus the former 410 by 410 city: more than
+    # four times the playable area. Water deliberately has no ambient source.
+    m=Map("battlegrounds",1040,1040,100); m.section("THE SHATTERSEA AND GREATER NEW AURELIA")
+    m.ground(0,1040,0,1040,0,"shallow","the quiet Shattersea","water")
+    m.ground(25,1015,25,1015,0,"sand","New Aurelia beach","beach")
+    districts=[(55,495,55,495,"Southwatch Ward"),(545,985,55,495,"Eastwater Ward"),(55,495,545,985,"Lantern Ward"),(545,985,545,985,"Northwall Ward")]
+    for x1,x2,y1,y2,n in districts:m.ground(x1,x2,y1,y2,0,"concrete2",n,"plaza")
+    m.section("THE CROWN CANAL, FIVE BRIDGES AND THE CITY GRID")
+    m.ground(55,985,500,540,0,"water1","the Crown Canal","water")
+    north_south=[(120,"Tideway"),(300,"Lantern Avenue"),(520,"Founders Road"),(740,"Crown Boulevard"),(920,"Breakwater Drive")]
+    east_west=[(120,"South Quay Road"),(300,"Market Street"),(440,"Canal Approach"),(600,"Civic Way"),(760,"Stormglass Avenue"),(920,"Northwall Road")]
+    for x,n in north_south:m.street_ns(x,55,985,n)
+    for y,n in east_west:m.street_ew(y,55,985,n)
+    for x,n in north_south:
+        m.ground(x-6,x+6,500,540,3,"bridge",n+" Crown Canal bridge","bridge")
+        m.ramp(x-6,x+6,486,499,0,3,n+" south bridge ramp","stone")
+        m.ramp(x-6,x+6,541,554,3,0,n+" north bridge ramp","stone")
+    m.section("TWENTY-EIGHT COMPLETE CITY INTERIORS")
+    buildings=[
+      (145,255,155,245,"Saltglass Exchange","office"),(335,455,155,245,"Mariners Clinic","clinic"),(565,685,155,245,"Southwatch Armoury","armoury"),(775,885,155,245,"Ash and Anchor Tavern","bar"),
+      (145,255,335,415,"Tideglass Conservatory","hall"),(335,455,335,415,"Aurelia Technical College","office"),(565,685,335,415,"Eastwater Foundry","factory"),(775,885,335,415,"Breakwater Firehouse","base"),
+      (145,255,625,715,"Northwall Apartments","apartment"),(335,455,625,715,"Aurelia Library","hall"),(565,685,625,715,"Storm Market","shop"),(775,885,625,715,"Harbour Warehouse","warehouse"),
+      (145,255,795,885,"Lantern Opera House","hall"),(335,455,795,885,"Crown Medical Centre","clinic"),(565,685,795,885,"Northwatch Barracks","base"),(775,885,795,885,"Breakwater Hotel","apartment"),
+      (145,255,455,490,"West Canal Customs","office"),(335,455,455,490,"Ferrymaster Hall","hall"),(565,685,455,490,"Crown Workshops","factory"),(775,885,455,490,"East Lock Station","control"),
+      (145,255,550,585,"Lantern Ferry Terminal","control"),(335,455,550,585,"Canal Archive","office"),(565,685,550,585,"Glassworks Arcade","shop"),(775,885,550,585,"North Lock Exchange","office"),
+      (65,105,155,245,"Tideway Signal House","control"),(935,975,155,245,"Eastwater Lifeboat House","store"),(65,105,795,885,"Lantern Gatehouse","base"),(935,975,795,885,"Northwall Weather Station","control")]
+    for x1,x2,y1,y2,n,k in buildings:m.room(x1,x2,y1,y2,0,12,n,"tile1","wallbrick",k,"S" if y1<500 else "N")
+    m.section("RAISED CIVIC LANDMARKS")
+    m.ground(460,580,365,425,5,"stone","the elevated Founders Memorial","plaza"); m.ramp(490,550,345,364,0,5,"Founders Memorial south ramp","stone"); m.poi(520,395,5,"Founders Memorial")
+    m.ground(460,580,815,875,4,"stone","the Beacon Court","courtyard"); m.ramp(490,550,795,814,0,4,"Beacon Court south ramp","stone"); m.poi(520,845,4,"Beacon Court")
+    for x1,x2,y1,y2,n in districts:m.ispawn(x1,x2,y1,y2,0,LOOT)
+    m.poi(520,580,0,"New Aurelia central deploy point"); return m
 
 
 def coruscant():
@@ -104,23 +122,34 @@ def coruscant():
 
 
 def freya():
-    m=Map("freyas_ascent",560,680,100); m.section("FREYA VALLEY")
-    m.ground(0,560,0,680,0,"grass3","Freya Valley","valley"); m.src(0,560,0,680,0,8,"forest.ogg",-14)
-    for x,n in [(110,"Pilgrim Trail"),(280,"Freya Road"),(450,"Hunter's Track")]:m.street_ns(x,20,650,n)
-    m.section("THE FOUR ASCENDING TERRACES")
-    terraces=[(40,520,70,180,0,"Lower Settlement"),(70,490,220,330,8,"Pinewatch Terrace"),(100,460,370,480,16,"Shieldmaiden Terrace"),(140,420,520,630,24,"Freya Citadel")]
+    # Five broad tiers and a multi-chamber undercroft provide over three times
+    # the former authored footprint while preserving deliberate vertical travel.
+    m=Map("freyas_ascent",1000,1200,140); m.section("GREATER FREYA VALLEY")
+    m.ground(0,1000,0,1200,0,"grass3","Greater Freya Valley","valley"); m.src(0,1000,0,1200,0,8,"forest.ogg",-18)
+    m.section("THE FIVE ASCENDING SETTLEMENTS")
+    terraces=[(60,940,60,250,0,"Lower Settlement"),(90,910,300,490,8,"Pinewatch Terrace"),(120,880,540,730,16,"Shieldmaiden Terrace"),(150,850,780,970,24,"Valkyrie Terrace"),(190,810,1020,1170,32,"Freya Citadel")]
+    building_roles=[("western lodge","house","hardwood","wallwood"),("craft hall","factory","stone","wallstone"),("assembly hall","hall","hardwood","wallstone"),("provision house","store","stone","wallstone"),("eastern guard house","base","stone","wallstone")]
     for i,(x1,x2,y1,y2,z,name) in enumerate(terraces):
         m.ground(x1,x2,y1,y2,z,"stone",name,"courtyard"); m.poi((x1+x2)//2,(y1+y2)//2,z,name)
+        m.street_ew((y1+y2)//2,x1,x2,name+" high street",z)
         if i:
-            prev=terraces[i-1]; m.ramp(250,310,prev[3]+1,y1-1,prev[4],z,name+" main ascent","stone")
-        m.room(x1+15,x1+85,y1+15,y1+65,z,11,name+" lodge","hardwood","wallwood","house")
-        m.room(x2-100,x2-15,y1+15,y1+70,z,12,name+" storehouse","stone","wallstone","store")
-        m.room(x1+120,x1+205,y2-70,y2-15,z,14,name+" guard hall","stone","wallstone","base","N")
+            prev=terraces[i-1]
+            m.ramp(460,540,prev[3]+1,y1-1,prev[4],z,name+" grand ascent","stone")
+            m.ramp(760,800,prev[3]+1,y1-1,prev[4],z,name+" eastern trail","rocks1")
+        plots=[(x1+20,x1+135,y1+20,y1+80),(x1+175,x1+300,y1+20,y1+80),((x1+x2)//2-65,(x1+x2)//2+65,y1+105,y2-15),(x2-300,x2-175,y1+20,y1+80),(x2-135,x2-20,y1+20,y1+80)]
+        for p,role in zip(plots,building_roles):
+            (rx1,rx2,ry1,ry2),(suffix,kind,floor,wall)=p,role
+            m.room(rx1,rx2,ry1,ry2,z,12,name+" "+suffix,floor,wall,kind,"S" if ry1<(y1+y2)//2 else "N")
         m.ispawn(x1,x2,y1,y2,z,LOOT)
-    m.section("CAVES BENEATH THE ASCENT")
-    m.ground(170,390,390,500,-12,"rocks1","the Rootvault Caverns","cave"); m.space(170,390,390,500,-12,-2,"the Rootvault Caverns","rock","cave",True); m.src(170,390,390,500,-12,-2,"drip.ogg",-12)
-    m.ramp(210,245,370,389,16,-12,"the Rootvault descending passage","rocks1"); m.portal(210,245,389,389,-12,16,"the Rootvault cave mouth")
-    m.poi(280,125,0,"Freya Valley deploy point"); return m
+    m.section("ROOTVAULT CAVERN NETWORK")
+    chambers=[(170,390,410,525,"Rootvault western grotto"),(410,590,410,525,"Rootvault great chamber"),(610,830,410,525,"Rootvault eastern grotto"),(260,460,570,690,"Rootvault crystal hall"),(540,740,570,690,"Rootvault deep stores")]
+    for x1,x2,y1,y2,n in chambers:
+        m.tile(x1,x2,y1,y2,-16,-16,"rocks1"); m.zone(x1,x2,y1,y2,-16,-5,n); m.space(x1,x2,y1,y2,-16,-5,n,"rock","cave",True); m.tile(x1,x2,y1,y2,-4,-4,"wallstone"); m.poi((x1+x2)//2,(y1+y2)//2,-16,n)
+    passages=[(390,410,455,480,"Rootvault west passage"),(590,610,455,480,"Rootvault east passage"),(350,650,525,570,"Rootvault descending gallery")]
+    for x1,x2,y1,y2,n in passages:m.ground(x1,x2,y1,y2,-16,"rocks1",n,"cave");m.space(x1,x2,y1,y2,-16,-5,n,"rock","cave",True)
+    m.src(410,590,410,525,-16,-5,"drip.ogg",-16)
+    m.ramp(460,540,490,539,8,-16,"the Rootvault descending passage","rocks1"); m.portal(460,540,539,539,-16,8,"the Rootvault cave mouth")
+    m.poi(500,125,0,"Freya Valley deploy point"); return m
 
 
 if __name__ == "__main__":

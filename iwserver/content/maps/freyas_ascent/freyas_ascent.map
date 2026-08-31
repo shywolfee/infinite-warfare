@@ -1,346 +1,658 @@
 mapname:freyas_ascent
-maxx:560
-maxy:680
-maxz:100
+maxx:1000
+maxy:1200
+maxz:140
 
 // ================================================================
-// FREYA VALLEY
+// GREATER FREYA VALLEY
 // ================================================================
-tile:0:560:0:680:0:0:grass3
-zone:0:560:0:680:0:8:Freya Valley
-openspace:0:560:0:680:0:8:Freya Valley:grass3:valley
-src:0:560:0:680:0:8:forest.ogg:-14
-tile:106:114:20:650:0:0:concrete5
-zone:106:114:20:650:0:8:Pilgrim Trail
-openspace:106:114:20:650:0:8:Pilgrim Trail:concrete5:street
-tile:103:105:20:650:0:0:cement
-zone:103:105:20:650:0:8:west pavement of Pilgrim Trail
-openspace:103:105:20:650:0:8:west pavement of Pilgrim Trail:cement:street
-tile:115:117:20:650:0:0:cement
-zone:115:117:20:650:0:8:east pavement of Pilgrim Trail
-openspace:115:117:20:650:0:8:east pavement of Pilgrim Trail:cement:street
-tile:276:284:20:650:0:0:concrete5
-zone:276:284:20:650:0:8:Freya Road
-openspace:276:284:20:650:0:8:Freya Road:concrete5:street
-tile:273:275:20:650:0:0:cement
-zone:273:275:20:650:0:8:west pavement of Freya Road
-openspace:273:275:20:650:0:8:west pavement of Freya Road:cement:street
-tile:285:287:20:650:0:0:cement
-zone:285:287:20:650:0:8:east pavement of Freya Road
-openspace:285:287:20:650:0:8:east pavement of Freya Road:cement:street
-tile:446:454:20:650:0:0:concrete5
-zone:446:454:20:650:0:8:Hunter's Track
-openspace:446:454:20:650:0:8:Hunter's Track:concrete5:street
-tile:443:445:20:650:0:0:cement
-zone:443:445:20:650:0:8:west pavement of Hunter's Track
-openspace:443:445:20:650:0:8:west pavement of Hunter's Track:cement:street
-tile:455:457:20:650:0:0:cement
-zone:455:457:20:650:0:8:east pavement of Hunter's Track
-openspace:455:457:20:650:0:8:east pavement of Hunter's Track:cement:street
+tile:0:1000:0:1200:0:0:grass3
+zone:0:1000:0:1200:0:8:Greater Freya Valley
+openspace:0:1000:0:1200:0:8:Greater Freya Valley:grass3:valley
+src:0:1000:0:1200:0:8:forest.ogg:-18
 
 // ================================================================
-// THE FOUR ASCENDING TERRACES
+// THE FIVE ASCENDING SETTLEMENTS
 // ================================================================
-tile:40:520:70:180:0:0:stone
-zone:40:520:70:180:0:8:Lower Settlement
-openspace:40:520:70:180:0:8:Lower Settlement:stone:courtyard
-poi:280:125:0:Lower Settlement
-tile:55:125:85:135:0:0:hardwood
-zone:56:124:86:134:0:10:Lower Settlement lodge
-space:56:124:86:134:0:10:Lower Settlement lodge:wood:house
-tile:55:88:85:85:0:11:wallwood
-tile:92:125:85:85:0:11:wallwood
-tile:89:91:85:85:4:11:wallwood
-portal:89:91:85:85:0:3:Lower Settlement lodge entrance:opening
-tile:55:55:85:135:0:11:wallwood
-tile:125:125:85:135:0:11:wallwood
-tile:55:125:135:135:0:11:wallwood
-tile:55:125:85:135:11:11:wallwood
-zone:55:125:85:135:12:19:roof of Lower Settlement lodge
-poi:90:110:0:Lower Settlement lodge
-tile:420:505:85:140:0:0:stone
-zone:421:504:86:139:0:11:Lower Settlement storehouse
-space:421:504:86:139:0:11:Lower Settlement storehouse:stone:store
-tile:420:460:85:85:0:12:wallstone
-tile:464:505:85:85:0:12:wallstone
-tile:461:463:85:85:4:12:wallstone
-portal:461:463:85:85:0:3:Lower Settlement storehouse entrance:opening
-tile:420:420:85:140:0:12:wallstone
-tile:505:505:85:140:0:12:wallstone
-tile:420:505:140:140:0:12:wallstone
-tile:420:505:85:140:12:12:wallstone
-zone:420:505:85:140:13:20:roof of Lower Settlement storehouse
-poi:462:112:0:Lower Settlement storehouse
-tile:160:245:110:165:0:0:stone
-zone:161:244:111:164:0:13:Lower Settlement guard hall
-space:161:244:111:164:0:13:Lower Settlement guard hall:stone:base
-tile:160:200:165:165:0:14:wallstone
-tile:204:245:165:165:0:14:wallstone
-tile:201:203:165:165:4:14:wallstone
-portal:201:203:165:165:0:3:Lower Settlement guard hall entrance:opening
-tile:160:160:110:165:0:14:wallstone
-tile:245:245:110:165:0:14:wallstone
-tile:160:245:110:110:0:14:wallstone
-tile:160:245:110:165:14:14:wallstone
-zone:160:245:110:165:15:22:roof of Lower Settlement guard hall
-poi:202:137:0:Lower Settlement guard hall
-ispawn:40:520:70:180:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
-tile:70:490:220:330:8:8:stone
-zone:70:490:220:330:8:16:Pinewatch Terrace
-openspace:70:490:220:330:8:16:Pinewatch Terrace:stone:courtyard
-poi:280:275:8:Pinewatch Terrace
-tile:250:256:181:219:0:0:stone
-tile:257:263:181:219:1:1:stone
-tile:257:263:181:219:0:0:wallstone
-tile:264:270:181:219:2:2:stone
-tile:264:270:181:219:1:1:wallstone
-tile:271:277:181:219:3:3:stone
-tile:271:277:181:219:2:2:wallstone
-tile:278:284:181:219:4:4:stone
-tile:278:284:181:219:3:3:wallstone
-tile:285:291:181:219:5:5:stone
-tile:285:291:181:219:4:4:wallstone
-tile:292:298:181:219:6:6:stone
-tile:292:298:181:219:5:5:wallstone
-tile:299:304:181:219:7:7:stone
-tile:299:304:181:219:6:6:wallstone
-tile:305:310:181:219:8:8:stone
-tile:305:310:181:219:7:7:wallstone
-zone:250:310:181:219:0:15:Pinewatch Terrace main ascent
-openspace:250:310:181:219:0:15:Pinewatch Terrace main ascent:stone:platform
-tile:85:155:235:285:8:8:hardwood
-zone:86:154:236:284:8:18:Pinewatch Terrace lodge
-space:86:154:236:284:8:18:Pinewatch Terrace lodge:wood:house
-tile:85:118:235:235:8:19:wallwood
-tile:122:155:235:235:8:19:wallwood
-tile:119:121:235:235:12:19:wallwood
-portal:119:121:235:235:8:11:Pinewatch Terrace lodge entrance:opening
-tile:85:85:235:285:8:19:wallwood
-tile:155:155:235:285:8:19:wallwood
-tile:85:155:285:285:8:19:wallwood
-tile:85:155:235:285:19:19:wallwood
-zone:85:155:235:285:20:27:roof of Pinewatch Terrace lodge
-poi:120:260:8:Pinewatch Terrace lodge
-tile:390:475:235:290:8:8:stone
-zone:391:474:236:289:8:19:Pinewatch Terrace storehouse
-space:391:474:236:289:8:19:Pinewatch Terrace storehouse:stone:store
-tile:390:430:235:235:8:20:wallstone
-tile:434:475:235:235:8:20:wallstone
-tile:431:433:235:235:12:20:wallstone
-portal:431:433:235:235:8:11:Pinewatch Terrace storehouse entrance:opening
-tile:390:390:235:290:8:20:wallstone
-tile:475:475:235:290:8:20:wallstone
-tile:390:475:290:290:8:20:wallstone
-tile:390:475:235:290:20:20:wallstone
-zone:390:475:235:290:21:28:roof of Pinewatch Terrace storehouse
-poi:432:262:8:Pinewatch Terrace storehouse
-tile:190:275:260:315:8:8:stone
-zone:191:274:261:314:8:21:Pinewatch Terrace guard hall
-space:191:274:261:314:8:21:Pinewatch Terrace guard hall:stone:base
-tile:190:230:315:315:8:22:wallstone
-tile:234:275:315:315:8:22:wallstone
-tile:231:233:315:315:12:22:wallstone
-portal:231:233:315:315:8:11:Pinewatch Terrace guard hall entrance:opening
-tile:190:190:260:315:8:22:wallstone
-tile:275:275:260:315:8:22:wallstone
-tile:190:275:260:260:8:22:wallstone
-tile:190:275:260:315:22:22:wallstone
-zone:190:275:260:315:23:30:roof of Pinewatch Terrace guard hall
-poi:232:287:8:Pinewatch Terrace guard hall
-ispawn:70:490:220:330:8:8:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
-tile:100:460:370:480:16:16:stone
-zone:100:460:370:480:16:24:Shieldmaiden Terrace
-openspace:100:460:370:480:16:24:Shieldmaiden Terrace:stone:courtyard
-poi:280:425:16:Shieldmaiden Terrace
-tile:250:256:331:369:8:8:stone
-tile:257:263:331:369:9:9:stone
-tile:257:263:331:369:8:8:wallstone
-tile:264:270:331:369:10:10:stone
-tile:264:270:331:369:9:9:wallstone
-tile:271:277:331:369:11:11:stone
-tile:271:277:331:369:10:10:wallstone
-tile:278:284:331:369:12:12:stone
-tile:278:284:331:369:11:11:wallstone
-tile:285:291:331:369:13:13:stone
-tile:285:291:331:369:12:12:wallstone
-tile:292:298:331:369:14:14:stone
-tile:292:298:331:369:13:13:wallstone
-tile:299:304:331:369:15:15:stone
-tile:299:304:331:369:14:14:wallstone
-tile:305:310:331:369:16:16:stone
-tile:305:310:331:369:15:15:wallstone
-zone:250:310:331:369:8:23:Shieldmaiden Terrace main ascent
-openspace:250:310:331:369:8:23:Shieldmaiden Terrace main ascent:stone:platform
-tile:115:185:385:435:16:16:hardwood
-zone:116:184:386:434:16:26:Shieldmaiden Terrace lodge
-space:116:184:386:434:16:26:Shieldmaiden Terrace lodge:wood:house
-tile:115:148:385:385:16:27:wallwood
-tile:152:185:385:385:16:27:wallwood
-tile:149:151:385:385:20:27:wallwood
-portal:149:151:385:385:16:19:Shieldmaiden Terrace lodge entrance:opening
-tile:115:115:385:435:16:27:wallwood
-tile:185:185:385:435:16:27:wallwood
-tile:115:185:435:435:16:27:wallwood
-tile:115:185:385:435:27:27:wallwood
-zone:115:185:385:435:28:35:roof of Shieldmaiden Terrace lodge
-poi:150:410:16:Shieldmaiden Terrace lodge
-tile:360:445:385:440:16:16:stone
-zone:361:444:386:439:16:27:Shieldmaiden Terrace storehouse
-space:361:444:386:439:16:27:Shieldmaiden Terrace storehouse:stone:store
-tile:360:400:385:385:16:28:wallstone
-tile:404:445:385:385:16:28:wallstone
-tile:401:403:385:385:20:28:wallstone
-portal:401:403:385:385:16:19:Shieldmaiden Terrace storehouse entrance:opening
-tile:360:360:385:440:16:28:wallstone
-tile:445:445:385:440:16:28:wallstone
-tile:360:445:440:440:16:28:wallstone
-tile:360:445:385:440:28:28:wallstone
-zone:360:445:385:440:29:36:roof of Shieldmaiden Terrace storehouse
-poi:402:412:16:Shieldmaiden Terrace storehouse
-tile:220:305:410:465:16:16:stone
-zone:221:304:411:464:16:29:Shieldmaiden Terrace guard hall
-space:221:304:411:464:16:29:Shieldmaiden Terrace guard hall:stone:base
-tile:220:260:465:465:16:30:wallstone
-tile:264:305:465:465:16:30:wallstone
-tile:261:263:465:465:20:30:wallstone
-portal:261:263:465:465:16:19:Shieldmaiden Terrace guard hall entrance:opening
-tile:220:220:410:465:16:30:wallstone
-tile:305:305:410:465:16:30:wallstone
-tile:220:305:410:410:16:30:wallstone
-tile:220:305:410:465:30:30:wallstone
-zone:220:305:410:465:31:38:roof of Shieldmaiden Terrace guard hall
-poi:262:437:16:Shieldmaiden Terrace guard hall
-ispawn:100:460:370:480:16:16:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
-tile:140:420:520:630:24:24:stone
-zone:140:420:520:630:24:32:Freya Citadel
-openspace:140:420:520:630:24:32:Freya Citadel:stone:courtyard
-poi:280:575:24:Freya Citadel
-tile:250:256:481:519:16:16:stone
-tile:257:263:481:519:17:17:stone
-tile:257:263:481:519:16:16:wallstone
-tile:264:270:481:519:18:18:stone
-tile:264:270:481:519:17:17:wallstone
-tile:271:277:481:519:19:19:stone
-tile:271:277:481:519:18:18:wallstone
-tile:278:284:481:519:20:20:stone
-tile:278:284:481:519:19:19:wallstone
-tile:285:291:481:519:21:21:stone
-tile:285:291:481:519:20:20:wallstone
-tile:292:298:481:519:22:22:stone
-tile:292:298:481:519:21:21:wallstone
-tile:299:304:481:519:23:23:stone
-tile:299:304:481:519:22:22:wallstone
-tile:305:310:481:519:24:24:stone
-tile:305:310:481:519:23:23:wallstone
-zone:250:310:481:519:16:31:Freya Citadel main ascent
-openspace:250:310:481:519:16:31:Freya Citadel main ascent:stone:platform
-tile:155:225:535:585:24:24:hardwood
-zone:156:224:536:584:24:34:Freya Citadel lodge
-space:156:224:536:584:24:34:Freya Citadel lodge:wood:house
-tile:155:188:535:535:24:35:wallwood
-tile:192:225:535:535:24:35:wallwood
-tile:189:191:535:535:28:35:wallwood
-portal:189:191:535:535:24:27:Freya Citadel lodge entrance:opening
-tile:155:155:535:585:24:35:wallwood
-tile:225:225:535:585:24:35:wallwood
-tile:155:225:585:585:24:35:wallwood
-tile:155:225:535:585:35:35:wallwood
-zone:155:225:535:585:36:43:roof of Freya Citadel lodge
-poi:190:560:24:Freya Citadel lodge
-tile:320:405:535:590:24:24:stone
-zone:321:404:536:589:24:35:Freya Citadel storehouse
-space:321:404:536:589:24:35:Freya Citadel storehouse:stone:store
-tile:320:360:535:535:24:36:wallstone
-tile:364:405:535:535:24:36:wallstone
-tile:361:363:535:535:28:36:wallstone
-portal:361:363:535:535:24:27:Freya Citadel storehouse entrance:opening
-tile:320:320:535:590:24:36:wallstone
-tile:405:405:535:590:24:36:wallstone
-tile:320:405:590:590:24:36:wallstone
-tile:320:405:535:590:36:36:wallstone
-zone:320:405:535:590:37:44:roof of Freya Citadel storehouse
-poi:362:562:24:Freya Citadel storehouse
-tile:260:345:560:615:24:24:stone
-zone:261:344:561:614:24:37:Freya Citadel guard hall
-space:261:344:561:614:24:37:Freya Citadel guard hall:stone:base
-tile:260:300:615:615:24:38:wallstone
-tile:304:345:615:615:24:38:wallstone
-tile:301:303:615:615:28:38:wallstone
-portal:301:303:615:615:24:27:Freya Citadel guard hall entrance:opening
-tile:260:260:560:615:24:38:wallstone
-tile:345:345:560:615:24:38:wallstone
-tile:260:345:560:560:24:38:wallstone
-tile:260:345:560:615:38:38:wallstone
-zone:260:345:560:615:39:46:roof of Freya Citadel guard hall
-poi:302:587:24:Freya Citadel guard hall
-ispawn:140:420:520:630:24:24:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+tile:60:940:60:250:0:0:stone
+zone:60:940:60:250:0:8:Lower Settlement
+openspace:60:940:60:250:0:8:Lower Settlement:stone:courtyard
+poi:500:155:0:Lower Settlement
+tile:60:940:151:159:0:0:concrete5
+zone:60:940:151:159:0:8:Lower Settlement high street
+openspace:60:940:151:159:0:8:Lower Settlement high street:concrete5:street
+tile:60:940:148:150:0:0:cement
+zone:60:940:148:150:0:8:south pavement of Lower Settlement high street
+openspace:60:940:148:150:0:8:south pavement of Lower Settlement high street:cement:street
+tile:60:940:160:162:0:0:cement
+zone:60:940:160:162:0:8:north pavement of Lower Settlement high street
+openspace:60:940:160:162:0:8:north pavement of Lower Settlement high street:cement:street
+tile:80:195:80:140:0:0:hardwood
+zone:81:194:81:139:0:11:Lower Settlement western lodge
+space:81:194:81:139:0:11:Lower Settlement western lodge:wood:house
+tile:80:135:80:80:0:12:wallwood
+tile:139:195:80:80:0:12:wallwood
+tile:136:138:80:80:4:12:wallwood
+portal:136:138:80:80:0:3:Lower Settlement western lodge entrance:opening
+tile:80:80:80:140:0:12:wallwood
+tile:195:195:80:140:0:12:wallwood
+tile:80:195:140:140:0:12:wallwood
+tile:80:195:80:140:12:12:wallwood
+zone:80:195:80:140:13:20:roof of Lower Settlement western lodge
+poi:137:110:0:Lower Settlement western lodge
+tile:235:360:80:140:0:0:stone
+zone:236:359:81:139:0:11:Lower Settlement craft hall
+space:236:359:81:139:0:11:Lower Settlement craft hall:stone:factory
+tile:235:295:80:80:0:12:wallstone
+tile:299:360:80:80:0:12:wallstone
+tile:296:298:80:80:4:12:wallstone
+portal:296:298:80:80:0:3:Lower Settlement craft hall entrance:opening
+tile:235:235:80:140:0:12:wallstone
+tile:360:360:80:140:0:12:wallstone
+tile:235:360:140:140:0:12:wallstone
+tile:235:360:80:140:12:12:wallstone
+zone:235:360:80:140:13:20:roof of Lower Settlement craft hall
+poi:297:110:0:Lower Settlement craft hall
+tile:435:565:165:235:0:0:hardwood
+zone:436:564:166:234:0:11:Lower Settlement assembly hall
+space:436:564:166:234:0:11:Lower Settlement assembly hall:stone:hall
+tile:435:498:235:235:0:12:wallstone
+tile:502:565:235:235:0:12:wallstone
+tile:499:501:235:235:4:12:wallstone
+portal:499:501:235:235:0:3:Lower Settlement assembly hall entrance:opening
+tile:435:435:165:235:0:12:wallstone
+tile:565:565:165:235:0:12:wallstone
+tile:435:565:165:165:0:12:wallstone
+tile:435:565:165:235:12:12:wallstone
+zone:435:565:165:235:13:20:roof of Lower Settlement assembly hall
+poi:500:200:0:Lower Settlement assembly hall
+tile:640:765:80:140:0:0:stone
+zone:641:764:81:139:0:11:Lower Settlement provision house
+space:641:764:81:139:0:11:Lower Settlement provision house:stone:store
+tile:640:700:80:80:0:12:wallstone
+tile:704:765:80:80:0:12:wallstone
+tile:701:703:80:80:4:12:wallstone
+portal:701:703:80:80:0:3:Lower Settlement provision house entrance:opening
+tile:640:640:80:140:0:12:wallstone
+tile:765:765:80:140:0:12:wallstone
+tile:640:765:140:140:0:12:wallstone
+tile:640:765:80:140:12:12:wallstone
+zone:640:765:80:140:13:20:roof of Lower Settlement provision house
+poi:702:110:0:Lower Settlement provision house
+tile:805:920:80:140:0:0:stone
+zone:806:919:81:139:0:11:Lower Settlement eastern guard house
+space:806:919:81:139:0:11:Lower Settlement eastern guard house:stone:base
+tile:805:860:80:80:0:12:wallstone
+tile:864:920:80:80:0:12:wallstone
+tile:861:863:80:80:4:12:wallstone
+portal:861:863:80:80:0:3:Lower Settlement eastern guard house entrance:opening
+tile:805:805:80:140:0:12:wallstone
+tile:920:920:80:140:0:12:wallstone
+tile:805:920:140:140:0:12:wallstone
+tile:805:920:80:140:12:12:wallstone
+zone:805:920:80:140:13:20:roof of Lower Settlement eastern guard house
+poi:862:110:0:Lower Settlement eastern guard house
+ispawn:60:940:60:250:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+tile:90:910:300:490:8:8:stone
+zone:90:910:300:490:8:16:Pinewatch Terrace
+openspace:90:910:300:490:8:16:Pinewatch Terrace:stone:courtyard
+poi:500:395:8:Pinewatch Terrace
+tile:90:910:391:399:8:8:concrete5
+zone:90:910:391:399:8:16:Pinewatch Terrace high street
+openspace:90:910:391:399:8:16:Pinewatch Terrace high street:concrete5:street
+tile:90:910:388:390:8:8:cement
+zone:90:910:388:390:8:16:south pavement of Pinewatch Terrace high street
+openspace:90:910:388:390:8:16:south pavement of Pinewatch Terrace high street:cement:street
+tile:90:910:400:402:8:8:cement
+zone:90:910:400:402:8:16:north pavement of Pinewatch Terrace high street
+openspace:90:910:400:402:8:16:north pavement of Pinewatch Terrace high street:cement:street
+tile:460:468:251:299:0:0:stone
+tile:469:477:251:299:1:1:stone
+tile:469:477:251:299:0:0:wallstone
+tile:478:486:251:299:2:2:stone
+tile:478:486:251:299:1:1:wallstone
+tile:487:495:251:299:3:3:stone
+tile:487:495:251:299:2:2:wallstone
+tile:496:504:251:299:4:4:stone
+tile:496:504:251:299:3:3:wallstone
+tile:505:513:251:299:5:5:stone
+tile:505:513:251:299:4:4:wallstone
+tile:514:522:251:299:6:6:stone
+tile:514:522:251:299:5:5:wallstone
+tile:523:531:251:299:7:7:stone
+tile:523:531:251:299:6:6:wallstone
+tile:532:540:251:299:8:8:stone
+tile:532:540:251:299:7:7:wallstone
+zone:460:540:251:299:0:15:Pinewatch Terrace grand ascent
+openspace:460:540:251:299:0:15:Pinewatch Terrace grand ascent:stone:platform
+tile:760:800:251:256:0:0:rocks1
+tile:760:800:257:262:1:1:rocks1
+tile:760:800:257:262:0:0:wallstone
+tile:760:800:263:268:2:2:rocks1
+tile:760:800:263:268:1:1:wallstone
+tile:760:800:269:274:3:3:rocks1
+tile:760:800:269:274:2:2:wallstone
+tile:760:800:275:279:4:4:rocks1
+tile:760:800:275:279:3:3:wallstone
+tile:760:800:280:284:5:5:rocks1
+tile:760:800:280:284:4:4:wallstone
+tile:760:800:285:289:6:6:rocks1
+tile:760:800:285:289:5:5:wallstone
+tile:760:800:290:294:7:7:rocks1
+tile:760:800:290:294:6:6:wallstone
+tile:760:800:295:299:8:8:rocks1
+tile:760:800:295:299:7:7:wallstone
+zone:760:800:251:299:0:15:Pinewatch Terrace eastern trail
+openspace:760:800:251:299:0:15:Pinewatch Terrace eastern trail:rocks1:platform
+tile:110:225:320:380:8:8:hardwood
+zone:111:224:321:379:8:19:Pinewatch Terrace western lodge
+space:111:224:321:379:8:19:Pinewatch Terrace western lodge:wood:house
+tile:110:165:320:320:8:20:wallwood
+tile:169:225:320:320:8:20:wallwood
+tile:166:168:320:320:12:20:wallwood
+portal:166:168:320:320:8:11:Pinewatch Terrace western lodge entrance:opening
+tile:110:110:320:380:8:20:wallwood
+tile:225:225:320:380:8:20:wallwood
+tile:110:225:380:380:8:20:wallwood
+tile:110:225:320:380:20:20:wallwood
+zone:110:225:320:380:21:28:roof of Pinewatch Terrace western lodge
+poi:167:350:8:Pinewatch Terrace western lodge
+tile:265:390:320:380:8:8:stone
+zone:266:389:321:379:8:19:Pinewatch Terrace craft hall
+space:266:389:321:379:8:19:Pinewatch Terrace craft hall:stone:factory
+tile:265:325:320:320:8:20:wallstone
+tile:329:390:320:320:8:20:wallstone
+tile:326:328:320:320:12:20:wallstone
+portal:326:328:320:320:8:11:Pinewatch Terrace craft hall entrance:opening
+tile:265:265:320:380:8:20:wallstone
+tile:390:390:320:380:8:20:wallstone
+tile:265:390:380:380:8:20:wallstone
+tile:265:390:320:380:20:20:wallstone
+zone:265:390:320:380:21:28:roof of Pinewatch Terrace craft hall
+poi:327:350:8:Pinewatch Terrace craft hall
+tile:435:565:405:475:8:8:hardwood
+zone:436:564:406:474:8:19:Pinewatch Terrace assembly hall
+space:436:564:406:474:8:19:Pinewatch Terrace assembly hall:stone:hall
+tile:435:498:475:475:8:20:wallstone
+tile:502:565:475:475:8:20:wallstone
+tile:499:501:475:475:12:20:wallstone
+portal:499:501:475:475:8:11:Pinewatch Terrace assembly hall entrance:opening
+tile:435:435:405:475:8:20:wallstone
+tile:565:565:405:475:8:20:wallstone
+tile:435:565:405:405:8:20:wallstone
+tile:435:565:405:475:20:20:wallstone
+zone:435:565:405:475:21:28:roof of Pinewatch Terrace assembly hall
+poi:500:440:8:Pinewatch Terrace assembly hall
+tile:610:735:320:380:8:8:stone
+zone:611:734:321:379:8:19:Pinewatch Terrace provision house
+space:611:734:321:379:8:19:Pinewatch Terrace provision house:stone:store
+tile:610:670:320:320:8:20:wallstone
+tile:674:735:320:320:8:20:wallstone
+tile:671:673:320:320:12:20:wallstone
+portal:671:673:320:320:8:11:Pinewatch Terrace provision house entrance:opening
+tile:610:610:320:380:8:20:wallstone
+tile:735:735:320:380:8:20:wallstone
+tile:610:735:380:380:8:20:wallstone
+tile:610:735:320:380:20:20:wallstone
+zone:610:735:320:380:21:28:roof of Pinewatch Terrace provision house
+poi:672:350:8:Pinewatch Terrace provision house
+tile:775:890:320:380:8:8:stone
+zone:776:889:321:379:8:19:Pinewatch Terrace eastern guard house
+space:776:889:321:379:8:19:Pinewatch Terrace eastern guard house:stone:base
+tile:775:830:320:320:8:20:wallstone
+tile:834:890:320:320:8:20:wallstone
+tile:831:833:320:320:12:20:wallstone
+portal:831:833:320:320:8:11:Pinewatch Terrace eastern guard house entrance:opening
+tile:775:775:320:380:8:20:wallstone
+tile:890:890:320:380:8:20:wallstone
+tile:775:890:380:380:8:20:wallstone
+tile:775:890:320:380:20:20:wallstone
+zone:775:890:320:380:21:28:roof of Pinewatch Terrace eastern guard house
+poi:832:350:8:Pinewatch Terrace eastern guard house
+ispawn:90:910:300:490:8:8:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+tile:120:880:540:730:16:16:stone
+zone:120:880:540:730:16:24:Shieldmaiden Terrace
+openspace:120:880:540:730:16:24:Shieldmaiden Terrace:stone:courtyard
+poi:500:635:16:Shieldmaiden Terrace
+tile:120:880:631:639:16:16:concrete5
+zone:120:880:631:639:16:24:Shieldmaiden Terrace high street
+openspace:120:880:631:639:16:24:Shieldmaiden Terrace high street:concrete5:street
+tile:120:880:628:630:16:16:cement
+zone:120:880:628:630:16:24:south pavement of Shieldmaiden Terrace high street
+openspace:120:880:628:630:16:24:south pavement of Shieldmaiden Terrace high street:cement:street
+tile:120:880:640:642:16:16:cement
+zone:120:880:640:642:16:24:north pavement of Shieldmaiden Terrace high street
+openspace:120:880:640:642:16:24:north pavement of Shieldmaiden Terrace high street:cement:street
+tile:460:468:491:539:8:8:stone
+tile:469:477:491:539:9:9:stone
+tile:469:477:491:539:8:8:wallstone
+tile:478:486:491:539:10:10:stone
+tile:478:486:491:539:9:9:wallstone
+tile:487:495:491:539:11:11:stone
+tile:487:495:491:539:10:10:wallstone
+tile:496:504:491:539:12:12:stone
+tile:496:504:491:539:11:11:wallstone
+tile:505:513:491:539:13:13:stone
+tile:505:513:491:539:12:12:wallstone
+tile:514:522:491:539:14:14:stone
+tile:514:522:491:539:13:13:wallstone
+tile:523:531:491:539:15:15:stone
+tile:523:531:491:539:14:14:wallstone
+tile:532:540:491:539:16:16:stone
+tile:532:540:491:539:15:15:wallstone
+zone:460:540:491:539:8:23:Shieldmaiden Terrace grand ascent
+openspace:460:540:491:539:8:23:Shieldmaiden Terrace grand ascent:stone:platform
+tile:760:800:491:496:8:8:rocks1
+tile:760:800:497:502:9:9:rocks1
+tile:760:800:497:502:8:8:wallstone
+tile:760:800:503:508:10:10:rocks1
+tile:760:800:503:508:9:9:wallstone
+tile:760:800:509:514:11:11:rocks1
+tile:760:800:509:514:10:10:wallstone
+tile:760:800:515:519:12:12:rocks1
+tile:760:800:515:519:11:11:wallstone
+tile:760:800:520:524:13:13:rocks1
+tile:760:800:520:524:12:12:wallstone
+tile:760:800:525:529:14:14:rocks1
+tile:760:800:525:529:13:13:wallstone
+tile:760:800:530:534:15:15:rocks1
+tile:760:800:530:534:14:14:wallstone
+tile:760:800:535:539:16:16:rocks1
+tile:760:800:535:539:15:15:wallstone
+zone:760:800:491:539:8:23:Shieldmaiden Terrace eastern trail
+openspace:760:800:491:539:8:23:Shieldmaiden Terrace eastern trail:rocks1:platform
+tile:140:255:560:620:16:16:hardwood
+zone:141:254:561:619:16:27:Shieldmaiden Terrace western lodge
+space:141:254:561:619:16:27:Shieldmaiden Terrace western lodge:wood:house
+tile:140:195:560:560:16:28:wallwood
+tile:199:255:560:560:16:28:wallwood
+tile:196:198:560:560:20:28:wallwood
+portal:196:198:560:560:16:19:Shieldmaiden Terrace western lodge entrance:opening
+tile:140:140:560:620:16:28:wallwood
+tile:255:255:560:620:16:28:wallwood
+tile:140:255:620:620:16:28:wallwood
+tile:140:255:560:620:28:28:wallwood
+zone:140:255:560:620:29:36:roof of Shieldmaiden Terrace western lodge
+poi:197:590:16:Shieldmaiden Terrace western lodge
+tile:295:420:560:620:16:16:stone
+zone:296:419:561:619:16:27:Shieldmaiden Terrace craft hall
+space:296:419:561:619:16:27:Shieldmaiden Terrace craft hall:stone:factory
+tile:295:355:560:560:16:28:wallstone
+tile:359:420:560:560:16:28:wallstone
+tile:356:358:560:560:20:28:wallstone
+portal:356:358:560:560:16:19:Shieldmaiden Terrace craft hall entrance:opening
+tile:295:295:560:620:16:28:wallstone
+tile:420:420:560:620:16:28:wallstone
+tile:295:420:620:620:16:28:wallstone
+tile:295:420:560:620:28:28:wallstone
+zone:295:420:560:620:29:36:roof of Shieldmaiden Terrace craft hall
+poi:357:590:16:Shieldmaiden Terrace craft hall
+tile:435:565:645:715:16:16:hardwood
+zone:436:564:646:714:16:27:Shieldmaiden Terrace assembly hall
+space:436:564:646:714:16:27:Shieldmaiden Terrace assembly hall:stone:hall
+tile:435:498:715:715:16:28:wallstone
+tile:502:565:715:715:16:28:wallstone
+tile:499:501:715:715:20:28:wallstone
+portal:499:501:715:715:16:19:Shieldmaiden Terrace assembly hall entrance:opening
+tile:435:435:645:715:16:28:wallstone
+tile:565:565:645:715:16:28:wallstone
+tile:435:565:645:645:16:28:wallstone
+tile:435:565:645:715:28:28:wallstone
+zone:435:565:645:715:29:36:roof of Shieldmaiden Terrace assembly hall
+poi:500:680:16:Shieldmaiden Terrace assembly hall
+tile:580:705:560:620:16:16:stone
+zone:581:704:561:619:16:27:Shieldmaiden Terrace provision house
+space:581:704:561:619:16:27:Shieldmaiden Terrace provision house:stone:store
+tile:580:640:560:560:16:28:wallstone
+tile:644:705:560:560:16:28:wallstone
+tile:641:643:560:560:20:28:wallstone
+portal:641:643:560:560:16:19:Shieldmaiden Terrace provision house entrance:opening
+tile:580:580:560:620:16:28:wallstone
+tile:705:705:560:620:16:28:wallstone
+tile:580:705:620:620:16:28:wallstone
+tile:580:705:560:620:28:28:wallstone
+zone:580:705:560:620:29:36:roof of Shieldmaiden Terrace provision house
+poi:642:590:16:Shieldmaiden Terrace provision house
+tile:745:860:560:620:16:16:stone
+zone:746:859:561:619:16:27:Shieldmaiden Terrace eastern guard house
+space:746:859:561:619:16:27:Shieldmaiden Terrace eastern guard house:stone:base
+tile:745:800:560:560:16:28:wallstone
+tile:804:860:560:560:16:28:wallstone
+tile:801:803:560:560:20:28:wallstone
+portal:801:803:560:560:16:19:Shieldmaiden Terrace eastern guard house entrance:opening
+tile:745:745:560:620:16:28:wallstone
+tile:860:860:560:620:16:28:wallstone
+tile:745:860:620:620:16:28:wallstone
+tile:745:860:560:620:28:28:wallstone
+zone:745:860:560:620:29:36:roof of Shieldmaiden Terrace eastern guard house
+poi:802:590:16:Shieldmaiden Terrace eastern guard house
+ispawn:120:880:540:730:16:16:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+tile:150:850:780:970:24:24:stone
+zone:150:850:780:970:24:32:Valkyrie Terrace
+openspace:150:850:780:970:24:32:Valkyrie Terrace:stone:courtyard
+poi:500:875:24:Valkyrie Terrace
+tile:150:850:871:879:24:24:concrete5
+zone:150:850:871:879:24:32:Valkyrie Terrace high street
+openspace:150:850:871:879:24:32:Valkyrie Terrace high street:concrete5:street
+tile:150:850:868:870:24:24:cement
+zone:150:850:868:870:24:32:south pavement of Valkyrie Terrace high street
+openspace:150:850:868:870:24:32:south pavement of Valkyrie Terrace high street:cement:street
+tile:150:850:880:882:24:24:cement
+zone:150:850:880:882:24:32:north pavement of Valkyrie Terrace high street
+openspace:150:850:880:882:24:32:north pavement of Valkyrie Terrace high street:cement:street
+tile:460:468:731:779:16:16:stone
+tile:469:477:731:779:17:17:stone
+tile:469:477:731:779:16:16:wallstone
+tile:478:486:731:779:18:18:stone
+tile:478:486:731:779:17:17:wallstone
+tile:487:495:731:779:19:19:stone
+tile:487:495:731:779:18:18:wallstone
+tile:496:504:731:779:20:20:stone
+tile:496:504:731:779:19:19:wallstone
+tile:505:513:731:779:21:21:stone
+tile:505:513:731:779:20:20:wallstone
+tile:514:522:731:779:22:22:stone
+tile:514:522:731:779:21:21:wallstone
+tile:523:531:731:779:23:23:stone
+tile:523:531:731:779:22:22:wallstone
+tile:532:540:731:779:24:24:stone
+tile:532:540:731:779:23:23:wallstone
+zone:460:540:731:779:16:31:Valkyrie Terrace grand ascent
+openspace:460:540:731:779:16:31:Valkyrie Terrace grand ascent:stone:platform
+tile:760:800:731:736:16:16:rocks1
+tile:760:800:737:742:17:17:rocks1
+tile:760:800:737:742:16:16:wallstone
+tile:760:800:743:748:18:18:rocks1
+tile:760:800:743:748:17:17:wallstone
+tile:760:800:749:754:19:19:rocks1
+tile:760:800:749:754:18:18:wallstone
+tile:760:800:755:759:20:20:rocks1
+tile:760:800:755:759:19:19:wallstone
+tile:760:800:760:764:21:21:rocks1
+tile:760:800:760:764:20:20:wallstone
+tile:760:800:765:769:22:22:rocks1
+tile:760:800:765:769:21:21:wallstone
+tile:760:800:770:774:23:23:rocks1
+tile:760:800:770:774:22:22:wallstone
+tile:760:800:775:779:24:24:rocks1
+tile:760:800:775:779:23:23:wallstone
+zone:760:800:731:779:16:31:Valkyrie Terrace eastern trail
+openspace:760:800:731:779:16:31:Valkyrie Terrace eastern trail:rocks1:platform
+tile:170:285:800:860:24:24:hardwood
+zone:171:284:801:859:24:35:Valkyrie Terrace western lodge
+space:171:284:801:859:24:35:Valkyrie Terrace western lodge:wood:house
+tile:170:225:800:800:24:36:wallwood
+tile:229:285:800:800:24:36:wallwood
+tile:226:228:800:800:28:36:wallwood
+portal:226:228:800:800:24:27:Valkyrie Terrace western lodge entrance:opening
+tile:170:170:800:860:24:36:wallwood
+tile:285:285:800:860:24:36:wallwood
+tile:170:285:860:860:24:36:wallwood
+tile:170:285:800:860:36:36:wallwood
+zone:170:285:800:860:37:44:roof of Valkyrie Terrace western lodge
+poi:227:830:24:Valkyrie Terrace western lodge
+tile:325:450:800:860:24:24:stone
+zone:326:449:801:859:24:35:Valkyrie Terrace craft hall
+space:326:449:801:859:24:35:Valkyrie Terrace craft hall:stone:factory
+tile:325:385:800:800:24:36:wallstone
+tile:389:450:800:800:24:36:wallstone
+tile:386:388:800:800:28:36:wallstone
+portal:386:388:800:800:24:27:Valkyrie Terrace craft hall entrance:opening
+tile:325:325:800:860:24:36:wallstone
+tile:450:450:800:860:24:36:wallstone
+tile:325:450:860:860:24:36:wallstone
+tile:325:450:800:860:36:36:wallstone
+zone:325:450:800:860:37:44:roof of Valkyrie Terrace craft hall
+poi:387:830:24:Valkyrie Terrace craft hall
+tile:435:565:885:955:24:24:hardwood
+zone:436:564:886:954:24:35:Valkyrie Terrace assembly hall
+space:436:564:886:954:24:35:Valkyrie Terrace assembly hall:stone:hall
+tile:435:498:955:955:24:36:wallstone
+tile:502:565:955:955:24:36:wallstone
+tile:499:501:955:955:28:36:wallstone
+portal:499:501:955:955:24:27:Valkyrie Terrace assembly hall entrance:opening
+tile:435:435:885:955:24:36:wallstone
+tile:565:565:885:955:24:36:wallstone
+tile:435:565:885:885:24:36:wallstone
+tile:435:565:885:955:36:36:wallstone
+zone:435:565:885:955:37:44:roof of Valkyrie Terrace assembly hall
+poi:500:920:24:Valkyrie Terrace assembly hall
+tile:550:675:800:860:24:24:stone
+zone:551:674:801:859:24:35:Valkyrie Terrace provision house
+space:551:674:801:859:24:35:Valkyrie Terrace provision house:stone:store
+tile:550:610:800:800:24:36:wallstone
+tile:614:675:800:800:24:36:wallstone
+tile:611:613:800:800:28:36:wallstone
+portal:611:613:800:800:24:27:Valkyrie Terrace provision house entrance:opening
+tile:550:550:800:860:24:36:wallstone
+tile:675:675:800:860:24:36:wallstone
+tile:550:675:860:860:24:36:wallstone
+tile:550:675:800:860:36:36:wallstone
+zone:550:675:800:860:37:44:roof of Valkyrie Terrace provision house
+poi:612:830:24:Valkyrie Terrace provision house
+tile:715:830:800:860:24:24:stone
+zone:716:829:801:859:24:35:Valkyrie Terrace eastern guard house
+space:716:829:801:859:24:35:Valkyrie Terrace eastern guard house:stone:base
+tile:715:770:800:800:24:36:wallstone
+tile:774:830:800:800:24:36:wallstone
+tile:771:773:800:800:28:36:wallstone
+portal:771:773:800:800:24:27:Valkyrie Terrace eastern guard house entrance:opening
+tile:715:715:800:860:24:36:wallstone
+tile:830:830:800:860:24:36:wallstone
+tile:715:830:860:860:24:36:wallstone
+tile:715:830:800:860:36:36:wallstone
+zone:715:830:800:860:37:44:roof of Valkyrie Terrace eastern guard house
+poi:772:830:24:Valkyrie Terrace eastern guard house
+ispawn:150:850:780:970:24:24:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+tile:190:810:1020:1170:32:32:stone
+zone:190:810:1020:1170:32:40:Freya Citadel
+openspace:190:810:1020:1170:32:40:Freya Citadel:stone:courtyard
+poi:500:1095:32:Freya Citadel
+tile:190:810:1091:1099:32:32:concrete5
+zone:190:810:1091:1099:32:40:Freya Citadel high street
+openspace:190:810:1091:1099:32:40:Freya Citadel high street:concrete5:street
+tile:190:810:1088:1090:32:32:cement
+zone:190:810:1088:1090:32:40:south pavement of Freya Citadel high street
+openspace:190:810:1088:1090:32:40:south pavement of Freya Citadel high street:cement:street
+tile:190:810:1100:1102:32:32:cement
+zone:190:810:1100:1102:32:40:north pavement of Freya Citadel high street
+openspace:190:810:1100:1102:32:40:north pavement of Freya Citadel high street:cement:street
+tile:460:468:971:1019:24:24:stone
+tile:469:477:971:1019:25:25:stone
+tile:469:477:971:1019:24:24:wallstone
+tile:478:486:971:1019:26:26:stone
+tile:478:486:971:1019:25:25:wallstone
+tile:487:495:971:1019:27:27:stone
+tile:487:495:971:1019:26:26:wallstone
+tile:496:504:971:1019:28:28:stone
+tile:496:504:971:1019:27:27:wallstone
+tile:505:513:971:1019:29:29:stone
+tile:505:513:971:1019:28:28:wallstone
+tile:514:522:971:1019:30:30:stone
+tile:514:522:971:1019:29:29:wallstone
+tile:523:531:971:1019:31:31:stone
+tile:523:531:971:1019:30:30:wallstone
+tile:532:540:971:1019:32:32:stone
+tile:532:540:971:1019:31:31:wallstone
+zone:460:540:971:1019:24:39:Freya Citadel grand ascent
+openspace:460:540:971:1019:24:39:Freya Citadel grand ascent:stone:platform
+tile:760:800:971:976:24:24:rocks1
+tile:760:800:977:982:25:25:rocks1
+tile:760:800:977:982:24:24:wallstone
+tile:760:800:983:988:26:26:rocks1
+tile:760:800:983:988:25:25:wallstone
+tile:760:800:989:994:27:27:rocks1
+tile:760:800:989:994:26:26:wallstone
+tile:760:800:995:999:28:28:rocks1
+tile:760:800:995:999:27:27:wallstone
+tile:760:800:1000:1004:29:29:rocks1
+tile:760:800:1000:1004:28:28:wallstone
+tile:760:800:1005:1009:30:30:rocks1
+tile:760:800:1005:1009:29:29:wallstone
+tile:760:800:1010:1014:31:31:rocks1
+tile:760:800:1010:1014:30:30:wallstone
+tile:760:800:1015:1019:32:32:rocks1
+tile:760:800:1015:1019:31:31:wallstone
+zone:760:800:971:1019:24:39:Freya Citadel eastern trail
+openspace:760:800:971:1019:24:39:Freya Citadel eastern trail:rocks1:platform
+tile:210:325:1040:1100:32:32:hardwood
+zone:211:324:1041:1099:32:43:Freya Citadel western lodge
+space:211:324:1041:1099:32:43:Freya Citadel western lodge:wood:house
+tile:210:265:1040:1040:32:44:wallwood
+tile:269:325:1040:1040:32:44:wallwood
+tile:266:268:1040:1040:36:44:wallwood
+portal:266:268:1040:1040:32:35:Freya Citadel western lodge entrance:opening
+tile:210:210:1040:1100:32:44:wallwood
+tile:325:325:1040:1100:32:44:wallwood
+tile:210:325:1100:1100:32:44:wallwood
+tile:210:325:1040:1100:44:44:wallwood
+zone:210:325:1040:1100:45:52:roof of Freya Citadel western lodge
+poi:267:1070:32:Freya Citadel western lodge
+tile:365:490:1040:1100:32:32:stone
+zone:366:489:1041:1099:32:43:Freya Citadel craft hall
+space:366:489:1041:1099:32:43:Freya Citadel craft hall:stone:factory
+tile:365:425:1040:1040:32:44:wallstone
+tile:429:490:1040:1040:32:44:wallstone
+tile:426:428:1040:1040:36:44:wallstone
+portal:426:428:1040:1040:32:35:Freya Citadel craft hall entrance:opening
+tile:365:365:1040:1100:32:44:wallstone
+tile:490:490:1040:1100:32:44:wallstone
+tile:365:490:1100:1100:32:44:wallstone
+tile:365:490:1040:1100:44:44:wallstone
+zone:365:490:1040:1100:45:52:roof of Freya Citadel craft hall
+poi:427:1070:32:Freya Citadel craft hall
+tile:435:565:1125:1155:32:32:hardwood
+zone:436:564:1126:1154:32:43:Freya Citadel assembly hall
+space:436:564:1126:1154:32:43:Freya Citadel assembly hall:stone:hall
+tile:435:498:1155:1155:32:44:wallstone
+tile:502:565:1155:1155:32:44:wallstone
+tile:499:501:1155:1155:36:44:wallstone
+portal:499:501:1155:1155:32:35:Freya Citadel assembly hall entrance:opening
+tile:435:435:1125:1155:32:44:wallstone
+tile:565:565:1125:1155:32:44:wallstone
+tile:435:565:1125:1125:32:44:wallstone
+tile:435:565:1125:1155:44:44:wallstone
+zone:435:565:1125:1155:45:52:roof of Freya Citadel assembly hall
+poi:500:1140:32:Freya Citadel assembly hall
+tile:510:635:1040:1100:32:32:stone
+zone:511:634:1041:1099:32:43:Freya Citadel provision house
+space:511:634:1041:1099:32:43:Freya Citadel provision house:stone:store
+tile:510:570:1040:1040:32:44:wallstone
+tile:574:635:1040:1040:32:44:wallstone
+tile:571:573:1040:1040:36:44:wallstone
+portal:571:573:1040:1040:32:35:Freya Citadel provision house entrance:opening
+tile:510:510:1040:1100:32:44:wallstone
+tile:635:635:1040:1100:32:44:wallstone
+tile:510:635:1100:1100:32:44:wallstone
+tile:510:635:1040:1100:44:44:wallstone
+zone:510:635:1040:1100:45:52:roof of Freya Citadel provision house
+poi:572:1070:32:Freya Citadel provision house
+tile:675:790:1040:1100:32:32:stone
+zone:676:789:1041:1099:32:43:Freya Citadel eastern guard house
+space:676:789:1041:1099:32:43:Freya Citadel eastern guard house:stone:base
+tile:675:730:1040:1040:32:44:wallstone
+tile:734:790:1040:1040:32:44:wallstone
+tile:731:733:1040:1040:36:44:wallstone
+portal:731:733:1040:1040:32:35:Freya Citadel eastern guard house entrance:opening
+tile:675:675:1040:1100:32:44:wallstone
+tile:790:790:1040:1100:32:44:wallstone
+tile:675:790:1100:1100:32:44:wallstone
+tile:675:790:1040:1100:44:44:wallstone
+zone:675:790:1040:1100:45:52:roof of Freya Citadel eastern guard house
+poi:732:1070:32:Freya Citadel eastern guard house
+ispawn:190:810:1020:1170:32:32:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
 
 // ================================================================
-// CAVES BENEATH THE ASCENT
+// ROOTVAULT CAVERN NETWORK
 // ================================================================
-tile:170:390:390:500:-12:-12:rocks1
-zone:170:390:390:500:-12:-4:the Rootvault Caverns
-openspace:170:390:390:500:-12:-4:the Rootvault Caverns:rocks1:cave
-space:170:390:390:500:-12:-2:the Rootvault Caverns:rock:cave
-src:170:390:390:500:-12:-2:drip.ogg:-12
-tile:210:211:370:389:16:16:rocks1
-tile:210:211:370:389:15:15:wallstone
-tile:212:213:370:389:15:15:rocks1
-tile:212:213:370:389:14:14:wallstone
-tile:214:215:370:389:14:14:rocks1
-tile:214:215:370:389:13:13:wallstone
-tile:216:217:370:389:13:13:rocks1
-tile:216:217:370:389:12:12:wallstone
-tile:218:219:370:389:12:12:rocks1
-tile:218:219:370:389:11:11:wallstone
-tile:220:221:370:389:11:11:rocks1
-tile:220:221:370:389:10:10:wallstone
-tile:222:223:370:389:10:10:rocks1
-tile:222:223:370:389:9:9:wallstone
-tile:224:224:370:389:9:9:rocks1
-tile:224:224:370:389:8:8:wallstone
-tile:225:225:370:389:8:8:rocks1
-tile:225:225:370:389:7:7:wallstone
-tile:226:226:370:389:7:7:rocks1
-tile:226:226:370:389:6:6:wallstone
-tile:227:227:370:389:6:6:rocks1
-tile:227:227:370:389:5:5:wallstone
-tile:228:228:370:389:5:5:rocks1
-tile:228:228:370:389:4:4:wallstone
-tile:229:229:370:389:4:4:rocks1
-tile:229:229:370:389:3:3:wallstone
-tile:230:230:370:389:3:3:rocks1
-tile:230:230:370:389:2:2:wallstone
-tile:231:231:370:389:2:2:rocks1
-tile:231:231:370:389:1:1:wallstone
-tile:232:232:370:389:1:1:rocks1
-tile:232:232:370:389:0:0:wallstone
-tile:233:233:370:389:0:0:rocks1
-tile:233:233:370:389:-1:-1:wallstone
-tile:234:234:370:389:-1:-1:rocks1
-tile:234:234:370:389:-2:-2:wallstone
-tile:235:235:370:389:-2:-2:rocks1
-tile:235:235:370:389:-3:-3:wallstone
-tile:236:236:370:389:-3:-3:rocks1
-tile:236:236:370:389:-4:-4:wallstone
-tile:237:237:370:389:-4:-4:rocks1
-tile:237:237:370:389:-5:-5:wallstone
-tile:238:238:370:389:-5:-5:rocks1
-tile:238:238:370:389:-6:-6:wallstone
-tile:239:239:370:389:-6:-6:rocks1
-tile:239:239:370:389:-7:-7:wallstone
-tile:240:240:370:389:-7:-7:rocks1
-tile:240:240:370:389:-8:-8:wallstone
-tile:241:241:370:389:-8:-8:rocks1
-tile:241:241:370:389:-9:-9:wallstone
-tile:242:242:370:389:-9:-9:rocks1
-tile:242:242:370:389:-10:-10:wallstone
-tile:243:243:370:389:-10:-10:rocks1
-tile:243:243:370:389:-11:-11:wallstone
-tile:244:244:370:389:-11:-11:rocks1
-tile:244:244:370:389:-12:-12:wallstone
-tile:245:245:370:389:-12:-12:rocks1
-zone:210:245:370:389:-12:23:the Rootvault descending passage
-openspace:210:245:370:389:-12:23:the Rootvault descending passage:rocks1:platform
-portal:210:245:389:389:-12:16:the Rootvault cave mouth:opening
-poi:280:125:0:Freya Valley deploy point
+tile:170:390:410:525:-16:-16:rocks1
+zone:170:390:410:525:-16:-5:Rootvault western grotto
+space:170:390:410:525:-16:-5:Rootvault western grotto:rock:cave
+tile:170:390:410:525:-4:-4:wallstone
+poi:280:467:-16:Rootvault western grotto
+tile:410:590:410:525:-16:-16:rocks1
+zone:410:590:410:525:-16:-5:Rootvault great chamber
+space:410:590:410:525:-16:-5:Rootvault great chamber:rock:cave
+tile:410:590:410:525:-4:-4:wallstone
+poi:500:467:-16:Rootvault great chamber
+tile:610:830:410:525:-16:-16:rocks1
+zone:610:830:410:525:-16:-5:Rootvault eastern grotto
+space:610:830:410:525:-16:-5:Rootvault eastern grotto:rock:cave
+tile:610:830:410:525:-4:-4:wallstone
+poi:720:467:-16:Rootvault eastern grotto
+tile:260:460:570:690:-16:-16:rocks1
+zone:260:460:570:690:-16:-5:Rootvault crystal hall
+space:260:460:570:690:-16:-5:Rootvault crystal hall:rock:cave
+tile:260:460:570:690:-4:-4:wallstone
+poi:360:630:-16:Rootvault crystal hall
+tile:540:740:570:690:-16:-16:rocks1
+zone:540:740:570:690:-16:-5:Rootvault deep stores
+space:540:740:570:690:-16:-5:Rootvault deep stores:rock:cave
+tile:540:740:570:690:-4:-4:wallstone
+poi:640:630:-16:Rootvault deep stores
+tile:390:410:455:480:-16:-16:rocks1
+zone:390:410:455:480:-16:-8:Rootvault west passage
+openspace:390:410:455:480:-16:-8:Rootvault west passage:rocks1:cave
+space:390:410:455:480:-16:-5:Rootvault west passage:rock:cave
+tile:590:610:455:480:-16:-16:rocks1
+zone:590:610:455:480:-16:-8:Rootvault east passage
+openspace:590:610:455:480:-16:-8:Rootvault east passage:rocks1:cave
+space:590:610:455:480:-16:-5:Rootvault east passage:rock:cave
+tile:350:650:525:570:-16:-16:rocks1
+zone:350:650:525:570:-16:-8:Rootvault descending gallery
+openspace:350:650:525:570:-16:-8:Rootvault descending gallery:rocks1:cave
+space:350:650:525:570:-16:-5:Rootvault descending gallery:rock:cave
+src:410:590:410:525:-16:-5:drip.ogg:-16
+tile:460:463:490:539:8:8:rocks1
+tile:460:463:490:539:7:7:wallstone
+tile:464:467:490:539:7:7:rocks1
+tile:464:467:490:539:6:6:wallstone
+tile:468:471:490:539:6:6:rocks1
+tile:468:471:490:539:5:5:wallstone
+tile:472:475:490:539:5:5:rocks1
+tile:472:475:490:539:4:4:wallstone
+tile:476:479:490:539:4:4:rocks1
+tile:476:479:490:539:3:3:wallstone
+tile:480:483:490:539:3:3:rocks1
+tile:480:483:490:539:2:2:wallstone
+tile:484:486:490:539:2:2:rocks1
+tile:484:486:490:539:1:1:wallstone
+tile:487:489:490:539:1:1:rocks1
+tile:487:489:490:539:0:0:wallstone
+tile:490:492:490:539:0:0:rocks1
+tile:490:492:490:539:-1:-1:wallstone
+tile:493:495:490:539:-1:-1:rocks1
+tile:493:495:490:539:-2:-2:wallstone
+tile:496:498:490:539:-2:-2:rocks1
+tile:496:498:490:539:-3:-3:wallstone
+tile:499:501:490:539:-3:-3:rocks1
+tile:499:501:490:539:-4:-4:wallstone
+tile:502:504:490:539:-4:-4:rocks1
+tile:502:504:490:539:-5:-5:wallstone
+tile:505:507:490:539:-5:-5:rocks1
+tile:505:507:490:539:-6:-6:wallstone
+tile:508:510:490:539:-6:-6:rocks1
+tile:508:510:490:539:-7:-7:wallstone
+tile:511:513:490:539:-7:-7:rocks1
+tile:511:513:490:539:-8:-8:wallstone
+tile:514:516:490:539:-8:-8:rocks1
+tile:514:516:490:539:-9:-9:wallstone
+tile:517:519:490:539:-9:-9:rocks1
+tile:517:519:490:539:-10:-10:wallstone
+tile:520:522:490:539:-10:-10:rocks1
+tile:520:522:490:539:-11:-11:wallstone
+tile:523:525:490:539:-11:-11:rocks1
+tile:523:525:490:539:-12:-12:wallstone
+tile:526:528:490:539:-12:-12:rocks1
+tile:526:528:490:539:-13:-13:wallstone
+tile:529:531:490:539:-13:-13:rocks1
+tile:529:531:490:539:-14:-14:wallstone
+tile:532:534:490:539:-14:-14:rocks1
+tile:532:534:490:539:-15:-15:wallstone
+tile:535:537:490:539:-15:-15:rocks1
+tile:535:537:490:539:-16:-16:wallstone
+tile:538:540:490:539:-16:-16:rocks1
+zone:460:540:490:539:-16:15:the Rootvault descending passage
+openspace:460:540:490:539:-16:15:the Rootvault descending passage:rocks1:platform
+portal:460:540:539:539:-16:8:the Rootvault cave mouth:opening
+poi:500:125:0:Freya Valley deploy point

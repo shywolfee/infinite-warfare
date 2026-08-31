@@ -1,342 +1,646 @@
 mapname:battlegrounds
-maxx:520
-maxy:520
-maxz:80
+maxx:1040
+maxy:1040
+maxz:100
 
 // ================================================================
-// THE SHATTERSEA AND NEW AURELIA ISLAND
+// THE SHATTERSEA AND GREATER NEW AURELIA
 // ================================================================
-tile:0:520:0:520:0:0:shallow
-zone:0:520:0:520:0:8:the Shattersea
-openspace:0:520:0:520:0:8:the Shattersea:shallow:water
-src:0:520:0:520:0:8:ocean1.ogg:-14
-tile:35:485:35:485:0:0:sand
-zone:35:485:35:485:0:8:New Aurelia beach
-openspace:35:485:35:485:0:8:New Aurelia beach:sand:beach
-tile:55:465:55:465:0:0:concrete2
-zone:55:465:55:465:0:8:New Aurelia
-openspace:55:465:55:465:0:8:New Aurelia:concrete2:plaza
+tile:0:1040:0:1040:0:0:shallow
+zone:0:1040:0:1040:0:8:the quiet Shattersea
+openspace:0:1040:0:1040:0:8:the quiet Shattersea:shallow:water
+tile:25:1015:25:1015:0:0:sand
+zone:25:1015:25:1015:0:8:New Aurelia beach
+openspace:25:1015:25:1015:0:8:New Aurelia beach:sand:beach
+tile:55:495:55:495:0:0:concrete2
+zone:55:495:55:495:0:8:Southwatch Ward
+openspace:55:495:55:495:0:8:Southwatch Ward:concrete2:plaza
+tile:545:985:55:495:0:0:concrete2
+zone:545:985:55:495:0:8:Eastwater Ward
+openspace:545:985:55:495:0:8:Eastwater Ward:concrete2:plaza
+tile:55:495:545:985:0:0:concrete2
+zone:55:495:545:985:0:8:Lantern Ward
+openspace:55:495:545:985:0:8:Lantern Ward:concrete2:plaza
+tile:545:985:545:985:0:0:concrete2
+zone:545:985:545:985:0:8:Northwall Ward
+openspace:545:985:545:985:0:8:Northwall Ward:concrete2:plaza
 
 // ================================================================
-// CANALS, STREETS AND NAMED JUNCTIONS
+// THE CROWN CANAL, FIVE BRIDGES AND THE CITY GRID
 // ================================================================
-tile:55:465:246:274:0:0:water1
-zone:55:465:246:274:0:8:the Crown Canal
-openspace:55:465:246:274:0:8:the Crown Canal:water1:water
-tile:101:109:55:465:0:0:concrete5
-zone:101:109:55:465:0:8:Tideway
-openspace:101:109:55:465:0:8:Tideway:concrete5:street
-tile:98:100:55:465:0:0:cement
-zone:98:100:55:465:0:8:west pavement of Tideway
-openspace:98:100:55:465:0:8:west pavement of Tideway:cement:street
-tile:110:112:55:465:0:0:cement
-zone:110:112:55:465:0:8:east pavement of Tideway
-openspace:110:112:55:465:0:8:east pavement of Tideway:cement:street
-tile:201:209:55:465:0:0:concrete5
-zone:201:209:55:465:0:8:Lantern Avenue
-openspace:201:209:55:465:0:8:Lantern Avenue:concrete5:street
-tile:198:200:55:465:0:0:cement
-zone:198:200:55:465:0:8:west pavement of Lantern Avenue
-openspace:198:200:55:465:0:8:west pavement of Lantern Avenue:cement:street
-tile:210:212:55:465:0:0:cement
-zone:210:212:55:465:0:8:east pavement of Lantern Avenue
-openspace:210:212:55:465:0:8:east pavement of Lantern Avenue:cement:street
-tile:311:319:55:465:0:0:concrete5
-zone:311:319:55:465:0:8:Founders Road
-openspace:311:319:55:465:0:8:Founders Road:concrete5:street
-tile:308:310:55:465:0:0:cement
-zone:308:310:55:465:0:8:west pavement of Founders Road
-openspace:308:310:55:465:0:8:west pavement of Founders Road:cement:street
-tile:320:322:55:465:0:0:cement
-zone:320:322:55:465:0:8:east pavement of Founders Road
-openspace:320:322:55:465:0:8:east pavement of Founders Road:cement:street
-tile:411:419:55:465:0:0:concrete5
-zone:411:419:55:465:0:8:Breakwater Drive
-openspace:411:419:55:465:0:8:Breakwater Drive:concrete5:street
-tile:408:410:55:465:0:0:cement
-zone:408:410:55:465:0:8:west pavement of Breakwater Drive
-openspace:408:410:55:465:0:8:west pavement of Breakwater Drive:cement:street
-tile:420:422:55:465:0:0:cement
-zone:420:422:55:465:0:8:east pavement of Breakwater Drive
-openspace:420:422:55:465:0:8:east pavement of Breakwater Drive:cement:street
-tile:55:465:101:109:0:0:concrete5
-zone:55:465:101:109:0:8:South Quay Road
-openspace:55:465:101:109:0:8:South Quay Road:concrete5:street
-tile:55:465:98:100:0:0:cement
-zone:55:465:98:100:0:8:south pavement of South Quay Road
-openspace:55:465:98:100:0:8:south pavement of South Quay Road:cement:street
-tile:55:465:110:112:0:0:cement
-zone:55:465:110:112:0:8:north pavement of South Quay Road
-openspace:55:465:110:112:0:8:north pavement of South Quay Road:cement:street
-tile:55:465:191:199:0:0:concrete5
-zone:55:465:191:199:0:8:Market Street
-openspace:55:465:191:199:0:8:Market Street:concrete5:street
-tile:55:465:188:190:0:0:cement
-zone:55:465:188:190:0:8:south pavement of Market Street
-openspace:55:465:188:190:0:8:south pavement of Market Street:cement:street
-tile:55:465:200:202:0:0:cement
-zone:55:465:200:202:0:8:north pavement of Market Street
-openspace:55:465:200:202:0:8:north pavement of Market Street:cement:street
-tile:55:465:321:329:0:0:concrete5
-zone:55:465:321:329:0:8:Civic Way
-openspace:55:465:321:329:0:8:Civic Way:concrete5:street
-tile:55:465:318:320:0:0:cement
-zone:55:465:318:320:0:8:south pavement of Civic Way
-openspace:55:465:318:320:0:8:south pavement of Civic Way:cement:street
-tile:55:465:330:332:0:0:cement
-zone:55:465:330:332:0:8:north pavement of Civic Way
-openspace:55:465:330:332:0:8:north pavement of Civic Way:cement:street
-tile:55:465:411:419:0:0:concrete5
-zone:55:465:411:419:0:8:Northwall Road
-openspace:55:465:411:419:0:8:Northwall Road:concrete5:street
-tile:55:465:408:410:0:0:cement
-zone:55:465:408:410:0:8:south pavement of Northwall Road
-openspace:55:465:408:410:0:8:south pavement of Northwall Road:cement:street
-tile:55:465:420:422:0:0:cement
-zone:55:465:420:422:0:8:north pavement of Northwall Road
-openspace:55:465:420:422:0:8:north pavement of Northwall Road:cement:street
-tile:100:110:246:274:2:2:bridge
-zone:100:110:246:274:2:10:a Crown Canal bridge
-openspace:100:110:246:274:2:10:a Crown Canal bridge:bridge:bridge
-tile:100:110:235:238:0:0:stone
-tile:100:110:239:242:1:1:stone
-tile:100:110:239:242:0:0:wallstone
-tile:100:110:243:245:2:2:stone
-tile:100:110:243:245:1:1:wallstone
-zone:100:110:235:245:0:9:south bridge approach
-openspace:100:110:235:245:0:9:south bridge approach:stone:platform
-tile:100:110:275:278:2:2:stone
-tile:100:110:275:278:1:1:wallstone
-tile:100:110:279:282:1:1:stone
-tile:100:110:279:282:0:0:wallstone
-tile:100:110:283:285:0:0:stone
-zone:100:110:275:285:0:9:north bridge approach
-openspace:100:110:275:285:0:9:north bridge approach:stone:platform
-tile:200:210:246:274:2:2:bridge
-zone:200:210:246:274:2:10:a Crown Canal bridge
-openspace:200:210:246:274:2:10:a Crown Canal bridge:bridge:bridge
-tile:200:210:235:238:0:0:stone
-tile:200:210:239:242:1:1:stone
-tile:200:210:239:242:0:0:wallstone
-tile:200:210:243:245:2:2:stone
-tile:200:210:243:245:1:1:wallstone
-zone:200:210:235:245:0:9:south bridge approach
-openspace:200:210:235:245:0:9:south bridge approach:stone:platform
-tile:200:210:275:278:2:2:stone
-tile:200:210:275:278:1:1:wallstone
-tile:200:210:279:282:1:1:stone
-tile:200:210:279:282:0:0:wallstone
-tile:200:210:283:285:0:0:stone
-zone:200:210:275:285:0:9:north bridge approach
-openspace:200:210:275:285:0:9:north bridge approach:stone:platform
-tile:310:320:246:274:2:2:bridge
-zone:310:320:246:274:2:10:a Crown Canal bridge
-openspace:310:320:246:274:2:10:a Crown Canal bridge:bridge:bridge
-tile:310:320:235:238:0:0:stone
-tile:310:320:239:242:1:1:stone
-tile:310:320:239:242:0:0:wallstone
-tile:310:320:243:245:2:2:stone
-tile:310:320:243:245:1:1:wallstone
-zone:310:320:235:245:0:9:south bridge approach
-openspace:310:320:235:245:0:9:south bridge approach:stone:platform
-tile:310:320:275:278:2:2:stone
-tile:310:320:275:278:1:1:wallstone
-tile:310:320:279:282:1:1:stone
-tile:310:320:279:282:0:0:wallstone
-tile:310:320:283:285:0:0:stone
-zone:310:320:275:285:0:9:north bridge approach
-openspace:310:320:275:285:0:9:north bridge approach:stone:platform
-tile:410:420:246:274:2:2:bridge
-zone:410:420:246:274:2:10:a Crown Canal bridge
-openspace:410:420:246:274:2:10:a Crown Canal bridge:bridge:bridge
-tile:410:420:235:238:0:0:stone
-tile:410:420:239:242:1:1:stone
-tile:410:420:239:242:0:0:wallstone
-tile:410:420:243:245:2:2:stone
-tile:410:420:243:245:1:1:wallstone
-zone:410:420:235:245:0:9:south bridge approach
-openspace:410:420:235:245:0:9:south bridge approach:stone:platform
-tile:410:420:275:278:2:2:stone
-tile:410:420:275:278:1:1:wallstone
-tile:410:420:279:282:1:1:stone
-tile:410:420:279:282:0:0:wallstone
-tile:410:420:283:285:0:0:stone
-zone:410:420:275:285:0:9:north bridge approach
-openspace:410:420:275:285:0:9:north bridge approach:stone:platform
+tile:55:985:500:540:0:0:water1
+zone:55:985:500:540:0:8:the Crown Canal
+openspace:55:985:500:540:0:8:the Crown Canal:water1:water
+tile:116:124:55:985:0:0:concrete5
+zone:116:124:55:985:0:8:Tideway
+openspace:116:124:55:985:0:8:Tideway:concrete5:street
+tile:113:115:55:985:0:0:cement
+zone:113:115:55:985:0:8:west pavement of Tideway
+openspace:113:115:55:985:0:8:west pavement of Tideway:cement:street
+tile:125:127:55:985:0:0:cement
+zone:125:127:55:985:0:8:east pavement of Tideway
+openspace:125:127:55:985:0:8:east pavement of Tideway:cement:street
+tile:296:304:55:985:0:0:concrete5
+zone:296:304:55:985:0:8:Lantern Avenue
+openspace:296:304:55:985:0:8:Lantern Avenue:concrete5:street
+tile:293:295:55:985:0:0:cement
+zone:293:295:55:985:0:8:west pavement of Lantern Avenue
+openspace:293:295:55:985:0:8:west pavement of Lantern Avenue:cement:street
+tile:305:307:55:985:0:0:cement
+zone:305:307:55:985:0:8:east pavement of Lantern Avenue
+openspace:305:307:55:985:0:8:east pavement of Lantern Avenue:cement:street
+tile:516:524:55:985:0:0:concrete5
+zone:516:524:55:985:0:8:Founders Road
+openspace:516:524:55:985:0:8:Founders Road:concrete5:street
+tile:513:515:55:985:0:0:cement
+zone:513:515:55:985:0:8:west pavement of Founders Road
+openspace:513:515:55:985:0:8:west pavement of Founders Road:cement:street
+tile:525:527:55:985:0:0:cement
+zone:525:527:55:985:0:8:east pavement of Founders Road
+openspace:525:527:55:985:0:8:east pavement of Founders Road:cement:street
+tile:736:744:55:985:0:0:concrete5
+zone:736:744:55:985:0:8:Crown Boulevard
+openspace:736:744:55:985:0:8:Crown Boulevard:concrete5:street
+tile:733:735:55:985:0:0:cement
+zone:733:735:55:985:0:8:west pavement of Crown Boulevard
+openspace:733:735:55:985:0:8:west pavement of Crown Boulevard:cement:street
+tile:745:747:55:985:0:0:cement
+zone:745:747:55:985:0:8:east pavement of Crown Boulevard
+openspace:745:747:55:985:0:8:east pavement of Crown Boulevard:cement:street
+tile:916:924:55:985:0:0:concrete5
+zone:916:924:55:985:0:8:Breakwater Drive
+openspace:916:924:55:985:0:8:Breakwater Drive:concrete5:street
+tile:913:915:55:985:0:0:cement
+zone:913:915:55:985:0:8:west pavement of Breakwater Drive
+openspace:913:915:55:985:0:8:west pavement of Breakwater Drive:cement:street
+tile:925:927:55:985:0:0:cement
+zone:925:927:55:985:0:8:east pavement of Breakwater Drive
+openspace:925:927:55:985:0:8:east pavement of Breakwater Drive:cement:street
+tile:55:985:116:124:0:0:concrete5
+zone:55:985:116:124:0:8:South Quay Road
+openspace:55:985:116:124:0:8:South Quay Road:concrete5:street
+tile:55:985:113:115:0:0:cement
+zone:55:985:113:115:0:8:south pavement of South Quay Road
+openspace:55:985:113:115:0:8:south pavement of South Quay Road:cement:street
+tile:55:985:125:127:0:0:cement
+zone:55:985:125:127:0:8:north pavement of South Quay Road
+openspace:55:985:125:127:0:8:north pavement of South Quay Road:cement:street
+tile:55:985:296:304:0:0:concrete5
+zone:55:985:296:304:0:8:Market Street
+openspace:55:985:296:304:0:8:Market Street:concrete5:street
+tile:55:985:293:295:0:0:cement
+zone:55:985:293:295:0:8:south pavement of Market Street
+openspace:55:985:293:295:0:8:south pavement of Market Street:cement:street
+tile:55:985:305:307:0:0:cement
+zone:55:985:305:307:0:8:north pavement of Market Street
+openspace:55:985:305:307:0:8:north pavement of Market Street:cement:street
+tile:55:985:436:444:0:0:concrete5
+zone:55:985:436:444:0:8:Canal Approach
+openspace:55:985:436:444:0:8:Canal Approach:concrete5:street
+tile:55:985:433:435:0:0:cement
+zone:55:985:433:435:0:8:south pavement of Canal Approach
+openspace:55:985:433:435:0:8:south pavement of Canal Approach:cement:street
+tile:55:985:445:447:0:0:cement
+zone:55:985:445:447:0:8:north pavement of Canal Approach
+openspace:55:985:445:447:0:8:north pavement of Canal Approach:cement:street
+tile:55:985:596:604:0:0:concrete5
+zone:55:985:596:604:0:8:Civic Way
+openspace:55:985:596:604:0:8:Civic Way:concrete5:street
+tile:55:985:593:595:0:0:cement
+zone:55:985:593:595:0:8:south pavement of Civic Way
+openspace:55:985:593:595:0:8:south pavement of Civic Way:cement:street
+tile:55:985:605:607:0:0:cement
+zone:55:985:605:607:0:8:north pavement of Civic Way
+openspace:55:985:605:607:0:8:north pavement of Civic Way:cement:street
+tile:55:985:756:764:0:0:concrete5
+zone:55:985:756:764:0:8:Stormglass Avenue
+openspace:55:985:756:764:0:8:Stormglass Avenue:concrete5:street
+tile:55:985:753:755:0:0:cement
+zone:55:985:753:755:0:8:south pavement of Stormglass Avenue
+openspace:55:985:753:755:0:8:south pavement of Stormglass Avenue:cement:street
+tile:55:985:765:767:0:0:cement
+zone:55:985:765:767:0:8:north pavement of Stormglass Avenue
+openspace:55:985:765:767:0:8:north pavement of Stormglass Avenue:cement:street
+tile:55:985:916:924:0:0:concrete5
+zone:55:985:916:924:0:8:Northwall Road
+openspace:55:985:916:924:0:8:Northwall Road:concrete5:street
+tile:55:985:913:915:0:0:cement
+zone:55:985:913:915:0:8:south pavement of Northwall Road
+openspace:55:985:913:915:0:8:south pavement of Northwall Road:cement:street
+tile:55:985:925:927:0:0:cement
+zone:55:985:925:927:0:8:north pavement of Northwall Road
+openspace:55:985:925:927:0:8:north pavement of Northwall Road:cement:street
+tile:114:126:500:540:3:3:bridge
+zone:114:126:500:540:3:11:Tideway Crown Canal bridge
+openspace:114:126:500:540:3:11:Tideway Crown Canal bridge:bridge:bridge
+tile:114:126:486:489:0:0:stone
+tile:114:126:490:493:1:1:stone
+tile:114:126:490:493:0:0:wallstone
+tile:114:126:494:496:2:2:stone
+tile:114:126:494:496:1:1:wallstone
+tile:114:126:497:499:3:3:stone
+tile:114:126:497:499:2:2:wallstone
+zone:114:126:486:499:0:10:Tideway south bridge ramp
+openspace:114:126:486:499:0:10:Tideway south bridge ramp:stone:platform
+tile:114:126:541:544:3:3:stone
+tile:114:126:541:544:2:2:wallstone
+tile:114:126:545:548:2:2:stone
+tile:114:126:545:548:1:1:wallstone
+tile:114:126:549:551:1:1:stone
+tile:114:126:549:551:0:0:wallstone
+tile:114:126:552:554:0:0:stone
+zone:114:126:541:554:0:10:Tideway north bridge ramp
+openspace:114:126:541:554:0:10:Tideway north bridge ramp:stone:platform
+tile:294:306:500:540:3:3:bridge
+zone:294:306:500:540:3:11:Lantern Avenue Crown Canal bridge
+openspace:294:306:500:540:3:11:Lantern Avenue Crown Canal bridge:bridge:bridge
+tile:294:306:486:489:0:0:stone
+tile:294:306:490:493:1:1:stone
+tile:294:306:490:493:0:0:wallstone
+tile:294:306:494:496:2:2:stone
+tile:294:306:494:496:1:1:wallstone
+tile:294:306:497:499:3:3:stone
+tile:294:306:497:499:2:2:wallstone
+zone:294:306:486:499:0:10:Lantern Avenue south bridge ramp
+openspace:294:306:486:499:0:10:Lantern Avenue south bridge ramp:stone:platform
+tile:294:306:541:544:3:3:stone
+tile:294:306:541:544:2:2:wallstone
+tile:294:306:545:548:2:2:stone
+tile:294:306:545:548:1:1:wallstone
+tile:294:306:549:551:1:1:stone
+tile:294:306:549:551:0:0:wallstone
+tile:294:306:552:554:0:0:stone
+zone:294:306:541:554:0:10:Lantern Avenue north bridge ramp
+openspace:294:306:541:554:0:10:Lantern Avenue north bridge ramp:stone:platform
+tile:514:526:500:540:3:3:bridge
+zone:514:526:500:540:3:11:Founders Road Crown Canal bridge
+openspace:514:526:500:540:3:11:Founders Road Crown Canal bridge:bridge:bridge
+tile:514:526:486:489:0:0:stone
+tile:514:526:490:493:1:1:stone
+tile:514:526:490:493:0:0:wallstone
+tile:514:526:494:496:2:2:stone
+tile:514:526:494:496:1:1:wallstone
+tile:514:526:497:499:3:3:stone
+tile:514:526:497:499:2:2:wallstone
+zone:514:526:486:499:0:10:Founders Road south bridge ramp
+openspace:514:526:486:499:0:10:Founders Road south bridge ramp:stone:platform
+tile:514:526:541:544:3:3:stone
+tile:514:526:541:544:2:2:wallstone
+tile:514:526:545:548:2:2:stone
+tile:514:526:545:548:1:1:wallstone
+tile:514:526:549:551:1:1:stone
+tile:514:526:549:551:0:0:wallstone
+tile:514:526:552:554:0:0:stone
+zone:514:526:541:554:0:10:Founders Road north bridge ramp
+openspace:514:526:541:554:0:10:Founders Road north bridge ramp:stone:platform
+tile:734:746:500:540:3:3:bridge
+zone:734:746:500:540:3:11:Crown Boulevard Crown Canal bridge
+openspace:734:746:500:540:3:11:Crown Boulevard Crown Canal bridge:bridge:bridge
+tile:734:746:486:489:0:0:stone
+tile:734:746:490:493:1:1:stone
+tile:734:746:490:493:0:0:wallstone
+tile:734:746:494:496:2:2:stone
+tile:734:746:494:496:1:1:wallstone
+tile:734:746:497:499:3:3:stone
+tile:734:746:497:499:2:2:wallstone
+zone:734:746:486:499:0:10:Crown Boulevard south bridge ramp
+openspace:734:746:486:499:0:10:Crown Boulevard south bridge ramp:stone:platform
+tile:734:746:541:544:3:3:stone
+tile:734:746:541:544:2:2:wallstone
+tile:734:746:545:548:2:2:stone
+tile:734:746:545:548:1:1:wallstone
+tile:734:746:549:551:1:1:stone
+tile:734:746:549:551:0:0:wallstone
+tile:734:746:552:554:0:0:stone
+zone:734:746:541:554:0:10:Crown Boulevard north bridge ramp
+openspace:734:746:541:554:0:10:Crown Boulevard north bridge ramp:stone:platform
+tile:914:926:500:540:3:3:bridge
+zone:914:926:500:540:3:11:Breakwater Drive Crown Canal bridge
+openspace:914:926:500:540:3:11:Breakwater Drive Crown Canal bridge:bridge:bridge
+tile:914:926:486:489:0:0:stone
+tile:914:926:490:493:1:1:stone
+tile:914:926:490:493:0:0:wallstone
+tile:914:926:494:496:2:2:stone
+tile:914:926:494:496:1:1:wallstone
+tile:914:926:497:499:3:3:stone
+tile:914:926:497:499:2:2:wallstone
+zone:914:926:486:499:0:10:Breakwater Drive south bridge ramp
+openspace:914:926:486:499:0:10:Breakwater Drive south bridge ramp:stone:platform
+tile:914:926:541:544:3:3:stone
+tile:914:926:541:544:2:2:wallstone
+tile:914:926:545:548:2:2:stone
+tile:914:926:545:548:1:1:wallstone
+tile:914:926:549:551:1:1:stone
+tile:914:926:549:551:0:0:wallstone
+tile:914:926:552:554:0:0:stone
+zone:914:926:541:554:0:10:Breakwater Drive north bridge ramp
+openspace:914:926:541:554:0:10:Breakwater Drive north bridge ramp:stone:platform
 
 // ================================================================
-// FOUR COMPLETE DISTRICTS
+// TWENTY-EIGHT COMPLETE CITY INTERIORS
 // ================================================================
-tile:65:135:125:175:0:0:tile1
-zone:66:134:126:174:0:11:Saltglass Exchange
-space:66:134:126:174:0:11:Saltglass Exchange:brick:office
-tile:65:98:125:125:0:12:wallbrick
-tile:102:135:125:125:0:12:wallbrick
-tile:99:101:125:125:4:12:wallbrick
-portal:99:101:125:125:0:3:Saltglass Exchange entrance:opening
-tile:65:65:125:175:0:12:wallbrick
-tile:135:135:125:175:0:12:wallbrick
-tile:65:135:175:175:0:12:wallbrick
-tile:65:135:125:175:12:12:wallbrick
-zone:65:135:125:175:13:20:roof of Saltglass Exchange
-poi:100:150:0:Saltglass Exchange
-tile:145:195:125:175:0:0:tile1
-zone:146:194:126:174:0:11:Mariners Clinic
-space:146:194:126:174:0:11:Mariners Clinic:brick:clinic
-tile:145:168:125:125:0:12:wallbrick
-tile:172:195:125:125:0:12:wallbrick
-tile:169:171:125:125:4:12:wallbrick
-portal:169:171:125:125:0:3:Mariners Clinic entrance:opening
-tile:145:145:125:175:0:12:wallbrick
-tile:195:195:125:175:0:12:wallbrick
-tile:145:195:175:175:0:12:wallbrick
-tile:145:195:125:175:12:12:wallbrick
-zone:145:195:125:175:13:20:roof of Mariners Clinic
-poi:170:150:0:Mariners Clinic
-tile:225:295:125:175:0:0:tile1
-zone:226:294:126:174:0:11:Southwatch Armoury
-space:226:294:126:174:0:11:Southwatch Armoury:brick:armoury
-tile:225:258:125:125:0:12:wallbrick
-tile:262:295:125:125:0:12:wallbrick
-tile:259:261:125:125:4:12:wallbrick
-portal:259:261:125:125:0:3:Southwatch Armoury entrance:opening
-tile:225:225:125:175:0:12:wallbrick
-tile:295:295:125:175:0:12:wallbrick
-tile:225:295:175:175:0:12:wallbrick
-tile:225:295:125:175:12:12:wallbrick
-zone:225:295:125:175:13:20:roof of Southwatch Armoury
-poi:260:150:0:Southwatch Armoury
-tile:335:395:125:175:0:0:tile1
-zone:336:394:126:174:0:11:Ash & Anchor Tavern
-space:336:394:126:174:0:11:Ash & Anchor Tavern:brick:bar
-tile:335:363:125:125:0:12:wallbrick
-tile:367:395:125:125:0:12:wallbrick
-tile:364:366:125:125:4:12:wallbrick
-portal:364:366:125:125:0:3:Ash & Anchor Tavern entrance:opening
-tile:335:335:125:175:0:12:wallbrick
-tile:395:395:125:175:0:12:wallbrick
-tile:335:395:175:175:0:12:wallbrick
-tile:335:395:125:175:12:12:wallbrick
-zone:335:395:125:175:13:20:roof of Ash & Anchor Tavern
-poi:365:150:0:Ash & Anchor Tavern
-tile:65:135:345:395:0:0:tile1
-zone:66:134:346:394:0:11:Northwall Apartments
-space:66:134:346:394:0:11:Northwall Apartments:brick:apartment
-tile:65:98:395:395:0:12:wallbrick
-tile:102:135:395:395:0:12:wallbrick
-tile:99:101:395:395:4:12:wallbrick
-portal:99:101:395:395:0:3:Northwall Apartments entrance:opening
-tile:65:65:345:395:0:12:wallbrick
-tile:135:135:345:395:0:12:wallbrick
-tile:65:135:345:345:0:12:wallbrick
-tile:65:135:345:395:12:12:wallbrick
-zone:65:135:345:395:13:20:roof of Northwall Apartments
-poi:100:370:0:Northwall Apartments
-tile:145:215:345:405:0:0:tile1
-zone:146:214:346:404:0:11:Aurelia Library
-space:146:214:346:404:0:11:Aurelia Library:brick:hall
-tile:145:178:405:405:0:12:wallbrick
-tile:182:215:405:405:0:12:wallbrick
-tile:179:181:405:405:4:12:wallbrick
-portal:179:181:405:405:0:3:Aurelia Library entrance:opening
-tile:145:145:345:405:0:12:wallbrick
-tile:215:215:345:405:0:12:wallbrick
-tile:145:215:345:345:0:12:wallbrick
-tile:145:215:345:405:12:12:wallbrick
-zone:145:215:345:405:13:20:roof of Aurelia Library
-poi:180:375:0:Aurelia Library
-tile:235:305:345:405:0:0:tile1
-zone:236:304:346:404:0:11:Storm Market
-space:236:304:346:404:0:11:Storm Market:brick:shop
-tile:235:268:405:405:0:12:wallbrick
-tile:272:305:405:405:0:12:wallbrick
-tile:269:271:405:405:4:12:wallbrick
-portal:269:271:405:405:0:3:Storm Market entrance:opening
-tile:235:235:345:405:0:12:wallbrick
-tile:305:305:345:405:0:12:wallbrick
-tile:235:305:345:345:0:12:wallbrick
-tile:235:305:345:405:12:12:wallbrick
-zone:235:305:345:405:13:20:roof of Storm Market
-poi:270:375:0:Storm Market
-tile:335:435:345:405:0:0:tile1
-zone:336:434:346:404:0:11:Harbour Warehouse
-space:336:434:346:404:0:11:Harbour Warehouse:brick:warehouse
-tile:335:383:405:405:0:12:wallbrick
-tile:387:435:405:405:0:12:wallbrick
-tile:384:386:405:405:4:12:wallbrick
-portal:384:386:405:405:0:3:Harbour Warehouse entrance:opening
-tile:335:335:345:405:0:12:wallbrick
-tile:435:435:345:405:0:12:wallbrick
-tile:335:435:345:345:0:12:wallbrick
-tile:335:435:345:405:12:12:wallbrick
-zone:335:435:345:405:13:20:roof of Harbour Warehouse
-poi:385:375:0:Harbour Warehouse
-tile:65:135:285:315:0:0:tile1
-zone:66:134:286:314:0:11:Canal Customs House
-space:66:134:286:314:0:11:Canal Customs House:brick:office
-tile:65:98:315:315:0:12:wallbrick
-tile:102:135:315:315:0:12:wallbrick
-tile:99:101:315:315:4:12:wallbrick
-portal:99:101:315:315:0:3:Canal Customs House entrance:opening
-tile:65:65:285:315:0:12:wallbrick
-tile:135:135:285:315:0:12:wallbrick
-tile:65:135:285:285:0:12:wallbrick
-tile:65:135:285:315:12:12:wallbrick
-zone:65:135:285:315:13:20:roof of Canal Customs House
-poi:100:300:0:Canal Customs House
-tile:145:215:285:315:0:0:tile1
-zone:146:214:286:314:0:11:Ferrymaster's Hall
-space:146:214:286:314:0:11:Ferrymaster's Hall:brick:hall
-tile:145:178:315:315:0:12:wallbrick
-tile:182:215:315:315:0:12:wallbrick
-tile:179:181:315:315:4:12:wallbrick
-portal:179:181:315:315:0:3:Ferrymaster's Hall entrance:opening
-tile:145:145:285:315:0:12:wallbrick
-tile:215:215:285:315:0:12:wallbrick
-tile:145:215:285:285:0:12:wallbrick
-tile:145:215:285:315:12:12:wallbrick
-zone:145:215:285:315:13:20:roof of Ferrymaster's Hall
-poi:180:300:0:Ferrymaster's Hall
-tile:305:365:285:315:0:0:tile1
-zone:306:364:286:314:0:11:Crown Workshops
-space:306:364:286:314:0:11:Crown Workshops:brick:factory
-tile:305:333:315:315:0:12:wallbrick
-tile:337:365:315:315:0:12:wallbrick
-tile:334:336:315:315:4:12:wallbrick
-portal:334:336:315:315:0:3:Crown Workshops entrance:opening
-tile:305:305:285:315:0:12:wallbrick
-tile:365:365:285:315:0:12:wallbrick
-tile:305:365:285:285:0:12:wallbrick
-tile:305:365:285:315:12:12:wallbrick
-zone:305:365:285:315:13:20:roof of Crown Workshops
-poi:335:300:0:Crown Workshops
-tile:385:445:285:315:0:0:tile1
-zone:386:444:286:314:0:11:East Lock Station
-space:386:444:286:314:0:11:East Lock Station:brick:control
-tile:385:413:315:315:0:12:wallbrick
-tile:417:445:315:315:0:12:wallbrick
-tile:414:416:315:315:4:12:wallbrick
-portal:414:416:315:315:0:3:East Lock Station entrance:opening
-tile:385:385:285:315:0:12:wallbrick
-tile:445:445:285:315:0:12:wallbrick
-tile:385:445:285:285:0:12:wallbrick
-tile:385:445:285:315:12:12:wallbrick
-zone:385:445:285:315:13:20:roof of East Lock Station
-poi:415:300:0:East Lock Station
-tile:225:295:205:235:4:4:stone
-zone:225:295:205:235:4:12:the elevated Founders Memorial
-openspace:225:295:205:235:4:12:the elevated Founders Memorial:stone:plaza
-tile:245:251:196:204:0:0:stone
-tile:252:257:196:204:1:1:stone
-tile:252:257:196:204:0:0:wallstone
-tile:258:263:196:204:2:2:stone
-tile:258:263:196:204:1:1:wallstone
-tile:264:269:196:204:3:3:stone
-tile:264:269:196:204:2:2:wallstone
-tile:270:275:196:204:4:4:stone
-tile:270:275:196:204:3:3:wallstone
-zone:245:275:196:204:0:11:Founders Memorial south ramp
-openspace:245:275:196:204:0:11:Founders Memorial south ramp:stone:platform
-poi:260:220:4:Founders Memorial
-ispawn:55:465:55:465:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
-poi:260:300:0:New Aurelia central deploy point
+tile:145:255:155:245:0:0:tile1
+zone:146:254:156:244:0:11:Saltglass Exchange
+space:146:254:156:244:0:11:Saltglass Exchange:brick:office
+tile:145:198:155:155:0:12:wallbrick
+tile:202:255:155:155:0:12:wallbrick
+tile:199:201:155:155:4:12:wallbrick
+portal:199:201:155:155:0:3:Saltglass Exchange entrance:opening
+tile:145:145:155:245:0:12:wallbrick
+tile:255:255:155:245:0:12:wallbrick
+tile:145:255:245:245:0:12:wallbrick
+tile:145:255:155:245:12:12:wallbrick
+zone:145:255:155:245:13:20:roof of Saltglass Exchange
+poi:200:200:0:Saltglass Exchange
+tile:335:455:155:245:0:0:tile1
+zone:336:454:156:244:0:11:Mariners Clinic
+space:336:454:156:244:0:11:Mariners Clinic:brick:clinic
+tile:335:393:155:155:0:12:wallbrick
+tile:397:455:155:155:0:12:wallbrick
+tile:394:396:155:155:4:12:wallbrick
+portal:394:396:155:155:0:3:Mariners Clinic entrance:opening
+tile:335:335:155:245:0:12:wallbrick
+tile:455:455:155:245:0:12:wallbrick
+tile:335:455:245:245:0:12:wallbrick
+tile:335:455:155:245:12:12:wallbrick
+zone:335:455:155:245:13:20:roof of Mariners Clinic
+poi:395:200:0:Mariners Clinic
+tile:565:685:155:245:0:0:tile1
+zone:566:684:156:244:0:11:Southwatch Armoury
+space:566:684:156:244:0:11:Southwatch Armoury:brick:armoury
+tile:565:623:155:155:0:12:wallbrick
+tile:627:685:155:155:0:12:wallbrick
+tile:624:626:155:155:4:12:wallbrick
+portal:624:626:155:155:0:3:Southwatch Armoury entrance:opening
+tile:565:565:155:245:0:12:wallbrick
+tile:685:685:155:245:0:12:wallbrick
+tile:565:685:245:245:0:12:wallbrick
+tile:565:685:155:245:12:12:wallbrick
+zone:565:685:155:245:13:20:roof of Southwatch Armoury
+poi:625:200:0:Southwatch Armoury
+tile:775:885:155:245:0:0:tile1
+zone:776:884:156:244:0:11:Ash and Anchor Tavern
+space:776:884:156:244:0:11:Ash and Anchor Tavern:brick:bar
+tile:775:828:155:155:0:12:wallbrick
+tile:832:885:155:155:0:12:wallbrick
+tile:829:831:155:155:4:12:wallbrick
+portal:829:831:155:155:0:3:Ash and Anchor Tavern entrance:opening
+tile:775:775:155:245:0:12:wallbrick
+tile:885:885:155:245:0:12:wallbrick
+tile:775:885:245:245:0:12:wallbrick
+tile:775:885:155:245:12:12:wallbrick
+zone:775:885:155:245:13:20:roof of Ash and Anchor Tavern
+poi:830:200:0:Ash and Anchor Tavern
+tile:145:255:335:415:0:0:tile1
+zone:146:254:336:414:0:11:Tideglass Conservatory
+space:146:254:336:414:0:11:Tideglass Conservatory:brick:hall
+tile:145:198:335:335:0:12:wallbrick
+tile:202:255:335:335:0:12:wallbrick
+tile:199:201:335:335:4:12:wallbrick
+portal:199:201:335:335:0:3:Tideglass Conservatory entrance:opening
+tile:145:145:335:415:0:12:wallbrick
+tile:255:255:335:415:0:12:wallbrick
+tile:145:255:415:415:0:12:wallbrick
+tile:145:255:335:415:12:12:wallbrick
+zone:145:255:335:415:13:20:roof of Tideglass Conservatory
+poi:200:375:0:Tideglass Conservatory
+tile:335:455:335:415:0:0:tile1
+zone:336:454:336:414:0:11:Aurelia Technical College
+space:336:454:336:414:0:11:Aurelia Technical College:brick:office
+tile:335:393:335:335:0:12:wallbrick
+tile:397:455:335:335:0:12:wallbrick
+tile:394:396:335:335:4:12:wallbrick
+portal:394:396:335:335:0:3:Aurelia Technical College entrance:opening
+tile:335:335:335:415:0:12:wallbrick
+tile:455:455:335:415:0:12:wallbrick
+tile:335:455:415:415:0:12:wallbrick
+tile:335:455:335:415:12:12:wallbrick
+zone:335:455:335:415:13:20:roof of Aurelia Technical College
+poi:395:375:0:Aurelia Technical College
+tile:565:685:335:415:0:0:tile1
+zone:566:684:336:414:0:11:Eastwater Foundry
+space:566:684:336:414:0:11:Eastwater Foundry:brick:factory
+tile:565:623:335:335:0:12:wallbrick
+tile:627:685:335:335:0:12:wallbrick
+tile:624:626:335:335:4:12:wallbrick
+portal:624:626:335:335:0:3:Eastwater Foundry entrance:opening
+tile:565:565:335:415:0:12:wallbrick
+tile:685:685:335:415:0:12:wallbrick
+tile:565:685:415:415:0:12:wallbrick
+tile:565:685:335:415:12:12:wallbrick
+zone:565:685:335:415:13:20:roof of Eastwater Foundry
+poi:625:375:0:Eastwater Foundry
+tile:775:885:335:415:0:0:tile1
+zone:776:884:336:414:0:11:Breakwater Firehouse
+space:776:884:336:414:0:11:Breakwater Firehouse:brick:base
+tile:775:828:335:335:0:12:wallbrick
+tile:832:885:335:335:0:12:wallbrick
+tile:829:831:335:335:4:12:wallbrick
+portal:829:831:335:335:0:3:Breakwater Firehouse entrance:opening
+tile:775:775:335:415:0:12:wallbrick
+tile:885:885:335:415:0:12:wallbrick
+tile:775:885:415:415:0:12:wallbrick
+tile:775:885:335:415:12:12:wallbrick
+zone:775:885:335:415:13:20:roof of Breakwater Firehouse
+poi:830:375:0:Breakwater Firehouse
+tile:145:255:625:715:0:0:tile1
+zone:146:254:626:714:0:11:Northwall Apartments
+space:146:254:626:714:0:11:Northwall Apartments:brick:apartment
+tile:145:198:715:715:0:12:wallbrick
+tile:202:255:715:715:0:12:wallbrick
+tile:199:201:715:715:4:12:wallbrick
+portal:199:201:715:715:0:3:Northwall Apartments entrance:opening
+tile:145:145:625:715:0:12:wallbrick
+tile:255:255:625:715:0:12:wallbrick
+tile:145:255:625:625:0:12:wallbrick
+tile:145:255:625:715:12:12:wallbrick
+zone:145:255:625:715:13:20:roof of Northwall Apartments
+poi:200:670:0:Northwall Apartments
+tile:335:455:625:715:0:0:tile1
+zone:336:454:626:714:0:11:Aurelia Library
+space:336:454:626:714:0:11:Aurelia Library:brick:hall
+tile:335:393:715:715:0:12:wallbrick
+tile:397:455:715:715:0:12:wallbrick
+tile:394:396:715:715:4:12:wallbrick
+portal:394:396:715:715:0:3:Aurelia Library entrance:opening
+tile:335:335:625:715:0:12:wallbrick
+tile:455:455:625:715:0:12:wallbrick
+tile:335:455:625:625:0:12:wallbrick
+tile:335:455:625:715:12:12:wallbrick
+zone:335:455:625:715:13:20:roof of Aurelia Library
+poi:395:670:0:Aurelia Library
+tile:565:685:625:715:0:0:tile1
+zone:566:684:626:714:0:11:Storm Market
+space:566:684:626:714:0:11:Storm Market:brick:shop
+tile:565:623:715:715:0:12:wallbrick
+tile:627:685:715:715:0:12:wallbrick
+tile:624:626:715:715:4:12:wallbrick
+portal:624:626:715:715:0:3:Storm Market entrance:opening
+tile:565:565:625:715:0:12:wallbrick
+tile:685:685:625:715:0:12:wallbrick
+tile:565:685:625:625:0:12:wallbrick
+tile:565:685:625:715:12:12:wallbrick
+zone:565:685:625:715:13:20:roof of Storm Market
+poi:625:670:0:Storm Market
+tile:775:885:625:715:0:0:tile1
+zone:776:884:626:714:0:11:Harbour Warehouse
+space:776:884:626:714:0:11:Harbour Warehouse:brick:warehouse
+tile:775:828:715:715:0:12:wallbrick
+tile:832:885:715:715:0:12:wallbrick
+tile:829:831:715:715:4:12:wallbrick
+portal:829:831:715:715:0:3:Harbour Warehouse entrance:opening
+tile:775:775:625:715:0:12:wallbrick
+tile:885:885:625:715:0:12:wallbrick
+tile:775:885:625:625:0:12:wallbrick
+tile:775:885:625:715:12:12:wallbrick
+zone:775:885:625:715:13:20:roof of Harbour Warehouse
+poi:830:670:0:Harbour Warehouse
+tile:145:255:795:885:0:0:tile1
+zone:146:254:796:884:0:11:Lantern Opera House
+space:146:254:796:884:0:11:Lantern Opera House:brick:hall
+tile:145:198:885:885:0:12:wallbrick
+tile:202:255:885:885:0:12:wallbrick
+tile:199:201:885:885:4:12:wallbrick
+portal:199:201:885:885:0:3:Lantern Opera House entrance:opening
+tile:145:145:795:885:0:12:wallbrick
+tile:255:255:795:885:0:12:wallbrick
+tile:145:255:795:795:0:12:wallbrick
+tile:145:255:795:885:12:12:wallbrick
+zone:145:255:795:885:13:20:roof of Lantern Opera House
+poi:200:840:0:Lantern Opera House
+tile:335:455:795:885:0:0:tile1
+zone:336:454:796:884:0:11:Crown Medical Centre
+space:336:454:796:884:0:11:Crown Medical Centre:brick:clinic
+tile:335:393:885:885:0:12:wallbrick
+tile:397:455:885:885:0:12:wallbrick
+tile:394:396:885:885:4:12:wallbrick
+portal:394:396:885:885:0:3:Crown Medical Centre entrance:opening
+tile:335:335:795:885:0:12:wallbrick
+tile:455:455:795:885:0:12:wallbrick
+tile:335:455:795:795:0:12:wallbrick
+tile:335:455:795:885:12:12:wallbrick
+zone:335:455:795:885:13:20:roof of Crown Medical Centre
+poi:395:840:0:Crown Medical Centre
+tile:565:685:795:885:0:0:tile1
+zone:566:684:796:884:0:11:Northwatch Barracks
+space:566:684:796:884:0:11:Northwatch Barracks:brick:base
+tile:565:623:885:885:0:12:wallbrick
+tile:627:685:885:885:0:12:wallbrick
+tile:624:626:885:885:4:12:wallbrick
+portal:624:626:885:885:0:3:Northwatch Barracks entrance:opening
+tile:565:565:795:885:0:12:wallbrick
+tile:685:685:795:885:0:12:wallbrick
+tile:565:685:795:795:0:12:wallbrick
+tile:565:685:795:885:12:12:wallbrick
+zone:565:685:795:885:13:20:roof of Northwatch Barracks
+poi:625:840:0:Northwatch Barracks
+tile:775:885:795:885:0:0:tile1
+zone:776:884:796:884:0:11:Breakwater Hotel
+space:776:884:796:884:0:11:Breakwater Hotel:brick:apartment
+tile:775:828:885:885:0:12:wallbrick
+tile:832:885:885:885:0:12:wallbrick
+tile:829:831:885:885:4:12:wallbrick
+portal:829:831:885:885:0:3:Breakwater Hotel entrance:opening
+tile:775:775:795:885:0:12:wallbrick
+tile:885:885:795:885:0:12:wallbrick
+tile:775:885:795:795:0:12:wallbrick
+tile:775:885:795:885:12:12:wallbrick
+zone:775:885:795:885:13:20:roof of Breakwater Hotel
+poi:830:840:0:Breakwater Hotel
+tile:145:255:455:490:0:0:tile1
+zone:146:254:456:489:0:11:West Canal Customs
+space:146:254:456:489:0:11:West Canal Customs:brick:office
+tile:145:198:455:455:0:12:wallbrick
+tile:202:255:455:455:0:12:wallbrick
+tile:199:201:455:455:4:12:wallbrick
+portal:199:201:455:455:0:3:West Canal Customs entrance:opening
+tile:145:145:455:490:0:12:wallbrick
+tile:255:255:455:490:0:12:wallbrick
+tile:145:255:490:490:0:12:wallbrick
+tile:145:255:455:490:12:12:wallbrick
+zone:145:255:455:490:13:20:roof of West Canal Customs
+poi:200:472:0:West Canal Customs
+tile:335:455:455:490:0:0:tile1
+zone:336:454:456:489:0:11:Ferrymaster Hall
+space:336:454:456:489:0:11:Ferrymaster Hall:brick:hall
+tile:335:393:455:455:0:12:wallbrick
+tile:397:455:455:455:0:12:wallbrick
+tile:394:396:455:455:4:12:wallbrick
+portal:394:396:455:455:0:3:Ferrymaster Hall entrance:opening
+tile:335:335:455:490:0:12:wallbrick
+tile:455:455:455:490:0:12:wallbrick
+tile:335:455:490:490:0:12:wallbrick
+tile:335:455:455:490:12:12:wallbrick
+zone:335:455:455:490:13:20:roof of Ferrymaster Hall
+poi:395:472:0:Ferrymaster Hall
+tile:565:685:455:490:0:0:tile1
+zone:566:684:456:489:0:11:Crown Workshops
+space:566:684:456:489:0:11:Crown Workshops:brick:factory
+tile:565:623:455:455:0:12:wallbrick
+tile:627:685:455:455:0:12:wallbrick
+tile:624:626:455:455:4:12:wallbrick
+portal:624:626:455:455:0:3:Crown Workshops entrance:opening
+tile:565:565:455:490:0:12:wallbrick
+tile:685:685:455:490:0:12:wallbrick
+tile:565:685:490:490:0:12:wallbrick
+tile:565:685:455:490:12:12:wallbrick
+zone:565:685:455:490:13:20:roof of Crown Workshops
+poi:625:472:0:Crown Workshops
+tile:775:885:455:490:0:0:tile1
+zone:776:884:456:489:0:11:East Lock Station
+space:776:884:456:489:0:11:East Lock Station:brick:control
+tile:775:828:455:455:0:12:wallbrick
+tile:832:885:455:455:0:12:wallbrick
+tile:829:831:455:455:4:12:wallbrick
+portal:829:831:455:455:0:3:East Lock Station entrance:opening
+tile:775:775:455:490:0:12:wallbrick
+tile:885:885:455:490:0:12:wallbrick
+tile:775:885:490:490:0:12:wallbrick
+tile:775:885:455:490:12:12:wallbrick
+zone:775:885:455:490:13:20:roof of East Lock Station
+poi:830:472:0:East Lock Station
+tile:145:255:550:585:0:0:tile1
+zone:146:254:551:584:0:11:Lantern Ferry Terminal
+space:146:254:551:584:0:11:Lantern Ferry Terminal:brick:control
+tile:145:198:585:585:0:12:wallbrick
+tile:202:255:585:585:0:12:wallbrick
+tile:199:201:585:585:4:12:wallbrick
+portal:199:201:585:585:0:3:Lantern Ferry Terminal entrance:opening
+tile:145:145:550:585:0:12:wallbrick
+tile:255:255:550:585:0:12:wallbrick
+tile:145:255:550:550:0:12:wallbrick
+tile:145:255:550:585:12:12:wallbrick
+zone:145:255:550:585:13:20:roof of Lantern Ferry Terminal
+poi:200:567:0:Lantern Ferry Terminal
+tile:335:455:550:585:0:0:tile1
+zone:336:454:551:584:0:11:Canal Archive
+space:336:454:551:584:0:11:Canal Archive:brick:office
+tile:335:393:585:585:0:12:wallbrick
+tile:397:455:585:585:0:12:wallbrick
+tile:394:396:585:585:4:12:wallbrick
+portal:394:396:585:585:0:3:Canal Archive entrance:opening
+tile:335:335:550:585:0:12:wallbrick
+tile:455:455:550:585:0:12:wallbrick
+tile:335:455:550:550:0:12:wallbrick
+tile:335:455:550:585:12:12:wallbrick
+zone:335:455:550:585:13:20:roof of Canal Archive
+poi:395:567:0:Canal Archive
+tile:565:685:550:585:0:0:tile1
+zone:566:684:551:584:0:11:Glassworks Arcade
+space:566:684:551:584:0:11:Glassworks Arcade:brick:shop
+tile:565:623:585:585:0:12:wallbrick
+tile:627:685:585:585:0:12:wallbrick
+tile:624:626:585:585:4:12:wallbrick
+portal:624:626:585:585:0:3:Glassworks Arcade entrance:opening
+tile:565:565:550:585:0:12:wallbrick
+tile:685:685:550:585:0:12:wallbrick
+tile:565:685:550:550:0:12:wallbrick
+tile:565:685:550:585:12:12:wallbrick
+zone:565:685:550:585:13:20:roof of Glassworks Arcade
+poi:625:567:0:Glassworks Arcade
+tile:775:885:550:585:0:0:tile1
+zone:776:884:551:584:0:11:North Lock Exchange
+space:776:884:551:584:0:11:North Lock Exchange:brick:office
+tile:775:828:585:585:0:12:wallbrick
+tile:832:885:585:585:0:12:wallbrick
+tile:829:831:585:585:4:12:wallbrick
+portal:829:831:585:585:0:3:North Lock Exchange entrance:opening
+tile:775:775:550:585:0:12:wallbrick
+tile:885:885:550:585:0:12:wallbrick
+tile:775:885:550:550:0:12:wallbrick
+tile:775:885:550:585:12:12:wallbrick
+zone:775:885:550:585:13:20:roof of North Lock Exchange
+poi:830:567:0:North Lock Exchange
+tile:65:105:155:245:0:0:tile1
+zone:66:104:156:244:0:11:Tideway Signal House
+space:66:104:156:244:0:11:Tideway Signal House:brick:control
+tile:65:83:155:155:0:12:wallbrick
+tile:87:105:155:155:0:12:wallbrick
+tile:84:86:155:155:4:12:wallbrick
+portal:84:86:155:155:0:3:Tideway Signal House entrance:opening
+tile:65:65:155:245:0:12:wallbrick
+tile:105:105:155:245:0:12:wallbrick
+tile:65:105:245:245:0:12:wallbrick
+tile:65:105:155:245:12:12:wallbrick
+zone:65:105:155:245:13:20:roof of Tideway Signal House
+poi:85:200:0:Tideway Signal House
+tile:935:975:155:245:0:0:tile1
+zone:936:974:156:244:0:11:Eastwater Lifeboat House
+space:936:974:156:244:0:11:Eastwater Lifeboat House:brick:store
+tile:935:953:155:155:0:12:wallbrick
+tile:957:975:155:155:0:12:wallbrick
+tile:954:956:155:155:4:12:wallbrick
+portal:954:956:155:155:0:3:Eastwater Lifeboat House entrance:opening
+tile:935:935:155:245:0:12:wallbrick
+tile:975:975:155:245:0:12:wallbrick
+tile:935:975:245:245:0:12:wallbrick
+tile:935:975:155:245:12:12:wallbrick
+zone:935:975:155:245:13:20:roof of Eastwater Lifeboat House
+poi:955:200:0:Eastwater Lifeboat House
+tile:65:105:795:885:0:0:tile1
+zone:66:104:796:884:0:11:Lantern Gatehouse
+space:66:104:796:884:0:11:Lantern Gatehouse:brick:base
+tile:65:83:885:885:0:12:wallbrick
+tile:87:105:885:885:0:12:wallbrick
+tile:84:86:885:885:4:12:wallbrick
+portal:84:86:885:885:0:3:Lantern Gatehouse entrance:opening
+tile:65:65:795:885:0:12:wallbrick
+tile:105:105:795:885:0:12:wallbrick
+tile:65:105:795:795:0:12:wallbrick
+tile:65:105:795:885:12:12:wallbrick
+zone:65:105:795:885:13:20:roof of Lantern Gatehouse
+poi:85:840:0:Lantern Gatehouse
+tile:935:975:795:885:0:0:tile1
+zone:936:974:796:884:0:11:Northwall Weather Station
+space:936:974:796:884:0:11:Northwall Weather Station:brick:control
+tile:935:953:885:885:0:12:wallbrick
+tile:957:975:885:885:0:12:wallbrick
+tile:954:956:885:885:4:12:wallbrick
+portal:954:956:885:885:0:3:Northwall Weather Station entrance:opening
+tile:935:935:795:885:0:12:wallbrick
+tile:975:975:795:885:0:12:wallbrick
+tile:935:975:795:795:0:12:wallbrick
+tile:935:975:795:885:12:12:wallbrick
+zone:935:975:795:885:13:20:roof of Northwall Weather Station
+poi:955:840:0:Northwall Weather Station
+
+// ================================================================
+// RAISED CIVIC LANDMARKS
+// ================================================================
+tile:460:580:365:425:5:5:stone
+zone:460:580:365:425:5:13:the elevated Founders Memorial
+openspace:460:580:365:425:5:13:the elevated Founders Memorial:stone:plaza
+tile:490:500:345:364:0:0:stone
+tile:501:510:345:364:1:1:stone
+tile:501:510:345:364:0:0:wallstone
+tile:511:520:345:364:2:2:stone
+tile:511:520:345:364:1:1:wallstone
+tile:521:530:345:364:3:3:stone
+tile:521:530:345:364:2:2:wallstone
+tile:531:540:345:364:4:4:stone
+tile:531:540:345:364:3:3:wallstone
+tile:541:550:345:364:5:5:stone
+tile:541:550:345:364:4:4:wallstone
+zone:490:550:345:364:0:12:Founders Memorial south ramp
+openspace:490:550:345:364:0:12:Founders Memorial south ramp:stone:platform
+poi:520:395:5:Founders Memorial
+tile:460:580:815:875:4:4:stone
+zone:460:580:815:875:4:12:the Beacon Court
+openspace:460:580:815:875:4:12:the Beacon Court:stone:courtyard
+tile:490:502:795:814:0:0:stone
+tile:503:514:795:814:1:1:stone
+tile:503:514:795:814:0:0:wallstone
+tile:515:526:795:814:2:2:stone
+tile:515:526:795:814:1:1:wallstone
+tile:527:538:795:814:3:3:stone
+tile:527:538:795:814:2:2:wallstone
+tile:539:550:795:814:4:4:stone
+tile:539:550:795:814:3:3:wallstone
+zone:490:550:795:814:0:11:Beacon Court south ramp
+openspace:490:550:795:814:0:11:Beacon Court south ramp:stone:platform
+poi:520:845:4:Beacon Court
+ispawn:55:495:55:495:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+ispawn:545:985:55:495:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+ispawn:55:495:545:985:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+ispawn:545:985:545:985:0:0:1200:24:frag_grenade:smoke_bomb:nanocyte_reconstruction_solution:AK47_ammo_10_50:glock17_ammo_10_40:weapon_cleaning_solvent
+poi:520:580:0:New Aurelia central deploy point

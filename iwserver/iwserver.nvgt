@@ -148,7 +148,7 @@ exit();
 if(spawn_chesttimer.elapsed>=300000 and chests.length()<=10)
 {
 spawn_chesttimer.restart();
-spawn_chest(random(230,290),random(290,310),0,"battlegrounds",in_chest[random(0,in_chest.length()-1)]);
+spawn_chest(random(490,550),random(565,585),0,"battlegrounds",in_chest[random(0,in_chest.length()-1)]);
 send_reliable(0, "there is a chest spawned", 2);  
 }
 if(key_pressed(KEY_ESCAPE))
@@ -684,8 +684,8 @@ mf.open("content/maps/battlegrounds/main.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
 // Open central New Aurelia, north of the Crown Canal.
-send_reliable(e.peer_id, "x "+random(245, 275), 0);
-send_reliable(e.peer_id, "y "+random(290, 310), 0);
+send_reliable(e.peer_id, "x "+random(490, 550), 0);
+send_reliable(e.peer_id, "y "+random(565, 585), 0);
 send_reliable(e.peer_id, "z 0", 0);
 }
 else if(parsed[1]=="freeforall")
@@ -705,8 +705,8 @@ mf.open("content/maps/freyas_ascent/freyas_ascent.map", "rb");
 send_reliable(e.peer_id, "mapdata "+mf.read(), 0);
 mf.close();
 // Open ground around the Lower Settlement's central Freya Road.
-send_reliable(e.peer_id, "x "+random(260, 300), 0);
-send_reliable(e.peer_id, "y "+random(115, 135), 0);
+send_reliable(e.peer_id, "x "+random(480, 520), 0);
+send_reliable(e.peer_id, "y "+random(100, 130), 0);
 send_reliable(e.peer_id, "z 0", 0);
 }
 lobby_clients.remove_at(li);

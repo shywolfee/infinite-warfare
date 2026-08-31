@@ -1,5 +1,10 @@
-Shattersea map generator
-=========================
+Legacy Shattersea map generator (retired)
+==========================================
+
+This generator describes the removed Meridian layout and is retained only as
+historical authoring reference. Do not use it to regenerate the live map.
+Shattersea, Coruscant and Freya's Ascent are now built from empty maps by the
+canonical tools/rebuild_world_maps.py generator.
 
 This directory generates iwserver/content/maps/battlegrounds/main.map (the
 Shattersea map). The map file is checked in, so you only need this if you want

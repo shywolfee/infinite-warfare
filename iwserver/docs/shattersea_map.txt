@@ -1,68 +1,18 @@
 Shattersea Map
 
-Shattersea is the coastal city of Meridian, built across one large island in
-the Shattersea. It is a 1300 by 1300 map, dense with streets, buildings and
-interiors designed for detailed non-visual navigation. Every corridor is walled
-so you cannot walk out of it, every building has an entrance so you can never be
-trapped, and no walkable tile is left unnamed.
+Shattersea is New Aurelia, a walled island city surrounded by beach and the
+Shattersea. The Crown Canal divides the island and is crossed by four raised,
+walkable bridges at Tideway, Lantern Avenue, Founders Road and Breakwater Drive.
+South Quay Road, Market Street, Civic Way and Northwall Road form the principal
+east-west routes.
 
-The city is split into four quarters that meet in the middle. The Old Anchorhold
-Canal runs east to west across the whole island, dividing the northern quarters
-from the southern ones. Four bridges cross it: the Ivory Bridge (west), the
-Redmyr Bridge (central-west), the Old Smith's Bridge (central-east) and the
-Anchorhold Bridge (east).
+The city contains twelve complete interiors, including the Saltglass Exchange,
+Mariners Clinic, Southwatch Armoury, Ash & Anchor Tavern, Northwall Apartments,
+Aurelia Library, Storm Market, Harbour Warehouse, Canal Customs House,
+Ferrymaster's Hall, Crown Workshops and East Lock Station. Each is a physical
+room with its own floor, walls, roof, doorway, navigation zone and acoustics.
+The raised Founders Memorial overlooks the southern side of the canal.
 
-North Meridian: six main streets (Kingsway, Meridian Avenue, Beacon Street,
-Cathedral Row, Plaza Street and Northgate Road) around Meridian Plaza and its
-fountain. Civic core: First Meridian Bank, Meridian City Hall, Meridian
-Cathedral, the Meridian Library, Northside Apartments, the Meridian Theatre, the
-Kingsway Hotel, the Meridian Police Station and shops. You deploy in Meridian
-Plaza.
-
-South Meridian: five main streets (Harlow Street, Sutton Street, Marsh Lane,
-Foundry Street and Elm Road), three alleyways (Tanner's, Cinder and Copper), and
-two residential cul-de-sacs (Wren Court and Sparrow Close) whose houses have
-basements, attics, upper storeys, cellar bulkheads and staircases with railings.
-Also a diner, a fire station, a school, a chapel and a clinic.
-
-East Meridian: three main streets (Half-Moon Way, Albeon Way and Kensington
-Drive) plus the minor Jameson Close and Darkstone Ramble and two alleys, one
-leading into the run-down Hollows neighbourhood. Albeon Way serves Meridian
-International Airport: a terminal with a check-in hall, security checkpoint,
-departures concourse and four gate lounges, plus a control tower, a hangar, an
-apron, a taxiway, a runway and a long-stay car park.
-
-West Meridian: the waterfront. Oceanfront Drive runs from the Ivory Bridge down
-to the docks, with four side streets (Wharf, Netmaker, Saltgrass and Gull).
-Here you find Meridian Harbour, three fishing piers, the Meridian Docks, the
-Fishing Bureau, the Crescent Market (Meridian's largest marketplace), Old Mill's
-Park with its ruined mill and cellar, and the Gilded Perch, a closed restaurant
-you enter through the service door and can climb down into the basement of.
-North of the canal sit Harbourview's warehouses and Cape Meridian Lighthouse.
-
-Four underground bunkers sit beneath the districts, each reached by a street
-hatch. Use /bunkers in chat to see their locations.
-
-Select Shattersea from the Free for All map picker in the lobby to deploy here.
-Shattersea is generated from tools/shattersea_mapgen. Do not hand-edit the
-generated main.map file. Its records are deliberately layered: tile controls
-physical material and collision; zone supplies granular spoken navigation;
-space/openspace describe acoustics; portal marks a real doorway opening;
-poiregion describes a landmark footprint; src supplies ambient audio.
-
-Runtime vehicles use the same philosophy through client dynamic map elements.
-Their geometry is authored in local half-tile coordinates and transformed into
-the world as the vehicle moves. Occupants retain local interior coordinates;
-the vehicle transform, rather than the cabin layout, changes during travel.
-
-Acoustic records use Fireteam Requiem's field order:
-space:x1:x2:y1:y2:z1:z2:label:material:kind
-openspace:x1:x2:y1:y2:z1:z2:label:material:kind
-portal:x1:x2:y1:y2:z1:z2:label:material
-Enclosing spaces provide Freeverb presets and occlusion boundaries. Open spaces
-provide source-location reverb without becoming walls. Portals cancel a wall
-crossing along the listener-to-source trace.
-
-Generator ramps are stacks of one-level treads rather than ladders. The client
-automatically follows a walkable tread one level up or down, allowing sloped
-terrain while retaining nameable whole-coordinate navigation.
+Select Shattersea from the Free for All map picker to deploy near central New
+Aurelia. The canonical map source is tools/rebuild_world_maps.py; the old
+Meridian generator is retired and the generated main.map should not be edited.

@@ -1,5 +1,9 @@
-Coruscant map generator
-========================
+Legacy Coruscant map generator (retired)
+=========================================
+
+This generator describes the removed planetary-city layout and is retained
+only as historical authoring reference. Do not use it to regenerate the live
+map. The canonical builder is tools/rebuild_world_maps.py.
 
 Generates iwserver/content/maps/habitat_alpha/habitat_alpha.map (the Coruscant
 map - the directory and network mode id stay "habitat_alpha"; only the content

@@ -1,5 +1,9 @@
-Freya's Ascent map generator
-============================
+Legacy Freya's Ascent map generator (retired)
+==============================================
+
+This generator describes the removed ship and Aesir VI layout and is retained
+only as historical authoring reference. Do not use it to regenerate the live
+map. The canonical builder is tools/rebuild_world_maps.py.
 
 Generates iwserver/content/maps/freyas_ascent/freyas_ascent.map. The map file is
 checked in; you only need this if you want to change the ship or the planet and

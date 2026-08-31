@@ -225,7 +225,8 @@ v.map_element_id=dynamic_map_create("vehicle",v.get_name(),owner,v.x,v.y,v.z,v.f
 dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];double length,width,height;vehicle_dimensions(v,length,width,height);
 // Floor, roof, four hull walls, and individually named interior areas.  The
 // right-front wall is split around the physical doorway.
-e.add_tile(-length*.42,length*.42,-width*.36,width*.36,-.1,0,"metal4",v.get_name()+" interior floor",true);
+e.add_tile(-length*.5,length*.5,-width*.5,width*.5,-.1,.99,"metal5",v.get_name()+" chassis",true);
+e.add_tile(-length*.42,length*.42,-width*.36,width*.36,-.1,.99,"metal4",v.get_name()+" interior floor",true);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,height-.2,height,"metal4","roof of "+v.get_name(),true);
 e.add_tile(-length*.42,-length*.42,-width*.36,width*.36,0,height,"wallmetal",v.get_name()+" rear bulkhead",true);
 e.add_tile(length*.42,length*.42,-width*.36,width*.36,0,height,"wallmetal",v.get_name()+" front bulkhead",true);

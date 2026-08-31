@@ -2036,7 +2036,7 @@ if(index>-1)
 players[index].current_weapon=parsed[1];
 players[index].server_firetime=get_wpn_firetime(parsed[1]);
 players[index].server_walktime=get_wpn_walktime(parsed[1]);
-play(parsed[1]+"draw", players[index].x, players[index].y, players[index].z, players[index].map, index);
+play(get_wpn_sound_profile(parsed[1])+"draw", players[index].x, players[index].y, players[index].z, players[index].map, index);
 }
 }
 else if(parsed[0]=="hitwall" and parsed.length()>3)
@@ -3060,7 +3060,7 @@ string loaded_ammunition=parsed.length()>6?parsed[6]:"standard_ammunition";if(lo
 int handling_configuration=parsed.length()>7?string_to_number(parsed[7]):0;if(handling_configuration<0 or handling_configuration>2)handling_configuration=0;
 int mechanical_condition=parsed.length()>8?string_to_number(parsed[8]):100;if(mechanical_condition<0)mechanical_condition=0;if(mechanical_condition>100)mechanical_condition=100;int alignment=parsed.length()>9?string_to_number(parsed[9]):100;if(alignment<0)alignment=0;if(alignment>100)alignment=100;int permanent_damage=parsed.length()>10?string_to_number(parsed[10]):0;if(permanent_damage<0)permanent_damage=0;if(permanent_damage>100)permanent_damage=100;
 spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map, fire_mode_str,target_region,draw_strength,loaded_ammunition,handling_configuration,mechanical_condition,alignment,permanent_damage);
-string sound_weapon=wname;if(wname=="crossbow" and string_contains(loaded_ammunition,"crossbow_",1)==0){sound_weapon=loaded_ammunition;fire_mode_str="";fire_variant=random(1,3);}
+string sound_weapon=get_wpn_sound_profile(wname);if(wname=="crossbow" and string_contains(loaded_ammunition,"crossbow_",1)==0){sound_weapon=loaded_ammunition;fire_mode_str="";fire_variant=random(1,3);}
 bool suppressed=false;
 for(uint s=0; s<players[index].suppressed_weapons.length(); s++)
 {

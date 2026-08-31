@@ -94,7 +94,7 @@ fire_modes[i].current_mode++;
 if (fire_modes[i].current_mode >= int(fire_modes[i].modes.length()))
 fire_modes[i].current_mode = 0;
 if(get_weapon_class(wname)=="energy")p.play_stationary("ammo_cycle.ogg",false);
-else p.play_stationary(wname + "mode_" + fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]) + ".ogg", false);
+else p.play_stationary(weapon_sound_profile(wname) + "mode_" + fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]) + ".ogg", false);
 speak(fire_mode_name(fire_modes[i].modes[fire_modes[i].current_mode]));
 return;
 }
@@ -785,7 +785,8 @@ register_caliber_load(".357 Magnum","jhp",".357 Magnum Hollow Point","Expanding 
 register_caliber_load(".44 Magnum","jhp",".44 Magnum Hollow Point","High-damage expanding load.",24);register_caliber_load(".44 Magnum","hardcast",".44 Magnum Hard-Cast","Heavy hunting load with high penetration.",24);register_caliber_load(".44 Magnum","shotshell",".44 Magnum Shotshell","Short-range multi-pellet load.",18);
 register_caliber_load("5.56x45mm NATO","m855a1","5.56mm M855A1 EPR","Higher-velocity enhanced-penetration rifle load.",90);register_caliber_load("5.56x45mm NATO","match","5.56mm Match","Low-dispersion long-range match ammunition.",60);register_caliber_load("5.56x45mm NATO","tracer","5.56mm Tracer","Visible-flight load with a distinctive projectile loop.",60);register_caliber_load("5.56x45mm NATO","subsonic","5.56mm Subsonic","Quiet low-velocity rifle ammunition.",60);
 register_caliber_load("7.62x39mm","ap","7.62x39mm Armour-Piercing","Hardened penetrator load.",60);register_caliber_load("7.62x39mm","softpoint","7.62x39mm Soft Point","Higher damage with reduced penetration.",60);register_caliber_load("7.62x39mm","subsonic","7.62x39mm Subsonic","Heavy quiet load with pronounced drop.",60);register_caliber_load("7.62x39mm","tracer","7.62x39mm Tracer","Visible-flight ammunition.",60);
-string[] rifle_calibers={"7.62x51mm NATO",".308 Winchester",".30-06 Springfield",".338 Lapua Magnum","7.62x54mm R","4.6x30mm","5.7x28mm"};for(uint c=0;c<rifle_calibers.length();c++){register_caliber_load(rifle_calibers[c],"match",rifle_calibers[c]+" Match","Precision load with reduced dispersion and strong retention.",40);register_caliber_load(rifle_calibers[c],"ap",rifle_calibers[c]+" Armour-Piercing","Hardened high-penetration load.",40);register_caliber_load(rifle_calibers[c],"expanding",rifle_calibers[c]+" Expanding","Higher damage with reduced penetration.",40);}
+string[] rifle_calibers={"7.62x51mm NATO",".308 Winchester",".30-06 Springfield",".338 Lapua Magnum","7.62x54mm R","4.6x30mm","5.7x28mm","6.8x51mm","9x39mm","5.45x39mm",".50 BMG","7.92x57mm Mauser"};for(uint c=0;c<rifle_calibers.length();c++){register_caliber_load(rifle_calibers[c],"match",rifle_calibers[c]+" Match","Precision load with reduced dispersion and strong retention.",40);register_caliber_load(rifle_calibers[c],"ap",rifle_calibers[c]+" Armour-Piercing","Hardened high-penetration load.",40);register_caliber_load(rifle_calibers[c],"expanding",rifle_calibers[c]+" Expanding","Higher damage with reduced penetration.",40);}
+string[] pistol45=ammo_weapons_for_caliber(".45 ACP");register_ammunition_load("45_acp_jhp",".45 ACP Jacketed Hollow Point","45_acp_jhp_box","Heavy expanding pistol load with strong close-range damage.","",pistol45,40);register_ammunition_load("45_acp_plus_p",".45 ACP Plus P","45_acp_plus_p_box","Higher-pressure load with improved velocity and recoil.","",pistol45,40);register_ammunition_load("45_acp_subsonic",".45 ACP Subsonic","45_acp_subsonic_box","Naturally subsonic heavy projectile suited to suppression.","",pistol45,40);
 string[] gauge12=ammo_weapons_for_caliber("12-gauge buckshot");register_ammunition_load("12g_slug","12-gauge Rifled Slug","12_gauge_slug_box","Single heavy projectile with range and penetration.","shotgun_slug",gauge12,24);register_ammunition_load("12g_number4_buck","12-gauge Number 4 Buckshot","12_gauge_number4_buck_box","More smaller pellets and a wider pattern.","shotgun_number4",gauge12,32);register_ammunition_load("12g_flechette","12-gauge Flechette","12_gauge_flechette_box","Multiple fin-stabilized darts with improved penetration.","shotgun_flechette",gauge12,24);register_ammunition_load("12g_breaching","12-gauge Breaching","12_gauge_breaching_box","Very short-range high-impact door and target load.","shotgun_breaching",gauge12,20);register_ammunition_load("12g_dragons_breath","12-gauge Dragon's Breath","12_gauge_dragons_breath_box","Incendiary projectile cloud that ignites targets.","shotgun_incendiary",gauge12,12);
 string[] gauge23=ammo_weapons_for_caliber("23x75mm R");register_ammunition_load("23mm_barrikada","23x75mm Barrikada Slug","23x75mm_barrikada_box","Heavy armour-piercing slug.","ks23_slug",gauge23,15);register_ammunition_load("23mm_shrapnel10","23x75mm Shrapnel-10","23x75mm_shrapnel10_box","Buckshot load optimized for close range.","ks23_shrapnel",gauge23,20);register_ammunition_load("23mm_volna_r","23x75mm Volna-R","23x75mm_volna_r_box","Less-lethal rubber projectile with extreme knockback.","ks23_rubber",gauge23,12);
 string[] crossbows={"crossbow"};register_ammunition_load("crossbow_broadhead","Broadhead Bolt","broadhead_bolt_quiver","High tissue damage with lower armour penetration.","crossbow_broadhead",crossbows,12);register_ammunition_load("crossbow_bodkin","Bodkin Bolt","bodkin_bolt_quiver","Narrow armour-piercing bolt.","crossbow_bodkin",crossbows,12);register_ammunition_load("crossbow_explosive","Explosive Bolt","explosive_bolt_quiver","Impact-detonated explosive bolt.","crossbow_explosive",crossbows,6);register_ammunition_load("crossbow_incendiary","Incendiary Bolt","incendiary_bolt_quiver","Ignites targets after impact.","crossbow_incendiary",crossbows,8);register_ammunition_load("crossbow_shock","Shock Bolt","shock_bolt_quiver","Disruptive bolt that impairs movement.","crossbow_shock",crossbows,8);
@@ -899,8 +900,8 @@ void manual_toggle_action(string wname)
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon has no manually operated loading action.");return;}gun_ammo@ g=gun_ammos[gi];
 if(g.reloading){speak("Finish the current operation first.");return;}
 g.action_open=!g.action_open;
-if(g.action_open){g.chamber_ready=false;p.play_stationary(wname+"reload_open.ogg",false);speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" opened. "+g.mag_loaded+" rounds remain.");}
-else{p.play_stationary(wname+"reload_close.ogg",false);if(get_weapon_class(wname)=="revolver")g.chamber_ready=g.mag_loaded>0;speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" closed."+(get_weapon_class(wname)=="shotgun" and g.mag_loaded>0?" Cycle the action to chamber a round.":""));}
+if(g.action_open){g.chamber_ready=false;p.play_stationary(weapon_sound_profile(wname)+"reload_open.ogg",false);speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" opened. "+g.mag_loaded+" rounds remain.");}
+else{p.play_stationary(weapon_sound_profile(wname)+"reload_close.ogg",false);if(get_weapon_class(wname)=="revolver")g.chamber_ready=g.mag_loaded>0;speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" closed."+(get_weapon_class(wname)=="shotgun" and g.mag_loaded>0?" Cycle the action to chamber a round.":""));}
 }
 void manual_insert_round(string wname)
 {
@@ -909,20 +910,20 @@ if(!g.action_open){speak("Open the "+(get_weapon_class(wname)=="revolver"?"cylin
 if(g.mag_loaded>=g.mag_capacity){speak(g.feed_device+" is full.");return;}
 string selected=selected_ammunition_for_weapon(wname);if(g.mag_loaded>0 and g.loaded_ammunition!=selected){speak("The weapon already contains "+ammunition_display_name(g.loaded_ammunition)+". Empty it before inserting "+ammunition_display_name(selected)+".");return;}
 string reserve=ammunition_reserve_item(wname,selected);if(get_item_count(reserve)<=0){speak("No "+ammunition_display_name(selected)+" remains in reserve.");return;}
-give(reserve,-1);g.mag_loaded++;g.loaded_ammunition=selected;p.play_stationary(wname+"reload_insert.ogg",false);speak("Inserted "+ammunition_display_name(selected)+". "+g.mag_loaded+" of "+g.mag_capacity+" loaded.");
+give(reserve,-1);g.mag_loaded++;g.loaded_ammunition=selected;p.play_stationary(weapon_sound_profile(wname)+"reload_insert.ogg",false);speak("Inserted "+ammunition_display_name(selected)+". "+g.mag_loaded+" of "+g.mag_capacity+" loaded.");
 }
 void manual_cycle_weapon(string wname)
 {
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon has no manual action to cycle.");return;}gun_ammo@ g=gun_ammos[gi];
 if(get_weapon_class(wname)=="revolver"){speak("The revolver advances its cylinder with the trigger; close the cylinder to make it ready.");return;}
 if(g.action_open){speak("Close the action before cycling it.");return;}if(g.mag_loaded<=0){speak("The weapon is empty. Open it and insert a shell first.");return;}
-g.chamber_ready=true;p.play_stationary(wname+"reload_cycle.ogg",false);speak("Action cycled. Round chambered.");
+g.chamber_ready=true;p.play_stationary(weapon_sound_profile(wname)+"reload_cycle.ogg",false);speak("Action cycled. Round chambered.");
 }
 void manual_eject_ammunition(string wname)
 {
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon is not manually fed.");return;}gun_ammo@ g=gun_ammos[gi];
 if(!g.action_open){speak("Open the "+(get_weapon_class(wname)=="revolver"?"cylinder":"action")+" before ejecting ammunition.");return;}if(g.mag_loaded<=0){speak("The weapon is already empty.");return;}
-string reserve=ammunition_reserve_item(wname,g.loaded_ammunition);give(reserve,g.mag_loaded);int returned=g.mag_loaded;g.mag_loaded=0;g.chamber_ready=false;p.play_stationary(wname+"unload.ogg",false);speak("Ejected "+returned+" rounds of "+ammunition_display_name(g.loaded_ammunition)+" into reserve.");
+string reserve=ammunition_reserve_item(wname,g.loaded_ammunition);give(reserve,g.mag_loaded);int returned=g.mag_loaded;g.mag_loaded=0;g.chamber_ready=false;p.play_stationary(weapon_sound_profile(wname)+"unload.ogg",false);speak("Ejected "+returned+" rounds of "+ammunition_display_name(g.loaded_ammunition)+" into reserve.");
 }
 // Returns true if the item is a spare-ammo reserve for any registered weapon
 // (magazine, belt, box, drum, energy cell, fuel canister, etc.). This is the
@@ -1055,9 +1056,9 @@ g.reload_cycle_pending=false;
 if(get_weapon_class(g.weapon_name)=="energy")
 p.play_stationary("attachment_extended_magazine_remove.ogg",false);
 else if(g.reload_audio_manual)
-p.play_stationary(g.weapon_name+"reload_open.ogg", false);
+p.play_stationary(weapon_sound_profile(g.weapon_name)+"reload_open.ogg", false);
 else
-p.play_stationary(g.weapon_name+"reload.ogg", false);
+p.play_stationary(weapon_sound_profile(g.weapon_name)+"reload.ogg", false);
 }
 
 // Called every frame from mainloop(): complete any in-progress reloads.
@@ -1067,7 +1068,7 @@ for (uint i=0; i<gun_ammos.length(); i++)
 {
 if(gun_ammos[i].reload_cycle_pending and gun_ammos[i].reload_cycle_timer.elapsed>=150)
 {
-p.play_stationary(gun_ammos[i].weapon_name+"reload_cycle.ogg", false);
+p.play_stationary(weapon_sound_profile(gun_ammos[i].weapon_name)+"reload_cycle.ogg", false);
 gun_ammos[i].reload_cycle_pending=false;
 gun_ammos[i].action_open=false;
 }
@@ -1081,7 +1082,7 @@ if(desired>gun_ammos[i].reload_audio_rounds) desired=gun_ammos[i].reload_audio_r
 if(desired>gun_ammos[i].reload_audio_inserted)
 {
 gun_ammos[i].reload_audio_inserted++;
-p.play_stationary(gun_ammos[i].weapon_name+"reload_insert.ogg", false);
+p.play_stationary(weapon_sound_profile(gun_ammos[i].weapon_name)+"reload_insert.ogg", false);
 }
 }
 if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms_current)
@@ -1089,13 +1090,13 @@ if (gun_ammos[i].reload_timer.elapsed>=gun_ammos[i].reload_ms_current)
 gun_ammo@ g=gun_ammos[i];
 if(g.reload_audio_manual)
 {
-p.play_stationary(g.weapon_name+"reload_close.ogg", false);
+p.play_stationary(weapon_sound_profile(g.weapon_name)+"reload_close.ogg", false);
 g.reload_cycle_pending=true;
 g.reload_cycle_timer.restart();
 g.reload_audio_manual=false;
 }
 else if(get_weapon_class(g.weapon_name)=="energy")p.play_stationary("attachment_extended_magazine_attach.ogg",false);
-else p.play_stationary(g.weapon_name+"reloadend.ogg", false);
+else p.play_stationary(weapon_sound_profile(g.weapon_name)+"reloadend.ogg", false);
 if (g.ammo_display=="fuel")
 {
 // Fuel weapons siphon fuel from the canister pool up to a target level
@@ -1404,7 +1405,7 @@ if (i<0) { speak("Nothing to unload."); return; }
 gun_ammo@ g=gun_ammos[i];
 if (g.reloading) { speak("Cannot unload while reloading."); return; }
 if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
-p.play_stationary(wname+"unload.ogg", false);
+p.play_stationary(weapon_sound_profile(wname)+"unload.ogg", false);
 if (g.ammo_display=="fuel")
 {
 // Siphon the tank's fuel back into the canister pool.

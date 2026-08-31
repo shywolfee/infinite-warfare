@@ -314,16 +314,17 @@ string[] content_sound_files(string category, string id)
 string[] result;
 if(category=="Weapons")
 {
-for(int i=1;i<=3;i++) result.insert_last(id+"fire"+i+".ogg");
+string audio_id=weapon_sound_profile(id);
+for(int i=1;i<=3;i++) result.insert_last(audio_id+"fire"+i+".ogg");
 bool supports_suppressor=false; string[] compatible_sounds=get_compatible_attachments(id);
 for(uint a=0;a<compatible_sounds.length();a++) if(string_contains(compatible_sounds[a],"suppressor",1)>=0) supports_suppressor=true;
-if(supports_suppressor) for(int i=1;i<=3;i++) result.insert_last(id+"supressedfire"+i+".ogg");
-result.insert_last(id+"draw.ogg"); result.insert_last(id+"holster.ogg");
+if(supports_suppressor) for(int i=1;i<=3;i++) result.insert_last(audio_id+"supressedfire"+i+".ogg");
+result.insert_last(audio_id+"draw.ogg"); result.insert_last(audio_id+"holster.ogg");
 if(find_gun(id)>=0)
 {
-result.insert_last(id+"reload.ogg"); result.insert_last(id+"reload_open.ogg"); result.insert_last(id+"reload_insert.ogg"); result.insert_last(id+"reload_close.ogg"); result.insert_last(id+"reload_cycle.ogg"); result.insert_last(id+"reloadend.ogg"); result.insert_last(id+"unload.ogg");
+result.insert_last(audio_id+"reload.ogg"); result.insert_last(audio_id+"reload_open.ogg"); result.insert_last(audio_id+"reload_insert.ogg"); result.insert_last(audio_id+"reload_close.ogg"); result.insert_last(audio_id+"reload_cycle.ogg"); result.insert_last(audio_id+"reloadend.ogg"); result.insert_last(audio_id+"unload.ogg");
 }
-for(uint fi=0;fi<fire_modes.length();fi++) if(fire_modes[fi].weapon_name==id) for(uint m=0;m<fire_modes[fi].modes.length();m++) result.insert_last(id+"mode_"+fire_mode_name(fire_modes[fi].modes[m])+".ogg");
+for(uint fi=0;fi<fire_modes.length();fi++) if(fire_modes[fi].weapon_name==id) for(uint m=0;m<fire_modes[fi].modes.length();m++) result.insert_last(audio_id+"mode_"+fire_mode_name(fire_modes[fi].modes[m])+".ogg");
 }
 else if(category=="Vehicles")
 {

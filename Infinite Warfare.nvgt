@@ -257,6 +257,7 @@ int damage;
 int max_damage;
 int spread;
 string projectile_kind;
+string sound_profile;
 double muzzle_velocity;
 double projectile_gravity;
 double projectile_drag;
@@ -270,6 +271,7 @@ int pellet_count;
 int penetration;
 }
 wpn_stats@[] wpn_cache(0);
+string weapon_sound_profile(string id){for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==id)return wpn_cache[i].sound_profile!=""?wpn_cache[i].sound_profile:id;return id;}
 
 string[] wpn_class_folders = {"pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
 
@@ -323,6 +325,8 @@ if (props.get("name", tmp)) ws.name=tmp;
 else ws.name=string_replace(wid, "_", " ", true);
 if (props.get("wclass", tmp)) ws.wclass=tmp;
 else ws.wclass="";
+if (props.get("sound_profile", tmp)) ws.sound_profile=tmp;
+else ws.sound_profile=wid;
 if (props.get("firetime", tmp)) ws.firetime=string_to_number(tmp);
 else ws.firetime=500;
 if (props.get("walktime", tmp)) ws.walktime=string_to_number(tmp);
@@ -635,6 +639,7 @@ if(!(SCRIPT_COMPILED==false or dev_unlocked) or (!packet_monitor_enabled and !pa
 }
 int available_fire_sound_count(string weapon,string mode)
 {
+for(uint wi=0;wi<wpn_cache.length();wi++)if(wpn_cache[wi].id==weapon){weapon=wpn_cache[wi].sound_profile;break;}
 if(mode=="normal" and string_contains(weapon,"laser_",1)==0)return 1;
 string base=weapon+(mode=="scattershot" or mode=="focused"?mode:"")+"fire";int count=0;double cached=0;if(fire_sound_count_cache.get(base,cached))return int(cached);
 for(int i=1;i<=20;i++){if(fire_archive_index.file_exists(base+i+".ogg") or fire_archive_index.file_exists(base+i+".flac"))count=i;else if(i>count+2)break;}

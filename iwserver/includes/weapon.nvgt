@@ -2,7 +2,7 @@
 // tiles, time is seconds, and velocity is tiles per second.
 class wpn_server_stats
 {
-string id,wclass,projectile_kind;
+string id,wclass,projectile_kind,sound_profile;
 int speedtime,range,mindammage,maxdammage,spread,firetime,walktime,pellet_count,penetration;
 double muzzle_velocity,gravity,drag,mass_grams,diameter_mm,dispersion_deg,damage_retention,collision_radius,explosive_radius;
 }
@@ -34,11 +34,13 @@ double rf=s.range>0?sqrt(double(s.range)/30.0):1.0;if(rf<.7)rf=.7;if(rf>1.45)rf=
 void load_wpn_file(string path,string fname)
 {
 string id=string_replace(fname,".wpn","",true);file f;if(!f.open(path+"/"+fname,"rb"))return;string content=f.read();f.close();if(content=="")return;content=string_replace(content,"\r\n","\n",true);string[] lines=string_split(content,"\n",true);wpn_server_stats s;s.id=id;s.wclass="";s.speedtime=5;s.range=10;s.mindammage=50;s.maxdammage=1000;s.spread=0;s.firetime=500;s.walktime=200;dictionary extras;
-for(uint l=0;l<lines.length();l++){int eq=string_contains(lines[l],"=",1);if(eq<0)continue;string key=string_left(lines[l],eq),val=string_replace(lines[l],key+"=","",false);extras.set(key,val);if(key=="speedtime")s.speedtime=string_to_number(val);else if(key=="range")s.range=string_to_number(val);else if(key=="min_damage")s.mindammage=string_to_number(val);else if(key=="max_damage")s.maxdammage=string_to_number(val);else if(key=="spread")s.spread=string_to_number(val);else if(key=="wclass")s.wclass=val;else if(key=="firetime")s.firetime=string_to_number(val);else if(key=="walktime")s.walktime=string_to_number(val);}
+for(uint l=0;l<lines.length();l++){int eq=string_contains(lines[l],"=",1);if(eq<0)continue;string key=string_left(lines[l],eq),val=string_replace(lines[l],key+"=","",false);extras.set(key,val);if(key=="speedtime")s.speedtime=string_to_number(val);else if(key=="range")s.range=string_to_number(val);else if(key=="min_damage")s.mindammage=string_to_number(val);else if(key=="max_damage")s.maxdammage=string_to_number(val);else if(key=="spread")s.spread=string_to_number(val);else if(key=="wclass")s.wclass=val;else if(key=="sound_profile")s.sound_profile=val;else if(key=="firetime")s.firetime=string_to_number(val);else if(key=="walktime")s.walktime=string_to_number(val);}
+if(s.sound_profile=="")s.sound_profile=id;
 set_ballistic_defaults(s);string v;if(extras.get("projectile_kind",v))s.projectile_kind=v;if(extras.get("muzzle_velocity",v))s.muzzle_velocity=string_to_number(v);if(extras.get("gravity",v))s.gravity=string_to_number(v);if(extras.get("drag",v))s.drag=string_to_number(v);if(extras.get("mass_grams",v))s.mass_grams=string_to_number(v);if(extras.get("diameter_mm",v))s.diameter_mm=string_to_number(v);if(extras.get("dispersion_degrees",v))s.dispersion_deg=string_to_number(v);if(extras.get("pellet_count",v))s.pellet_count=string_to_number(v);if(extras.get("penetration",v))s.penetration=string_to_number(v);if(extras.get("damage_retention",v))s.damage_retention=string_to_number(v);if(extras.get("explosive_radius",v))s.explosive_radius=string_to_number(v);wpn_stats_cache.insert_last(s);
 }
 void load_wpn_stats(){wpn_stats_cache.resize(0);string[] roots=find_files("content/weapons/*.wpn");for(uint i=0;i<roots.length();i++)load_wpn_file("content/weapons",roots[i]);for(uint d=0;d<wpn_class_folders.length();d++){string sub="content/weapons/"+wpn_class_folders[d];if(!directory_exists(sub))continue;string[] fs=find_files(sub+"/*.wpn");for(uint i=0;i<fs.length();i++)load_wpn_file(sub,fs[i]);}}
 int find_wpn_stats(string type){for(uint i=0;i<wpn_stats_cache.length();i++)if(wpn_stats_cache[i].id==type)return i;return -1;}
+string get_wpn_sound_profile(string type){int i=find_wpn_stats(type);return i>=0 and wpn_stats_cache[i].sound_profile!=""?wpn_stats_cache[i].sound_profile:type;}
 int get_wpn_firetime(string type){int i=find_wpn_stats(type);return i>=0?wpn_stats_cache[i].firetime:500;}
 int get_wpn_walktime(string type){int i=find_wpn_stats(type);return i>=0?wpn_stats_cache[i].walktime:200;}
 
@@ -47,14 +49,14 @@ class weapon
 {
 double x,y,z,start_x,start_y,start_z,vx,vy,vz,path_distance,age;
 int dir,facing,range,mindammage,maxdammage,penetration,pellet_index,pellet_count;
-string type,wclass,projectile_kind,cn,map,hit_players,whiz_players,ammunition;
+string type,wclass,projectile_kind,sound_profile,cn,map,hit_players,whiz_players,ammunition;
 double gravity,drag,mass_grams,diameter_mm,damage_retention,collision_radius,explosive_radius,muzzle_velocity;
 timer simulation_timer;
 timer audio_update_timer;
 int audio_id=-1;
 weapon(double wx,double wy,double wz,double wdir,int wfacing,string wtype,string wcn,string wmap,double yaw_jitter=0,double pitch_jitter=0,string loaded_ammunition="standard_ammunition",int mechanical_condition=100,int alignment=100,int permanent_damage=0)
 {
-x=wx;y=wy;z=wz+.8;start_x=x;start_y=y;start_z=z;dir=int(wdir);facing=wfacing;type=wtype;cn=wcn;map=wmap;ammunition=loaded_ammunition;hit_players="|";whiz_players="|";path_distance=0;age=0;penetration=0;pellet_index=0;pellet_count=1;int si=find_wpn_stats(type);if(si<0)return;wpn_server_stats@ s=wpn_stats_cache[si];range=s.range;mindammage=s.mindammage;maxdammage=s.maxdammage;wclass=s.wclass;projectile_kind=s.projectile_kind;gravity=s.gravity;drag=s.drag;mass_grams=s.mass_grams;diameter_mm=s.diameter_mm;damage_retention=s.damage_retention;collision_radius=s.collision_radius;explosive_radius=s.explosive_radius;muzzle_velocity=s.muzzle_velocity;penetration=s.penetration;pellet_count=s.pellet_count;double output=(.65+.35*double(spawning_mechanical_condition)/100.0)*(1.0-double(spawning_permanent_damage)/180.0);mindammage=int(mindammage*output);maxdammage=int(maxdammage*output);muzzle_velocity*=.75+.25*double(spawning_mechanical_condition)/100.0;range=int(double(range)*(.8+.2*double(spawning_alignment)/100.0));double yaw=(wdir+yaw_jitter)*3.14159265358979323846/180.0;double elevation=(double(wfacing)-90.0+pitch_jitter)*3.14159265358979323846/180.0;double horizontal=cosine(elevation)*muzzle_velocity;vx=sine(yaw)*horizontal;vy=cosine(yaw)*horizontal;vz=sine(elevation)*muzzle_velocity;simulation_timer.restart();
+x=wx;y=wy;z=wz+.8;start_x=x;start_y=y;start_z=z;dir=int(wdir);facing=wfacing;type=wtype;cn=wcn;map=wmap;ammunition=loaded_ammunition;hit_players="|";whiz_players="|";path_distance=0;age=0;penetration=0;pellet_index=0;pellet_count=1;int si=find_wpn_stats(type);if(si<0)return;wpn_server_stats@ s=wpn_stats_cache[si];range=s.range;mindammage=s.mindammage;maxdammage=s.maxdammage;wclass=s.wclass;sound_profile=s.sound_profile;projectile_kind=s.projectile_kind;gravity=s.gravity;drag=s.drag;mass_grams=s.mass_grams;diameter_mm=s.diameter_mm;damage_retention=s.damage_retention;collision_radius=s.collision_radius;explosive_radius=s.explosive_radius;muzzle_velocity=s.muzzle_velocity;penetration=s.penetration;pellet_count=s.pellet_count;double output=(.65+.35*double(spawning_mechanical_condition)/100.0)*(1.0-double(spawning_permanent_damage)/180.0);mindammage=int(mindammage*output);maxdammage=int(maxdammage*output);muzzle_velocity*=.75+.25*double(spawning_mechanical_condition)/100.0;range=int(double(range)*(.8+.2*double(spawning_alignment)/100.0));double yaw=(wdir+yaw_jitter)*3.14159265358979323846/180.0;double elevation=(double(wfacing)-90.0+pitch_jitter)*3.14159265358979323846/180.0;double horizontal=cosine(elevation)*muzzle_velocity;vx=sine(yaw)*horizontal;vy=cosine(yaw)*horizontal;vz=sine(elevation)*muzzle_velocity;simulation_timer.restart();
 }
 }
 weapon@[] weapons(0);
@@ -132,12 +134,12 @@ for(int e=0;e<int(players.length());e++){if(players[e].map!=w.map or players[e].
 }
 void projectile_flyby(weapon@ w)
 {
-if(w.projectile_kind=="laser" or w.projectile_kind=="melee" or w.projectile_kind=="flame" or w.pellet_index>0)return;
+if(w.projectile_kind=="melee" or w.projectile_kind=="flame" or w.pellet_index>0)return;
 for(uint i=0;i<players.length();i++)
 {
 if(players[i].map!=w.map or players[i].death or string_contains(w.whiz_players,"|"+players[i].name+"|",1)>=0)continue;
 double distance=get_3d_distance(w.x,w.y,w.z,players[i].x,players[i].y,players[i].z+1.0);
-if(distance>.65 and distance<=3.2){bool listener_is_owner=players[i].name==w.cn;w.whiz_players+=players[i].name+"|";string whiz=w.projectile_kind=="bolt"?"crossbow_bolt_passby"+random(1,7)+".ogg":"bullet_flyby"+random(1,9)+".ogg";string report="projectile_whiz "+whiz+" "+w.x+" "+w.y+" "+w.z+" "+w.map+" "+w.cn;send_reliable(players[i].peer_id,report,0);int owner=get_player_index_from(w.cn);if(owner>=0 and owner!=int(i))send_reliable(players[owner].peer_id,report,0);if(w.wclass=="light_machine_gun" and !listener_is_owner){send_reliable(players[i].peer_id,"combat_slow 1200",0);send_reliable(players[i].peer_id,"play_s suppression_nearmiss"+random(1,3)+".ogg",0);}}
+if(distance>.65 and distance<=3.2){bool listener_is_owner=players[i].name==w.cn;w.whiz_players+=players[i].name+"|";string whiz=w.projectile_kind=="laser"?"plasma_flyby"+random(1,6)+".ogg":(w.projectile_kind=="bolt"?"crossbow_bolt_passby"+random(1,7)+".ogg":"bullet_flyby"+random(1,9)+".ogg");string report="projectile_whiz "+whiz+" "+w.x+" "+w.y+" "+w.z+" "+w.map+" "+w.cn;send_reliable(players[i].peer_id,report,0);int owner=get_player_index_from(w.cn);if(owner>=0 and owner!=int(i))send_reliable(players[owner].peer_id,report,0);if(w.wclass=="light_machine_gun" and !listener_is_owner){send_reliable(players[i].peer_id,"combat_slow 1200",0);send_reliable(players[i].peer_id,"play_s suppression_nearmiss"+random(1,3)+".ogg",0);}}
 }
 }
 bool projectile_hit_structures(weapon@ w)

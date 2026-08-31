@@ -17,4 +17,6 @@ Connection flow:
 
 Player state: Managed in the players array on the server. Each player tracks position, map, inventory, health, kills, timers, and flags.
 
+Projectile audio transport: Ballistics, collision, damage, flight-loop timing and the 50-millisecond positional update cadence remain server-authoritative. Start and stop events are reliable and routed only to players on the projectile's map. Active projectile coordinates are aggregated into bounded unreliable projectile_audio_batch packets built and encrypted once per occupied map instead of once per bullet or listener. The client applies every contained source position independently, preserving the same spatial result while preventing automatic weapons from flooding ENet queues.
+
 Lobby state: Pre-spawn clients are tracked in lobby_clients array, separate from the in-game players array.

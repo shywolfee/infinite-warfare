@@ -3324,6 +3324,14 @@ else
 n.send_unreliable(peer, mess, channel);
 }
 }
+void send_reliable_map(string map,string mess,uint channel)
+{
+server_data_sent+=mess.length();mess=string_encrypt(mess,"masonandsamare2bitches");for(uint i=0;i<players.length();i++)if(players[i].map==map)n.send_reliable(players[i].peer_id,mess,channel);
+}
+void send_unreliable_map(string map,string mess,uint channel)
+{
+server_data_sent+=mess.length();mess=string_encrypt(mess,"masonandsamare2bitches");for(uint i=0;i<players.length();i++)if(players[i].map==map)n.send_unreliable(players[i].peer_id,mess,channel);
+}
 void send_reliable_id(uint peer, string mess, uint channel)
 {
 server_data_sent+=mess.length();

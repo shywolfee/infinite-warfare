@@ -32,7 +32,7 @@ else if(id=="translocator" or id=="nanomatic_multitool" or id=="nanomatic_compon
 }
 if(item_is_weapon_maintenance(id))category="Weapon Maintenance";
 if(string_contains(id,"armor_patch",1)>=0 or string_contains(id,"armour_patch",1)>=0 or string_contains(id,"plate_patch",1)>=0 or string_contains(id,"helmet_patch",1)>=0)category="Armour Repair";
-if(string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can")category="Vehicle Supplies";
+if(!item_is_weapon_maintenance(id) and (string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can"))category="Vehicle Supplies";
 if(id=="nanomatic_multitool" or id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bag" or id=="box" or id=="bucket" or id=="empty_bucket")category="Containers";
 content_database.insert_last(content_record(id,name,category,summary,give_amount));
 }

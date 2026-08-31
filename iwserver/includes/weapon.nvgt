@@ -59,10 +59,11 @@ x=wx;y=wy;z=wz+.8;start_x=x;start_y=y;start_z=z;dir=int(wdir);facing=wfacing;typ
 }
 weapon@[] weapons(0);
 int next_projectile_audio_id=500000;
+timer projectile_audio_batch_timer;
 string projectile_loop_sound(weapon@ w){if(w.pellet_index>0)return "";if(w.projectile_kind=="bolt")return "crossbow_bolt_flight_loop.ogg";if(w.projectile_kind=="shell")return w.type=="120mm_mortar"?"mortar_shell_flight_loop.ogg":"explosive_shell_flight_loop.ogg";if(w.projectile_kind=="bullet")return "bullet_projectile_flight_loop.ogg";return "";}
-void start_projectile_audio(weapon@ w){string loop=projectile_loop_sound(w);if(loop=="")return;w.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;send_reliable(0,"projectile_audio_start "+w.audio_id+" "+loop+" "+w.x+" "+w.y+" "+w.z+" "+w.map+" "+w.cn,0);w.audio_update_timer.restart();}
-void update_projectile_audio(weapon@ w){if(w.audio_id<0 or w.audio_update_timer.elapsed<50)return;w.audio_update_timer.restart();send_unreliable(0,"projectile_audio_move "+w.audio_id+" "+w.x+" "+w.y+" "+w.z+" "+w.map,0);}
-void stop_projectile_audio(weapon@ w){if(w.audio_id>=0){send_reliable(0,"projectile_audio_stop "+w.audio_id,0);w.audio_id=-1;}}
+void start_projectile_audio(weapon@ w){string loop=projectile_loop_sound(w);if(loop=="")return;w.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;send_reliable_map(w.map,"projectile_audio_start "+w.audio_id+" "+loop+" "+w.x+" "+w.y+" "+w.z+" "+w.map+" "+w.cn,0);}
+void stop_projectile_audio(weapon@ w){if(w.audio_id>=0){send_reliable_map(w.map,"projectile_audio_stop "+w.audio_id,0);w.audio_id=-1;}}
+void flush_projectile_audio_updates(){if(projectile_audio_batch_timer.elapsed<50)return;projectile_audio_batch_timer.restart();string[] completed_maps;for(uint listener=0;listener<players.length();listener++){string listener_map=players[listener].map;bool completed=false;for(uint m=0;m<completed_maps.length();m++)if(completed_maps[m]==listener_map){completed=true;break;}if(completed)continue;completed_maps.insert_last(listener_map);string packet="projectile_audio_batch";int entries=0;for(uint i=0;i<weapons.length();i++){weapon@ w=weapons[i];if(w.audio_id<0 or w.map!=listener_map)continue;string entry=" "+w.audio_id+","+w.x+","+w.y+","+w.z;if(entries>0 and packet.length()+entry.length()>1000){send_unreliable_map(listener_map,packet,0);packet="projectile_audio_batch";entries=0;}packet+=entry;entries++;}if(entries>0)send_unreliable_map(listener_map,packet,0);}}
 
 class authoritative_vehicle
 {
@@ -144,7 +145,8 @@ double drag_factor=1.0-w.drag*dt;if(drag_factor<0)drag_factor=0;w.vx*=drag_facto
 }
 void weaponloop()
 {
-for(int i=int(weapons.length())-1;i>=0;i--){double elapsed=double(weapons[i].simulation_timer.elapsed)/1000.0;if(elapsed<.005)continue;if(elapsed>.12)elapsed=.12;weapons[i].simulation_timer.restart();double speed=sqrt(weapons[i].vx*weapons[i].vx+weapons[i].vy*weapons[i].vy+weapons[i].vz*weapons[i].vz);int steps=int(ceil((speed*elapsed)/.3));if(steps<1)steps=1;if(steps>120)steps=120;double dt=elapsed/double(steps);bool remove=false;for(int s=0;s<steps and !remove;s++)remove=projectile_step(weapons[i],dt);if(remove){stop_projectile_audio(weapons[i]);weapons.remove_at(i);}else update_projectile_audio(weapons[i]);}
+for(int i=int(weapons.length())-1;i>=0;i--){double elapsed=double(weapons[i].simulation_timer.elapsed)/1000.0;if(elapsed<.005)continue;if(elapsed>.12)elapsed=.12;weapons[i].simulation_timer.restart();double speed=sqrt(weapons[i].vx*weapons[i].vx+weapons[i].vy*weapons[i].vy+weapons[i].vz*weapons[i].vz);int steps=int(ceil((speed*elapsed)/.3));if(steps<1)steps=1;if(steps>120)steps=120;double dt=elapsed/double(steps);bool remove=false;for(int s=0;s<steps and !remove;s++)remove=projectile_step(weapons[i],dt);if(remove){stop_projectile_audio(weapons[i]);weapons.remove_at(i);}}
+flush_projectile_audio_updates();
 }
 void spawn_weapon(double x,double y,double z,double dir,int facing,string type,string cn,string map,string fire_mode="",string target_region="body",double draw_strength=1.0,string loaded_ammunition="standard_ammunition",int handling_configuration=0,int mechanical_condition=100,int alignment=100,int permanent_damage=0)
 {

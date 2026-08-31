@@ -50,18 +50,17 @@ for (uint i = 0; i < partial_items.length(); i++)
 all_keys.insert_last("__partial__" + i);
 // Target category ("" means the All view, which shows everything).
 string target = (inv_category_index == 0) ? "" : inv_categories[inv_category_index];
-// Walk the categories in display order so items are grouped by category.
-// In the All view this produces Weapons, then Ammo, then Consumables, then
-// Equipment; in a single category only that category's items are returned.
-string[] order = {"Weapons", "Ammo", "Explosives", "Healing", "Utility", "Armour", "Attachments", "Team", "Equipment"};
+// Walk the one live category registry rather than maintaining a second list.
+// Every category exposed by Left/Right navigation must also participate in
+// the All view and its own filtered view.
 string[] filtered;
-for (uint c = 0; c < order.length(); c++)
+for (uint c = 1; c < inv_categories.length(); c++)
 {
-if (target != "" and order[c] != target) continue;
+if (target != "" and inv_categories[c] != target) continue;
 for (uint i = 0; i < all_keys.length(); i++)
 {
 if(all_keys[i]=="waypoint_marker")continue;
-if (get_key_category(all_keys[i]) == order[c])
+if (get_key_category(all_keys[i]) == inv_categories[c])
 filtered.insert_last(all_keys[i]);
 }
 }

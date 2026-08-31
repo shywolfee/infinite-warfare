@@ -1498,6 +1498,15 @@ if (diff>0) give(gun_ammos[i].reserve_item, diff);
 }
 
 string starting_loadout_weapon="";
+int sane_starting_reserve(gun_ammo@ g){int value=g.starting_reserve;if(value<1)value=1;int maximum=g.is_magazine?12:120;if(value>maximum)value=maximum;return value;}
+void initialize_starting_loadout_ammo(string sidearm,string primary)
+{
+// A new kit is an exact issuance, not a top-up of arbitrary inventory state.
+// Remove every standard and specialty reserve plus partial feed device first.
+dictionary cleared;for(uint i=0;i<gun_ammos.length();i++){string reserve=gun_ammos[i].reserve_item;if(!cleared.exists(reserve)){inv.delete(reserve);cleared.set(reserve,true);}gun_ammos[i].reloading=false;gun_ammos[i].action_open=false;gun_ammos[i].mag_loaded=0;gun_ammos[i].chamber_ready=false;gun_ammos[i].loaded_ammunition="standard_ammunition";}
+for(uint i=0;i<ammunition_loads.length();i++)inv.delete(ammunition_loads[i].reserve_item);partial_items.resize(0);
+string[] issued={sidearm,primary};for(uint i=0;i<issued.length();i++){int gi=find_gun(issued[i]);if(gi<0)continue;synchronize_weapon_feed(issued[i]);gun_ammo@ g=gun_ammos[gi];g.mag_loaded=g.mag_capacity;g.chamber_ready=true;int reserve_total=0;inv.get(g.reserve_item,reserve_total);inv.set(g.reserve_item,reserve_total+sane_starting_reserve(g));}
+}
 void give_starting_weapon_maintenance(string weapon)
 {
 string c=get_weapon_class(weapon);
@@ -1528,9 +1537,8 @@ give(chosen_melee, 1);
 give(chosen_sidearm, 1);
 give(chosen_primary, 1);
 
-// Give ammo for the weapons the player now owns.
-partial_items.resize(0);
-reset_ammo();
+// Give exact, bounded ammunition only for this spawn's selected firearms.
+initialize_starting_loadout_ammo(chosen_sidearm,chosen_primary);
 give_starting_weapon_maintenance(chosen_melee);
 give_starting_weapon_maintenance(chosen_sidearm);
 give_starting_weapon_maintenance(chosen_primary);
@@ -1576,18 +1584,13 @@ holster2_belt_ammo=0;
 // Developer cheat: give every weapon, all ammo, and all items.
 void give_all()
 {
-// Registries are finalized before the startup catalogue is initialized, and
-// runtime items register themselves when first introduced. Bulk insertion can
-// therefore update the authoritative inventory dictionary directly instead of
-// rebuilding the catalogue and re-validating every known record against it.
-if(content_database.length()==0)initialize_content_database();
+refresh_content_database();
+string[] grant_ids;int[] grant_amounts;
 for(uint i=0;i<content_database.length();i++)
 {
 if(content_database[i].category=="Vehicles")continue;
-int wanted=content_database[i].give_amount,have=0;inv.get(content_database[i].id,have);
-if(have<wanted)give(content_database[i].id,wanted-have);
-if(i>0 and i%32==0){wait(1);if(connected)netloop();}
+int amount=content_database[i].give_amount;if(amount<1)amount=1;if(amount>500)amount=500;grant_ids.insert_last(content_database[i].id);grant_amounts.insert_last(amount);
 }
-partial_items.resize(0); reset_ammo();
-speak("All weapons, ammunition, and items given.");
+for(uint i=0;i<grant_ids.length();i++){give(grant_ids[i],grant_amounts[i]);if(i>0 and i%32==0){wait(1);if(connected)netloop();}}
+partial_items.resize(0);reset_ammo();speak(grant_ids.length()+" database items, weapons, and ammunition grants added.");
 }

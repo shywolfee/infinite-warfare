@@ -2,7 +2,7 @@
 // the authoritative inventory; this stores how the player intends to use it.
 dictionary item_configurations;
 dictionary client_medication_remaining;
-string cooked_grenade="";timer cooked_grenade_timer;
+string cooked_grenade="";timer cooked_grenade_timer;int cooked_grenade_warning_stage=0;
 int item_configuration(string item){int value=1;if(item_configurations.exists(item))item_configurations.get(item,value);return value;}
 void set_item_configuration(string item,int value){if(value<0)value=0;if(value>2)value=2;item_configurations.set(item,value);}
 bool item_is_thrown_explosive(string i){return i=="frag_grenade" or i=="impact_grenade" or i=="flashbang" or i=="concussion_grenade" or i=="incendiary_grenade" or i=="gas_grenade";}
@@ -10,11 +10,11 @@ int grenade_fuse_ms(string i){if(i=="frag_grenade")return 2200;if(i=="impact_gre
 bool grenade_pin_or_throw(string item)
 {
 if(!item_is_thrown_explosive(item))return false;
-if(cooked_grenade==""){cooked_grenade=item;cooked_grenade_timer.restart();p.play_stationary("ammo_cycle.ogg",false);speak("Pin pulled from "+string_replace(item,"_"," ",true)+". Press enter again to throw. The fuse is running.");return true;}
+if(cooked_grenade==""){cooked_grenade=item;cooked_grenade_warning_stage=0;cooked_grenade_timer.restart();p.play_stationary("ammo_cycle.ogg",false);speak("Pin pulled from "+string_replace(item,"_"," ",true)+". Press enter again to throw. The fuse is running.");return true;}
 if(cooked_grenade!=item){speak("You are already cooking a "+string_replace(cooked_grenade,"_"," ",true)+". Return to it before selecting another grenade.");return true;}
-int cooked=int(cooked_grenade_timer.elapsed);send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);cooked_grenade="";speak("Grenade thrown after "+round(double(cooked)/1000.0,2)+" seconds of cooking.");return true;
+int cooked=int(cooked_grenade_timer.elapsed);send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);cooked_grenade="";cooked_grenade_warning_stage=0;speak("Grenade thrown after "+round(double(cooked)/1000.0,2)+" seconds of cooking.");return true;
 }
-void grenade_cook_loop(){if(cooked_grenade=="")return;if(cooked_grenade_timer.elapsed<grenade_fuse_ms(cooked_grenade))return;string item=cooked_grenade;int cooked=int(cooked_grenade_timer.elapsed);cooked_grenade="";send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);speak("The cooked grenade detonates as it leaves your hand!");}
+void grenade_cook_loop(){if(cooked_grenade=="")return;int remaining=grenade_fuse_ms(cooked_grenade)-int(cooked_grenade_timer.elapsed);if(remaining<=1000 and cooked_grenade_warning_stage<1){cooked_grenade_warning_stage=1;p.play_stationary("clock1.ogg",false);}if(remaining<=500 and cooked_grenade_warning_stage<2){cooked_grenade_warning_stage=2;p.play_stationary("clock2.ogg",false);}if(remaining>0)return;string item=cooked_grenade;int cooked=int(cooked_grenade_timer.elapsed);cooked_grenade="";cooked_grenade_warning_stage=0;send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);speak("The cooked grenade detonates as it leaves your hand!");}
 bool item_is_deployable_explosive(string i){return i=="proximity_mine" or i=="claymore" or i=="time_bomb";}
 bool item_is_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
 bool item_is_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}

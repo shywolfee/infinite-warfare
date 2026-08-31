@@ -150,6 +150,7 @@ string[] target_regions={"whole body","head","torso","arms","legs"};
 int target_region_index=0;
 timer seated_jump_timer;
 timer sprint_stamina_timer;
+bool sprint_audio_active=false;
 bool in_plane=false;
 timer flytimer;
 bool bombloaded=false;
@@ -2976,7 +2977,7 @@ if(sel>=int(sorted.length()) and sel<int(sorted.length()+team_translocator_names
 int teammate=sel-int(sorted.length());string[] methods={"Use "+team_translocator_cell_cost[teammate]+" translocator cells","Use "+team_translocator_point_cost[teammate]+" shared team points"};int payment=android_select("Payment method",methods);if(payment<0)continue;
 if(payment==0 and team_translocator_cell_cost[teammate]>translocator_cells){speak("Not enough cells.");continue;}
 team_translocator_go_received=false;team_translocator_go_success=false;send_team_command("translocator go "+team_translocator_names[teammate]+" "+(payment==0?"cells":"points"));timer go_wait;while(!team_translocator_go_received and go_wait.elapsed<2500){wait(5);netloop();}if(!team_translocator_go_success){speak("The team translocation could not be completed.");continue;}if(payment==0)translocator_cells-=team_translocator_go_cells;
-speak("Powering up translocator.");for(int t=5;t>=1;t--){speak(t+".");wait(1000);netloop();}me.x=team_translocator_go_x;me.y=team_translocator_go_y;me.z=team_translocator_go_z;mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);checkzone();speak("Translocated to team mate "+team_translocator_go_name+".");break;
+p.play_stationary("translocatoruse.ogg",false);speak("Powering up translocator.");for(int t=5;t>=1;t--){speak(t+".");wait(1000);netloop();}me.x=team_translocator_go_x;me.y=team_translocator_go_y;me.z=team_translocator_go_z;mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);checkzone();speak("Translocated to team mate "+team_translocator_go_name+".");break;
 }
 else if (sel>=0 and sel<int(sorted.length()))
 {
@@ -2989,6 +2990,7 @@ speak("Not enough cells. Need "+needed+", have "+translocator_cells+".");
 continue;
 }
 translocator_cells-=needed;
+p.play_stationary("translocatoruse.ogg",false);
 speak("Powering up translocator.");
 // Five second power up sequence.
 for (int t=5; t>=1; t--)
@@ -3041,6 +3043,7 @@ if (amount>available) amount=available;
 if (amount>space) amount=space;
 give("translocator_cell", -amount);
 translocator_cells+=amount;
+p.play_stationary("translocator_celluse.ogg",false);
 speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_translocator_percentage()+"%).");
 }
 
@@ -3092,6 +3095,7 @@ weapon_durability.set(wname, val);
 
 void on_weapon_break(string wname)
 {
+p.play_stationary("itembreak.ogg",false);
 int components=random(1, 5);
 int broken_gun=find_gun(wname);
 if(broken_gun>=0)
@@ -3129,6 +3133,7 @@ on_weapon_break(wname);
 return;
 }
 set_durability(wname, cur);
+p.play_stationary("alarm2.ogg",false);
 speak("Warning: weapon durability at "+cur+"%.");
 }
 }
@@ -3178,10 +3183,12 @@ int new_dur=cur+repair_amount;
 if (new_dur>100) new_dur=100;
 set_durability(damaged[sel], new_dur);
 multitool_uses--;
+p.play_stationary("nanomatic_multitooluse.ogg",false);
 speak("Repaired "+get_weapon_display_name(damaged[sel])+" to "+new_dur+"% durability. "+multitool_uses+" uses remaining.");
 if (multitool_uses<=0)
 {
 give("nanomatic_multitool", -1);
+p.play_stationary("itembreak.ogg",false);
 speak("Multitool spent.");
 multitool_uses=0;
 }
@@ -3213,6 +3220,7 @@ return;
 if (multitool_uses<=0) multitool_uses=5;
 give("nanomatic_components", -5);
 multitool_uses++;
+p.play_stationary("nanomatic_multitooluse.ogg",false);
 speak("Added 1 use to multitool. Now has "+multitool_uses+" uses.");
 }
 
@@ -3325,11 +3333,13 @@ afk_mode=!afk_mode;
 afk_transitioning=false;
 if (afk_mode)
 {
+p.play_stationary("modeenter.ogg",false);
 speak("You are now AFK. Type /afk to return.");
 send_reliable(0, "afk_set 1", 0);
 }
 else
 {
+p.play_stationary("modeleave.ogg",false);
 speak("You are no longer AFK.");
 send_reliable(0, "afk_set 0", 0);
 afk_cooldown_active=true;
@@ -3525,9 +3535,9 @@ if (shift_is_down() and key_pressed(kb("transition")))
 try_use_transition();
 }
 // Fire mode determines if hold-fire is possible.
-if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_next"))){target_region_index++;if(target_region_index>=int(target_regions.length()))target_region_index=0;speak("Targeting "+target_regions[target_region_index]+".");}
-if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_previous"))){target_region_index--;if(target_region_index<0)target_region_index=target_regions.length()-1;speak("Targeting "+target_regions[target_region_index]+".");}
-if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_reset"))){target_region_index=0;speak("Target reset to whole body.");}
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_next"))){target_region_index++;if(target_region_index>=int(target_regions.length()))target_region_index=0;p.play_stationary("tracking.ogg",false);speak("Targeting "+target_regions[target_region_index]+".");}
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_previous"))){target_region_index--;if(target_region_index<0)target_region_index=target_regions.length()-1;p.play_stationary("tracking.ogg",false);speak("Targeting "+target_regions[target_region_index]+".");}
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(kb("target_region_reset"))){target_region_index=0;p.play_stationary("trackingnew.ogg",false);speak("Target reset to whole body.");}
 can_fire = can_hold_fire(weapons[w]);
 // key_pressed is consuming in NVGT. Capture the trigger edge exactly once so
 // crossbow setup, burst setup, vehicle warnings, and semi-auto firing all see
@@ -3742,7 +3752,7 @@ speak(get_effects_string());
 }
 if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("packet_monitor")) and (SCRIPT_COMPILED==false or dev_unlocked))
 {
-packet_monitor_enabled=!packet_monitor_enabled;speak(packet_monitor_enabled?"Live packet reporting enabled.":"Live packet reporting disabled.");
+packet_monitor_enabled=!packet_monitor_enabled;p.play_stationary(packet_monitor_enabled?"modeenter.ogg":"modeleave.ogg",false);speak(packet_monitor_enabled?"Live packet reporting enabled.":"Live packet reporting disabled.");
 }
 if ((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("packet_viewer")) and (SCRIPT_COMPILED==false or dev_unlocked))
 {
@@ -4019,10 +4029,11 @@ if (MENU_is_down() and key_pressed(KEY_Z) and !in_vehicle)
 sitting=!sitting;
 if (sitting)
 {
+p.play_stationary("modeenter.ogg",false);
 speak("Sitting. Movement is reduced, stamina recovers faster, and heavy weapons cannot be used.");
 if (walktime>=300) speak("Your current heavy weapon is lowered until you stand.");
 }
-else speak("Standing.");
+else {p.play_stationary("modeleave.ogg",false);speak("Standing.");}
 send_reliable(0, sitting ? "posture sitting" : "posture standing", 0);
 }
 if((key_pressed(kb("jump")) or gk_jump) and jumping==false and falling==false and can_move==true and !in_vehicle and (!sitting or seated_jump_timer.elapsed>=7000))
@@ -4167,6 +4178,7 @@ if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
 {
 if (in_vehicle)
 {
+if(sprint_audio_active){sprint_audio_active=false;p.play_stationary("modeleave.ogg",false);}
 // Vehicle controls: arrows control vehicle, not player movement.
 if (current_vehicle_can_fly() and key_pressed(KEY_PAGEUP)) vehicle_change_altitude(1);
 if (current_vehicle_can_fly() and key_pressed(KEY_PAGEDOWN)) vehicle_change_altitude(-1);
@@ -4199,6 +4211,7 @@ else
 // Normal on-foot movement.
 bool wants_sprint=shift_is_down() and !sitting and stamina>0 and (key_down(kb("move_forward")) or key_down(kb("move_backward")) or key_down(kb("move_left")) or key_down(kb("move_right")));
 bool sprinting=wants_sprint and weapon_allows_sprint(weapons[w]);
+if(sprinting!=sprint_audio_active){sprint_audio_active=sprinting;p.play_stationary(sprinting?"modeenter.ogg":"modeleave.ogg",false);}
 if(wants_sprint and !sprinting and sprint_heavy_warning_timer.elapsed>2500){sprint_heavy_warning_timer.restart();speak("This weapon is too heavy to sprint with.");}
 if (sprinting and sprint_stamina_timer.elapsed>=750)
 {
@@ -4375,6 +4388,7 @@ else
 {
 send_reliable(0, "report_message "+item, 0);
 }
+p.play_stationary("ticket_open.ogg",false);
 speak("Message reported.");
 }
 return;
@@ -5372,6 +5386,7 @@ if (f.is_pressed(f_track))
 int sel=f.get_list_position(f_list);
 if(sel==0)
 {
+p.play_stationary("modeleave.ogg", false);
 speak("stopped tracking");
 tracking="";
 return;

@@ -336,11 +336,11 @@ if(id=="ability_biomonitor_scan")
 {
 if(equip_bracelet!="biomonitor_bracelet"){speak("Equip the Biomonitor Bracelet to use this ability.");return;}
 int remain=equipment_ability_cooldown_remaining(id);if(remain>0){speak("Biomonitor recharging. "+remain+" seconds remaining.");return;}
-biomonitor_ready=false;biomonitor_cooldown.restart();send_reliable(0,"bioscan",0);speak("Scanning.");return;
+biomonitor_ready=false;biomonitor_cooldown.restart();p.play_stationary("biomonitor_braceletuse.ogg",false);send_reliable(0,"bioscan",0);speak("Scanning.");return;
 }
 if(id=="ability_wirenet_toggle")
 {
-if(equip_medical!="wirenet"){speak("Equip WireNet to use this ability.");return;}wirenet_active=!wirenet_active;speak("WireNet "+(wirenet_active?"activated. "+wirenet_charges+" charges remaining.":"deactivated."));
+if(equip_medical!="wirenet"){speak("Equip WireNet to use this ability.");return;}wirenet_active=!wirenet_active;p.play_stationary("wirenetuse.ogg",false);speak("WireNet "+(wirenet_active?"activated. "+wirenet_charges+" charges remaining.":"deactivated."));
 }
 }
 

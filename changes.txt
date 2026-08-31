@@ -1,4 +1,11 @@
 New in 0.5.0.5, build 78 (2026-08-29)
+Expanded mechanic audio feedback across equipment abilities, movement states, targeting, translocation, energy-weapon durability, nanomatic repairs, AFK state, diagnostics, tracking and moderation actions instead of leaving those systems dependent on speech alone.
+Added authored activation feedback to Biomonitor scans and WireNet toggling, physical cell-insertion audio to translocator charging, and a dedicated power-up cue to both POI and team-mate translocation.
+Added distinct breakage, low-durability warning, repair, component-refill and spent-tool cues throughout the nanomatic energy-weapon maintenance lifecycle.
+Added guarded start and stop feedback to sprinting, sitting and standing so movement state changes are audible without replaying a cue on every movement tick or held key.
+Added targeting sounds when cycling body regions and a distinct reset cue when returning aim assistance to the whole body; stopping player tracking now has its own exit feedback as well.
+Added escalating one-second and half-second fuse warnings while cooking grenades. Warning stages reset cleanly after throwing or automatic release and do not loop continuously.
+Added audible enter and leave confirmations for AFK mode and live packet reporting, plus ticket confirmation audio after reporting a buffer message.
 Added an in-game gesture-practice toggle on top-band three-finger swipe right. Performing the same gesture inside practice exits it, and the action participates in configurable gesture bindings.
 Added a conflict-free Shift+F8 binding that switches voice transmission between push-to-talk and latched toggle mode, saves the setting immediately, and reports the new mode with distinct audio and speech.
 Made firearm repair and maintenance interruptible with Escape. Aborting risk is based on how far disassembly progressed, how much heat, fouling, condition and alignment work was required, and class-specific complexity; tiny early jobs are usually safe while abandoning a badly damaged precision or energy weapon can worsen condition, alignment or permanent damage.

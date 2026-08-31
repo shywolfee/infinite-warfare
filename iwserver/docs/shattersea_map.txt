@@ -44,3 +44,13 @@ Four underground bunkers sit beneath the districts, each reached by a street
 hatch. Use /bunkers in chat to see their locations.
 
 Select Shattersea from the Free for All map picker in the lobby to deploy here.
+Shattersea is generated from tools/shattersea_mapgen. Do not hand-edit the
+generated main.map file. Its records are deliberately layered: tile controls
+physical material and collision; zone supplies granular spoken navigation;
+space/openspace describe acoustics; portal marks a real doorway opening;
+poiregion describes a landmark footprint; src supplies ambient audio.
+
+Runtime vehicles use the same philosophy through client dynamic map elements.
+Their geometry is authored in local half-tile coordinates and transformed into
+the world as the vehicle moves. Occupants retain local interior coordinates;
+the vehicle transform, rather than the cabin layout, changes during travel.

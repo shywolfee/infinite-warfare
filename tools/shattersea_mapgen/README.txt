@@ -13,7 +13,8 @@ main.py prints statistics and a list of problems. It must report:
     holes=0 unreachable=0 oob=0     and no bad tile / <7 Z warnings.
 
 Files:
-    lib.py          Map primitives (tiles, zones, walls with doorway gaps,
+    lib.py          Map primitives (tiles, zones, acoustic spaces, portals,
+                    regional landmarks, walls with doorway gaps,
                     furniture with 7-Z "on top" caps). Enforces the mechanics:
                     every zone spans >=7 Z (a jump rises 5), a "wall" tile blocks
                     at the player's Z, and a doorway is a real gap in the wall.
@@ -26,6 +27,7 @@ Files:
     d_north/south/east/west.py   The four quarters of Meridian.
     d_extra.py      A density pass of additional buildings.
     d_finish.py     Underground bunkers, citywide item spawns, deploy point.
+    d_semantics.py  Independent district landmark and outdoor acoustic layer.
     validate.py     Checks for fall holes (no floor under a walkable zone),
                     sub-7-Z zones, out-of-bounds, and reachability (a z0 flood
                     fill from the deploy point that catches any sealed building).

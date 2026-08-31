@@ -1,0 +1,45 @@
+// Runtime map elements.  Unlike the rectangles loaded from a .map file, these
+// own a local coordinate space and can be translated, rotated, or destroyed
+// without rewriting the static map.  Vehicles are the first consumer.
+const double DYNAMIC_SUBTILE_SIZE = 0.5;
+
+class dynamic_map_tile
+{
+double x1,x2,y1,y2,z1,z2;
+string material,zone;
+bool solid;
+dynamic_map_tile() {}
+dynamic_map_tile(double ax1,double ax2,double ay1,double ay2,double az1,double az2,string m,string n,bool s)
+{x1=ax1;x2=ax2;y1=ay1;y2=ay2;z1=az1;z2=az2;material=m;zone=n;solid=s;}
+bool contains(double x,double y,double z){return x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;}
+}
+
+class dynamic_map_element
+{
+int owner_id=-1;
+string kind,name;
+double x,y,z,facing;
+bool active=true;
+dynamic_map_tile@[] tiles;
+dynamic_map_element() {}
+dynamic_map_element(string k,string n,int owner,double wx,double wy,double wz,double angle)
+{kind=k;name=n;owner_id=owner;x=wx;y=wy;z=wz;facing=angle;}
+void add_tile(double x1,double x2,double y1,double y2,double z1,double z2,string material,string zone,bool solid)
+{tiles.insert_last(dynamic_map_tile(x1,x2,y1,y2,z1,z2,material,zone,solid));}
+void move_to(double wx,double wy,double wz,double angle){x=wx;y=wy;z=wz;facing=angle;}
+void destroy(){active=false;tiles.resize(0);}
+void world_to_local(double wx,double wy,double wz,double &out lx,double &out ly,double &out lz)
+{double r=facing*3.14159265358979323846/180.0,dx=wx-x,dy=wy-y;lx=dx*sine(r)+dy*cosine(r);ly=dx*cosine(r)-dy*sine(r);lz=wz-z;}
+void local_to_world(double lx,double ly,double lz,double &out wx,double &out wy,double &out wz)
+{double r=facing*3.14159265358979323846/180.0;wx=x+sine(r)*lx+cosine(r)*ly;wy=y+cosine(r)*lx-sine(r)*ly;wz=z+lz;}
+string zone_at_local(double lx,double ly,double lz){for(int i=int(tiles.length())-1;i>=0;i--)if(tiles[i].contains(lx,ly,lz))return tiles[i].zone;return "";}
+bool solid_at_local(double lx,double ly,double lz){for(int i=int(tiles.length())-1;i>=0;i--)if(tiles[i].contains(lx,ly,lz) and tiles[i].solid)return true;return false;}
+}
+
+dynamic_map_element@[] dynamic_map_elements;
+
+int dynamic_map_create(string kind,string name,int owner,double x,double y,double z,double facing)
+{dynamic_map_elements.insert_last(dynamic_map_element(kind,name,owner,x,y,z,facing));return int(dynamic_map_elements.length())-1;}
+void dynamic_map_move(int id,double x,double y,double z,double facing){if(id>=0 and id<int(dynamic_map_elements.length()) and dynamic_map_elements[id].active)dynamic_map_elements[id].move_to(x,y,z,facing);}
+void dynamic_map_destroy(int id){if(id>=0 and id<int(dynamic_map_elements.length()))dynamic_map_elements[id].destroy();}
+

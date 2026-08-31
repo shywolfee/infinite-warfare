@@ -3,6 +3,7 @@ import sys
 from lib import Map
 import config as C
 import d_base, d_north, d_south, d_east, d_west, d_extra, d_finish
+import d_semantics
 from validate import validate
 
 
@@ -19,6 +20,7 @@ def build():
     d_west.build(m)
     d_extra.build(m)
     d_finish.build(m)
+    d_semantics.build(m)
     return m
 
 
@@ -32,7 +34,9 @@ if __name__ == "__main__":
             print("  " + p)
     else:
         print("OK - no problems")
-    out = "\r\n".join(m.lines) + "\r\n"
+    # Text mode supplies the platform newline; embedding CRLF here produced
+    # CRCRLF on Windows and made generated-map diffs appear as full rewrites.
+    out = "\n".join(m.lines) + "\n"
     with open(sys.argv[1] if len(sys.argv) > 1 else "shattersea.map", "w") as f:
         f.write(out)
     print("wrote %d lines" % len(m.lines))

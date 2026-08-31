@@ -14,7 +14,7 @@ return id;
 string oldzone="";
 void checkzone()
 {
-string newzone=get_zone_at(mr.x,mr.y,me.z);
+string newzone=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
 if (newzone!=oldzone)
 {
 if(newzone!="") speak(newzone);
@@ -34,6 +34,9 @@ bool contains(int x, int y, int z)
 }
 map_region@[] tile_regions;
 map_region@[] zone_regions;
+map_region@[] acoustic_regions;
+map_region@[] portal_regions;
+map_region@[] landmark_regions;
 dictionary tile_lookup_cache;
 dictionary zone_lookup_cache;
 // Point of Interest (POI) system.
@@ -138,6 +141,10 @@ if(zone_regions[i].contains(x, y, z)) final=zone_regions[i].value;
 zone_lookup_cache.set(key, final);
 return final;
 }
+string get_acoustic_space_at(int x,int y,int z)
+{string final="";for(uint i=0;i<acoustic_regions.length();i++)if(acoustic_regions[i].contains(x,y,z))final=acoustic_regions[i].value;return final;}
+string get_dynamic_or_static_zone_at(double x,double y,double z)
+{for(int i=int(dynamic_map_elements.length())-1;i>=0;i--){dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active)continue;double lx,ly,lz;e.world_to_local(x,y,z,lx,ly,lz);string n=e.zone_at_local(lx,ly,lz);if(n!="")return n;}return get_zone_at(int(x),int(y),int(z));}
 void load_map(string mdata)
 {
 p.destroy_all();
@@ -146,6 +153,9 @@ map.resize(0);
 zones.resize(0);
 tile_regions.resize(0);
 zone_regions.resize(0);
+acoustic_regions.resize(0);
+portal_regions.resize(0);
+landmark_regions.resize(0);
 tile_lookup_cache.delete_all();
 zone_lookup_cache.delete_all();
 pois.resize(0);
@@ -171,6 +181,18 @@ string zone_data=string_replace(ldata[i], "zone:", "", false);
 zones.insert_last(zone_data);
 if(parsed.length()>7)
 zone_regions.insert_last(map_region(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), string_to_number(parsed[4]), string_to_number(parsed[5]), string_to_number(parsed[6]), parsed[7]));
+}
+else if((parsed[0]=="space" or parsed[0]=="openspace") and parsed.length()>7)
+{
+string description=parsed[7];if(parsed.length()>8)description+=" "+parsed[8];
+acoustic_regions.insert_last(map_region(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),description));
+}
+else if(parsed[0]=="portal" and parsed.length()>7)
+portal_regions.insert_last(map_region(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),parsed[7]));
+else if(parsed[0]=="poiregion" and parsed.length()>7)
+{
+landmark_regions.insert_last(map_region(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),parsed[7]));
+pois.insert_last(poi((string_to_number(parsed[1])+string_to_number(parsed[2]))/2,(string_to_number(parsed[3])+string_to_number(parsed[4]))/2,(string_to_number(parsed[5])+string_to_number(parsed[6]))/2,parsed[7]));
 }
 else if(parsed[0]=="maxx")
 {
@@ -276,6 +298,7 @@ p.play_stationary("ladderstep"+random(1,5)+".ogg",false);
 }
 void move(string dir)
 {
+if(vehicle_try_interior_move(dir))return;
 if(dir==Up)
 {
 if(get_tile_at(mr.x, mr.y, me.z+1)!="" and get_tile_at(mr.x, mr.y, me.z+1)!="blank")
@@ -367,7 +390,7 @@ break;
 }
 if(vehicle_contains_position(obstacle,me.x,me.y,me.z))
 {
-if(obstacle.door_open and vehicle_cabin_contains_position(obstacle,me.x,me.y,me.z)){vehicle_interior_index=int(vi);continue;}
+if(obstacle.door_open and (vehicle_interior_index==int(vi) or vehicle_local_in_doorway(obstacle,local_forward,local_side))){vehicle_interior_index=int(vi);vehicle_set_interior_local(obstacle,me.x,me.y,me.z);ensure_vehicle_map_element(obstacle,int(vi));continue;}
 play_vehicle_audio(obstacle,"crash");
 speak(obstacle.get_name()+" body blocking the way. Open its door to enter the interior.");
 me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);

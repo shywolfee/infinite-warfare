@@ -72,12 +72,30 @@ class Map:
     def src(self, x1, x2, y1, y2, z1, z2, sound, vol=-8):
         self.lines.append("src:%d:%d:%d:%d:%d:%d:%s:%d" % (x1, x2, y1, y2, z1, z2, sound, vol))
 
+    def space(self, x1, x2, y1, y2, z1, z2, material, kind="room"):
+        """Acoustic volume, deliberately independent of navigation zones."""
+        self.lines.append("space:%d:%d:%d:%d:%d:%d:%s:%s" %
+                          (x1, x2, y1, y2, z1, z2, material, kind))
+
+    def openspace(self, x1, x2, y1, y2, z1, z2, material="open_air"):
+        self.lines.append("openspace:%d:%d:%d:%d:%d:%d:%s" %
+                          (x1, x2, y1, y2, z1, z2, material))
+
+    def portal(self, x1, x2, y1, y2, z1, z2, name, material="doorway"):
+        """Sound opening paired with a real geometry gap and doorway zone."""
+        self.lines.append("portal:%d:%d:%d:%d:%d:%d:%s:%s" %
+                          (x1, x2, y1, y2, z1, z2, name, material))
+
     def ispawn(self, x1, x2, y1, y2, z1, z2, interval, maxitems, items):
         self.lines.append("ispawn:%d:%d:%d:%d:%d:%d:%d:%d:%s"
                            % (x1, x2, y1, y2, z1, z2, interval, maxitems, ":".join(items)))
 
     def poi(self, x, y, z, name):
         self.lines.append("poi:%d:%d:%d:%s" % (x, y, z, name))
+
+    def poi_region(self, x1, x2, y1, y2, z1, z2, name):
+        self.lines.append("poiregion:%d:%d:%d:%d:%d:%d:%s" %
+                          (x1, x2, y1, y2, z1, z2, name))
 
     def bunker(self, x, y, z, name):
         self.lines.append("bunker:%d:%d:%d:%s" % (x, y, z, name))

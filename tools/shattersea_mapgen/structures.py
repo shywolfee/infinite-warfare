@@ -22,6 +22,7 @@ def street_ns(m, name, road_x1, road_x2, y1, y2, sidewalk=3, curb=True,
     """North-south street. Returns dict with road bounds for intersections."""
     m.tile(road_x1, road_x2, y1, y2, 0, 0, road_t)
     m.zone(road_x1, road_x2, y1, y2, 0, GROUND_TOP, name)
+    m.openspace(road_x1-sidewalk-1, road_x2+sidewalk+1, y1, y2, 0, GROUND_TOP, "urban_exterior")
     wx = road_x1
     ex = road_x2
     if curb:
@@ -46,6 +47,7 @@ def street_ew(m, name, road_y1, road_y2, x1, x2, sidewalk=3, curb=True,
     """East-west street."""
     m.tile(x1, x2, road_y1, road_y2, 0, 0, road_t)
     m.zone(x1, x2, road_y1, road_y2, 0, GROUND_TOP, name)
+    m.openspace(x1, x2, road_y1-sidewalk-1, road_y2+sidewalk+1, 0, GROUND_TOP, "urban_exterior")
     sy = road_y1
     ny = road_y2
     if curb:
@@ -91,6 +93,10 @@ def building_shell(m, name, x1, x2, y1, y2, floor_t="tile1", wall_t="wallbrick",
     Returns interior walkable bounds (ix1,ix2,iy1,iy2)."""
     entrances = entrances or [("S", (x1 + x2) // 2 - 4, (x1 + x2) // 2 + 4)]
     m.tile(x1, x2, y1, y2, 0, 0, floor_t)
+    acoustic_material = "wood" if wall_t == "wallwood" else ("stone" if wall_t == "wallstone" else "masonry")
+    m.space(x1 + 1, x2 - 1, y1 + 1, y2 - 1, 0, ztop - 1,
+            acoustic_material, "building_interior")
+    m.poi_region(x1, x2, y1, y2, 0, ztop + 1, name)
     # gaps per side
     gN = [(a, b) for s, a, b in entrances if s == "N"]
     gS = [(a, b) for s, a, b in entrances if s == "S"]
@@ -114,12 +120,16 @@ def building_shell(m, name, x1, x2, y1, y2, floor_t="tile1", wall_t="wallbrick",
     for s, a, b in entrances:
         if s == "N":
             m.zone_raw(a, b, y2 - 2, y2, 0, GROUND_TOP, name + " entrance")
+            m.portal(a, b, y2, y2, 0, DOOR_OPEN, name + " north entrance")
         elif s == "S":
             m.zone_raw(a, b, y1, y1 + 2, 0, GROUND_TOP, name + " entrance")
+            m.portal(a, b, y1, y1, 0, DOOR_OPEN, name + " south entrance")
         elif s == "E":
             m.zone_raw(x2 - 2, x2, a, b, 0, GROUND_TOP, name + " entrance")
+            m.portal(x2, x2, a, b, 0, DOOR_OPEN, name + " east entrance")
         elif s == "W":
             m.zone_raw(x1, x1 + 2, a, b, 0, GROUND_TOP, name + " entrance")
+            m.portal(x1, x1, a, b, 0, DOOR_OPEN, name + " west entrance")
     # optional exterior ladder onto the roof
     if roof_access:
         kind, side = roof_access
@@ -157,6 +167,7 @@ def corridor(m, x1, x2, y1, y2, name, ztop=ROOM_TOP):
 
 def doorway(m, x1, x2, y1, y2, name):
     m.zone_raw(x1, x2, y1, y2, 0, GROUND_TOP, name)
+    m.portal(x1, x2, y1, y2, 0, DOOR_OPEN, name)
 
 
 def desk(m, x1, x2, y1, y2, name):

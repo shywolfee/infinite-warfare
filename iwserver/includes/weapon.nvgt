@@ -69,7 +69,7 @@ void flush_projectile_audio_updates(){if(projectile_audio_batch_timer.elapsed<50
 
 class authoritative_vehicle
 {
-int id; string type; string map; int x; int y; int z; int health; int armor; double velocity; double facing=0;string[] occupants;
+int id; string type; string map; int x; int y; int z; int health; int armor; double velocity; double facing=0;bool door_open=false;string[] occupants;
 double model_x,model_y,model_z,target_x,target_y,target_z;timer model_timer;
 authoritative_vehicle(){velocity=0;}
 }

@@ -28,7 +28,7 @@ int medication_pill_dose(string i,int mode){int recommended=i=="pain_blocker_cap
 string medication_recommended_dose(string i){if(item_is_liquid_medication(i))return "Recommended dose: "+medication_liquid_dose(i,1)+" fluid ounces";if(item_is_pill_bottle(i) or item_is_loose_pill(i))return "Recommended dose: "+(i=="pain_blocker_capsule_bottle"?2:1)+" pill"+(i=="pain_blocker_capsule_bottle"?"s":"");return "";}
 bool item_is_weapon_maintenance(string i){return i=="gun_cleaning_kit" or i=="handgun_cleaning_kit" or i=="rifle_field_tool" or i=="precision_bore_guide" or i=="shotgun_cleaning_rod" or i=="barrel_wrench" or i=="heat_resistant_gloves" or i=="emitter_service_key" or i=="fuel_system_wrench" or i=="drive_service_tool" or i=="field_honing_stone" or i=="weapon_inspection_gauge" or i=="cleaning_patches" or i=="precision_cleaning_patches" or i=="bore_solvent" or i=="copper_fouling_solvent" or i=="carbon_scraper" or i=="chamber_brush" or i=="shotgun_bore_swab" or i=="action_lubricant" or i=="thermal_vent_cartridge" or i=="dielectric_coolant" or i=="spare_machine_gun_barrel" or i=="burner_nozzle_cleaner" or i=="pressure_seal_kit" or i=="chain_lubricant" or i=="motor_coolant" or i=="blade_oil" or i=="rust_remover" or i=="grip_repair_wrap" or i=="fastener_compound" or i=="improvised_weapon_tool" or i=="gunsmith_multitool" or i=="weapon_replacement_parts" or i=="weapon_alignment_gauge" or i=="replacement_firing_pin" or i=="replacement_extractor" or i=="replacement_recoil_spring" or i=="trigger_group_parts" or i=="barrel_alignment_shims" or i=="receiver_repair_plate" or i=="jam_clearing_rod" or i=="headspace_gauge_set" or i=="electrical_contact_kit" or i=="optic_alignment_target";}
 bool item_is_vehicle_supply(string i){return i=="gasoline_can" or i=="diesel_can" or i=="aviation_fuel_can" or i=="empty_fuel_can" or i=="engine_oil" or i=="transmission_fluid" or i=="tire_patch_kit" or i=="spare_tire" or i=="engine_coolant" or i=="fuel_drain_pan" or i=="fuel_system_flush" or i=="spark_plug_set" or i=="diesel_glow_plug_set" or i=="brake_service_kit" or i=="offroad_tire_set" or i=="reinforced_suspension_kit" or i=="extended_fuel_tank" or i=="wiring_harness_kit" or i=="radiator_hose_kit" or i=="fuel_injector_cleaner" or string_contains(i,"vehicle_",1)==0;}
-bool item_has_configuration(string i){return item_is_thrown_explosive(i) or item_is_deployable_explosive(i) or item_is_medical(i) or i=="bag" or i=="box" or i=="fake_item" or i=="smoke_bomb" or i=="rock";}
+bool item_has_configuration(string i){return item_is_thrown_explosive(i) or item_is_deployable_explosive(i) or item_is_medical(i) or i=="fake_item" or i=="smoke_bomb" or i=="rock";}
 string item_configuration_name(string i,int value)
 {
 if(item_is_thrown_explosive(i) or i=="rock")return value==0?"controlled lob":(value==1?"standard throw":"forceful long throw");
@@ -36,7 +36,6 @@ if(item_is_deployable_explosive(i))return value==0?"rapid arming":(value==1?"bal
 if(item_is_liquid_medication(i))return medication_liquid_dose(i,value)+" fluid ounces";
 if(item_is_pill_bottle(i))return medication_pill_dose(i,value)+" pills";
 if(item_is_medical(i))return value==0?"conservative dose":(value==1?"standard dose":"emergency dose");
-if(i=="bag" or i=="box")return value==0?"medical priority":(value==1?"balanced contents":"ammunition priority");
 if(i=="fake_item")return value==0?"quiet decoy":(value==1?"ordinary decoy":"attention decoy");
 if(i=="smoke_bomb")return value==0?"fast screen":(value==1?"balanced screen":"long screen");
 return "standard use";
@@ -67,7 +66,6 @@ else if(i=="life_injection")detail="Requires a downed teammate within four tiles
 else if(string_contains(i,"energetic_potion",1)>=0)detail="Restores a colour-specific stamina range; dose configuration controls how aggressively the contents are consumed.";
 else if(i=="adrenaline_syringe")detail="Starts a short emergency movement and stamina state rather than applying ordinary healing.";
 else if(i=="bucket" or i=="empty_bucket" or i=="water_tank")detail="Participates in a physical water-transfer loop: fill an empty bucket while standing in water, carry it, and empty it into a colocated tank over time.";
-else if(i=="bag" or i=="box")detail="A sealed supply container consumed on opening. Medical, balanced and ammunition-priority packing profiles change its authoritative contents.";
 else if(i=="translocator")detail="Consumes stored cell charge to move to a selected valid point of interest through its dedicated interface.";
 else if(i=="translocator_cell")detail="Adds finite charge to the translocator rather than acting as generic ammunition.";
 else if(i=="nanomatic_multitool" or i=="nanomatic_components" or i=="repair_kit")detail="Part of the equipment-maintenance economy: the tool selects damaged compatible equipment and consumes repair material according to missing durability.";

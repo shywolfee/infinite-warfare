@@ -14,6 +14,22 @@
 // ---------------------------------------------------------------------------
 timer lobby_keepalive_timer;
 bool lobby_typing_chat=false;
+bool player_profile_received=false;
+string player_profile_text="";
+
+string player_name_from_list_label(string label)
+{int dash=string_contains(label," - ",1);if(dash>0)label=string_left(label,dash);int flags=string_contains(label," (",1);if(flags>0)label=string_left(label,flags);return label.trim_whitespace();}
+
+void receive_player_profile(string message)
+{player_profile_text=string_replace(string_replace(message,"player_profile_response ","",false),"<<NL>>","\n",true);player_profile_received=true;}
+
+void show_player_profile(string selected_name)
+{
+if(selected_name=="")return;player_profile_received=false;player_profile_text="";send_reliable(0,"player_profile "+selected_name,0);timer timeout;
+while(!player_profile_received and timeout.elapsed<3500){wait(5);if(mapname=="main")lobby_form_netcheck();else netloop(false);}
+if(!player_profile_received){speak("The player profile request timed out.");return;}
+show_readonly_audio_form(selected_name+" profile",player_profile_text);
+}
 
 void lobby_chat_prompt()
 {
@@ -119,6 +135,8 @@ mainmenu();
 }
 else if (string_contains(msg, "server_status ", 1)==0)
 speak(string_replace(msg, "server_status ", "", false));
+else if(string_contains(msg,"player_profile_response ",1)==0)
+receive_player_profile(msg);
 else if (msg=="ping" and pinging)
 {
 p.play_stationary("pingstop.ogg", false);
@@ -498,6 +516,8 @@ p.play_stationary("trackingnew.ogg", false);
 speak("You are now tracking "+sel_name);
 tracking=sel_name;
 }
+else if(!allow_tracking and sel>=0 and sel<int(shown.length()))
+show_player_profile(player_name_from_list_label(shown[sel]));
 return;
 }
 iw_form f;
@@ -512,6 +532,8 @@ f.add_list_item(f_list, shown[i]);
 }
 int f_track=-1;
 int f_stop=-1;
+int f_profile=-1;
+if(shown.length()>0)f_profile=f.create_button("&View Profile");
 if (allow_tracking and shown.length()>0)
 {
 f_track=f.create_button("&Track");
@@ -549,6 +571,10 @@ speak("You are now tracking "+sel_name);
 tracking=sel_name;
 return;
 }
+}
+if(f_profile>-1 and f.is_pressed(f_profile))
+{
+int sel=f.get_list_position(f_list);if(sel>=0 and sel<int(shown.length()))show_player_profile(player_name_from_list_label(shown[sel]));
 }
 if (f_stop>-1 and f.is_pressed(f_stop))
 {

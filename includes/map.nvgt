@@ -424,7 +424,11 @@ break;
 if(vehicle_contains_position(obstacle,me.x,me.y,me.z))
 {
 if(vehicle_interior_index==int(vi) and obstacle.door_open){vehicle_set_interior_local(obstacle,me.x,me.y,me.z);continue;}
-if(vehicle_crosses_open_door(obstacle,ox,oy,me.x,me.y)){vehicle_enter_interior_through_door(obstacle,int(vi));mr.x=round(me.x,0);mr.y=round(me.y,0);continue;}
+// A whole-coordinate exterior step normally lands in the doorway approach
+// before its segment reaches the inner hull plane. Treat that authored
+// approach as part of the aperture; otherwise the body collision rejects the
+// first step and it is mathematically impossible to reach the crossing.
+if(vehicle_local_in_doorway(obstacle,local_forward,local_side) or vehicle_crosses_open_door(obstacle,ox,oy,me.x,me.y)){vehicle_enter_interior_through_door(obstacle,int(vi));mr.x=round(me.x,0);mr.y=round(me.y,0);continue;}
 p.play_stationary("metalfall.ogg",false);
 speak(obstacle.get_name()+" body blocking the way. Open its door to enter the interior.");
 me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);

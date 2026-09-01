@@ -56,7 +56,7 @@ string[] compile_args={SCRIPT_EXECUTABLE,"-c",root+"/Infinite Warfare.nvgt"};pro
 if(compiler is null or !compiler.valid or compiler.wait()!=0 or !file_exists(client))throw("NVGT could not compile Infinite Warfare.exe");
 release_status(f,status,progress,"Compiling client",100,"Release executable created at "+client+".");
 if(directory_exists(release) and !release_delete_tree(release))throw("Could not remove the previous release folder");if(!directory_create(release))throw("Could not create a clean release folder");
-string[] sources={client,root+"/sounds.dat",root+"/changes.txt",root+"/readme.html"};string[] names={"Infinite Warfare.exe","sounds.dat","changes.txt","readme.html"};
+string[] sources={client,root+"/sounds.dat",root+"/changes.txt",root+"/readme.html",root+"/version.txt"};string[] names={"Infinite Warfare.exe","sounds.dat","changes.txt","readme.html","version.txt"};
 for(uint i=0;i<sources.length();i++){release_status(f,status,progress,"Copying core release files",double(i)*100.0/double(sources.length()),"Copying "+sources[i]+".");if(!file_exists(sources[i]) or !file_copy(sources[i],release+"/"+names[i],true))throw("Could not copy required file "+sources[i]);}
 release_status(f,status,progress,"Copying core release files",100,"Executable, sound archive, changelog and readme copied.");
 if(!directory_exists(root+"/lib"))throw("The lib folder is missing");int total=release_count_files(root+"/lib"),completed=0;if(!release_copy_tree(root+"/lib",release+"/lib",f,status,progress,total,completed))throw("Could not copy the complete lib folder");

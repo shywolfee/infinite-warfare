@@ -740,6 +740,15 @@ first=false;
 }
 send_reliable(e.peer_id, s, 0);
 }
+else if(parsed[0]=="player_profile" and parsed.length()>1)
+{
+string requested=parsed[1],display=requested,status="Unavailable",role="Player";int credits=0,kills=0;bool found=false;
+for(uint i=0;i<lobby_clients.length();i++)if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(requested)){display=lobby_clients[i].name;status="Online in the lobby";role=lobby_clients[i].dev?"Developer":(lobby_clients[i].admin?"Administrator":"Player");credits=load_player_credits(display);found=true;break;}
+if(!found)for(uint i=0;i<players.length();i++)if(string_to_lower_case(players[i].name)==string_to_lower_case(requested)){display=players[i].name;string friendly_map=string_replace(players[i].map,"_"," ",true);status="Playing "+friendly_map;role=players[i].dev?"Developer":(players[i].admin?"Administrator":"Player");credits=players[i].credits;kills=players[i].kills;found=true;break;}
+string profile="Player: "+display+"<<NL>>Status: "+status+"<<NL>>Role: "+role+"<<NL>>Credits: "+credits;if(found and status!="Online in the lobby")profile+="<<NL>>Session kills: "+kills;
+int ti=get_team_index_for_member(display);if(ti>=0){int mi=get_team_member_index(ti,display);profile+="<<NL>>Team: "+teams[ti].name;if(mi>=0)profile+="<<NL>>Team role: "+teams[ti].members[mi].role;}
+send_reliable(e.peer_id,"player_profile_response "+profile,0);
+}
 else if(parsed[0]=="admin_panel" and parsed.length()>2)
 {
 string acomp=parsed[1];
@@ -2191,17 +2200,6 @@ if(players[index].health>=1000)
 {
 players[index].health=1000;
 }
-if(parsed[1]=="bag")
-{
-send_reliable(players[index].peer_id, "give bag -1", 0);
-send_reliable(players[index].peer_id, "give nanocyte_solution_bottle "+(item_configuration==0?4:2), 0);
-send_reliable(players[index].peer_id, "give bomb_vest 1", 0);
-play("bagopen", players[index].x, players[index].y, players[index].z, players[index].map, index);
-send_unreliable(players[index].peer_id, "ammogive benelli_m4_shotgun "+(item_configuration==2?30:15), 0);
-send_unreliable(players[index].peer_id, "ammogive taurus_model66_revolver "+(item_configuration==2?60:30), 0);
-give_random_weapon_maintenance_bundle(index);
-give_random_equipment_service_bundle(index);
-}
 if(parsed[1]=="fake_item")
 {
 if(players[index].fake_itemtimer.elapsed>2000)
@@ -2216,21 +2214,6 @@ else
 int cd_remain=(2000-players[index].fake_itemtimer.elapsed)/1000;
 send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before placing another fake item.", 2);
 }
-}
-if(parsed[1]=="box")
-{
-send_reliable(players[index].peer_id, "give box -1", 0);
-send_reliable(players[index].peer_id, "give nanocyte_solution_bottle "+(item_configuration==0?8:5), 0);
-send_reliable(players[index].peer_id, "give fake_item "+(item_configuration==2?3:5), 0);
-send_reliable(players[index].peer_id, "give trauma_repair_serum_bottle "+(item_configuration==0?2:1), 0);
-int ammo_pack=item_configuration==2?160:100;
-send_unreliable(players[index].peer_id, "ammogive glock17 "+ammo_pack, 0);
-send_unreliable(players[index].peer_id, "ammogive hk_g36 "+ammo_pack, 0);
-send_unreliable(players[index].peer_id, "ammogive magnum_revolver "+ammo_pack, 0);
-send_unreliable(players[index].peer_id, "ammogive AK47 "+(item_configuration==2?130:80), 0);
-send_unreliable(players[index].peer_id, "ammogive sg08_sniper_rifle "+(item_configuration==2?50:30), 0);
-give_random_weapon_maintenance_bundle(index);give_random_weapon_maintenance_bundle(index);
-give_random_equipment_service_bundle(index);give_random_equipment_service_bundle(index);
 }
 if(parsed[1]=="proximity_mine" or parsed[1]=="claymore" or parsed[1]=="time_bomb")
 {
@@ -2454,7 +2437,7 @@ send_reliable(players[index].peer_id, "you are already wearing a bomb_vest.", 0)
 string armor_region=armor_region_for(parsed[1]);
 if(armor_region!="")equip_player_armor(players[index],parsed[1]);
 if(string_contains(parsed[1],"_patch",1)>=0 or parsed[1]=="aramid_repair_tape" or parsed[1]=="ceramic_plate_epoxy" or parsed[1]=="armor_rivet_pack")apply_armor_patch(players[index],parsed[1]);
-string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","bag","fake_item","box","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
+string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
 bool is_usable=false;
 for(uint ui=0; ui<usable_items.length(); ui++)
 {
@@ -3014,6 +2997,10 @@ int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant
 else if(parsed[0]=="veh_exit" and parsed.length()>2)
 {
 int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant(string_to_number(parsed[1]),parsed[2],players[index].name,-1);
+}
+else if(parsed[0]=="veh_door" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map);if(vi>=0){authoritative_vehicles[vi].door_open=parsed[2]=="1";send_reliable_map(players[index].map,"veh_door_sync "+parsed[1]+" "+parsed[2]+" "+players[index].map,0);}}
 }
 else if(parsed[0]=="veh_seat" and parsed.length()>2)
 {

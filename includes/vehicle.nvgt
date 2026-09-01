@@ -221,23 +221,32 @@ void vehicle_seat_world_position(vehicle@ v,int seat,double &out sx,double &out 
 void vehicle_door_world_position(vehicle@ v,double &out dx,double &out dy,double &out dz){double length,width,height,rad=v.facing*3.14159265358979323846/180.0;vehicle_dimensions(v,length,width,height);double forward=length*.165,side=width*.48;dx=v.x+sine(rad)*forward+cosine(rad)*side;dy=v.y+cosine(rad)*forward-sine(rad)*side;dz=v.z+.5;}
 double vehicle_door_distance(vehicle@ v,double px,double py,double pz){double dx,dy,dz;vehicle_door_world_position(v,dx,dy,dz);return get_3d_distance(px,py,pz,dx,dy,dz);}
 
+void vehicle_update_door_geometry(vehicle@ v)
+{
+if(v.map_element_id<0 or v.map_element_id>=int(dynamic_map_elements.length()))return;dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];
+for(uint i=0;i<e.tiles.length();i++)if(string_contains(e.tiles[i].zone,"doorway",1)>=0){e.tiles[i].solid=!v.door_open;e.tiles[i].material=v.door_open?"metal4":"wallmetal";}
+}
+
 void ensure_vehicle_map_element(vehicle@ v,int owner)
 {
-if(v.map_element_id>=0 and v.map_element_id<int(dynamic_map_elements.length())){dynamic_map_move(v.map_element_id,v.x,v.y,v.z,v.facing);return;}
+if(v.map_element_id>=0 and v.map_element_id<int(dynamic_map_elements.length())){dynamic_map_move(v.map_element_id,v.x,v.y,v.z,v.facing);vehicle_update_door_geometry(v);return;}
 v.map_element_id=dynamic_map_create("vehicle",v.get_name(),owner,v.x,v.y,v.z,v.facing);
 dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];double length,width,height;vehicle_dimensions(v,length,width,height);
-// Floor, roof, four hull walls, and individually named interior areas.  The
-// right-front wall is split around the physical doorway.
-e.add_tile(-length*.5,length*.5,-width*.5,width*.5,-.1,.99,"metal5",v.get_name()+" chassis",true);
-e.add_tile(-length*.42,length*.42,-width*.36,width*.36,-.1,.99,"metal4",v.get_name()+" interior floor",true);
+// Replacement surfaces are walkable map material, not metre-high collision
+// blocks. Hull and roof panels alone are solid. This lets the moving room
+// genuinely replace the static tiles beneath it without turning its floor into
+// an invisible wall.
+e.add_tile(-length*.5,length*.5,-width*.5,width*.5,-.12,.18,"metal5",v.get_name()+" chassis",false);
+e.add_tile(-length*.42,length*.42,-width*.36,width*.36,-.11,.22,"metal4",v.get_name()+" interior floor",false);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,height-.2,height,"metal4","roof of "+v.get_name(),true);
-e.add_tile(-length*.42,-length*.42,-width*.36,width*.36,0,height,"wallmetal",v.get_name()+" rear bulkhead",true);
-e.add_tile(length*.42,length*.42,-width*.36,width*.36,0,height,"wallmetal",v.get_name()+" front bulkhead",true);
-e.add_tile(-length*.42,length*.08,-width*.36,-width*.36,0,height,"wallmetal",v.get_name()+" left hull",true);
-e.add_tile(length*.24,length*.42,-width*.36,-width*.36,0,height,"wallmetal",v.get_name()+" left front hull",true);
-e.add_tile(-length*.42,length*.08,width*.36,width*.36,0,height,"wallmetal",v.get_name()+" right hull",true);
-e.add_tile(length*.24,length*.42,width*.36,width*.36,0,height,"wallmetal",v.get_name()+" right front hull",true);
-e.add_tile(length*.08,length*.24,-width*.36,width*.36,0,1.4,"metal4",v.get_name()+" front doorway",false);
+double panel=.12;
+e.add_tile(-length*.42-panel,-length*.42+panel,-width*.36,width*.36,.2,height,"wallmetal",v.get_name()+" rear bulkhead",true);
+e.add_tile(length*.42-panel,length*.42+panel,-width*.36,width*.36,.2,height,"wallmetal",v.get_name()+" front bulkhead",true);
+e.add_tile(-length*.42,length*.04,-width*.36-panel,-width*.36+panel,.2,height,"wallmetal",v.get_name()+" left hull",true);
+e.add_tile(length*.30,length*.42,-width*.36-panel,-width*.36+panel,.2,height,"wallmetal",v.get_name()+" left front hull",true);
+e.add_tile(-length*.42,length*.04,width*.36-panel,width*.36+panel,.2,height,"wallmetal",v.get_name()+" right hull",true);
+e.add_tile(length*.30,length*.42,width*.36-panel,width*.36+panel,.2,height,"wallmetal",v.get_name()+" right front hull",true);
+e.add_tile(length*.04,length*.30,width*.28,width*.58,.2,1.65,v.door_open?"metal4":"wallmetal",v.get_name()+" doorway",!v.door_open);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,.01,height-.21,"metal4","inside the "+v.get_name(),false);
 for(int seat=0;seat<v.get_max_passengers();seat++){double sf,ss,sz;vehicle_seat_local_position(v,seat,sf,ss,sz);e.add_tile(sf-.35,sf+.35,ss-.35,ss+.35,0,1.2,"carpet1",v.seat_label(seat),false);}
 }
@@ -247,10 +256,10 @@ void vehicle_set_interior_local(vehicle@ v,double wx,double wy,double wz)
 void vehicle_apply_interior_local(vehicle@ v)
 {double r=v.facing*3.14159265358979323846/180.0;me.x=v.x+sine(r)*vehicle_interior_local_forward+cosine(r)*vehicle_interior_local_side;me.y=v.y+cosine(r)*vehicle_interior_local_forward-sine(r)*vehicle_interior_local_side;me.z=v.z+vehicle_interior_local_z;mr.x=round(me.x,0);mr.y=round(me.y,0);}
 bool vehicle_local_inside_floor(vehicle@ v,double forward,double side){double length,width,height;vehicle_dimensions(v,length,width,height);return forward>=-length*.42 and forward<=length*.42 and absolute(side)<=width*.36;}
-bool vehicle_local_in_doorway(vehicle@ v,double forward,double side){double length,width,height;vehicle_dimensions(v,length,width,height);return v.door_open and forward>=length*.08 and forward<=length*.24 and side>=width*.30 and side<=width*.72;}
+bool vehicle_local_in_doorway(vehicle@ v,double forward,double side){double length,width,height;vehicle_dimensions(v,length,width,height);return v.door_open and forward>=length*.02 and forward<=length*.32 and side>=width*.25 and side<=width*.74;}
 bool vehicle_crosses_open_door(vehicle@ v,double from_x,double from_y,double to_x,double to_y)
 {
-if(!v.door_open)return false;double af,as,bf,bs,length,width,height;vehicle_local_position(v,from_x,from_y,af,as);vehicle_local_position(v,to_x,to_y,bf,bs);vehicle_dimensions(v,length,width,height);double door_side=width*.36,delta=bs-as;if(absolute(delta)<.001)return false;double t=(door_side-as)/delta;if(t<0 or t>1)return false;double crossing=af+(bf-af)*t;return crossing>=length*.04 and crossing<=length*.29;
+if(!v.door_open)return false;double af,as,bf,bs,length,width,height;vehicle_local_position(v,from_x,from_y,af,as);vehicle_local_position(v,to_x,to_y,bf,bs);vehicle_dimensions(v,length,width,height);double door_side=width*.36,delta=bs-as;if(absolute(delta)<.001)return false;double t=(door_side-as)/delta;if(t<0 or t>1)return false;double crossing=af+(bf-af)*t;return crossing>=length*.01 and crossing<=length*.33 and as>=width*.18;
 }
 void vehicle_enter_interior_through_door(vehicle@ v,int index)
 {double length,width,height;vehicle_dimensions(v,length,width,height);vehicle_interior_index=index;vehicle_interior_local_forward=length*.165;vehicle_interior_local_side=width*.28;vehicle_interior_local_z=.5;vehicle_interior_last_x=v.x;vehicle_interior_last_y=v.y;vehicle_interior_last_z=v.z;ensure_vehicle_map_element(v,index);vehicle_apply_interior_local(v);speak("Stepped through the open door into the "+v.get_name()+".");}
@@ -332,24 +341,36 @@ void register_vehicles_with_server()
 for(uint i=0;i<map_vehicles.length();i++) register_vehicle_with_server(int(i));
 }
 
-// Spawn vehicles at random valid positions on the map.
+bool vehicle_overlaps_existing(vehicle@ candidate)
+{
+double cl,cw,ch;vehicle_dimensions(candidate,cl,cw,ch);
+for(uint i=0;i<map_vehicles.length();i++){double ol,ow,oh;vehicle_dimensions(map_vehicles[i],ol,ow,oh);if(get_2d_distance(candidate.x,candidate.y,map_vehicles[i].x,map_vehicles[i].y)<(cl+ol+cw+ow)*.18)return true;}
+return false;
+}
+
+// Every client must construct the same vehicle IDs at the same positions.
+// Client-side random placement previously made authority, collision and map
+// replacement disagree as soon as two people entered a mode.
 void spawn_vehicles_on_map()
 {
 if (vehicle_types.length() == 0) init_vehicle_types();
 map_vehicles.resize(0);
-int count = random(5, MAX_MAP_VEHICLES);
+int usable_types=int(vehicle_types.length())-1;
+if(usable_types<1)return;
+int count=MAX_MAP_VEHICLES;
+int columns=4;
 for (int i = 0; i < count; i++)
 {
-// Team planes are purchased and deployed; never place them as random traffic.
-int ti = random(0, int(vehicle_types.length()) - 2);
-int vx = random(5, int(max.x) - 5);
-int vy = random(5, int(max.y) - 5);
-int vz = 0;
-// Make sure tile is valid.
-vehicle candidate(ti,vx,vy,vz);
-if (vehicle_footprint_clear(candidate,vx,vy,vz))
+int ti=i%usable_types;
+int base_x=int((double((i%columns)+1)/double(columns+1))*max.x);
+int base_y=int((double((i/columns)+1)/double((count+columns-1)/columns+1))*max.y);
+bool placed=false;
+for(int radius=0;radius<=30 and !placed;radius++)for(int side=0;side<4 and !placed;side++)
 {
-map_vehicles.insert_last(candidate);
+int vx=base_x+(side==0?radius:(side==1?-radius:0));
+int vy=base_y+(side==2?radius:(side==3?-radius:0));
+vehicle candidate(ti,vx,vy,0);
+if(vehicle_footprint_clear(candidate,vx,vy,0) and !vehicle_overlaps_existing(candidate)){map_vehicles.insert_last(candidate);ensure_vehicle_map_element(map_vehicles[map_vehicles.length()-1],int(map_vehicles.length())-1);placed=true;}
 }
 }
 }
@@ -361,13 +382,14 @@ int type_index=-1;
 for (uint i=0; i<vehicle_types.length(); i++) if (vehicle_types[i].name=="Duo Plane") { type_index=i; break; }
 if (type_index<0) return;
 map_vehicles.insert_last(vehicle(type_index, x, y, z));
+ensure_vehicle_map_element(map_vehicles[map_vehicles.length()-1],int(map_vehicles.length())-1);
 register_vehicle_with_server(int(map_vehicles.length())-1);
 speak("Your team's Duo Plane has been deployed nearby. Open its door and enter it like any other vehicle.");
 }
 
 void spawn_team_vehicle(string type_name,int x,int y,int z)
 {
-if(vehicle_types.length()==0)init_vehicle_types();int type_index=-1;for(uint i=0;i<vehicle_types.length();i++)if(vehicle_types[i].name==type_name){type_index=int(i);break;}if(type_index<0)return;map_vehicles.insert_last(vehicle(type_index,x,y,z));register_vehicle_with_server(int(map_vehicles.length())-1);speak("Your team deployed a "+type_name+" nearby.");
+if(vehicle_types.length()==0)init_vehicle_types();int type_index=-1;for(uint i=0;i<vehicle_types.length();i++)if(vehicle_types[i].name==type_name){type_index=int(i);break;}if(type_index<0)return;map_vehicles.insert_last(vehicle(type_index,x,y,z));ensure_vehicle_map_element(map_vehicles[map_vehicles.length()-1],int(map_vehicles.length())-1);register_vehicle_with_server(int(map_vehicles.length())-1);speak("Your team deployed a "+type_name+" nearby.");
 }
 
 bool current_vehicle_can_fly()
@@ -433,6 +455,7 @@ vehicle@ door_vehicle=map_vehicles[vi];
 if(!in_vehicle and vehicle_door_distance(door_vehicle,me.x,me.y,me.z)>1.75){speak("Move next to the vehicle door first.");return;}
 if(in_vehicle and player_seat>1){speak("This seat cannot reach the vehicle door controls.");return;}
 map_vehicles[vi].door_open = !map_vehicles[vi].door_open;
+vehicle_update_door_geometry(map_vehicles[vi]);
 if (map_vehicles[vi].door_open) play_vehicle_audio(map_vehicles[vi], "door_open");
 else play_vehicle_audio(map_vehicles[vi], "door_close");
 if (map_vehicles[vi].door_open)

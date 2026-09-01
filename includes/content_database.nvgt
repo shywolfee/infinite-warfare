@@ -33,7 +33,7 @@ else if(id=="translocator" or id=="nanomatic_multitool" or id=="nanomatic_compon
 if(item_is_weapon_maintenance(id))category="Weapon Maintenance";
 if(string_contains(id,"armor_patch",1)>=0 or string_contains(id,"armour_patch",1)>=0 or string_contains(id,"plate_patch",1)>=0 or string_contains(id,"helmet_patch",1)>=0)category="Armour Repair";
 if(!item_is_weapon_maintenance(id) and (string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can"))category="Vehicle Supplies";
-if(id=="nanomatic_multitool" or id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bag" or id=="box" or id=="bucket" or id=="empty_bucket")category="Containers";
+if(id=="nanomatic_multitool" or id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bucket" or id=="empty_bucket")category="Containers";
 content_database.insert_last(content_record(id,name,category,summary,give_amount));content_database_index.set(id,int(content_database.length())-1);
 }
 
@@ -100,8 +100,6 @@ content_register("invisibility","Invisibility","Consumables","Temporarily concea
 content_register("bucket","Bucket","Equipment","General-purpose container.",2);
 content_register("life_injection","Life Injection","Consumables","Revives an eligible downed teammate.",3);
 content_register("water_tank","Water Tank","Equipment","Stores water.",1);
-content_register("bag","Bag","Equipment","Portable item container.",2);
-content_register("box","Box","Equipment","General item container.",2);
 content_register("rock","Rock","Equipment","Throwable impact item.",10);
 content_register("energetic_potion_red","Red Energetic Potion","Consumables","Restores 15 to 25 stamina.",5);
 content_register("energetic_potion_blue","Blue Energetic Potion","Consumables","Restores 25 to 40 stamina.",3);

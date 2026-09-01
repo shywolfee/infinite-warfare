@@ -42,7 +42,7 @@ spawn_citem(x, y, z, map, "corpse_"+tc.id);
 }
 void open_corpse(string id, int index)
 {
-string final="you get the bag of a corpse and open it, the bag contains ";
+string final="You search the corpse. It carries ";
 for(uint i=0; i<corpses.length(); i++)
 {
 if(corpses[i].id==id)
@@ -68,7 +68,7 @@ if(x==0)
 {
 corpses[i].inv.get(keys[i2], amount);
 //players[index].give(keys[i2], amount);
-send_reliable(players[index].peer_id, "give  "+keys[i2]+" amount",0);
+send_reliable(players[index].peer_id, "give "+keys[i2]+" "+amount,0);
 final+=amount+" "+keys[i2];
 if(i2==keys.length()-1)
 final+=". ";
@@ -79,7 +79,7 @@ if(x==1)
 {
 corpses[i].ammo.get(keys[i2], amount);
 //players[index].ammogive(keys[i2], amount);
-send_reliable(players[index].peer_id, "ammogive "+keys[i2]+" amount",0);
+send_reliable(players[index].peer_id, "ammogive "+keys[i2]+" "+amount,0);
 final+=amount+" "+keys[i2];
 if(i2==keys.length()-1)
 final+=".";

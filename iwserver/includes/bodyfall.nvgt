@@ -21,7 +21,6 @@ for (uint i=0; i<bodyfalls.length(); i++)
 if (bodyfalls[i].btimer.elapsed>=bodyfalls[i].btime)
 {
 play(get_tile_at(bodyfalls[i].x,bodyfalls[i].y,bodyfalls[i].z,bodyfalls[i].map)+"fall", bodyfalls[i].x, bodyfalls[i].y, bodyfalls[i].z, bodyfalls[i].map);
-spawn_item(bodyfalls[i].x,bodyfalls[i].y,bodyfalls[i].z,bodyfalls[i].map,"bag","");
 bodyfalls.remove_at(i);
 return;
 }

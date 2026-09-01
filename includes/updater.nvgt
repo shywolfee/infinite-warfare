@@ -1,32 +1,35 @@
 #pragma plugin nvgt_curl
-#include "audioutils.nvgt"
-#include "downloader.nvgt"
-void cfu(string name,string filename)
-{
-string new_version=url_get(webdir+"/game/langver.txt");
-string update_error_reason=url_get(webdir+"/game/update_error_reason.txt");
-if(new_version=="" or new_version=="0" or string_contains(new_version," ",1)!=-1 or string_contains(new_version,"html",1)!=-1 or new_version.length()<2 or new_version.length()>5)
-{
 
-speak("unable to check the update, reason, "+update_error_reason+".");
-return;
-}
-if(version!=new_version)
-{
+const string IW_GITHUB_REPOSITORY="https://github.com/shywolfee/infinite-warfare.git";
+const string IW_GITHUB_VERSION="https://raw.githubusercontent.com/shywolfee/infinite-warfare/main/version.txt";
 
-dlg("There is a new update available for game, your version, "+version+", latest version, "+new_version+".");
-{
-speak("update starting");
+string updater_read_text(string path)
+{file f;if(!f.open(path,"rb"))return "";string result=f.read();f.close();return result.trim_whitespace();}
 
-string status=dl_file(webdir+"/"+filename,filename);
-if(status=="finished")
+int updater_compare_versions(string left,string right)
 {
-speak("update completed. Please wait, extracting the files");
-wait(2000);
-run("unzip.exe", "-o -qq "+filename, false, false);
-run(name+".exe","",false,false);
-exit();
+string[] a=string_split(left,".",false),b=string_split(right,".",false);uint count=a.length()>b.length()?a.length():b.length();
+for(uint i=0;i<count;i++){int av=i<a.length()?string_to_number(a[i]):0,bv=i<b.length()?string_to_number(b[i]):0;if(av<bv)return -1;if(av>bv)return 1;}
+return 0;
 }
-}
-}
+
+void cfu(string legacy_name,string legacy_archive)
+{
+string local_version=updater_read_text(SCRIPT_MAIN_PATH+"/version.txt");if(local_version=="")local_version="0.5.0.5";
+speak("Checking GitHub for updates.");string latest=url_get(IW_GITHUB_VERSION).trim_whitespace();
+if(latest=="" or string_contains(latest,"html",1)>=0 or string_contains(latest," ",1)>=0 or latest.length()>32){dlg("Unable to read version.txt from the Infinite Warfare GitHub repository.");return;}
+int comparison=updater_compare_versions(local_version,latest);
+if(comparison>=0){speak(comparison==0?"Infinite Warfare is up to date.":"This client is newer than the public GitHub version.");return;}
+if(question("Update Infinite Warfare?","Version "+latest+" is available on GitHub. Your version is "+local_version+". Clone the current main branch and replace this installation?")!=1)return;
+string stage=SCRIPT_MAIN_PATH+".iw-update-"+ticks();
+speak("Cloning version "+latest+" from GitHub. This may take a moment.");string[] clone_args={"git","clone","--depth","1","--branch","main",IW_GITHUB_REPOSITORY,stage};process@ clone=run(clone_args,0,SCRIPT_MAIN_PATH);
+if(@clone==null or !clone.valid){dlg("The update could not start Git. Install Git for Windows and make sure git is available on PATH.");return;}
+int result=clone.wait();if(result!=0 or !file_exists(stage+"/version.txt")){dlg("GitHub update failed while cloning the repository. The current installation was not changed.");return;}
+// Replacement starts after this client exits, so Windows no longer has its
+// executable or source files locked. Paths are process arguments rather than
+// interpolated PowerShell text, preserving spaces safely.
+string command="Start-Sleep -Milliseconds 1500; $stage=$args[0]; $root=$args[1]; $restart=$args[2]; $source=$args[3]; Get-ChildItem -LiteralPath $stage -Force | Where-Object { $_.Name -ne '.git' } | Copy-Item -Destination $root -Recurse -Force; Remove-Item -LiteralPath $stage -Recurse -Force; if ($source -eq '1') { Start-Process -FilePath $restart -ArgumentList (Join-Path $root 'Infinite Warfare.nvgt') -WorkingDirectory $root } else { Start-Process -FilePath $restart -WorkingDirectory $root }";
+string[] replace_args={"powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command",command,stage,SCRIPT_MAIN_PATH,SCRIPT_EXECUTABLE,SCRIPT_COMPILED?"0":"1"};process@ replacement=run(replace_args,PROCESS_BACKGROUND,SCRIPT_MAIN_PATH);
+if(@replacement==null or !replacement.valid){dlg("The new source was cloned, but the replacement process could not be launched. Your current installation remains active. Staged files are at "+stage);return;}
+speak("Update downloaded. Infinite Warfare will close, replace its files, and restart.");wait(500);exit();
 }

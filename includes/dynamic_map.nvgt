@@ -43,6 +43,19 @@ int dynamic_map_create(string kind,string name,int owner,double x,double y,doubl
 void dynamic_map_move(int id,double x,double y,double z,double facing){if(id>=0 and id<int(dynamic_map_elements.length()) and dynamic_map_elements[id].active)dynamic_map_elements[id].move_to(x,y,z,facing);}
 void dynamic_map_destroy(int id){if(id>=0 and id<int(dynamic_map_elements.length()))dynamic_map_elements[id].destroy();}
 string dynamic_map_tile_at(double x,double y,double z)
-{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);for(int t=int(dynamic_map_elements[e].tiles.length())-1;t>=0;t--)if(dynamic_map_elements[e].tiles[t].solid and dynamic_map_elements[e].tiles[t].contains(lx,ly,lz))return dynamic_map_elements[e].tiles[t].material;}return "";}
+{
+// Collision and surface replacement are deliberately separate.  The old
+// lookup ignored every non-solid runtime tile, which made a vehicle cabin
+// expose the static road beneath it to footsteps, cameras and acoustics.
+for(int e=int(dynamic_map_elements.length())-1;e>=0;e--)
+{
+if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);
+for(int t=int(dynamic_map_elements[e].tiles.length())-1;t>=0;t--)if(dynamic_map_elements[e].tiles[t].solid and dynamic_map_elements[e].tiles[t].contains(lx,ly,lz))return dynamic_map_elements[e].tiles[t].material;
+for(int t=int(dynamic_map_elements[e].tiles.length())-1;t>=0;t--)if(!dynamic_map_elements[e].tiles[t].solid and dynamic_map_elements[e].tiles[t].contains(lx,ly,lz) and dynamic_map_elements[e].tiles[t].material!="")return dynamic_map_elements[e].tiles[t].material;
+}
+return "";
+}
+bool dynamic_map_solid_at(double x,double y,double z)
+{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);if(dynamic_map_elements[e].solid_at_local(lx,ly,lz))return true;}return false;}
 string dynamic_map_description_at(double x,double y,double z)
 {for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);string zone=dynamic_map_elements[e].zone_at_local(lx,ly,lz);if(zone!="")return dynamic_map_elements[e].name+", "+zone;}return "";}

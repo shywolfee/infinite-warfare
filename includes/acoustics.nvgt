@@ -26,6 +26,11 @@ rt=base*pow(volume/reference,exponent);if(rt<low)rt=low;if(rt>high)rt=high;
 // Freeverb cannot produce the very short decay of a furnished small room;
 // Fireteam makes those rooms quieter rather than falsely making them longer.
 if(rt<.78)wet-=18*(.78-rt)/.68;if(wet<-40)wet=-40;
+// Infinite Warfare's dense, full-band combat recordings excite Freeverb much
+// harder than Fireteam Requiem's source set. Keep the same room proportions,
+// but lower every send by six decibels so the room remains a location cue and
+// never washes over the direct weapon, movement or speech cue.
+wet-=6;if(wet<-40)wet=-40;
 }
 void spawn_acoustic_space(int x1,int x2,int y1,int y2,int z1,int z2,string label,string material,bool encloses,string kind)
 {acoustic_space@ s=acoustic_space();s.x1=x1;s.x2=x2;s.y1=y1;s.y2=y2;s.z1=z1;s.z2=z2;s.label=label;s.material=material;s.encloses=encloses;s.kind=kind;float volume=float((x2-x1+1)*(y2-y1+1)*(z2-z1+1));acoustic_preset(kind,encloses,volume,s.rt60,s.wet);s.damping=acoustic_material_damping(material);acoustic_spaces.insert_last(s);}
@@ -34,11 +39,26 @@ int acoustic_effective_space_at(float x,float y,float z)
 {for(uint i=0;i<map_vehicles.length();i++)if(!map_vehicles[i].destroyed and vehicle_cabin_contains_position(map_vehicles[i],x,y,z,.1)){if(acoustic_vehicle_preset<0){spawn_acoustic_space(-100000,-100000,-100000,-100000,-100000,-99998,"vehicle cabin","fabric",true,"vehicle");acoustic_vehicle_preset=int(acoustic_spaces.length())-1;}return acoustic_vehicle_preset;}return acoustic_space_at(x,y,z);}
 bool acoustic_in_portal(float x,float y,float z){for(uint i=0;i<portal_regions.length();i++)if(portal_regions[i].contains(int(round(x,0)),int(round(y,0)),int(round(z,0))))return true;return false;}
 int acoustic_walls_between(float lx,float ly,float lz,float sx,float sy,float sz)
-{float distance=get_3d_distance(lx,ly,lz,sx,sy,sz);int steps=int(distance*2);if(steps<1)return 0;if(steps>240)steps=240;int walls=0;bool was_wall=false;for(int i=1;i<=steps;i++){float t=float(i)/steps,x=lx+(sx-lx)*t,y=ly+(sy-ly)*t,z=lz+(sz-lz)*t;string tile=get_tile_at(x,y,z);bool wall=string_contains(tile,"wall",1)>=0 and !acoustic_in_portal(x,y,z);if(wall and !was_wall){walls++;if(walls>=3)return walls;}was_wall=wall;}return walls;}
+{
+float distance=get_3d_distance(lx,ly,lz,sx,sy,sz);if(distance<1)return 0;int steps=int(distance);if(steps>160)steps=160;
+int last=acoustic_effective_space_at(lx,ly,lz);bool last_encloses=last>=0 and acoustic_spaces[last].encloses;int walls=0;bool last_solid=false;
+for(int i=1;i<=steps;i++)
+{
+float t=float(i)/float(steps),x=lx+(sx-lx)*t,y=ly+(sy-ly)*t,z=lz+(sz-lz)*t;int here=acoustic_effective_space_at(x,y,z);bool here_encloses=here>=0 and acoustic_spaces[here].encloses;bool portal=acoustic_in_portal(x,y,z);
+// Authored acoustic-space boundaries are the reliable definition of a room
+// wall. Literal wall tiles remain a fallback for legacy areas, while runtime
+// solids make vehicle hulls participate in the same occlusion model.
+bool solid=(string_contains(get_static_tile_at(x,y,z),"wall",1)>=0 or dynamic_map_solid_at(x,y,z)) and !portal;
+bool boundary=here!=last and (last_encloses or here_encloses) and !portal;
+if(boundary or (solid and !last_solid)){walls++;if(walls>=3)return walls;}
+last=here;last_encloses=here_encloses;last_solid=solid;
+}
+return walls;
+}
 float acoustic_room_size(float rt){if(rt<=.78)return .2;if(rt<=1.08)return .3+(.1*(rt-.9)/.18);if(rt<=1.56)return .5+(.1*(rt-1.26)/.3);if(rt<=1.95)return .6+(.1*(rt-1.56)/.39);if(rt<=2.61)return .7+(.1*(rt-1.95)/.66);float result=.8+.05*(rt-2.61)/.72;if(result>.9)result=.9;return result;}
 reverb3d@ acoustic_reverb_for(int space_index,bool world)
 {if(space_index<0 or space_index>=int(acoustic_spaces.length()))return null;acoustic_space@ s=acoustic_spaces[space_index];string key=int(acoustic_room_size(s.rt60)*40)+":"+int(s.damping*20)+":"+int(s.wet)+":"+(world?"w":"g");int found=acoustic_reverb_keys.find(key);if(found>=0)return world?acoustic_reverbs_world[found]:acoustic_reverbs_gameplay[found];audio_freeverb_node@ gameplay_node=audio_freeverb_node();audio_freeverb_node@ world_node=audio_freeverb_node();float room_size=acoustic_room_size(s.rt60);gameplay_node.room_size=room_size;world_node.room_size=room_size;gameplay_node.damping=s.damping;world_node.damping=s.damping;reverb3d@ gameplay_r=reverb3d(gameplay_node,gameplay_mixer);reverb3d@ world_r=reverb3d(world_node,world_mixer);gameplay_r.max_volume=s.wet;gameplay_r.min_volume=s.wet-2;world_r.max_volume=s.wet;world_r.min_volume=s.wet-2;acoustic_reverb_keys.insert_last(key);acoustic_reverb_nodes.insert_last(gameplay_node);acoustic_reverb_nodes.insert_last(world_node);acoustic_reverbs_gameplay.insert_last(gameplay_r);acoustic_reverbs_world.insert_last(world_r);return world?world_r:gameplay_r;}
 audio_low_pass_filter@ acoustic_wall_filter(int walls){if(walls<=0)return null;return audio_low_pass_filter(walls==1?2800:(walls==2?1400:850),2);}
 void acoustics_process_pool(sound_pool@ pool,bool world)
-{for(uint i=0;i<=pool.highest_slot and i<pool.items.length();i++){sound_pool_item@ item=pool.items[i];if(@item.handle==null or !item.handle.active or item.extra_data=="acoustic")continue;float sx=item.stationary?me.x:item.x,sy=item.stationary?me.y:item.y,sz=item.stationary?me.z:item.z;int source_space=acoustic_effective_space_at(sx,sy,sz);if(source_space<0)source_space=acoustic_effective_space_at(me.x,me.y,me.z);if(acoustic_reverb_enabled and source_space>=0)@item.handle.reverb3d=acoustic_reverb_for(source_space,world);if(acoustic_occlusion_enabled and !item.stationary){int walls=acoustic_walls_between(me.x,me.y,me.z,sx,sy,sz);if(walls>0){audio_low_pass_filter@ filter=acoustic_wall_filter(walls);item.handle.effects_chain.add_node(filter);item.start_volume-=3*walls;item.handle.set_volume(item.start_volume);}}item.extra_data="acoustic";}}
+{for(uint i=0;i<=pool.highest_slot and i<pool.items.length();i++){sound_pool_item@ item=pool.items[i];if(@item.handle==null or !item.handle.active or item.extra_data=="acoustic")continue;float sx=item.stationary?me.x:item.x,sy=item.stationary?me.y:item.y,sz=item.stationary?me.z:item.z;int listener_space=acoustic_effective_space_at(me.x,me.y,me.z),raw_source_space=acoustic_effective_space_at(sx,sy,sz),reverb_space=raw_source_space>=0?raw_source_space:listener_space;if(acoustic_reverb_enabled and reverb_space>=0)@item.handle.reverb3d=acoustic_reverb_for(reverb_space,world);if(acoustic_occlusion_enabled and !item.stationary and (listener_space!=raw_source_space or listener_space<0)){int walls=acoustic_walls_between(me.x,me.y,me.z,sx,sy,sz);if(walls>0){audio_low_pass_filter@ filter=acoustic_wall_filter(walls);item.handle.effects_chain.add_node(filter);item.start_volume-=3*walls;item.handle.set_volume(item.start_volume);}}item.extra_data="acoustic";}}
 void acoustics_loop(){acoustics_process_pool(p,false);acoustics_process_pool(distpool,true);}

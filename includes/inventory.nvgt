@@ -1,5 +1,10 @@
 int invpos;
 dictionary inv;
+// Stable client-side presentation order. NVGT dictionaries do not promise a
+// reorderable key sequence, so inventory navigation keeps an explicit index.
+string[] inventory_order;
+string[] inventory_transfer_targets;
+bool inventory_transfer_targets_received=false;
 
 // Quickbar: 10 slots mapped to number keys 1 through 0.
 string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
@@ -44,7 +49,10 @@ return get_item_category(key);
 // Includes virtual keys for partial ammo items ("__partial__N").
 string[] get_filtered_keys()
 {
-string[] all_keys = inv.get_keys();
+string[] dictionary_keys=inv.get_keys();
+for(int stale=int(inventory_order.length())-1;stale>=0;stale--)if(!inv.exists(inventory_order[stale]))inventory_order.remove_at(stale);
+for(uint missing=0;missing<dictionary_keys.length();missing++)if(inventory_order.find(dictionary_keys[missing])<0)inventory_order.insert_last(dictionary_keys[missing]);
+string[] all_keys=inventory_order;
 // Append virtual keys for each partial ammo item.
 for (uint i = 0; i < partial_items.length(); i++)
 all_keys.insert_last("__partial__" + i);
@@ -54,6 +62,11 @@ string target = (inv_category_index == 0) ? "" : inv_categories[inv_category_ind
 // Every category exposed by Left/Right navigation must also participate in
 // the All view and its own filtered view.
 string[] filtered;
+if(target=="")
+{
+for(uint i=0;i<all_keys.length();i++)if(all_keys[i]!="waypoint_marker")filtered.insert_last(all_keys[i]);
+return filtered;
+}
 for (uint c = 1; c < inv_categories.length(); c++)
 {
 if (target != "" and inv_categories[c] != target) continue;
@@ -108,18 +121,46 @@ int a;
 if (!inv.exists(item))
 {
 if (amount>0)
-inv.set(item,amount);
+{inv.set(item,amount);if(inventory_order.find(item)<0)inventory_order.insert_last(item);}
 }
 else
 {
 inv.get(item,a);
 if (a+amount<=0)
-inv.delete(item);
+{inv.delete(item);int order_index=inventory_order.find(item);if(order_index>=0)inventory_order.remove_at(order_index);}
 else
 {
 inv.set(item,a+amount);
 }
 }
+}
+
+bool inventory_reorder(string key,int destination)
+{
+if(string_contains(key,"__partial__",1)==0)return false;
+get_filtered_keys();int current=inventory_order.find(key);if(current<0)return false;
+string[] visible=get_filtered_keys();int visible_position=visible.find(key);if(visible_position<0)return false;
+int target_position=visible_position+destination;
+if(destination==-100000)target_position=0;else if(destination==100000)target_position=int(visible.length())-1;
+if(target_position<0 or target_position>=int(visible.length()) or target_position==visible_position)return false;
+string target_key=visible[target_position];if(string_contains(target_key,"__partial__",1)==0)return false;
+int target=inventory_order.find(target_key);if(target<0)return false;
+inventory_order[current]=target_key;inventory_order[target]=key;
+return true;
+}
+
+void inventory_request_transfer_targets()
+{
+inventory_transfer_targets.resize(0);inventory_transfer_targets_received=false;send_reliable(0,"inventory_transfer_targets",0);timer request_timer;
+while(connected and !inventory_transfer_targets_received and request_timer.elapsed<2500){wait(5);netloop();}
+}
+
+void inventory_give_to_nearby_player(string item)
+{
+if(string_contains(item,"__partial__",1)==0){speak("Partial ammunition containers cannot be transferred directly.");return;}
+inventory_request_transfer_targets();if(!inventory_transfer_targets_received){speak("The server did not return nearby players.");return;}if(inventory_transfer_targets.length()==0){speak("There are no players within ten tiles.");return;}
+nv_form f;f.create_window("Give "+string_replace(item,"_"," ",true),false,true);nv_form_list_box@ people=f.add_list("Players within ten tiles","players");for(uint i=0;i<inventory_transfer_targets.length();i++)people.add(inventory_transfer_targets[i],inventory_transfer_targets[i]);nv_form_button@ give_button=f.add_button("Give one item","give",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);f.focus_control(people);
+while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(give_button)){int selected=people.list_position;if(selected<0 or selected>=int(inventory_transfer_targets.length())){speak("Select a player first.");continue;}send_reliable(0,"inventory_transfer "+inventory_transfer_targets[selected]+" "+item,0);return;}}
 }
 void cycle_inv(int dir)
 {
@@ -164,7 +205,7 @@ string display_name;
 if (is_weapon(key))
 display_name = get_weapon_display_name(key);
 else
-display_name = string_replace(key, "_", " ", true);
+{int content_index=content_find(key);display_name=content_index>=0?content_database[content_index].display_name:string_replace(key, "_", " ", true);}
 if (is_ammo_container(key))
 speak(display_name + " (" + a + "). " + (invpos+1) + " of " + filtered.length());
 else if(a==1)

@@ -15,7 +15,7 @@ return 0;
 
 void cfu(string legacy_name,string legacy_archive)
 {
-string local_version=updater_read_text(SCRIPT_MAIN_PATH+"/version.txt");if(local_version=="")local_version="0.5.0.5";
+string local_version=updater_read_text(SCRIPT_MAIN_PATH+"/version.txt");if(local_version=="")local_version="0.5.0.6";
 speak("Checking GitHub for updates.");string latest=url_get(IW_GITHUB_VERSION).trim_whitespace();
 if(latest=="" or string_contains(latest,"html",1)>=0 or string_contains(latest," ",1)>=0 or latest.length()>32){dlg("Unable to read version.txt from the Infinite Warfare GitHub repository.");return;}
 int comparison=updater_compare_versions(local_version,latest);

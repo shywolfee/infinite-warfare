@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Infinite Warfare 0.5.0.5 Manual</title>
+<title>Infinite Warfare 0.5.0.6 Manual</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1118;--panel:#121b25;--line:#2b3b4d;--text:#e4edf6;--muted:#aab9c8;--accent:#75bfff;--accent2:#a8d7ff;--warn:#ffd479}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{max-width:1120px;margin:auto;padding:1.5rem;font:1rem/1.58 system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -18,7 +18,7 @@ ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size
 <body>
 <header>
 <h1>Infinite Warfare</h1>
-<p><span class="badge">Version 0.5.0.5 · Build 78</span></p>
+<p><span class="badge">Version 0.5.0.6 · Build 79</span></p>
 <p>An online, audio-first action game built with NVGT. The world, combat, interfaces, maps, vehicles, and communication systems are designed for nonvisual play on Windows and Android.</p>
 <p class="small">Manual synchronized with the live code and content database on August 31, 2026.</p>
 </header>
@@ -65,7 +65,7 @@ ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size
 
 <section id="controls">
 <h2>3. Default controls</h2>
-<p>Most actions are rebindable under <strong>Options → Controls → Open key binding editor</strong>. Keymaps are named profiles stored in the game's local application-data folder; duplicate names and unchanged or identical profiles are rejected.</p>
+<p>Most actions are rebindable under <strong>Options → Keyboard → Open key binding editor</strong>. Keymaps are named profiles stored in the game's local application-data folder; duplicate names and unchanged or identical profiles are rejected.</p>
 <div class="table"><table>
 <tr><th>Area</th><th>Defaults</th></tr>
 <tr><td>Movement</td><td><kbd>Arrows</kbd> move; hold <kbd>Shift</kbd> to sprint; <kbd>Space</kbd> jumps; <kbd>Alt+Z</kbd> sits or stands; <kbd>Page Up</kbd>/<kbd>Page Down</kbd> move vertically where supported. Momentum, gravity, stamina, equipment weight, posture, and wielded weapon affect the physical result.</td></tr>
@@ -73,7 +73,7 @@ ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size
 <tr><td>Core combat</td><td><kbd>Ctrl</kbd> fires; <kbd>R</kbd> reloads; <kbd>Shift+R</kbd> unloads; <kbd>A</kbd> reports ammunition; <kbd>Shift+A</kbd> changes fire mode; <kbd>Alt+R</kbd> cycles compatible ammunition; <kbd>Alt+A</kbd> opens the drawn weapon panel.</td></tr>
 <tr><td>Manual-fed weapons</td><td><kbd>Alt+Y</kbd> opens or closes the action; <kbd>Alt+I</kbd> inserts one selected round; <kbd>Alt+Shift+Y</kbd> cycles a closed action; <kbd>Alt+Shift+G</kbd> ejects ammunition while open.</td></tr>
 <tr><td>Weapon systems</td><td><kbd>Alt+N</kbd> operates the class-specific control; <kbd>Alt+Shift+N</kbd> services, cleans, or vents; <kbd>Alt+Shift+A</kbd> inspects handling state.</td></tr>
-<tr><td>Inventory</td><td><kbd>I</kbd> opens inventory; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> cycle items; <kbd>K</kbd>/<kbd>Shift+K</kbd> cycle only nonempty categories; <kbd>Enter</kbd> uses; <kbd>Alt+Enter</kbd> opens dynamic help; <kbd>Alt+number</kbd> assigns a quickbar slot; number activates it.</td></tr>
+<tr><td>Inventory</td><td><kbd>I</kbd> opens inventory; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> cycle items; <kbd>K</kbd>/<kbd>Shift+K</kbd> cycle only nonempty categories. In the inventory menu, <kbd>Alt+Up/Down</kbd> reorders by one, <kbd>Alt+Home/End</kbd> moves first or last, <kbd>Space</kbd> gives one to a player within ten tiles, and <kbd>Backspace</kbd> drops one seven tiles ahead. <kbd>Shift+Enter</kbd> uses and <kbd>Alt+Enter</kbd> opens dynamic help.</td></tr>
 <tr><td>Item mechanics</td><td><kbd>Alt+Shift+M</kbd> changes configuration or medication dose; <kbd>Alt+Shift+K</kbd> inspects mechanics and recommendations; <kbd>Alt+Shift+P</kbd> removes one pill from a bottle.</td></tr>
 <tr><td>Information</td><td><kbd>H</kbd> health; <kbd>V</kbd> stamina/effects; <kbd>Alt+B</kbd> buffs and debuffs; <kbd>F</kbd> facing; <kbd>C</kbd> coordinates; <kbd>B</kbd> zone; <kbd>M</kbd> nearby items; <kbd>P</kbd> nearby players; <kbd>J</kbd> points of interest; <kbd>W</kbd> tracking information.</td></tr>
 <tr><td>Server information</td><td><kbd>F1</kbd> players; <kbd>F2</kbd> message of the day; <kbd>F3</kbd> ping statistics; <kbd>F4</kbd> uptime and traffic.</td></tr>
@@ -103,7 +103,8 @@ ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size
 <p>The content database is shared by inventory, dynamic help, the armoury, developer grants, starting kits, and “give all.” Individual content is not duplicated in this manual because it changes with the database.</p>
 <p>Inventory categories include Weapons, Ammo, Explosives, Healing, Armour, Armour Repair, Weapon Maintenance, Vehicle Supplies, Attachments, Holsters, Team, Tools, Electronics, Containers, and Equipment. A category participates in navigation only while it contains an item.</p>
 <p>Equipment has dedicated holster, utility, medical, bracelet, head, torso, arm, and leg slots. One armour piece occupies each applicable location. Only armour covering the body part actually struck mitigates that hit. Durability, weight, and movement penalties are authoritative. Compatible patches restore a limited amount without rebuilding destroyed armour.</p>
-<p>Equipment such as the Biomonitor Bracelet and WireNet exposes a quickbar ability instead of consuming a hardcoded key. The <kbd>Shift+I</kbd> manager shows the ability, source equipment, description, cooldown or charges, and allows slot movement.</p>
+<p>Equipment such as the Biomonitor Bracelet and WireNet exposes a quickbar ability instead of consuming a hardcoded key. The <kbd>Shift+I</kbd> manager shows the ability, source equipment, description, cooldown or charges, allows slot movement, can clear the current session's assignments, and can intelligently rank and bind the best available melee weapon, sidearm, primaries, explosives, recovery choices, and practical equipment with an explanation of every slot.</p>
+<p>The four energy drinks are not instant stamina buttons. Drinking takes 1.8 seconds and accumulates a colour- and dose-specific stimulant load. The load metabolizes with time; stacking strong servings schedules a delayed stamina and movement crash, while smaller servings spaced apart are substantially safer.</p>
 <p>Healing medications use measured liquid quantities or pill counts, recommended doses, duration, toxicity, and overdose rules. Explosives, deployables, electronics, containers, tools, maintenance supplies, armour patches, and vehicle supplies retain their own configurations, timers, requirements, and failure cases.</p>
 </section>
 
@@ -143,7 +144,7 @@ ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size
 </ul>
 <p>Voice settings provide enable/disable, push-to-talk versus toggle, self-monitoring, input and output device selection, isolated microphone testing, and low (16 kbps), standard (24 kbps), or high (48 kbps) quality.</p>
 <h3>Windows voice commands</h3>
-<p>Voice commands are separate from live voice chat and are opt-in under <strong>Options → Controls</strong>. Set a distinctive wake phrase; the default is <em>Infinite Warfare</em>. Say only the wake phrase first. A rising cue and “Listening” confirm that the command window is open. Then say status, health, ammunition, inventory, nearby items, points of interest, next buffer, previous buffer, or repeat message. A closing tone marks the end of capture, and a separate notification tone means the command is being processed. If no command is heard within seven seconds, a closing cue and spoken timeout return the recognizer to wake-phrase mode. Commands cannot fire weapons, use items, transmit chat, or perform destructive actions.</p>
+<p>Voice commands are separate from live voice chat and are opt-in under <strong>Options → Voice</strong>. Set a distinctive wake phrase; the default is <em>Infinite Warfare</em>. Say only the wake phrase first, or press the rebindable <kbd>Ctrl+Shift+F9</kbd> default to listen immediately. A rising cue and “Listening” confirm that the command window is open. Then say status, health, ammunition, inventory, nearby items, points of interest, next buffer, previous buffer, or repeat message. A closing tone marks the end of capture, and a separate notification tone means the command is being processed. If no command is heard within seven seconds, a closing cue and spoken timeout return the recognizer to wake-phrase mode. Commands cannot fire weapons, use items, transmit chat, or perform destructive actions.</p>
 </section>
 
 <section id="options">
@@ -153,11 +154,13 @@ ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size
 <div class="table"><table>
 <tr><th>Category</th><th>Settings</th></tr>
 <tr><td>Gameplay</td><td>Target HP, damage readout, automatic starting quickbar binding, and automatic replacement of an occupied attachment slot.</td></tr>
-<tr><td>Interface</td><td>Account and menu behavior, Windows notifications and tray integration, notification testing, and first-boot setup.</td></tr>
-<tr><td>Controls</td><td>Keyboard and gesture configuration, touch testing, mouse buffer shortcuts, and wake-phrase Windows voice commands.</td></tr>
-<tr><td>Display</td><td>Full-screen low-vision landscape presentation, large contextual icons and text, textual status, mouse confinement, touch keyboard, touch bands, and explore by touch.</td></tr>
+<tr><td>Interface and Account</td><td>Menu behavior, audio-form feedback, buffer export, first-boot setup, and saved-account behavior.</td></tr>
+<tr><td>Keyboard and Touch</td><td>Keymap editing, Right Control, gesture bindings and practice, touch keyboard mode, full-screen bands, explore by touch, and Android orientation.</td></tr>
+<tr><td>Mouse</td><td>Back/forward buffer navigation, pointer confinement, wheel inventory cycling, independent horizontal turn and vertical aim sensitivity, and vertical inversion.</td></tr>
+<tr><td>Display</td><td>Full-screen low-vision landscape presentation and large contextual icons and text.</td></tr>
+<tr><td>Notifications and Voice</td><td>Windows notifications and tray integration, notification testing, live voice-chat configuration, wake-phrase voice control, and its rebindable direct-listening shortcut.</td></tr>
 <tr><td>Network</td><td>Server address and port, plus a source/developer server manager with permanent localhost entry.</td></tr>
-<tr><td>Audio</td><td>Voice settings, own projectile loops/flybys, audio-form feedback, reverb, occlusion, and separate master, gameplay, world, interface, and notification mixers from −60 to 0 dB.</td></tr>
+<tr><td>Audio</td><td>Own projectile loops and flybys, reverb, occlusion, Windows application volume, and separate master, gameplay, world, interface, and notification mixers from −60 to 0 dB.</td></tr>
 </table></div>
 <p>Environmental reverb uses room type, volume, and material. Occlusion traces walls and authored portals separately and can be disabled without disabling reverb.</p>
 <p>The optional low-vision layer supplements the audio game. It uses a near-black background, oversized high-contrast control-type symbols, large focused labels, a stable layout, and compact map and coordinate context. Audio forms update it as focus moves. Enabling it also enables full-screen landscape presentation.</p>

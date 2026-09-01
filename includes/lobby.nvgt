@@ -16,12 +16,40 @@ timer lobby_keepalive_timer;
 bool lobby_typing_chat=false;
 bool player_profile_received=false;
 string player_profile_text="";
+bool server_accounts_list_received=false;
+bool server_account_detail_received=false;
+string[] server_account_names;
+string server_account_detail_text="";
+string server_accounts_error="";
 
 string player_name_from_list_label(string label)
 {int dash=string_contains(label," - ",1);if(dash>0)label=string_left(label,dash);int flags=string_contains(label," (",1);if(flags>0)label=string_left(label,flags);return label.trim_whitespace();}
 
 void receive_player_profile(string message)
 {player_profile_text=string_replace(string_replace(message,"player_profile_response ","",false),"<<NL>>","\n",true);player_profile_received=true;}
+
+void receive_server_accounts(string message)
+{
+if(string_contains(message,"accounts_error ",1)==0){server_accounts_error=string_replace(message,"accounts_error ","",false);server_accounts_list_received=true;server_account_detail_received=true;return;}
+if(string_contains(message,"accounts_list_response",1)==0){server_account_names.resize(0);string data=string_replace(message,"accounts_list_response","",false).trim_whitespace();if(data!="")server_account_names=string_split(data,"|",true);server_accounts_list_received=true;return;}
+if(string_contains(message,"account_detail_response ",1)==0){server_account_detail_text=string_replace(string_replace(message,"account_detail_response ","",false),"<<NL>>","\n",true);server_account_detail_received=true;}
+}
+
+void server_accounts_network_pump(){if(mapname=="main")lobby_form_netcheck();else netloop(false);}
+
+void show_server_accounts()
+{
+server_accounts_list_received=false;server_accounts_error="";server_account_names.resize(0);send_reliable(0,"accounts_list",0);timer request;
+while(connected and !server_accounts_list_received and request.elapsed<4000){wait(5);server_accounts_network_pump();}
+if(server_accounts_error!=""){speak(server_accounts_error);return;}if(!server_accounts_list_received){speak("The account list request timed out.");return;}if(server_account_names.length()==0){speak("There are no registered accounts.");return;}
+nv_form f;f.create_window("Server accounts",false,true);nv_form_list_box@ accounts=f.add_list("Registered accounts","accounts");for(uint i=0;i<server_account_names.length();i++)accounts.add(server_account_names[i],server_account_names[i]);nv_form_button@ view=f.add_button("View selected account","view",true);nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(accounts);
+while(true){wait(5);f.monitor();if(connected)server_accounts_network_pump();if(f.is_pressed(close))return;if(f.is_pressed(view)){int selected=accounts.list_position;if(selected<0 or selected>=int(server_account_names.length())){speak("Select an account first.");continue;}server_account_detail_received=false;server_account_detail_text="";server_accounts_error="";send_reliable(0,"account_detail "+server_account_names[selected],0);timer detail_request;while(connected and !server_account_detail_received and detail_request.elapsed<4000){wait(5);server_accounts_network_pump();}if(server_accounts_error!="")speak(server_accounts_error);else if(!server_account_detail_received)speak("The account detail request timed out.");else show_readonly_audio_form(server_account_names[selected]+" account",server_account_detail_text);}}
+}
+
+void send_global_chat_or_command(string text)
+{
+text=text.trim_whitespace();if(text=="")return;if(string_to_lower_case(text)=="/accounts")show_server_accounts();else send_reliable(0,text,1);
+}
 
 void show_player_profile(string selected_name)
 {
@@ -53,7 +81,7 @@ return;
 if (chat_form.is_pressed(send))
 {
 string text=message.text.trim_whitespace();
-if (text!="") send_reliable(0, text, 1);
+if (text!="") send_global_chat_or_command(text);
 lobby_typing_chat=false;
 return;
 }
@@ -94,7 +122,10 @@ void lobby_form_netcheck()
 if (lobby_keepalive_timer.elapsed>3000)
 {
 lobby_keepalive_timer.restart();
-send_reliable(0, "lobby_keepalive", 0);
+// Channel 19 is reserved for silent transport health checks.  Keeping this
+// traffic away from gameplay/chat channels prevents it surfacing as a user
+// packet while still allowing forms to detect a dead connection.
+send_reliable(0, "transport_ping", 19);
 }
 e=n.request();
 if (e.type==event_disconnect or (connected and last_server_msg.elapsed>8000))
@@ -114,7 +145,11 @@ if (e.type==event_receive)
 {
 last_server_msg.restart();
 string msg=get_event_message();
-if (e.channel==1)
+if (e.channel==19)
+{
+// Transport acknowledgements deliberately have no UI or buffer presence.
+}
+else if (e.channel==1)
 {
 p.play_stationary("chat.ogg", false);
 add_buffer_item("chats", msg);
@@ -137,6 +172,8 @@ else if (string_contains(msg, "server_status ", 1)==0)
 speak(string_replace(msg, "server_status ", "", false));
 else if(string_contains(msg,"player_profile_response ",1)==0)
 receive_player_profile(msg);
+else if(string_contains(msg,"accounts_list_response",1)==0 or string_contains(msg,"account_detail_response ",1)==0 or string_contains(msg,"accounts_error ",1)==0)
+receive_server_accounts(msg);
 else if (msg=="ping" and pinging)
 {
 p.play_stationary("pingstop.ogg", false);

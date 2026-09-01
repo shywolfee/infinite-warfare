@@ -11,6 +11,7 @@ int voice_quality=1; // 0 low, 1 standard, 2 high
 // Empty means ordinary positional voice. Named rooms are exclusive and
 // non-positional; the player must leave one before entering another.
 string voice_room="";
+string voice_room_pending="";
 microphone@ voice_microphone=null;
 audio_opus_encoder@ voice_encoder=null;
 timer voice_frame_timer;
@@ -92,6 +93,7 @@ string payload=string_mid(packet,cursor,packet.length()-cursor);
 if(payload=="") return;
 voice_playback_stream@ entry=voice_get_stream(fields[1]);
 for(int i=int(entry.clips.length())-1;i>=0;i--) if(!entry.clips[i].active) entry.clips.remove_at(i);
+while(entry.clips.length()>=8){if(entry.clips[0].active)entry.clips[0].stop();entry.clips.remove_at(0);}
 sound@ clip=sound();
 if(!clip.load_memory(payload)) return;
 if(fields[2]=="local")
@@ -110,8 +112,10 @@ clip.play(); entry.clips.insert_last(clip);
 
 void voice_send_room_state()
 {
-if(connected) send_reliable(0,"voice_join "+(voice_room==""?"local":voice_room),7);
+if(connected) send_reliable(0,"voice_join "+(voice_room_pending==""?"local":voice_room_pending),7);
 }
+
+string voice_route_component(string value){value=string_to_lower_case(value.trim_whitespace());value=string_replace(value," ","_",true);value=string_replace(value,":","_",true);value=string_replace(value,"/","_",true);value=string_replace(value,"\\","_",true);return value;}
 
 void voice_chat_loop()
 {
@@ -167,7 +171,7 @@ nv_form_input@ status=f.add_input("Current voice routing","status",voice_room=="
 nv_form_list_box@ rooms=f.add_list("Available non-positional rooms","voice_rooms");
 rooms.add("Non-positional current map room","map:"+mapname);
 rooms.add("Team voice room","team");
-rooms.add("Current text channel room: "+buffers[bufferpos].name,"channel:"+buffers[bufferpos].name);
+rooms.add("Current text channel room: "+buffers[bufferpos].name,"channel:"+voice_route_component(buffers[bufferpos].name));
 rooms.add("Private-message voice room","private");
 nv_form_button@ join=f.add_button(voice_room==""?"Enter selected room":"Leave current room","join",true);
 nv_form_button@ close=f.add_button("Cancel","cancel",false,true); f.focus_control(rooms);
@@ -177,7 +181,7 @@ wait(5); f.monitor(); if(connected) netloop();
 if(f.is_pressed(close)) { voice_settings_open=false; return; }
 if(f.is_pressed(join))
 {
-if(voice_room!=""){string old_room=voice_room;voice_room="";voice_send_room_state();p.play_stationary("modeleave.ogg",false);speak("Left "+old_room+". Positional voice restored.");voice_settings_open=false;return;}
+if(voice_room!=""){voice_room_pending="";voice_send_room_state();speak("Requesting positional voice.");voice_settings_open=false;return;}
 if(rooms.list_position<0){speak("Select a room first.");continue;}
 string selected=rooms.items[rooms.list_position].id;
 if(selected=="private")
@@ -187,7 +191,7 @@ if(target=="") { voice_settings_open=false; return; }
 string a=string_to_lower_case(name), b=string_to_lower_case(target);
 selected=(a<b ? "private:"+a+":"+b : "private:"+b+":"+a);
 }
-voice_room=selected; voice_send_room_state();p.play_stationary("modeenter.ogg",false); speak("Entered "+rooms.items[rooms.list_position].text+". Leave this room before entering another."); voice_settings_open=false; return;
+voice_room_pending=selected; voice_send_room_state();speak("Requesting "+rooms.items[rooms.list_position].text+"."); voice_settings_open=false; return;
 }
 }
 }

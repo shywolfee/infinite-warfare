@@ -55,6 +55,21 @@ if (_kb_act_names[i]==action) return _kb_act_binds[i];
 return -1;
 }
 
+int kb_current_modifiers()
+{
+int modifiers=0;
+if(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))modifiers|=KEYMOD_SHIFT;
+if(key_down(KEY_LMENU) or key_down(KEY_RMENU))modifiers|=KEYMOD_ALT;
+if(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL))modifiers|=KEYMOD_CTRL;
+return modifiers;
+}
+
+bool kb_action_pressed(string action)
+{
+for(uint i=0;i<_kb_act_names.length();i++)if(_kb_act_names[i]==action)return key_pressed(_kb_act_binds[i]) and kb_current_modifiers()==_kb_act_modifiers[i];
+return false;
+}
+
 string kb_key_to_name(int code)
 {
 for (uint i=0; i<_kb_key_codes.length(); i++)
@@ -214,6 +229,7 @@ _kb_reg_action("voice_room", "Enter or leave a voice room", KEY_V, KEYMOD_SHIFT)
 _kb_reg_action("voice_hear_self", "Toggle hearing your own voice", KEY_O, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("voice_settings", "Open voice chat settings", KEY_F7, KEYMOD_SHIFT);
 _kb_reg_action("voice_ptt_mode", "Toggle push-to-talk or latched voice mode", KEY_F8, KEYMOD_SHIFT);
+_kb_reg_action("voice_control", "Start Windows voice-command listening", KEY_F9, KEYMOD_CTRL|KEYMOD_SHIFT);
 _kb_reg_action("effects_read", "Read buffs and debuffs", KEY_B, KEYMOD_ALT);
 _kb_reg_action("dev_poi_teleport", "Developer POI teleport", KEY_J, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("packet_monitor", "Toggle developer packet reporting", KEY_F10, KEYMOD_SHIFT);

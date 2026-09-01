@@ -18,28 +18,7 @@ int f_allopen=-1;
 // Request admin/dev status from server so we can show the admin option.
 send_reliable(0, "ticket_check_role", 0);
 bool is_staff=false;
-timer rt;
-while(rt.elapsed<2000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="ticket_role_staff")
-{
-is_staff=true;
-break;
-}
-else if(msg=="ticket_role_player")
-break;
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string role_response;if(wait_for_service_response("ticket_role_",role_response,2000))is_staff=role_response=="ticket_role_staff";
 if(is_staff)
 f_allopen=f.create_button("View &all open tickets (Staff)");
 int f_close=f.create_button("Go &back", false, true);
@@ -107,31 +86,15 @@ continue;
 }
 // Encode newlines and pipes so we can send as a single message.
 subj=string_replace(subj, "|", "/", true);
+subj=string_replace(subj, "~", "-", true);
+subj=string_replace(subj, ",", ";", true);
 subj=string_replace(subj, "\n", " ", true);
 body=string_replace(body, "|", "/", true);
+body=string_replace(body, "~", "-", true);
 body=string_replace(body, "\n", "<<NL>>", true);
 send_reliable(0, "ticket_create "+name+"|"+subj+"|"+body, 0);
 string result="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "ticket_created", 1)==0)
-{
-result=msg;
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+wait_for_service_response("ticket_created",result,3000);
 if(result!="")
 {
 p.play_stationary("ticket_open.ogg",false);
@@ -159,26 +122,7 @@ void support_view_my_tickets(string filter)
 speak("Loading tickets, please wait.");
 send_reliable(0, "ticket_list_my "+name+"|"+filter, 0);
 string data="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "ticket_mylist ", 1)==0)
-{
-data=string_replace(msg, "ticket_mylist ", "", false);
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string list_response;if(wait_for_service_response("ticket_mylist ",list_response,3000))data=string_replace(list_response,"ticket_mylist ","",false);
 iw_form f;
 string title=(filter=="open" ? "My Open Tickets" : "My Closed Tickets");
 f.create_window(title, false, true);
@@ -233,26 +177,7 @@ void support_view_all_tickets()
 speak("Loading all open tickets, please wait.");
 send_reliable(0, "ticket_list_all", 0);
 string data="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "ticket_alllist ", 1)==0)
-{
-data=string_replace(msg, "ticket_alllist ", "", false);
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string all_response;if(wait_for_service_response("ticket_alllist ",all_response,3000))data=string_replace(all_response,"ticket_alllist ","",false);
 iw_form f;
 f.create_window("All Open Tickets", false, true);
 int f_list=f.create_list("Tickets", 0, false);
@@ -306,26 +231,7 @@ void support_view_ticket(string ticket_id, bool is_staff)
 speak("Loading ticket, please wait.");
 send_reliable(0, "ticket_get "+ticket_id, 0);
 string data="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "ticket_data ", 1)==0)
-{
-data=string_replace(msg, "ticket_data ", "", false);
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string ticket_response;if(wait_for_service_response("ticket_data ",ticket_response,3000))data=string_replace(ticket_response,"ticket_data ","",false);
 if(data=="" or data=="not_found")
 {
 dlg("Ticket not found.");
@@ -402,19 +308,8 @@ else
 {
 // Player can close without reason.
 send_reliable(0, "ticket_close "+ticket_id+"|"+name+"|none", 0);
-timer ct;
-while(ct.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="ticket_closed"){p.play_stationary("ticketclose.ogg",false);break;}
-}
-if(e.type==event_disconnect) break;
-}
-dlg("Ticket closed.");
+string close_response;bool closed=wait_for_service_response("ticket_closed",close_response,3000);if(closed)p.play_stationary("ticketclose.ogg",false);
+dlg(closed?"Ticket closed.":"The ticket was not closed. It may have changed or you may no longer have permission.");
 support_menu();
 }
 return;
@@ -455,19 +350,8 @@ reply=string_replace(reply, "|", "/", true);
 reply=string_replace(reply, "~", "-", true);
 reply=string_replace(reply, "\n", "<<NL>>", true);
 send_reliable(0, "ticket_reply "+ticket_id+"|"+name+"|"+reply, 0);
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="ticket_replied") break;
-}
-if(e.type==event_disconnect) break;
-}
-dlg("Reply sent.");
+string reply_response;bool replied=wait_for_service_response("ticket_replied",reply_response,3000);
+dlg(replied?"Reply sent.":"The reply was not accepted.");
 support_view_ticket(ticket_id, is_staff);
 return;
 }
@@ -507,19 +391,8 @@ reason=string_replace(reason, "|", "/", true);
 reason=string_replace(reason, "~", "-", true);
 reason=string_replace(reason, "\n", "<<NL>>", true);
 send_reliable(0, "ticket_close "+ticket_id+"|"+name+"|"+reason, 0);
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="ticket_closed"){p.play_stationary("ticketclose.ogg",false);break;}
-}
-if(e.type==event_disconnect) break;
-}
-dlg("Ticket closed.");
+string staff_close_response;bool closed=wait_for_service_response("ticket_closed",staff_close_response,3000);if(closed)p.play_stationary("ticketclose.ogg",false);
+dlg(closed?"Ticket closed.":"The ticket was not closed.");
 support_menu();
 return;
 }

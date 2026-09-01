@@ -76,14 +76,14 @@ if(fraggrenades[i].bounces>=4 or (absolute(fraggrenades[i].vz)<.45 and absolute(
 }
 else fraggrenades[i].z=nz;
 }
-if(fraggrenades[i].audio_id>=0 and fraggrenades[i].audio_update_timer.elapsed>=50){fraggrenades[i].audio_update_timer.restart();send_unreliable(0,"projectile_audio_move "+fraggrenades[i].audio_id+" "+fraggrenades[i].x+" "+fraggrenades[i].y+" "+fraggrenades[i].z+" "+fraggrenades[i].map,0);}
+if(fraggrenades[i].audio_id>=0 and fraggrenades[i].audio_update_timer.elapsed>=50){fraggrenades[i].audio_update_timer.restart();send_unreliable_map(fraggrenades[i].map,"projectile_audio_move "+fraggrenades[i].audio_id+" "+fraggrenades[i].x+" "+fraggrenades[i].y+" "+fraggrenades[i].z+" "+fraggrenades[i].map,0);}
 }
-if(fraggrenades[i].landed and fraggrenades[i].audio_id>=0){send_reliable(0,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades[i].audio_id=-1;}
+if(fraggrenades[i].landed and fraggrenades[i].audio_id>=0){send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades[i].audio_id=-1;}
 if (fraggrenades[i].explodetimer.elapsed>=fraggrenades[i].fuse or (fraggrenades[i].kind=="impact_grenade" and fraggrenades[i].bounces>0))
 {
-if(fraggrenades[i].audio_id>=0)send_reliable(0,"projectile_audio_stop "+fraggrenades[i].audio_id,0);
+if(fraggrenades[i].audio_id>=0)send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);
 play(fraggrenades[i].kind=="frag_grenade"?"fraggrenadeexplode":fraggrenades[i].kind+"_explode",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
-string distant=fraggrenades[i].kind=="frag_grenade"?"fraggrenadedist.ogg":fraggrenades[i].kind+"_dist.ogg";send_reliable(0,"distsound "+distant+" "+fraggrenades[i].x+" "+fraggrenades[i].y+" "+fraggrenades[i].z+" "+fraggrenades[i].map,0);
+string distant=fraggrenades[i].kind=="frag_grenade"?"fraggrenadedist.ogg":fraggrenades[i].kind+"_dist.ogg";send_distant_sound(fraggrenades[i].map,distant,int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),35);
 for (uint i2=0; i2<players.length(); i2++)
 {
 double blast_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[i2].x,players[i2].y,players[i2].z);
@@ -127,7 +127,7 @@ continue;
 void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int delivery=1,int cooked_ms=0)
 {
 fraggrenade e1(x,y,z,dir,map,owner,kind,true,delivery,cooked_ms);
-e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();send_reliable(0,"projectile_audio_start "+e1.audio_id+" "+kind+"_flight_loop.ogg "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map,0);
+e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+kind+"_flight_loop.ogg "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
 fraggrenades.insert_last(e1);
 }
 

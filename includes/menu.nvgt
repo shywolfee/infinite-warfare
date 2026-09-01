@@ -1315,8 +1315,13 @@ nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Categories", "categories", tr
 f.add_control(tabs);
 nv_form_tab_page@ gameplay=tabs.add_tab_page("Gameplay");
 nv_form_tab_page@ interface_page=tabs.add_tab_page("Interface");
-nv_form_tab_page@ controls_page=tabs.add_tab_page("Controls");
+nv_form_tab_page@ account_page=tabs.add_tab_page("Account");
+nv_form_tab_page@ keyboard_page=tabs.add_tab_page("Keyboard");
+nv_form_tab_page@ touch_page=tabs.add_tab_page("Touch");
+nv_form_tab_page@ mouse_page=tabs.add_tab_page("Mouse");
 nv_form_tab_page@ display_page=tabs.add_tab_page("Display");
+nv_form_tab_page@ notifications_page=tabs.add_tab_page("Notifications");
+nv_form_tab_page@ voice_page=tabs.add_tab_page("Voice");
 nv_form_tab_page@ network_page=tabs.add_tab_page("Network");
 nv_form_tab_page@ audio_page=tabs.add_tab_page("Audio");
 
@@ -1324,36 +1329,40 @@ nv_form_checkbox@ f_target_hp=gameplay.add_checkbox("Show target HP on hit", "ta
 nv_form_checkbox@ f_damage_readout=gameplay.add_checkbox("Show damage readout on hit", "damage", show_damage_readout);
 nv_form_checkbox@ f_auto_quickbar=gameplay.add_checkbox("Automatically bind starting weapons and items to the quickbar", "auto_quickbar", auto_bind_starting_loadout);
 nv_form_checkbox@ f_replace_attachments=gameplay.add_checkbox("Replace an attachment when its slot is already occupied", "replace_attachments", replace_occupied_attachments);
-nv_form_checkbox@ f_remember=interface_page.add_checkbox("Remember me; save account on exit", "remember", remember_me);
+nv_form_checkbox@ f_remember=account_page.add_checkbox("Remember me; save account on exit", "remember", remember_me);
 nv_form_checkbox@ f_wrap=interface_page.add_checkbox("Wrap around at menu edges", "wrap", menu_wrap_enabled);
 nv_form_checkbox@ f_autolog=interface_page.add_checkbox("Automatically export message buffers on exit", "autolog", auto_log_buffers);
 nv_form_checkbox@ f_classic_menu=interface_page.add_checkbox("Use classic single-list main menu", "classic_menu", classic_main_menu);
-nv_form_checkbox@ f_helper_notifications=interface_page.add_checkbox("Show Windows notifications for private messages, tickets, and server events", "helper_notifications", helper_desktop_notifications);
-nv_form_checkbox@ f_helper_tray=interface_page.add_checkbox("Add Windows tray controls for show, hide, and mute", "helper_tray", helper_tray_controls);
-nv_form_button@ f_test_notification=interface_page.add_button("Test Windows desktop notifications", "test_notification");
-nv_form_checkbox@ f_rctrl=controls_page.add_checkbox("Right Control detection", "rctrl", rctrl==1);
-nv_form_checkbox@ f_touch=controls_page.add_checkbox("Simulate Android touch mode for gesture testing", "touch", touch_force_enabled);
-nv_form_checkbox@ f_practice_band=controls_page.add_checkbox("Announce screen band in gesture practice mode", "practice_band", gesture_practice_speak_band);
-nv_form_checkbox@ f_helper_voice=controls_page.add_checkbox("Enable Windows voice commands", "helper_voice", helper_voice_commands);
-nv_form_input@ f_voice_wake=controls_page.add_input("Voice-command wake phrase", "voice_wake", helper_voice_wake_phrase);
-nv_form_checkbox@ f_helper_mouse=controls_page.add_checkbox("Use mouse back and forward buttons to change message buffers", "helper_mouse", helper_mouse_shortcuts);
-nv_form_button@ f_keybinds=controls_page.add_button("Open key binding editor", "keybinds");
-nv_form_button@ f_gestures=controls_page.add_button("View Android touch gestures", "gestures");
-nv_form_button@ f_gesture_bindings=controls_page.add_button("Configure and reset Android gesture bindings", "gesture_bindings");
+nv_form_checkbox@ f_form_sounds=interface_page.add_checkbox("Play menu navigation and activation sounds in audio forms", "form_sounds", audio_form_sound_feedback);
+nv_form_checkbox@ f_rctrl=keyboard_page.add_checkbox("Right Control detection", "rctrl", rctrl==1);
+nv_form_button@ f_keybinds=keyboard_page.add_button("Open key binding editor", "keybinds");
+nv_form_checkbox@ f_touch=touch_page.add_checkbox("Simulate Android touch mode for gesture testing", "touch", touch_force_enabled);
+nv_form_checkbox@ f_practice_band=touch_page.add_checkbox("Announce screen band in gesture practice mode", "practice_band", gesture_practice_speak_band);
+nv_form_checkbox@ f_touch_keyboard=touch_page.add_checkbox("Use the Infinite Warfare touch keyboard instead of the system keyboard", "touch_keyboard", touch_keyboard_enabled);
+nv_form_checkbox@ f_analogue_keyboard=touch_page.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue_keyboard", touch_keyboard_analogue);
+nv_form_checkbox@ f_pc_touch_bands=touch_page.add_checkbox("Expand all touch bands across the full laptop screen; enables touch mode and full screen", "pc_touch_bands", touch_pc_fullscreen_bands);
+nv_form_checkbox@ f_touch_explore=touch_page.add_checkbox("Explore menu and audio-form controls by holding, then dragging", "touch_explore", touch_menu_explore_enabled);
+nv_form_checkbox@ f_touch_portrait=touch_page.add_checkbox("Android portrait orientation; gesture bands run left to right", "touch_portrait", touch_portrait_mode);
+nv_form_button@ f_gestures=touch_page.add_button("View Android touch gestures", "gestures");
+nv_form_button@ f_gesture_bindings=touch_page.add_button("Configure and reset Android gesture bindings", "gesture_bindings");
+nv_form_checkbox@ f_helper_mouse=mouse_page.add_checkbox("Use mouse back and forward buttons to change message buffers", "helper_mouse", helper_mouse_shortcuts);
+nv_form_checkbox@ f_helper_confine=mouse_page.add_checkbox("Confine the mouse pointer while the game is focused", "helper_confine", helper_mouse_confined);
+nv_form_checkbox@ f_mouse_wheel=mouse_page.add_checkbox("Use the mouse wheel to cycle inventory items", "mouse_wheel", helper_mouse_wheel_inventory);
+nv_form_checkbox@ f_mouse_invert=mouse_page.add_checkbox("Invert vertical mouse aiming", "mouse_invert", helper_mouse_invert_vertical);
+nv_form_input@ f_mouse_turn=mouse_page.add_input("Horizontal turn sensitivity, 10 to 300 percent", "mouse_turn", ""+helper_mouse_turn_sensitivity);
+nv_form_input@ f_mouse_aim=mouse_page.add_input("Vertical aim sensitivity, 10 to 300 percent", "mouse_aim", ""+helper_mouse_aim_sensitivity);
 nv_form_checkbox@ f_fullscreen=display_page.add_checkbox("Full-screen low-vision landscape presentation; occupies the focused display", "fullscreen", fullscreen_enabled);
 nv_form_checkbox@ f_helper_hud=display_page.add_checkbox("Enable large, high-contrast contextual icons and text", "helper_hud", helper_visual_hud);
-nv_form_checkbox@ f_helper_confine=display_page.add_checkbox("Confine the mouse pointer while the game is focused", "helper_confine", helper_mouse_confined);
-nv_form_checkbox@ f_touch_keyboard=display_page.add_checkbox("Use the Infinite Warfare touch keyboard instead of the system keyboard", "touch_keyboard", touch_keyboard_enabled);
-nv_form_checkbox@ f_analogue_keyboard=display_page.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue_keyboard", touch_keyboard_analogue);
-nv_form_checkbox@ f_pc_touch_bands=display_page.add_checkbox("Expand all touch bands across the full laptop screen; enables touch mode and full screen", "pc_touch_bands", touch_pc_fullscreen_bands);
-nv_form_checkbox@ f_touch_explore=display_page.add_checkbox("Explore menu and audio-form controls by holding, then dragging", "touch_explore", touch_menu_explore_enabled);
-nv_form_checkbox@ f_touch_portrait=display_page.add_checkbox("Android portrait orientation; gesture bands run left to right", "touch_portrait", touch_portrait_mode);
+nv_form_checkbox@ f_helper_notifications=notifications_page.add_checkbox("Show Windows notifications for private messages, tickets, and server events", "helper_notifications", helper_desktop_notifications);
+nv_form_checkbox@ f_helper_tray=notifications_page.add_checkbox("Add Windows tray controls for show, hide, and mute", "helper_tray", helper_tray_controls);
+nv_form_button@ f_test_notification=notifications_page.add_button("Test Windows desktop notifications", "test_notification");
+nv_form_checkbox@ f_helper_voice=voice_page.add_checkbox("Enable Windows voice commands", "helper_voice", helper_voice_commands);
+nv_form_input@ f_voice_wake=voice_page.add_input("Voice-command wake phrase", "voice_wake", helper_voice_wake_phrase);
+nv_form_button@ f_voice=voice_page.add_button("Live voice chat settings and microphone test", "voice_settings");
 nv_form_input@ f_server_address=network_page.add_input("Server address", "server_address", netaddress);
 nv_form_input@ f_server_port=network_page.add_input("Server port", "server_port", ""+netport);
 nv_form_button@ f_server_manager=null;if(!SCRIPT_COMPILED or dev_unlocked)@f_server_manager=network_page.add_button("Developer server list and manager", "server_manager");
-nv_form_button@ f_voice=audio_page.add_button("Voice chat settings and microphone test", "voice_settings");
 nv_form_checkbox@ f_own_projectiles=audio_page.add_checkbox("Hear your own projectile flight loops and near-miss sounds", "own_projectiles", hear_own_projectile_audio);
-nv_form_checkbox@ f_form_sounds=audio_page.add_checkbox("Play menu navigation and activation sounds in audio forms", "form_sounds", audio_form_sound_feedback);
 nv_form_checkbox@ f_reverb=audio_page.add_checkbox("Enable environmental reverb", "reverb", acoustic_reverb_enabled);
 nv_form_checkbox@ f_occlusion=audio_page.add_checkbox("Enable wall and doorway sound occlusion", "occlusion", acoustic_occlusion_enabled);
 nv_form_input@ f_vol=audio_page.add_input("Master volume, minus 60 to 0", "volume", ""+mastervol);
@@ -1373,29 +1382,29 @@ wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (controls_page.is_pressed(f_keybinds))
+if (keyboard_page.is_pressed(f_keybinds))
 {
 options_keybinds();
 optionsmenu();
 return;
 }
-if (controls_page.is_pressed(f_gestures))
+if (touch_page.is_pressed(f_gestures))
 {
 show_android_gestures();
 continue;
 }
-if (controls_page.is_pressed(f_gesture_bindings))
+if (touch_page.is_pressed(f_gesture_bindings))
 {
 gesture_bindings_menu();
 continue;
 }
-if (audio_page.is_pressed(f_voice))
+if (voice_page.is_pressed(f_voice))
 {
 voice_settings_menu();
 continue;
 }
 if(@f_server_manager!=null and network_page.is_pressed(f_server_manager)){server_manager();continue;}
-if(interface_page.is_pressed(f_test_notification)){helper_test_notification();continue;}
+if(notifications_page.is_pressed(f_test_notification)){helper_test_notification();continue;}
 if(audio_page.is_pressed(f_toggle_system_mute)){helper_toggle_app_mute();continue;}
 if(interface_page.is_pressed(f_rerun_setup)){first_boot_setup_wizard();reconfigure_nvgt_helpers();optionsmenu();return;}
 if (f.is_pressed(f_save))
@@ -1422,7 +1431,7 @@ touch_keyboard_analogue=f_analogue_keyboard.state;
 touch_pc_fullscreen_bands=f_pc_touch_bands.state;
 touch_menu_explore_enabled=f_touch_explore.state;
 if(touch_portrait_mode!=f_touch_portrait.state){touch_portrait_mode=f_touch_portrait.state;apply_touch_orientation();}
-helper_visual_hud=f_helper_hud.state;helper_desktop_notifications=f_helper_notifications.state;helper_tray_controls=f_helper_tray.state;helper_voice_commands=f_helper_voice.state;helper_voice_wake_phrase=f_voice_wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=f_helper_mouse.state;helper_mouse_confined=f_helper_confine.state;set_app_volume_percent(string_to_number(f_system_volume.text));
+helper_visual_hud=f_helper_hud.state;helper_desktop_notifications=f_helper_notifications.state;helper_tray_controls=f_helper_tray.state;helper_voice_commands=f_helper_voice.state;helper_voice_wake_phrase=f_voice_wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=f_helper_mouse.state;helper_mouse_confined=f_helper_confine.state;helper_mouse_wheel_inventory=f_mouse_wheel.state;helper_mouse_invert_vertical=f_mouse_invert.state;helper_mouse_turn_sensitivity=string_to_number(f_mouse_turn.text);helper_mouse_aim_sensitivity=string_to_number(f_mouse_aim.text);if(helper_mouse_turn_sensitivity<10)helper_mouse_turn_sensitivity=10;if(helper_mouse_turn_sensitivity>300)helper_mouse_turn_sensitivity=300;if(helper_mouse_aim_sensitivity<10)helper_mouse_aim_sensitivity=10;if(helper_mouse_aim_sensitivity>300)helper_mouse_aim_sensitivity=300;set_app_volume_percent(string_to_number(f_system_volume.text));
 if(helper_visual_hud and !fullscreen_enabled)set_fullscreen_mode(true,true);
 if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;if(!fullscreen_enabled)set_fullscreen_mode(true,true);}
 string requested_address=f_server_address.text.trim_whitespace();int requested_port=string_to_number(f_server_port.text);if(requested_address!="")netaddress=requested_address;if(requested_port>0 and requested_port<=65535)netport=requested_port;else speak("Invalid server port; keeping port "+netport+".");

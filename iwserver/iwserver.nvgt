@@ -46,6 +46,33 @@ string tickets_dir="administration/tickets";
 int next_feedback_id=1;
 const string FEEDBACK_SECRET = "IW_fB4ck_sYs_K3y_mT7nR2xP9qW4!";
 string feedback_dir="administration/feedback";
+string service_requester_name(uint peer)
+{
+int player_index=get_player_index(peer);if(player_index>=0)return players[player_index].name;int lobby_index=get_lobby_client_index(peer);if(lobby_index>=0)return lobby_clients[lobby_index].name;return "";
+}
+bool service_requester_staff(uint peer)
+{
+int player_index=get_player_index(peer);if(player_index>=0)return players[player_index].dev or players[player_index].admin;int lobby_index=get_lobby_client_index(peer);return lobby_index>=0 and (lobby_clients[lobby_index].dev or lobby_clients[lobby_index].admin);
+}
+bool builder_integer(string value)
+{
+value=value.trim_whitespace();if(value=="")return false;uint start=0;if(string_left(value,1)=="-"){if(value.length()==1)return false;start=1;}for(uint i=start;i<value.length();i++){string ch=string_mid(value,i,1);if(ch<"0" or ch>"9")return false;}return true;
+}
+bool builder_line_valid(string line,string map_id,bool allow_mapname)
+{
+line=line.trim_whitespace();if(line=="" or string_contains(line,"\r",1)>=0 or string_contains(line,"\n",1)>=0)return false;if(string_left(line,2)=="//")return true;string[] fields=string_split(line,":",false);if(fields.length()<2)return false;string kind=fields[0];
+if(kind=="mapname")return allow_mapname and line=="mapname:"+map_id;
+if(kind=="maxx" or kind=="maxy" or kind=="maxz")return fields.length()==2 and builder_integer(fields[1]) and string_to_number(fields[1])>=(kind=="maxz"?0:1);
+if(kind=="poi" or kind=="bunker")return fields.length()>=5 and builder_integer(fields[1]) and builder_integer(fields[2]) and builder_integer(fields[3]);
+if(kind=="turbolift" or kind=="transition")return fields.length()>=5;
+if(kind!="tile" and kind!="zone" and kind!="src" and kind!="ispawn" and kind!="space" and kind!="openspace" and kind!="portal" and kind!="poiregion" and kind!="ramp")return false;
+if(fields.length()<8)return false;for(int i=1;i<=6;i++)if(!builder_integer(fields[i]))return false;if(string_to_number(fields[1])>string_to_number(fields[2]) or string_to_number(fields[3])>string_to_number(fields[4]) or string_to_number(fields[5])>string_to_number(fields[6]))return false;
+if(kind=="src" and fields.length()<9)return false;if(kind=="ispawn" and (fields.length()<10 or !builder_integer(fields[7]) or !builder_integer(fields[8]) or string_to_number(fields[7])<1 or string_to_number(fields[8])<1))return false;return true;
+}
+bool builder_map_valid(string data,string map_id)
+{
+if(data.length()==0 or data.length()>4194304)return false;string[] lines=delinear(data);bool found_name=false;for(uint i=0;i<lines.length();i++){string line=lines[i].trim_whitespace();if(line=="")continue;if(!builder_line_valid(line,map_id,true))return false;if(line=="mapname:"+map_id){if(found_name)return false;found_name=true;}}return found_name;
+}
 void route_private_message(string sender,uint sender_peer,string target,string message)
 {
 int target_player=get_player_index_from(target);if(target_player>=0){send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_reliable(players[target_player].peer_id,"pm from "+sender+": "+message,2);send_reliable(sender_peer,"pm sent successfully",2);return;}
@@ -203,6 +230,7 @@ if(index > -1)
 {
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
 wait(100);
+voice_rooms.delete(string_to_lower_case(players[index].name));
 players.remove_at(index);
 }
 int li=get_lobby_client_index(e.peer_id);
@@ -221,10 +249,21 @@ string voice_message=get_event_message();
 string[] voice_parts=string_split(voice_message," ",true);
 int voice_sender=get_player_index(e.peer_id);
 if(voice_sender>-1 and voice_parts.length()>1 and voice_parts[0]=="voice_join")
-voice_rooms.set(string_to_lower_case(players[voice_sender].name),voice_parts[1]);
+{
+string requested=voice_parts[1],sender_key=string_to_lower_case(players[voice_sender].name),current="local";voice_rooms.get(sender_key,current);bool valid=false;
+if(requested=="local")valid=true;
+else if(requested=="team")valid=get_team_index_for_member(players[voice_sender].name)>=0;
+else if(string_contains(requested,"map:",1)==0)valid=requested=="map:"+players[voice_sender].map;
+else if(string_contains(requested,"channel:",1)==0)valid=requested.length()>8 and requested.length()<=72 and string_contains(requested,"/",1)<0 and string_contains(requested,"\\",1)<0;
+else if(string_contains(requested,"private:",1)==0){string[] members=string_split(requested,":",false);if(members.length()==3 and (members[1]==sender_key or members[2]==sender_key)){string other=members[1]==sender_key?members[2]:members[1];for(uint private_index=0;private_index<players.length();private_index++)if(string_to_lower_case(players[private_index].name)==other){valid=true;break;}}}
+if(!valid)send_reliable(players[voice_sender].peer_id,"voice_room_denied That voice room is unavailable or you are not authorized to enter it.",0);
+else if(current!="local" and requested!="local" and requested!=current)send_reliable(players[voice_sender].peer_id,"voice_room_denied Leave your current voice room before entering another.",0);
+else{voice_rooms.set(sender_key,requested);send_reliable(players[voice_sender].peer_id,"voice_room_state "+requested,0);}
+}
 else if(voice_sender>-1 and voice_parts.length()>5 and voice_parts[0]=="voice_frame")
 {
-string route=voice_parts[1];
+if(players[voice_sender].voice_rate_timer.elapsed>=1000){players[voice_sender].voice_rate_timer.restart();players[voice_sender].voice_rate_count=0;}players[voice_sender].voice_rate_count++;if(players[voice_sender].voice_rate_count>12 or voice_message.length()>24000)return;
+string route="local";voice_rooms.get(string_to_lower_case(players[voice_sender].name),route);if(voice_parts[1]!=route)return;
 int prefix_end=0;
 for(int vf=0;vf<5;vf++)
 {
@@ -235,7 +274,7 @@ prefix_end+=relative+1;
 if(prefix_end>0)
 {
 string payload=string_mid(voice_message,prefix_end,voice_message.length()-prefix_end);
-string outgoing="voice_data "+players[voice_sender].name+" "+route+" "+voice_parts[2]+" "+voice_parts[3]+" "+voice_parts[4]+" "+payload;
+string outgoing="voice_data "+players[voice_sender].name+" "+route+" "+players[voice_sender].x+" "+players[voice_sender].y+" "+players[voice_sender].z+" "+payload;
 for(uint vr=0;vr<players.length();vr++)
 {
 if(int(vr)==voice_sender) continue;
@@ -249,7 +288,8 @@ else if(string_contains(route,"private:",1)==0)
 {
 string[] private_members=string_split(route,":",false);
 string sender_lower=string_to_lower_case(players[voice_sender].name);
-deliver=private_members.length()==3 and (private_members[1]==sender_lower or private_members[2]==sender_lower) and joined==route;
+string listener_lower=string_to_lower_case(players[vr].name);
+deliver=private_members.length()==3 and (private_members[1]==sender_lower or private_members[2]==sender_lower) and (private_members[1]==listener_lower or private_members[2]==listener_lower) and joined==route;
 }
 else deliver=joined==route;
 if(deliver) send_unreliable(players[vr].peer_id,outgoing,7);
@@ -574,7 +614,11 @@ send_reliable(0,pn+": "+get_event_message(),1);
 else
 {
 int lobby_index=get_lobby_client_index(e.peer_id);
-if(lobby_index>-1 and (parsed[0]=="/t" or parsed[0]=="/team"))
+if(lobby_index>-1 and parsed[0]=="/accounts")
+{
+send_moderation_account_list(e.peer_id);
+}
+else if(lobby_index>-1 and (parsed[0]=="/t" or parsed[0]=="/team"))
 {
 lobby_team_chat(lobby_clients[lobby_index].name,lobby_clients[lobby_index].peer_id,get_event_message());
 }
@@ -642,9 +686,9 @@ int li=get_lobby_client_index(e.peer_id);
 if(li>-1 and is_dev_account(lobby_clients[li].name))
 lobby_clients[li].dev=true;
 }
-else if(parsed[0]=="lobby_keepalive")
+else if(parsed[0]=="transport_ping" and e.channel==19)
 {
-send_reliable(e.peer_id, "lobby_keepalive", 0);
+send_reliable(e.peer_id, "transport_ack", 19);
 }
 else if(parsed[0]=="leave_lobby")
 {
@@ -748,6 +792,14 @@ if(!found)for(uint i=0;i<players.length();i++)if(string_to_lower_case(players[i]
 string profile="Player: "+display+"<<NL>>Status: "+status+"<<NL>>Role: "+role+"<<NL>>Credits: "+credits;if(found and status!="Online in the lobby")profile+="<<NL>>Session kills: "+kills;
 int ti=get_team_index_for_member(display);if(ti>=0){int mi=get_team_member_index(ti,display);profile+="<<NL>>Team: "+teams[ti].name;if(mi>=0)profile+="<<NL>>Team role: "+teams[ti].members[mi].role;}
 send_reliable(e.peer_id,"player_profile_response "+profile,0);
+}
+else if(parsed[0]=="accounts_list")
+{
+send_moderation_account_list(e.peer_id);
+}
+else if(parsed[0]=="account_detail" and parsed.length()>1)
+{
+send_moderation_account_detail(e.peer_id,parsed[1]);
 }
 else if(parsed[0]=="admin_panel" and parsed.length()>2)
 {
@@ -920,8 +972,8 @@ string payload=string_replace(get_event_message(), "feedback_create ", "", false
 string[] fparts=string_split(payload, "|", false);
 if(fparts.length()>=3)
 {
-string f_owner=fparts[0];
-string f_subject=fparts[1];
+string f_owner=service_requester_name(e.peer_id);if(f_owner=="")f_owner="unknown";
+string f_subject=string_replace(string_replace(fparts[1],"~","-",true),",",";",true);
 string f_body=fparts[2];
 string fid=""+next_feedback_id;
 savedata fb(feedback_dir+"/"+fid+".dat", FEEDBACK_SECRET);
@@ -960,7 +1012,7 @@ send_reliable_id(lobby_clients[i].peer_id, "New feedback #"+fid+" from "+f_owner
 else if(parsed[0]=="feedback_list_my")
 {
 string payload=string_replace(get_event_message(), "feedback_list_my ", "", false);
-string f_owner=payload;
+string f_owner=service_requester_name(e.peer_id);
 string result="feedback_mylist ";
 string[] files=find_files(feedback_dir+"/*.dat");
 bool first=true;
@@ -1009,6 +1061,7 @@ if(file_exists(path))
 {
 savedata fb(path, FEEDBACK_SECRET);
 fb.load();
+string requester=service_requester_name(e.peer_id);if(string_to_lower_case(fb.read("owner"))!=string_to_lower_case(requester) and !service_requester_staff(e.peer_id)){send_reliable(e.peer_id,"feedback_data not_found",0);return;}
 string result="feedback_data "+fb.read("id")+"~"+fb.read("owner")+"~"+fb.read("subject")+"~"+fb.read("status")+"~"+fb.read("body");
 int rc=int(fb.readn("reply_count"));
 for(int r=0; r<rc; r++)
@@ -1026,13 +1079,14 @@ string[] fparts=string_split(payload, "|", false);
 if(fparts.length()>=3)
 {
 string fid=fparts[0];
-string author=fparts[1];
+string author=service_requester_name(e.peer_id);
 string reply_text=fparts[2];
 string path=feedback_dir+"/"+fid+".dat";
 if(file_exists(path))
 {
 savedata fb(path, FEEDBACK_SECRET);
 fb.load();
+if(author=="" or fb.read("status")!="open" or (string_to_lower_case(fb.read("owner"))!=string_to_lower_case(author) and !service_requester_staff(e.peer_id))){send_reliable(e.peer_id,"You cannot reply to that feedback.",2);return;}
 int rc=int(fb.readn("reply_count"));
 fb.add("reply_"+rc, author+": "+reply_text);
 fb.add("reply_count", double(rc+1));
@@ -1078,13 +1132,14 @@ string[] fparts=string_split(payload, "|", false);
 if(fparts.length()>=3)
 {
 string fid=fparts[0];
-string closer=fparts[1];
+string closer=service_requester_name(e.peer_id);
 string reason=fparts[2];
 string path=feedback_dir+"/"+fid+".dat";
 if(file_exists(path))
 {
 savedata fb(path, FEEDBACK_SECRET);
 fb.load();
+if(closer=="" or !service_requester_staff(e.peer_id)){send_reliable(e.peer_id,"Only staff can close feedback.",2);return;}
 string f_owner=fb.read("owner");
 string f_subject=fb.read("subject");
 fb.add("status", "closed");
@@ -1141,8 +1196,8 @@ string payload=string_replace(get_event_message(), "bug_create ", "", false);
 string[] bparts=string_split(payload, "|", false);
 if(bparts.length()>=3)
 {
-string b_owner=bparts[0];
-string b_title=bparts[1];
+string b_owner=service_requester_name(e.peer_id);if(b_owner=="")b_owner="unknown";
+string b_title=string_replace(string_replace(bparts[1],"~","-",true),",",";",true);
 string b_body=bparts[2];
 string bid=""+next_bug_id;
 savedata b(bug_dir+"/"+bid+".dat", BUG_SECRET);
@@ -1179,7 +1234,7 @@ send_reliable_id(lobby_clients[i].peer_id, "New bug report #"+bid+" from "+b_own
 }
 else if(parsed[0]=="bug_list_my")
 {
-string b_owner=string_replace(get_event_message(), "bug_list_my ", "", false);
+string b_owner=service_requester_name(e.peer_id);
 string result="bug_mylist ";
 string[] files=find_files(bug_dir+"/*.dat");
 bool first=true;
@@ -1227,6 +1282,7 @@ if(file_exists(path))
 {
 savedata b(path, BUG_SECRET);
 b.load();
+string requester=service_requester_name(e.peer_id);if(string_to_lower_case(b.read("owner"))!=string_to_lower_case(requester) and !service_requester_staff(e.peer_id)){send_reliable(e.peer_id,"bug_data not_found",0);return;}
 send_reliable(e.peer_id, "bug_data "+b.read("id")+"~"+b.read("owner")+"~"+b.read("title")+"~"+b.read("flag")+"~"+b.read("comment")+"~"+b.read("body"), 0);
 }
 else
@@ -1277,8 +1333,8 @@ string payload=string_replace(get_event_message(), "ticket_create ", "", false);
 string[] tparts=string_split(payload, "|", false);
 if(tparts.length()>=3)
 {
-string t_owner=tparts[0];
-string t_subject=tparts[1];
+string t_owner=service_requester_name(e.peer_id);if(t_owner=="")t_owner="unknown";
+string t_subject=string_replace(string_replace(tparts[1],"~","-",true),",",";",true);
 string t_body=tparts[2];
 string tid=""+next_ticket_id;
 savedata t(tickets_dir+"/"+tid+".dat", TICKET_SECRET);
@@ -1320,7 +1376,7 @@ string payload=string_replace(get_event_message(), "ticket_list_my ", "", false)
 string[] tparts=string_split(payload, "|", false);
 if(tparts.length()>=2)
 {
-string t_owner=tparts[0];
+string t_owner=service_requester_name(e.peer_id);
 string t_filter=tparts[1];
 string result="ticket_mylist ";
 string[] files=find_files(tickets_dir+"/*.dat");
@@ -1372,6 +1428,7 @@ if(file_exists(path))
 {
 savedata t(path, TICKET_SECRET);
 t.load();
+string requester=service_requester_name(e.peer_id);if(string_to_lower_case(t.read("owner"))!=string_to_lower_case(requester) and !service_requester_staff(e.peer_id)){send_reliable(e.peer_id,"ticket_data not_found",0);return;}
 string result="ticket_data "+t.read("id")+"~"+t.read("owner")+"~"+t.read("subject")+"~"+t.read("status")+"~"+t.read("close_reason")+"~"+t.read("body");
 int rc=int(t.readn("reply_count"));
 for(int r=0; r<rc; r++)
@@ -1389,13 +1446,14 @@ string[] tparts=string_split(payload, "|", false);
 if(tparts.length()>=3)
 {
 string tid=tparts[0];
-string author=tparts[1];
+string author=service_requester_name(e.peer_id);
 string reply_text=tparts[2];
 string path=tickets_dir+"/"+tid+".dat";
 if(file_exists(path))
 {
 savedata t(path, TICKET_SECRET);
 t.load();
+if(author=="" or t.read("status")!="open" or (string_to_lower_case(t.read("owner"))!=string_to_lower_case(author) and !service_requester_staff(e.peer_id))){send_reliable(e.peer_id,"You cannot reply to that ticket.",2);return;}
 int rc=int(t.readn("reply_count"));
 t.add("reply_"+rc, author+": "+reply_text);
 t.add("reply_count", double(rc+1));
@@ -1441,13 +1499,14 @@ string[] tparts=string_split(payload, "|", false);
 if(tparts.length()>=3)
 {
 string tid=tparts[0];
-string closer=tparts[1];
+string closer=service_requester_name(e.peer_id);
 string reason=tparts[2];
 string path=tickets_dir+"/"+tid+".dat";
 if(file_exists(path))
 {
 savedata t(path, TICKET_SECRET);
 t.load();
+bool ticket_staff=service_requester_staff(e.peer_id);if(closer=="" or (string_to_lower_case(t.read("owner"))!=string_to_lower_case(closer) and !ticket_staff)){send_reliable(e.peer_id,"You cannot close that ticket.",2);return;}if(!ticket_staff)reason="none";
 string t_owner=t.read("owner");
 string t_subject=t.read("subject");
 t.add("status", "closed");
@@ -2092,6 +2151,7 @@ if(index > -1)
 {
 int item_configuration=parsed.length()>2?string_to_number(parsed[2]):1;if(item_configuration<0 or item_configuration>2)item_configuration=1;
 if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
+else if(server_energy_drink(parsed[1]))begin_server_energy_drink(players[index],parsed[1],item_configuration);
 else if(parsed[1]=="duo_plane_kit")
 {
 int team_index=get_team_index_for_member(players[index].name);
@@ -2437,7 +2497,7 @@ send_reliable(players[index].peer_id, "you are already wearing a bomb_vest.", 0)
 string armor_region=armor_region_for(parsed[1]);
 if(armor_region!="")equip_player_armor(players[index],parsed[1]);
 if(string_contains(parsed[1],"_patch",1)>=0 or parsed[1]=="aramid_repair_tape" or parsed[1]=="ceramic_plate_epoxy" or parsed[1]=="armor_rivet_pack")apply_armor_patch(players[index],parsed[1]);
-string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
+string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","energetic_potion_red","energetic_potion_blue","energetic_potion_green","energetic_potion_rainbow","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
 bool is_usable=false;
 for(uint ui=0; ui<usable_items.length(); ui++)
 {
@@ -2696,6 +2756,19 @@ if(p=="")
 p="no player around you.";
 send_reliable(players[index].peer_id, p, 2);
 }
+}
+else if(parsed[0]=="inventory_transfer_targets")
+{
+int index=get_player_index(e.peer_id);if(index>-1){string targets="";for(uint i=0;i<players.length();i++)if(int(i)!=index and !players[i].death and players[i].map==players[index].map and get_3d_distance(players[i].x,players[i].y,players[i].z,players[index].x,players[index].y,players[index].z)<=10){if(targets!="")targets+="|";targets+=players[i].name;}send_reliable(players[index].peer_id,"inventory_transfer_targets"+(targets==""?"":" "+targets),0);}
+}
+else if(parsed[0]=="inventory_transfer" and parsed.length()==3)
+{
+int index=get_player_index(e.peer_id),target=get_player_index_from(parsed[1]);string item_id=parsed[2];
+if(index>=0 and target>=0 and index!=target and item_id.length()>0 and item_id.length()<=80 and string_contains(item_id,"__partial__",1)<0){if(players[index].death or players[target].death or players[index].map!=players[target].map or get_3d_distance(players[index].x,players[index].y,players[index].z,players[target].x,players[target].y,players[target].z)>10)send_reliable(players[index].peer_id,"That player is no longer within ten tiles.",2);else{send_reliable(players[index].peer_id,"give "+item_id+" -1",0);send_reliable(players[target].peer_id,"give "+item_id+" 1",0);send_reliable(players[index].peer_id,"Gave "+string_replace(item_id,"_"," ",true)+" to "+players[target].name+".",2);send_reliable(players[target].peer_id,players[index].name+" gave you "+string_replace(item_id,"_"," ",true)+".",2);}}
+}
+else if(parsed[0]=="inventory_drop" and parsed.length()==2)
+{
+int index=get_player_index(e.peer_id);string item_id=parsed[1];if(index>=0 and item_id.length()>0 and item_id.length()<=80 and string_contains(item_id,"__partial__",1)<0){vector destination;destination.x=players[index].x;destination.y=players[index].y;destination.z=players[index].z;for(int step=0;step<7;step++)destination=move(destination.x,destination.y,destination.z,players[index].facing,0);int drop_x=int(round(destination.x,0)),drop_y=int(round(destination.y,0)),drop_z=int(round(destination.z,0));if(spawn_tile_blocked(drop_x,drop_y,drop_z,players[index].map))send_reliable(players[index].peer_id,"There is no clear tile seven spaces ahead on which to drop that item.",2);else{spawn_item(drop_x,drop_y,drop_z,players[index].map,item_id,"");send_reliable(players[index].peer_id,"give "+item_id+" -1",0);send_reliable(players[index].peer_id,"Dropped "+string_replace(item_id,"_"," ",true)+" seven tiles ahead.",2);}}
 }
 else if(parsed[0]=="whatnear")
 {
@@ -3064,18 +3137,18 @@ int sound_stats_index=find_wpn_stats(wname);bool focused_energy=fire_mode_str=="
 if(!suppressed and !focused_energy and (fire_mode_str=="scattershot" or fire_mode_str=="focused" or fire_mode_str=="lowtension" or fire_mode_str=="normaltension" or fire_mode_str=="maxtension"))
 {
 play(sound_weapon+fire_mode_str+"fire"+fire_variant, players[index].x, players[index].y, players[index].z, players[index].map, index);
-send_reliable(0, "distsound "+sound_weapon+fire_mode_str+"dist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
+send_distant_sound(players[index].map,sound_weapon+fire_mode_str+"dist.ogg",players[index].x,players[index].y,players[index].z,35);
 }
 else if(suppressed)
 {
 play(sound_weapon+"supressedfire"+random(1, 3), players[index].x, players[index].y, players[index].z, players[index].map, index);
-send_reliable(0, "distsound "+wname+"supresseddist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
+send_distant_sound(players[index].map,wname+"supresseddist.ogg",players[index].x,players[index].y,players[index].z,35);
 }
 else
 {
 if(focused_energy)fire_variant=1;
 play(sound_weapon+"fire"+fire_variant, players[index].x, players[index].y, players[index].z, players[index].map, index);
-send_reliable(0, "distsound "+sound_weapon+"dist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 5);
+send_distant_sound(players[index].map,sound_weapon+"dist.ogg",players[index].x,players[index].y,players[index].z,35);
 } 
 }
 }
@@ -3084,15 +3157,16 @@ else if(parsed[0]=="player_remove")
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
+voice_rooms.delete(string_to_lower_case(players[index].name));
 players.remove_at(index);
 }
 }
-else if(parsed[0]=="builder_read" and parsed.length()>1)
+else if(parsed[0]=="builder_read_current")
 {
 int index=get_player_index(e.peer_id);
 if(index>-1 and players[index].dev==true)
 {
-string mname=parsed[1];
+string mname=players[index].map;
 string path=find_map_path(mname);
 if(path!="")
 {
@@ -3100,11 +3174,12 @@ file mf;
 mf.open(path, "rb");
 string data=mf.read();
 mf.close();
-send_reliable(players[index].peer_id, "builder_data "+data, 0);
+send_reliable(players[index].peer_id, "builder_data "+mname+" "+data, 0);
 }
 else
-send_reliable(players[index].peer_id, "Map file not found.", 2);
+send_reliable(players[index].peer_id, "builder_error The authoritative file for your current map was not found.", 0);
 }
+else send_reliable(e.peer_id,"builder_error Developer access is required.",0);
 }
 else if(parsed[0]=="builder_append" and parsed.length()>2)
 {
@@ -3114,13 +3189,15 @@ if(index>-1 and players[index].dev==true)
 string mname=parsed[1];
 string line=string_replace(get_event_message(), "builder_append "+mname+" ", "", false);
 string path=find_map_path(mname);
-if(path!="")
+if(mname!=players[index].map)send_reliable(players[index].peer_id,"The map builder can modify only the map you are currently in.",2);
+else if(!builder_line_valid(line,mname,false))send_reliable(players[index].peer_id,"The new map line failed structural validation and was not written.",2);
+else if(path!="")
 {
 file mf;
 mf.open(path, "rb");
 string data=mf.read();
 mf.close();
-data+="\r\n"+line;
+if(data!="" and string_right(data,1)!="\n")data+="\r\n";data+=line;
 file wf;
 wf.open(path, "wb");
 wf.write(data);
@@ -3138,13 +3215,14 @@ if(index>-1 and players[index].dev==true)
 string mname=parsed[1];
 int line_idx=string_to_number(parsed[2]);
 string path=find_map_path(mname);
-if(path!="")
+if(mname!=players[index].map)send_reliable(players[index].peer_id,"The map builder can modify only the map you are currently in.",2);
+else if(path!="")
 {
 file mf;
 mf.open(path, "rb");
 string[] lines=delinear(mf.read());
 mf.close();
-if(line_idx>=0 and line_idx<int(lines.length()))
+if(line_idx>=0 and line_idx<int(lines.length()) and lines[line_idx]!="mapname:"+mname)
 {
 lines.remove_at(line_idx);
 file wf;
@@ -3154,6 +3232,7 @@ wf.close();
 reload_map(mname);
 send_reliable(players[index].peer_id, "Line deleted and map reloaded.", 2);
 }
+else send_reliable(players[index].peer_id,"That line no longer exists, or it is the required mapname line.",2);
 }
 }
 }
@@ -3166,7 +3245,9 @@ string mname=parsed[1];
 int line_idx=string_to_number(parsed[2]);
 string new_line=string_replace(get_event_message(), "builder_edit_line "+mname+" "+parsed[2]+" ", "", false);
 string path=find_map_path(mname);
-if(path!="")
+if(mname!=players[index].map)send_reliable(players[index].peer_id,"The map builder can modify only the map you are currently in.",2);
+else if(!builder_line_valid(new_line,mname,true))send_reliable(players[index].peer_id,"The edited map line failed structural validation and was not written.",2);
+else if(path!="")
 {
 file mf;
 mf.open(path, "rb");
@@ -3193,7 +3274,9 @@ if(index>-1 and players[index].dev==true)
 string mname=parsed[1];
 string data=string_replace(get_event_message(), "builder_write_map "+mname+" ", "", false);
 string path=find_map_path(mname);
-if(path=="") path="content/maps/battlegrounds/"+mname+".map";
+if(mname!=players[index].map){send_reliable(players[index].peer_id,"The map builder can modify only the map you are currently in.",2);return;}
+if(path==""){send_reliable(players[index].peer_id,"The authoritative current-map file was not found.",2);return;}
+if(!builder_map_valid(data,mname)){send_reliable(players[index].peer_id,"The map failed structural validation. Nothing was overwritten.",2);return;}
 file wf;
 wf.open(path, "wb");
 wf.write(data);
@@ -3209,7 +3292,8 @@ if(index>-1 and players[index].dev==true)
 {
 string mname=parsed[1];
 string path=find_map_path(mname);
-if(path!="")
+if(mname!=players[index].map)send_reliable(players[index].peer_id,"The map builder can delete only the map you are currently in.",2);
+else if(path!="")
 {
 file_delete(path);
 int mi=get_map_index(mname);
@@ -3264,7 +3348,7 @@ send_reliable(0, "step "+players[index].x+" "+players[index].y+" "+players[index
 }
 }
 }
-void send_reliable_x(uint peer, string mess, uint channel, int tx, int ty, int tz)
+void send_reliable_x(uint peer, string mess, uint channel, int tx, int ty, int tz,string target_map)
 {
 int x=tx;
 int y=ty;
@@ -3272,13 +3356,13 @@ int z=tz;
 mess=string_encrypt(mess, "masonandsamare2bitches");
 for(uint i=0; i<players.length(); i++)
 {
-if(players[i].x > x-35 and players[i].x < x+35 and players[i].y > y-35 and players[i].y < y+35 and players[i].z > z-35 and players[i].z < z+35)
+if(players[i].map==target_map and players[i].x > x-35 and players[i].x < x+35 and players[i].y > y-35 and players[i].y < y+35 and players[i].z > z-35 and players[i].z < z+35)
 {
 n.send_reliable(players[i].peer_id, mess, channel);
 }
 }
 }
-void send_unreliable_x(uint peer, string mess, uint channel, int tx, int ty, int tz)
+void send_unreliable_x(uint peer, string mess, uint channel, int tx, int ty, int tz,string target_map)
 {
 int x=tx;
 int y=ty;
@@ -3286,7 +3370,7 @@ int z=tz;
 mess=string_encrypt(mess, "masonandsamare2bitches");
 for(uint i=0; i<players.length(); i++)
 {
-if(players[i].x > x-35 and players[i].x < x+35 and players[i].y > y-35 and players[i].y < y+35 and players[i].z > z-35 and players[i].z < z+35)
+if(players[i].map==target_map and players[i].x > x-35 and players[i].x < x+35 and players[i].y > y-35 and players[i].y < y+35 and players[i].z > z-35 and players[i].z < z+35)
 {
 n.send_unreliable(players[i].peer_id, mess, channel);
 }
@@ -3343,6 +3427,10 @@ server_data_sent+=mess.length();mess=string_encrypt(mess,"masonandsamare2bitches
 void send_unreliable_map(string map,string mess,uint channel)
 {
 server_data_sent+=mess.length();mess=string_encrypt(mess,"masonandsamare2bitches");for(uint i=0;i<players.length();i++)if(players[i].map==map)n.send_unreliable(players[i].peer_id,mess,channel);
+}
+void send_distant_sound(string map,string sound,int x,int y,int z,int near_radius)
+{
+string message="distsound "+sound+" "+x+" "+y+" "+z+" "+map;message=string_encrypt(message,"masonandsamare2bitches");for(uint i=0;i<players.length();i++)if(players[i].map==map and get_3d_distance(players[i].x,players[i].y,players[i].z,x,y,z)>near_radius)n.send_reliable(players[i].peer_id,message,0);
 }
 void send_reliable_id(uint peer, string mess, uint channel)
 {
@@ -3428,9 +3516,9 @@ send_unreliable(0, sound+" "+x+" "+y+" "+z+" "+map, channel, index);
 else
 {
 if(reliable)
-send_reliable_x(0, sound+" "+x+" "+y+" "+z+" "+map, channel, x, y, z);
+send_reliable_x(0, sound+" "+x+" "+y+" "+z+" "+map, channel, x, y, z,map);
 else
-send_unreliable_x(0, sound+" "+x+" "+y+" "+z+" "+map, channel, x, y, z);
+send_unreliable_x(0, sound+" "+x+" "+y+" "+z+" "+map, channel, x, y, z,map);
 }
 }
 else

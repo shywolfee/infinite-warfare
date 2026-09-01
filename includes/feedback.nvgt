@@ -7,28 +7,7 @@ int f_my=f.create_button("View &my feedback");
 int f_allopen=-1;
 send_reliable(0, "feedback_check_role", 0);
 bool is_staff=false;
-timer rt;
-while(rt.elapsed<2000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="feedback_role_staff")
-{
-is_staff=true;
-break;
-}
-else if(msg=="feedback_role_player")
-break;
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string role_response;if(wait_for_service_response("feedback_role_",role_response,2000))is_staff=role_response=="feedback_role_staff";
 if(is_staff)
 f_allopen=f.create_button("View &all feedback (Staff)");
 int f_close=f.create_button("Go &back", false, true);
@@ -87,31 +66,15 @@ dlg("Please enter details for your feedback.");
 continue;
 }
 subj=string_replace(subj, "|", "/", true);
+subj=string_replace(subj, "~", "-", true);
+subj=string_replace(subj, ",", ";", true);
 subj=string_replace(subj, "\n", " ", true);
 body=string_replace(body, "|", "/", true);
+body=string_replace(body, "~", "-", true);
 body=string_replace(body, "\n", "<<NL>>", true);
 send_reliable(0, "feedback_create "+name+"|"+subj+"|"+body, 0);
 string result="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "feedback_created", 1)==0)
-{
-result=msg;
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+wait_for_service_response("feedback_created",result,3000);
 if(result!="")
 dlg("Your feedback has been submitted. Thank you!");
 else
@@ -132,26 +95,7 @@ void feedback_view_my()
 speak("Loading your feedback, please wait.");
 send_reliable(0, "feedback_list_my "+name, 0);
 string data="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "feedback_mylist ", 1)==0)
-{
-data=string_replace(msg, "feedback_mylist ", "", false);
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string list_response;if(wait_for_service_response("feedback_mylist ",list_response,3000))data=string_replace(list_response,"feedback_mylist ","",false);
 iw_form f;
 f.create_window("My Feedback", false, true);
 int f_list=f.create_list("Feedback", 0, false);
@@ -201,26 +145,7 @@ void feedback_view_all()
 speak("Loading all feedback, please wait.");
 send_reliable(0, "feedback_list_all", 0);
 string data="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "feedback_alllist ", 1)==0)
-{
-data=string_replace(msg, "feedback_alllist ", "", false);
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string all_response;if(wait_for_service_response("feedback_alllist ",all_response,3000))data=string_replace(all_response,"feedback_alllist ","",false);
 iw_form f;
 f.create_window("All Feedback (Staff)", false, true);
 int f_list=f.create_list("Feedback", 0, false);
@@ -270,26 +195,7 @@ void feedback_view_item(string fb_id, bool is_staff)
 speak("Loading feedback, please wait.");
 send_reliable(0, "feedback_get_full "+fb_id, 0);
 string data="";
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(string_contains(msg, "feedback_data ", 1)==0)
-{
-data=string_replace(msg, "feedback_data ", "", false);
-break;
-}
-}
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-return;
-}
-}
+string feedback_response;if(wait_for_service_response("feedback_data ",feedback_response,3000))data=string_replace(feedback_response,"feedback_data ","",false);
 if(data=="" or data=="not_found")
 {
 dlg("Feedback not found.");
@@ -381,19 +287,8 @@ reply=string_replace(reply, "|", "/", true);
 reply=string_replace(reply, "~", "-", true);
 reply=string_replace(reply, "\n", "<<NL>>", true);
 send_reliable(0, "feedback_reply "+fb_id+"|"+name+"|"+reply, 0);
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="feedback_replied") break;
-}
-if(e.type==event_disconnect) break;
-}
-dlg("Reply sent.");
+string reply_response;bool replied=wait_for_service_response("feedback_replied",reply_response,3000);
+dlg(replied?"Reply sent.":"The reply was not accepted.");
 feedback_view_item(fb_id, is_staff);
 return;
 }
@@ -430,19 +325,8 @@ reason=string_replace(reason, "|", "/", true);
 reason=string_replace(reason, "~", "-", true);
 reason=string_replace(reason, "\n", "<<NL>>", true);
 send_reliable(0, "feedback_close "+fb_id+"|"+name+"|"+reason, 0);
-timer wt;
-while(wt.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if(msg=="feedback_closed") break;
-}
-if(e.type==event_disconnect) break;
-}
-dlg("Feedback closed.");
+string close_response;bool closed=wait_for_service_response("feedback_closed",close_response,3000);
+dlg(closed?"Feedback closed.":"The feedback was not closed.");
 feedback_menu();
 return;
 }

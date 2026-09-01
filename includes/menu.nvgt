@@ -1319,6 +1319,7 @@ nv_form_tab_page@ controls_page=tabs.add_tab_page("Controls");
 nv_form_tab_page@ display_page=tabs.add_tab_page("Display");
 nv_form_tab_page@ network_page=tabs.add_tab_page("Network");
 nv_form_tab_page@ audio_page=tabs.add_tab_page("Audio");
+nv_form_tab_page@ helpers_page=tabs.add_tab_page("Desktop helpers");
 
 nv_form_checkbox@ f_target_hp=gameplay.add_checkbox("Show target HP on hit", "target_hp", show_target_hp);
 nv_form_checkbox@ f_damage_readout=gameplay.add_checkbox("Show damage readout on hit", "damage", show_damage_readout);
@@ -1352,6 +1353,17 @@ nv_form_input@ f_gameplay_vol=audio_page.add_input("Weapons, items, and player e
 nv_form_input@ f_world_vol=audio_page.add_input("World and positional ambience volume, minus 60 to 0", "world_volume", ""+world_volume);
 nv_form_input@ f_interface_vol=audio_page.add_input("Menus and interface volume, minus 60 to 0", "interface_volume", ""+interface_volume);
 nv_form_input@ f_notification_vol=audio_page.add_input("Messages and notifications volume, minus 60 to 0", "notification_volume", ""+notification_volume);
+nv_form_checkbox@ f_helper_hud=helpers_page.add_checkbox("Enable the native visual status panel", "helper_hud", helper_visual_hud);
+nv_form_button@ f_helper_status=helpers_page.add_button("Open visual game and connection status", "helper_status");
+nv_form_checkbox@ f_helper_notifications=helpers_page.add_checkbox("Show Windows desktop notifications for private messages, tickets, and server events", "helper_notifications", helper_desktop_notifications);
+nv_form_checkbox@ f_helper_tray=helpers_page.add_checkbox("Add Windows tray controls for show, hide, and mute", "helper_tray", helper_tray_controls);
+nv_form_checkbox@ f_helper_voice=helpers_page.add_checkbox("Enable Windows voice commands for safe information and navigation actions", "helper_voice", helper_voice_commands);
+nv_form_checkbox@ f_helper_mouse=helpers_page.add_checkbox("Use mouse back and forward buttons to change message buffers", "helper_mouse", helper_mouse_shortcuts);
+nv_form_checkbox@ f_helper_confine=helpers_page.add_checkbox("Confine the mouse pointer to the game window", "helper_confine", helper_mouse_confined);
+nv_form_input@ f_system_volume=helpers_page.add_input("Operating-system application volume, 0 to 100", "system_volume", ""+round(app_volume_percent(),0));
+nv_form_button@ f_test_notification=helpers_page.add_button("Send a test desktop notification", "test_notification");
+nv_form_button@ f_toggle_system_mute=helpers_page.add_button("Mute or restore game audio at the operating-system level", "system_mute");
+nv_form_button@ f_rerun_setup=helpers_page.add_button("Run the first-boot setup wizard again", "rerun_setup");
 nv_form_button@ f_save=f.add_button("Save", "save", true);
 nv_form_button@ f_close=f.add_button("Cancel", "cancel", false, true);
 tabs.focus();
@@ -1383,6 +1395,10 @@ voice_settings_menu();
 continue;
 }
 if(@f_server_manager!=null and network_page.is_pressed(f_server_manager)){server_manager();continue;}
+if(helpers_page.is_pressed(f_test_notification)){helper_show_notification("Infinite Warfare test","Desktop notifications are configured correctly.");speak("Test notification requested.");continue;}
+if(helpers_page.is_pressed(f_helper_status)){helper_visual_status_panel();continue;}
+if(helpers_page.is_pressed(f_toggle_system_mute)){helper_toggle_app_mute();continue;}
+if(helpers_page.is_pressed(f_rerun_setup)){first_boot_setup_wizard();reconfigure_nvgt_helpers();optionsmenu();return;}
 if (f.is_pressed(f_save))
 {
 remember_me=f_remember.state;
@@ -1406,6 +1422,7 @@ touch_keyboard_enabled=f_touch_keyboard.state;
 touch_keyboard_analogue=f_analogue_keyboard.state;
 touch_pc_fullscreen_bands=f_pc_touch_bands.state;
 touch_menu_explore_enabled=f_touch_explore.state;
+helper_visual_hud=f_helper_hud.state;helper_desktop_notifications=f_helper_notifications.state;helper_tray_controls=f_helper_tray.state;helper_voice_commands=f_helper_voice.state;helper_mouse_shortcuts=f_helper_mouse.state;helper_mouse_confined=f_helper_confine.state;set_app_volume_percent(string_to_number(f_system_volume.text));
 if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;if(!fullscreen_enabled)set_fullscreen_mode(true,true);}
 string requested_address=f_server_address.text.trim_whitespace();int requested_port=string_to_number(f_server_port.text);if(requested_address!="")netaddress=requested_address;if(requested_port>0 and requested_port<=65535)netport=requested_port;else speak("Invalid server port; keeping port "+netport+".");
 string vol_str=f_vol.text;
@@ -1422,6 +1439,7 @@ gameplay_mixer.volume=gameplay_volume;
 world_mixer.volume=world_volume;
 interface_mixer.volume=interface_volume;
 notification_mixer.volume=notification_volume;
+reconfigure_nvgt_helpers();
 writeprefs();
 p.play_stationary("savedoptions.ogg",false);
 speak("Options saved.");

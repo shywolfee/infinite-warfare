@@ -145,6 +145,7 @@ speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
 }
 void add_buffer_item(string buffername, string item, string snd="")
 {
+helper_notify_buffer_item(buffername,item);
 for (uint i=0; i<buffers.length(); i++)
 {
 if (buffers[i].name==buffername and buffers[i].active==1 or buffers[i].name=="all" and buffers[i].active==1)

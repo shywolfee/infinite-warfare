@@ -15,6 +15,8 @@ timer maintenance_cooldown;
 bool maintenance_performed=false;
 int mechanical_condition=100,alignment=100,permanent_damage=0;
 bool jammed=false;
+bool wall_braced=false;
+int brace_x=0,brace_y=0,brace_z=0,brace_facing=0;
 weapon_handling_state(string id){weapon=id;}
 }
 weapon_handling_state@[] weapon_handling_states;
@@ -48,7 +50,7 @@ if(c=="submachine_gun")return n==0?"stock collapsed":"stock extended";
 if(c=="assault_rifle")return n==0?"normal gas setting":(n==1?"adverse gas setting":"suppressed gas setting");
 if(c=="battle_rifle")return n==0?"mobile shoulder position":"braced shoulder position";
 if(c=="sniper_rifle")return n==0?"unsupported position":"steadied position";
-if(c=="light_machine_gun")return n==0?"bipod folded":"bipod deployed";
+if(c=="light_machine_gun")return n==0?"unsupported":(n==1?"bipod deployed":"braced against a wall");
 if(c=="energy")return n==0?"standard cooling":"high-output cooling";
 if(c=="archery")return n==0?"field hold":"precision hold";
 if(c=="melee_short_blade" or c=="melee_long_blade" or c=="melee_blunt")return melee_stance_name(n)+" stance";
@@ -63,7 +65,7 @@ if(c=="submachine_gun")return "Its folding stock trades movement for stability. 
 if(c=="assault_rifle")return "Its gas regulator selects normal, adverse, or suppressed operation, trading recoil against reliability and fouling.";
 if(c=="battle_rifle")return "A braced shoulder position controls the heavy cartridge at the cost of movement and transition speed.";
 if(c=="sniper_rifle")return handling_is_manual_bolt(w)?"The bolt must be cycled after every shot. A steadied position improves deliberate fire but limits mobility.":"The marksman action self-loads; a steadied position improves deliberate fire but limits mobility.";
-if(c=="light_machine_gun")return "The bipod may be deployed while sitting. Long bursts build barrel heat; an overheated barrel must cool or be serviced.";
+if(c=="light_machine_gun")return "The bipod may be deployed while sitting. Selected heavy machine guns can also brace against a solid wall directly ahead while standing. Long bursts build barrel heat; an overheated barrel must cool or be serviced.";
 if(c=="energy")return "Energy discharge builds emitter heat independently of cell charge. High-output cooling and manual venting manage thermal lockout.";
 if(c=="explosive")return "The weapon must be deployed on the ground before firing and packed before normal movement.";
 if(c=="incendiary")return "The pilot and pressure system must be started before fuel can discharge. Continuous use builds dangerous heat.";
@@ -86,6 +88,7 @@ if(ticks>0 and s.heat>0){s.heat-=ticks;if(s.heat<0)s.heat=0;s.cooling.restart();
 bool weapon_handling_can_fire(string w,bool report=true)
 {
 weapon_handling_state@ s=handling_state(w);cool_weapon_handling(s);string c=get_weapon_class(w);
+if(s.wall_braced and !wall_brace_still_valid(s))release_wall_brace(s,report);
 if(s.safety_on){if(report)speak("The safety is on. Use "+kb_binding_label("weapon_operation")+" to disengage it.");return false;}
 if(s.mechanical_condition<=0){if(report)speak("The weapon is mechanically broken and cannot fire. It requires parts and a gunsmith repair; some damage may be permanent.");return false;}if(s.jammed){if(report)speak("The weapon is jammed. Operate the action with "+kb_binding_label("weapon_operation")+" before firing.");return false;}int failure_chance=(100-s.mechanical_condition)+(100-s.alignment)/2+s.permanent_damage;if(failure_chance>0 and random(1,500)<=failure_chance){s.jammed=true;if(report)speak("The damaged mechanism malfunctioned and jammed.");return false;}
 if(c=="explosive" and !s.deployed){if(report)speak("Deploy the "+get_weapon_display_name(w)+" before firing.");return false;}
@@ -105,6 +108,24 @@ if(handling_has_fouling(w))s.fouling+=c=="assault_rifle" and s.configuration==1?
 if(s.fouling>100)s.fouling=100;s.cooling.restart();
 }
 
+bool weapon_can_wall_brace(string weapon){return weapon=="m249_saw" or weapon=="pkm_lmg" or weapon=="mg42";}
+bool wall_brace_surface_ahead()
+{
+double radians=facing*3.14159265358979323846/180.0;int sx=int(round(sine(radians),0)),sy=int(round(cosine(radians),0));if(sx==0 and sy==0)return false;string chest=get_tile_at(mr.x+sx,mr.y+sy,me.z),upper=get_tile_at(mr.x+sx,mr.y+sy,me.z+1);return string_contains(chest,"wall",1)>=0 or string_contains(upper,"wall",1)>=0;
+}
+bool wall_brace_still_valid(weapon_handling_state@ s)
+{
+if(!s.wall_braced or sitting)return false;if(int(round(mr.x,0))!=s.brace_x or int(round(mr.y,0))!=s.brace_y or int(round(me.z,0))!=s.brace_z)return false;double delta=absolute(facing-double(s.brace_facing));if(delta>180)delta=360-delta;if(delta>18)return false;return wall_brace_surface_ahead();
+}
+void release_wall_brace(weapon_handling_state@ s,bool report=true)
+{
+if(!s.wall_braced)return;s.wall_braced=false;s.configuration=0;p.play_stationary("attachment_bipod_remove.ogg",false);if(report)speak(get_weapon_display_name(s.weapon)+" pulled away from the wall; wall brace released.");
+}
+void update_weapon_wall_brace(string weapon,bool report=true)
+{
+if(weapon=="" or weapon=="empty")return;weapon_handling_state@ s=handling_state(weapon);if(s.wall_braced and !wall_brace_still_valid(s))release_wall_brace(s,report);
+}
+
 void operate_weapon(string w)
 {
 weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
@@ -115,13 +136,19 @@ if(handling_is_manual_bolt(w) or w=="ballista")
 if(c=="explosive"){s.deployed=!s.deployed;p.play_stationary(s.deployed?"attachment_bipod_attach.ogg":"attachment_bipod_remove.ogg",false);set_weapon_vertical_aim(turn,false);speak(get_weapon_display_name(w)+(s.deployed?" deployed. Movement is restricted. Elevation range increased.":" packed for movement. Elevation range restricted."));return;}
 if(c=="incendiary" or c=="tool"){s.powered=!s.powered;p.play_stationary(s.powered?"modeenter.ogg":"modeleave.ogg",false);speak(get_weapon_display_name(w)+(s.powered?" started.":" stopped."));return;}
 if(c=="pistol"){s.safety_on=!s.safety_on;s.configuration=s.safety_on?1:0;p.play_stationary("menuclick.ogg",false);speak(s.safety_on?"Safety on.":"Safety off.");return;}
+if(c=="light_machine_gun")
+{
+if(s.wall_braced){release_wall_brace(s,true);set_weapon_vertical_aim(turn,false);return;}
+if(sitting){s.configuration=s.configuration==1?0:1;p.play_stationary(s.configuration==1?"attachment_bipod_attach.ogg":"attachment_bipod_remove.ogg",false);set_weapon_vertical_aim(turn,false);speak(s.configuration==1?"Bipod deployed from the seated position.":"Bipod folded.");return;}
+if(!weapon_can_wall_brace(w)){speak("This machine gun requires a seated bipod position and cannot be braced against a wall.");return;}
+if(!wall_brace_surface_ahead()){speak("Face a solid wall at arm's reach to brace this heavy machine gun, or sit to deploy its bipod.");return;}
+s.wall_braced=true;s.configuration=2;s.brace_x=int(round(mr.x,0));s.brace_y=int(round(mr.y,0));s.brace_z=int(round(me.z,0));s.brace_facing=int(round(facing,0));p.play_stationary("attachment_bipod_attach.ogg",false);set_weapon_vertical_aim(turn,false);speak(get_weapon_display_name(w)+" braced firmly against the wall. Moving or turning away releases the brace.");return;
+}
 if(c=="melee_short_blade" or c=="melee_long_blade" or c=="melee_blunt")s.configuration=(s.configuration+1)%3;
 else if(c=="assault_rifle")s.configuration=(s.configuration+1)%3;
 else s.configuration=s.configuration==0?1:0;
-if(c=="light_machine_gun" and s.configuration==1 and !sitting){s.configuration=0;speak("Sit before deploying the bipod.");return;}
 string handling_cue="ammo_cycle.ogg";
-if(c=="light_machine_gun")handling_cue=s.configuration==1?"attachment_bipod_attach.ogg":"attachment_bipod_remove.ogg";
-else if(c=="submachine_gun")handling_cue=s.configuration==1?"attachment_recoil_buffer_stock_attach.ogg":"attachment_recoil_buffer_stock_remove.ogg";
+if(c=="submachine_gun")handling_cue=s.configuration==1?"attachment_recoil_buffer_stock_attach.ogg":"attachment_recoil_buffer_stock_remove.ogg";
 p.play_stationary(handling_cue,false);set_weapon_vertical_aim(turn,false);speak(rifle_configuration(c,s.configuration)+"."+(weapon_has_restricted_vertical_aim(w)?" Elevation limit "+weapon_vertical_aim_max(w)+" degrees.":""));
 }
 
@@ -183,6 +210,7 @@ if(c=="assault_rifle")return s.configuration==1?1.18:(s.configuration==2?.82:1.0
 if(c=="battle_rifle" and s.configuration==1)return .68;
 if(c=="sniper_rifle" and s.configuration==1)return .58;
 if(c=="light_machine_gun" and s.configuration==1)return .45;
+if(c=="light_machine_gun" and s.configuration==2 and s.wall_braced)return .55;
 return damage_multiplier;
 }
 
@@ -203,7 +231,7 @@ if(!weapon_has_restricted_vertical_aim(weapon))return 180;weapon_handling_state@
 if(weapon=="120mm_mortar")limit=state.deployed?165:108;
 else if(weapon=="barrett_m82")limit=state.configuration==1?142:122;
 else if(c=="explosive")limit=state.deployed?155:115;
-else if(c=="light_machine_gun")limit=state.configuration==1 and sitting?148:128;
+else if(c=="light_machine_gun")limit=state.configuration==2 and state.wall_braced?145:(state.configuration==1 and sitting?148:128);
 else limit=state.configuration==1?150:135;
 if(sitting and weapon!="120mm_mortar")limit+=5;
 if(weapon_has_attachment(weapon,"bipod") and sitting)limit+=6;
@@ -235,7 +263,7 @@ int result=int(double(base)*mult);return result<1?1:result;
 double handling_movement_penalty(string w)
 {
 weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
-if(c=="explosive" and s.deployed)return 2.8;if(c=="light_machine_gun" and s.configuration==1)return 2.1;
+if(c=="explosive" and s.deployed)return 2.8;if(c=="light_machine_gun" and s.configuration==1)return 2.1;if(c=="light_machine_gun" and s.configuration==2 and s.wall_braced)return 3.4;
 if((c=="battle_rifle" or c=="sniper_rifle" or c=="archery") and s.configuration==1)return 1.45;
 if(c=="submachine_gun" and s.configuration==0)return .88;if(c=="melee_short_blade" and s.configuration==2)return .92;
 return 1.0;

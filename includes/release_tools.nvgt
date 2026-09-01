@@ -36,6 +36,9 @@ release_status(form,status,progress,"Validating runtime plugins",0,"Locating the
 if(!file_exists(compiler_plugin))throw("The active NVGT installation does not provide lib/nvgt_curl.dll at "+compiler_plugin);
 if(!file_copy(compiler_plugin,staged_plugin,true))throw("Could not stage the current nvgt_curl plugin");
 release_status(form,status,progress,"Validating runtime plugins",100,"Replaced the staged curl plugin with "+compiler_plugin+".");
+string[] helper_plugins={"notifications.dll","nvgt_app_volume.dll","voice_command.dll"};for(uint i=0;i<helper_plugins.length();i++){string source=SCRIPT_MAIN_PATH+"/lib/"+helper_plugins[i],destination=release+"/lib/"+helper_plugins[i];if(!file_exists(source))throw("Missing integrated helper runtime "+source);if(!file_copy(source,destination,true))throw("Could not stage helper runtime "+helper_plugins[i]);}
+if(file_exists(release+"/lib/graphics.dll"))file_delete(release+"/lib/graphics.dll");
+release_status(form,status,progress,"Validating runtime plugins",100,"Staged notifications, application-volume, and voice-command runtimes. The incompatible NVGT 0.89 graphics plugin was excluded in favor of NVGT 0.90 native status forms.");
 }
 void compress_release_build()
 {

@@ -7,6 +7,10 @@
 #include"includes/building.nvgt"
 #include"includes/updater.nvgt"
 #include "speech.nvgt"
+#include "includes/helpers/mouse_helper.nvgt"
+#include "includes/helpers/notifications_helper.nvgt"
+#include "includes/helpers/voice_commands_helper.nvgt"
+#include "includes/helpers/volume_handaler.nvgt"
 #include "includes/nv_form/form.nvgt"
 #include "includes/iw_form.nvgt"
 #include "includes/ammo.nvgt"
@@ -37,6 +41,7 @@
 #include "includes/bugreports.nvgt"
 #include "includes/feedback.nvgt"
 #include "includes/touch_gestures.nvgt"
+#include "includes/helper_integrations.nvgt"
 bool menu_wrap_enabled=false;
 bool show_target_hp=false;
 bool remember_me=true;
@@ -47,6 +52,14 @@ bool touch_keyboard_enabled=false;
 bool touch_keyboard_analogue=false;
 bool touch_pc_fullscreen_bands=false;
 bool touch_menu_explore_enabled=true;
+string configured_operating_system="";
+bool configured_touchscreen=false;
+bool helper_visual_hud=false;
+bool helper_desktop_notifications=false;
+bool helper_tray_controls=false;
+bool helper_voice_commands=false;
+bool helper_mouse_shortcuts=true;
+bool helper_mouse_confined=false;
 timer sprint_heavy_warning_timer;
 bool auto_bind_starting_loadout=true;
 int gameplay_volume=0;
@@ -70,6 +83,7 @@ int peer,channel,size,elapsed_ms;
 void pump_network_for_form()
 {
 process_fullscreen_shortcut();
+helper_notification_tray_loop();helper_visual_hud_loop();
 if(connected and nv_form_network_timer.elapsed>=10){nv_form_network_timer.restart();netloop();}
 }
 diagnostic_packet@[] diagnostic_packets;
@@ -116,6 +130,7 @@ uint flags=enabled?WINDOW_FLAG_FULLSCREEN:0;
 game_window@ changed_window=show_window(game_window_title(),flags);
 if(@changed_window==null){if(announce)speak("Unable to change the game window mode.");return false;}
 fullscreen_enabled=enabled;focus_window();
+if(@iw_mouse!=null)iw_mouse.full_screen(fullscreen_enabled or helper_mouse_confined);
 if(announce)speak(fullscreen_enabled?"Full screen enabled.":"Full screen disabled. Windowed mode enabled.");
 return true;
 }
@@ -526,11 +541,14 @@ install_keyhook();
 //cfu("iw","iw.zip",true);
 if (is_first_run)
 show_first_run_message();
-dlgplay("logo.ogg", true, false, 15);
 if (!sd.d.exists("first_run_done"))
 {
+first_boot_setup_wizard();
 first_run_welcome();
 }
+if(fullscreen_enabled)set_fullscreen_mode(true,false);
+initialize_nvgt_helpers();
+dlgplay("logo.ogg", true, false, 15);
 mainmenu();
 }
 void write_client_exception_log()
@@ -2437,6 +2455,7 @@ if(active_mode=="focused"){min_damage*=1.5;max_damage*=1.5;range*=1.3;velocity*=
 weapon_handling_state@ live_handling=handling_state(wname);string live_class=get_weapon_class(wname);
 double condition_output=(.65+.35*double(live_handling.mechanical_condition)/100.0)*(1.0-double(live_handling.permanent_damage)/180.0);min_damage*=condition_output;max_damage*=condition_output;velocity*=.75+.25*double(live_handling.mechanical_condition)/100.0;spread*=1.0+double(100-live_handling.alignment+live_handling.permanent_damage)/100.0;range*=.8+.2*double(live_handling.alignment)/100.0;
 if(live_handling.configuration==1 and (live_class=="submachine_gun" or live_class=="battle_rifle" or live_class=="sniper_rifle" or live_class=="light_machine_gun" or live_class=="archery"))accuracy*=.62;
+if(live_class=="light_machine_gun" and live_handling.configuration==2 and live_handling.wall_braced)accuracy*=.68;
 if(live_class=="assault_rifle"){if(live_handling.configuration==1)accuracy*=1.12;else if(live_handling.configuration==2)accuracy*=.82;}
 if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_class=="melee_blunt") and live_handling.configuration==1){min_damage*=1.42;max_damage*=1.42;}else if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_class=="melee_blunt") and live_handling.configuration==2){min_damage*=.76;max_damage*=.76;penetration++;}
 spread*=accuracy;
@@ -3428,6 +3447,7 @@ mouse_update();
 mousey=MOUSE_Y/3;
 mousex=MOUSE_X/8;
 mousez=MOUSE_Z/6;
+nvgt_helpers_loop();
 // Translate Android touch gestures into game actions. On non-touch builds
 // this returns immediately. Runs before the key handlers below so the
 // virtual-key flags it sets (gk_fire, gk_use, ...) are read this same frame.
@@ -4094,6 +4114,7 @@ send_reliable(0, "turn "+facing, 0);
 mouse_update();
 }
 }
+if(w>=0 and w<int(weapons.length()))update_weapon_wall_brace(weapons[w],true);
 bool xp=key_pressed(kb("aim_down"));
 string vertical_weapon=(w>=0 and w<int(weapons.length()))?weapons[w]:"empty";
 if(shift_is_down() and kX.pressing and turn>0 and vertical_aim_timer.elapsed>=weapon_vertical_aim_interval(vertical_weapon)){vertical_aim_timer.restart();set_weapon_vertical_aim(turn-1,true);}
@@ -4445,6 +4466,14 @@ if(sd.d.exists("hear_own_projectile_audio"))hear_own_projectile_audio=sd.readn("
 if(sd.d.exists("audio_form_sound_feedback"))audio_form_sound_feedback=sd.readn("audio_form_sound_feedback")>=1;
 if(sd.d.exists("acoustic_reverb_enabled"))acoustic_reverb_enabled=sd.readn("acoustic_reverb_enabled")>=1;
 if(sd.d.exists("acoustic_occlusion_enabled"))acoustic_occlusion_enabled=sd.readn("acoustic_occlusion_enabled")>=1;
+if(sd.d.exists("configured_operating_system"))configured_operating_system=sd.read("configured_operating_system");else configured_operating_system=system_is_mobile?"Android":"Windows";
+if(sd.d.exists("configured_touchscreen"))configured_touchscreen=sd.readn("configured_touchscreen")>=1;
+if(sd.d.exists("helper_visual_hud"))helper_visual_hud=sd.readn("helper_visual_hud")>=1;
+if(sd.d.exists("helper_desktop_notifications"))helper_desktop_notifications=sd.readn("helper_desktop_notifications")>=1;
+if(sd.d.exists("helper_tray_controls"))helper_tray_controls=sd.readn("helper_tray_controls")>=1;
+if(sd.d.exists("helper_voice_commands"))helper_voice_commands=sd.readn("helper_voice_commands")>=1;
+if(sd.d.exists("helper_mouse_shortcuts"))helper_mouse_shortcuts=sd.readn("helper_mouse_shortcuts")>=1;
+if(sd.d.exists("helper_mouse_confined"))helper_mouse_confined=sd.readn("helper_mouse_confined")>=1;
 if(sd.d.exists("netaddress"))netaddress=sd.read("netaddress");
 if(sd.d.exists("netport")){int saved_port=sd.readn("netport");if(saved_port>0 and saved_port<=65535)netport=saved_port;}
 }
@@ -4488,6 +4517,14 @@ sd.add("hear_own_projectile_audio",hear_own_projectile_audio?1:0);
 sd.add("audio_form_sound_feedback",audio_form_sound_feedback?1:0);
 sd.add("acoustic_reverb_enabled",acoustic_reverb_enabled?1:0);
 sd.add("acoustic_occlusion_enabled",acoustic_occlusion_enabled?1:0);
+sd.add("configured_operating_system",configured_operating_system);
+sd.add("configured_touchscreen",configured_touchscreen?1:0);
+sd.add("helper_visual_hud",helper_visual_hud?1:0);
+sd.add("helper_desktop_notifications",helper_desktop_notifications?1:0);
+sd.add("helper_tray_controls",helper_tray_controls?1:0);
+sd.add("helper_voice_commands",helper_voice_commands?1:0);
+sd.add("helper_mouse_shortcuts",helper_mouse_shortcuts?1:0);
+sd.add("helper_mouse_confined",helper_mouse_confined?1:0);
 sd.add("netaddress",netaddress);
 sd.add("netport",netport);
 sd.save();
@@ -4521,6 +4558,7 @@ e=n.request();
 if (e.type==event_disconnect)
 {
 speak("You have lost connection to the server.");
+helper_show_notification("Infinite Warfare disconnected","The connection to the game server was lost.");
 connected=false;
 prevconnected=false;
 pinging=false;

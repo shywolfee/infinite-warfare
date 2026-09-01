@@ -1,0 +1,87 @@
+// Game-facing integration for the GPL-3.0 NVGT Helpers bundle. The audio
+// recorder is intentionally excluded. Native plugin binaries and the upstream
+// license are staged in lib so source and release builds use the same versions.
+mouse@ iw_mouse;
+notifications_helper@ iw_notifications;
+voice_command_helper@ iw_voice_commands;
+bool iw_helpers_initialized=false,iw_tray_added=false,iw_app_muted=false;
+double iw_pre_mute_volume=1.0;
+timer iw_hud_timer;
+
+bool helper_windows_features_available(){return configured_operating_system=="Windows" and !system_is_mobile;}
+
+void initialize_nvgt_helpers()
+{
+if(iw_helpers_initialized)return;iw_helpers_initialized=true;@iw_mouse=mouse(fullscreen_enabled or helper_mouse_confined);
+if(!helper_windows_features_available())return;
+if(helper_desktop_notifications or helper_tray_controls){@iw_notifications=notifications_helper(170505,"Infinite Warfare");iw_notifications.set_id();if(helper_tray_controls){iw_tray_added=iw_notifications.add_to_tray();if(iw_tray_added){iw_notifications.set_tray_name("Infinite Warfare");iw_notifications.set_tray_items("Show game|Hide game|Mute or restore game audio");}}}
+if(helper_voice_commands){@iw_voice_commands=voice_command_helper(false);if(iw_voice_commands.get_active()){string[] phrases={"status","health","ammunition","inventory","nearby items","points of interest","next buffer","previous buffer","repeat message"};for(uint i=0;i<phrases.length();i++)iw_voice_commands.add_phrays(phrases[i]);iw_voice_commands.start();}else speak("Windows voice commands could not be initialized and were left disabled.");}
+}
+
+void shutdown_nvgt_helpers(){if(@iw_voice_commands!=null)iw_voice_commands.stop();if(@iw_notifications!=null and iw_tray_added)iw_notifications.remove_from_tray();}
+void reconfigure_nvgt_helpers(){shutdown_nvgt_helpers();@iw_notifications=null;@iw_voice_commands=null;@iw_mouse=null;iw_tray_added=false;iw_helpers_initialized=false;initialize_nvgt_helpers();}
+
+void helper_toggle_app_mute()
+{
+if(!helper_windows_features_available())return;if(!iw_app_muted){iw_pre_mute_volume=sys_audio_get_app_volume();sys_audio_set_app_volume(0);iw_app_muted=true;speak("Infinite Warfare system audio muted.");}else{sys_audio_set_app_volume(iw_pre_mute_volume);iw_app_muted=false;speak("Infinite Warfare system audio restored to "+round(iw_pre_mute_volume*100,0)+" percent.");}
+}
+
+void helper_show_notification(string title,string body)
+{
+if(!helper_desktop_notifications or @iw_notifications==null)return;iw_notifications.show(title,body);
+}
+
+void helper_notify_buffer_item(string buffer_name,string item)
+{
+if(!helper_desktop_notifications or !helper_windows_features_available())return;string lower=string_to_lower_case(item);if(string_contains(lower,"pm from ",1)==0)helper_show_notification("Private message",item);else if(buffer_name=="tickets")helper_show_notification("Ticket update",item);else if(string_contains(lower,"server",1)>=0 and (string_contains(lower,"restart",1)>=0 or string_contains(lower,"reboot",1)>=0 or string_contains(lower,"disconnect",1)>=0))helper_show_notification("Server status",item);
+}
+
+void helper_voice_command_loop()
+{
+if(!helper_voice_commands or @iw_voice_commands==null or !iw_voice_commands.get_started())return;iw_voice_commands.update();string command=string_to_lower_case(iw_voice_commands.last_cmd.trim_whitespace());if(command=="")return;iw_voice_commands.last_cmd="";
+if(command=="status")speak(get_stamina_string()+" "+get_effects_string());else if(command=="health"){send_reliable(0,"health",0);pending_health_report=true;}else if(command=="ammunition" and w>=0 and w<int(weapons.length()))announce_ammo(weapons[w]);else if(command=="inventory")inventory_menu();else if(command=="nearby items"){pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x),int(mr.y),int(me.z));send_reliable(0,"whatnear",0);}else if(command=="points of interest")show_poi_list();else if(command=="next buffer")bufferright();else if(command=="previous buffer")bufferleft();else if(command=="repeat message" and buffers.length()>0 and buffers[bufferpos].items.length()>0)speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
+}
+
+void helper_mouse_loop()
+{
+if(@iw_mouse==null)return;iw_mouse.sync();if(!helper_mouse_shortcuts)return;if(iw_mouse.pressed(MOUSE_BACK))bufferleft();if(iw_mouse.pressed(MOUSE_FORWARD))bufferright();
+}
+
+void helper_notification_tray_loop()
+{
+if(@iw_notifications==null)return;iw_notifications.update();if(iw_notifications.clicked)iw_notifications.show_window();int selected=iw_notifications.get_selected_item();if(selected==0)iw_notifications.show_window();else if(selected==1)iw_notifications.hide_window();else if(selected==2)helper_toggle_app_mute();
+}
+
+void helper_visual_hud_loop()
+{
+// The NVGT 0.89 graphics plugin cannot register beside NVGT 0.90's native
+// renderer. Visual status is provided on demand by the native form below.
+}
+void helper_visual_status_panel(){nv_form f;f.create_window("Visual game status",false,true);string weapon=(w>=0 and w<int(weapons.length()))?get_weapon_display_name(weapons[w]):"No weapon";string text="Connection: "+(connected?"connected":"offline")+"\nMap: "+(mapname==""?"none":mapname)+"\nCoordinates: "+mr.x+", "+mr.y+", "+me.z+"\nWeapon: "+weapon+"\nStamina: "+stamina+"\nFacing: "+int(facing)+" degrees\nVertical aim: "+turn+" degrees";nv_form_input@ status=f.add_input("Current visual and textual game status","status",text,"",0,true,true);nv_form_button@ copy=f.add_button("Copy status to clipboard","copy");nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(status);while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(copy)){clipboard_set_text(text);speak("Game status copied to clipboard.");continue;}if(f.is_pressed(close))return;}}
+
+void nvgt_helpers_loop(){helper_mouse_loop();helper_notification_tray_loop();helper_voice_command_loop();helper_visual_hud_loop();}
+
+string setup_choose_operating_system()
+{
+string[] choices={"Windows","Android","Linux","macOS","Other"};int selected=android_select("First-boot setup: choose the operating system you will use for this installation",choices);return selected>=0?choices[selected]:(system_is_mobile?"Android":"Windows");
+}
+
+void first_boot_setup_wizard()
+{
+configured_operating_system=setup_choose_operating_system();
+nv_form common;common.create_window("First-boot setup: essentials",false,true);nv_form_checkbox@ modern=common.add_checkbox("Use the categorized main menu", "modern", true);nv_form_checkbox@ form_audio=common.add_checkbox("Play navigation and activation sounds in audio forms", "form_audio", true);nv_form_checkbox@ bind_loadout=common.add_checkbox("Automatically place starting equipment on the quickbar", "bind_loadout", true);nv_form_checkbox@ projectile_audio=common.add_checkbox("Hear your own projectile flight loops and flybys", "projectile_audio", true);nv_form_checkbox@ reverb=common.add_checkbox("Enable environmental reverb", "reverb", true);nv_form_checkbox@ occlusion=common.add_checkbox("Enable wall and doorway sound occlusion", "occlusion", true);nv_form_input@ volume=common.add_input("Game master volume from minus 60 to 0", "volume", "0");nv_form_button@ next=common.add_button("Continue", "continue", true);common.focus_control(modern);while(true){wait(5);common.monitor();if(common.is_pressed(next))break;}classic_main_menu=!modern.state;audio_form_sound_feedback=form_audio.state;auto_bind_starting_loadout=bind_loadout.state;hear_own_projectile_audio=projectile_audio.state;acoustic_reverb_enabled=reverb.state;acoustic_occlusion_enabled=occlusion.state;mastervol=string_to_number(volume.text);if(mastervol<-60)mastervol=-60;if(mastervol>0)mastervol=0;set_sound_master_volume(mastervol);
+if(configured_operating_system=="Windows")
+{
+nv_form win;win.create_window("First-boot setup: Windows and input",false,true);nv_form_checkbox@ touchscreen=win.add_checkbox("This computer has a touchscreen", "touchscreen", false);nv_form_checkbox@ fullscreen=win.add_checkbox("Start in full screen", "fullscreen", false);nv_form_checkbox@ notify=win.add_checkbox("Show desktop notifications for private messages, tickets, and server events", "notifications", true);nv_form_checkbox@ tray=win.add_checkbox("Add tray controls for show, hide, and mute", "tray", false);nv_form_checkbox@ hud=win.add_checkbox("Enable the native visual game and connection status panel", "hud", false);nv_form_checkbox@ voice=win.add_checkbox("Enable Windows voice commands for informational and navigation actions", "voice_commands", false);nv_form_checkbox@ mouse_shortcuts=win.add_checkbox("Use mouse back and forward buttons to change message buffers", "mouse_shortcuts", true);nv_form_input@ system_volume=win.add_input("Windows application volume from 0 to 100", "system_volume", "100");nv_form_button@ finish=win.add_button("Continue", "continue", true);win.focus_control(touchscreen);while(true){wait(5);win.monitor();if(win.is_pressed(finish))break;}configured_touchscreen=touchscreen.state;fullscreen_enabled=fullscreen.state;helper_desktop_notifications=notify.state;helper_tray_controls=tray.state;helper_visual_hud=hud.state;helper_voice_commands=voice.state;helper_mouse_shortcuts=mouse_shortcuts.state;helper_mouse_confined=fullscreen_enabled;set_app_volume_percent(string_to_number(system_volume.text));
+if(configured_touchscreen){nv_form touch;touch.create_window("First-boot setup: Windows touchscreen",false,true);nv_form_checkbox@ game_keyboard=touch.add_checkbox("Use the Infinite Warfare touch keyboard instead of the Windows keyboard","touch_keyboard",true);nv_form_checkbox@ analogue=touch.add_checkbox("Use analogue grid typing instead of explore-by-touch typing","analogue",false);nv_form_checkbox@ explore=touch.add_checkbox("Explore menus by holding and dragging across the touchscreen","explore",true);nv_form_checkbox@ bands=touch.add_checkbox("Expand gesture bands across the full laptop touchscreen","bands",true);nv_form_button@ done=touch.add_button("Finish touchscreen setup","finish",true);touch.focus_control(game_keyboard);while(true){wait(5);touch.monitor();if(touch.is_pressed(done))break;}touch_keyboard_enabled=game_keyboard.state;touch_keyboard_analogue=analogue.state;touch_menu_explore_enabled=explore.state;touch_pc_fullscreen_bands=bands.state;touch_force_enabled=true;if(touch_pc_fullscreen_bands)fullscreen_enabled=true;}
+}
+else if(configured_operating_system=="Android")
+{
+configured_touchscreen=true;touch_force_enabled=true;nv_form mobile;mobile.create_window("First-boot setup: Android touch",false,true);nv_form_checkbox@ game_keyboard=mobile.add_checkbox("Use the Infinite Warfare touch keyboard", "touch_keyboard", true);nv_form_checkbox@ analogue=mobile.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue", false);nv_form_checkbox@ explore=mobile.add_checkbox("Explore menu controls by holding and dragging", "explore", true);nv_form_checkbox@ bands=mobile.add_checkbox("Announce gesture bands in practice mode", "bands", true);nv_form_button@ finish=mobile.add_button("Finish setup", "finish", true);mobile.focus_control(game_keyboard);while(true){wait(5);mobile.monitor();if(mobile.is_pressed(finish))break;}touch_keyboard_enabled=game_keyboard.state;touch_keyboard_analogue=analogue.state;touch_menu_explore_enabled=explore.state;gesture_practice_speak_band=bands.state;
+}
+else
+{
+nv_form other;other.create_window("First-boot setup: desktop input",false,true);nv_form_checkbox@ touchscreen=other.add_checkbox("This computer has a touchscreen", "touchscreen", false);nv_form_checkbox@ fullscreen=other.add_checkbox("Start in full screen", "fullscreen", false);nv_form_checkbox@ mouse_shortcuts=other.add_checkbox("Use mouse back and forward buttons to change message buffers", "mouse_shortcuts", true);nv_form_button@ finish=other.add_button("Finish setup", "finish", true);other.focus_control(touchscreen);while(true){wait(5);other.monitor();if(other.is_pressed(finish))break;}configured_touchscreen=touchscreen.state;fullscreen_enabled=fullscreen.state;helper_mouse_shortcuts=mouse_shortcuts.state;helper_mouse_confined=fullscreen_enabled;if(configured_touchscreen){touch_force_enabled=true;touch_menu_explore_enabled=true;}
+}
+writeprefs();speak("First-boot setup saved. Every choice can be changed later in Options.");
+}

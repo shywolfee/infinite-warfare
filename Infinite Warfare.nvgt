@@ -58,6 +58,7 @@ bool helper_visual_hud=false;
 bool helper_desktop_notifications=false;
 bool helper_tray_controls=false;
 bool helper_voice_commands=false;
+string helper_voice_wake_phrase="infinite warfare";
 bool helper_mouse_shortcuts=true;
 bool helper_mouse_confined=false;
 timer sprint_heavy_warning_timer;
@@ -129,6 +130,7 @@ bool set_fullscreen_mode(bool enabled,bool announce=true)
 uint flags=enabled?WINDOW_FLAG_FULLSCREEN:0;
 game_window@ changed_window=show_window(game_window_title(),flags);
 if(@changed_window==null){if(announce)speak("Unable to change the game window mode.");return false;}
+set_window_fullscreen(enabled);
 fullscreen_enabled=enabled;focus_window();
 if(@iw_mouse!=null)iw_mouse.full_screen(fullscreen_enabled or helper_mouse_confined);
 if(announce)speak(fullscreen_enabled?"Full screen enabled.":"Full screen disabled. Windowed mode enabled.");
@@ -539,12 +541,10 @@ if(@startup_window==null)show_game_window(game_window_title());
 if (screen_reader_is_running(1))
 install_keyhook();
 //cfu("iw","iw.zip",true);
-if (is_first_run)
-show_first_run_message();
 if (!sd.d.exists("first_run_done"))
 {
-first_boot_setup_wizard();
 first_run_welcome();
+first_boot_setup_wizard();
 }
 if(fullscreen_enabled)set_fullscreen_mode(true,false);
 initialize_nvgt_helpers();
@@ -577,44 +577,9 @@ try{application_main();}catch{write_client_exception_log();}
 // Displays the preliminary notice, then shows the rules and requires
 // agreement before proceeding.
 // ---------------------------------------------------------------------------
-void show_first_run_message()
-{
-iw_form f;
-f.create_window("Welcome", false, true);
-f.create_input_box("Notice", "It looks like this is the first time you've run Infinite Warfare. A configuration file will be created for you. If you're new to the game, we suggest you check out the included readme for information on how to play.", "", 0, false, true, false);
-int f_continue=f.create_button("&Continue", true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-if (f.is_pressed(f_continue))
-break;
-}
-}
 void first_run_welcome()
 {
 string notice_text = "Notice: The present iteration of this game has been developed with the assistance of agentic artificial-intelligence (Claude code, utilizing the 4.6 opus model). Additionally, this game utilizes unauthorized source code from Redspot: Blood and peril, by Sam Tupy. Credit goes to Sam Tupy for his original ideas, and to Max Vrenken and Djonan Smid of firegaming for the original Infinite Warfair codebase. This game is in an extensive alpha stage. Many features lack sounds or are effectively unfinished. The current server is a test build designed to stress test new features and mechanics. Your data and progress will not persist upon final release of the game. I provide no guarantees of constant server uptime or stability. The game can and will be taken down for maintenance with little or no notice. There are guaranteed bugs and glitches. The goal of this test period is to iron them out. If you wish to play the game despite this, please check the following box to certify that you have read and understood this notice.";
-iw_form f;
-f.create_window("Preliminary Notice", false, true);
-f.create_input_box("Notice", notice_text, "", 0, false, true, true);
-int f_certify = f.create_checkbox("I certify that I have read the preliminary notice in it's entirety.", false);
-int f_continue = f.create_button("&Continue", true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-if (f.is_pressed(f_continue))
-{
-if (!f.is_checked(f_certify))
-{
-dlg("You must certify that you have read the preliminary notice to continue.");
-continue;
-}
-break;
-}
-}
 // Load and show rules.
 file rf;
 string rules_text = "";
@@ -625,21 +590,22 @@ rf.close();
 }
 else
 rules_text = "Rules file not found. Please check the game folder.";
-iw_form f2;
-f2.create_window("Please Read the Rules", false, true);
-f2.create_input_box("Rules", rules_text, "", 0, false, true, true);
-int f2_agree = f2.create_checkbox("I agree to the rules", false);
-int f2_continue = f2.create_button("&Continue", true);
-f2.focus(0);
+nv_form f;f.create_window("Infinite Warfare agreements",false,true);
+nv_form_input@ rules=f.add_input("Rules, read only","rules",rules_text,"",0,true,true);
+nv_form_checkbox@ agree_rules=f.add_checkbox("I have read and agree to the rules","agree_rules",false);
+nv_form_input@ notice=f.add_input("Beta and preliminary notice, read only","notice",notice_text,"",0,true,true);
+nv_form_checkbox@ agree_notice=f.add_checkbox("I have read and understand the beta and preliminary notice","agree_notice",false);
+nv_form_button@ continue_button=f.add_button("Continue","continue",true);
+f.focus_control(rules);
 while(true)
 {
 wait(5);
-f2.monitor();
-if (f2.is_pressed(f2_continue))
+f.monitor();
+if (f.is_pressed(continue_button))
 {
-if (!f2.is_checked(f2_agree))
+if (!agree_rules.state or !agree_notice.state)
 {
-dlg("You must agree to the rules to continue.");
+speak("Both agreements must be checked before continuing.");
 continue;
 }
 break;
@@ -4472,6 +4438,7 @@ if(sd.d.exists("helper_visual_hud"))helper_visual_hud=sd.readn("helper_visual_hu
 if(sd.d.exists("helper_desktop_notifications"))helper_desktop_notifications=sd.readn("helper_desktop_notifications")>=1;
 if(sd.d.exists("helper_tray_controls"))helper_tray_controls=sd.readn("helper_tray_controls")>=1;
 if(sd.d.exists("helper_voice_commands"))helper_voice_commands=sd.readn("helper_voice_commands")>=1;
+if(sd.d.exists("helper_voice_wake_phrase"))helper_voice_wake_phrase=sd.read("helper_voice_wake_phrase");
 if(sd.d.exists("helper_mouse_shortcuts"))helper_mouse_shortcuts=sd.readn("helper_mouse_shortcuts")>=1;
 if(sd.d.exists("helper_mouse_confined"))helper_mouse_confined=sd.readn("helper_mouse_confined")>=1;
 if(sd.d.exists("netaddress"))netaddress=sd.read("netaddress");
@@ -4523,6 +4490,7 @@ sd.add("helper_visual_hud",helper_visual_hud?1:0);
 sd.add("helper_desktop_notifications",helper_desktop_notifications?1:0);
 sd.add("helper_tray_controls",helper_tray_controls?1:0);
 sd.add("helper_voice_commands",helper_voice_commands?1:0);
+sd.add("helper_voice_wake_phrase",helper_voice_wake_phrase);
 sd.add("helper_mouse_shortcuts",helper_mouse_shortcuts?1:0);
 sd.add("helper_mouse_confined",helper_mouse_confined?1:0);
 sd.add("netaddress",netaddress);

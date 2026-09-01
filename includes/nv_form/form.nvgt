@@ -111,6 +111,7 @@ class nv_form {
 			return false;
 		}
 		window_title = title;
+		low_vision_set_context(title, "Dialog", 0);
 		get_characters();
 		active = true;
 		@shortcut = nv_shortcut_manager();
@@ -135,6 +136,7 @@ class nv_form {
 	bool monitor() {
 		if (!active) return false;
 		if(@default_nv_form_network_pump!=null)default_nv_form_network_pump();
+		helper_visual_hud_loop();
 		if (@nv_utility_form != null) {
 			nv_utility_form.monitor();
 			return true;
@@ -413,6 +415,7 @@ class nv_form {
 		if (@current != null)
 			current.event.fire(nv_form_event(current, nv_form_event_focus_lost));
 		this.control_index = control_index;
+		low_vision_set_context(window_title, controls[control_index].caption, controls[control_index].type);
 		if(@current!=null and @current!=@current_control)nv_form_play_feedback();
 		current_control.event.fire(nv_form_event(this.current_control, nv_form_event_focus_gained));
 		current_control.on_focus_gained_immediate();

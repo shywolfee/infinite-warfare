@@ -285,26 +285,10 @@ void gesture_rotate_right() {
 	send_reliable(0, "turn " + facing, 0);
 }
 void gesture_aim_up() {
-	if (turn >= 180) return;
-	if (turn < 90) turn = 90;
-	else turn = 180;
-	p.play_stationary("turn.ogg", false);
-	string s = "";
-	if (turn == 90) s = "straight forward";
-	else if (turn == 180) s = "straight up";
-	speak("facing " + s);
-	send_reliable(0, "turn2 " + turn, 0);
+	set_weapon_vertical_aim(turn < 90 ? 90 : 180, false);
 }
 void gesture_aim_down() {
-	if (turn <= 0) return;
-	if (turn > 90) turn = 90;
-	else turn = 0;
-	p.play_stationary("turn.ogg", false);
-	string s = "";
-	if (turn == 90) s = "straight forward";
-	else if (turn == 0) s = "straight down";
-	speak("facing " + s);
-	send_reliable(0, "turn2 " + turn, 0);
+	set_weapon_vertical_aim(turn > 90 ? 90 : 0, false);
 }
 void gesture_check_facing() {
 	string vert_info = "";

@@ -158,6 +158,8 @@ timer bombloadtimer;
 bool can_move=true;
 virtualizer v;
 timer turntimer;
+timer vertical_aim_timer;
+timer vertical_aim_limit_report_timer;
 timer gametracktimer;
 int mousey, mousex, mousez;
 string prefsdir=DIRECTORY_LOCAL_APPDATA+"/iw";
@@ -3070,7 +3072,7 @@ if(c=="pistol"){pitch=1.4;yaw=.7;}else if(c=="revolver"){pitch=3.8;yaw=1.4;}else
 if(sitting){pitch*=.68;yaw*=.7;}if(weapon_has_attachment(wname,"muzzle_brake")){pitch*=.72;yaw*=.8;}if(weapon_has_attachment(wname,"compensator")){pitch*=.62;yaw*=.65;}if(weapon_has_attachment(wname,"flash_hider")){pitch*=.96;yaw*=.96;}if(weapon_is_suppressed(wname)){pitch*=.9;yaw*=.92;}if(weapon_has_attachment(wname,"vertical_grip"))pitch*=.78;if(weapon_has_attachment(wname,"angled_grip"))yaw*=.72;if(weapon_has_attachment(wname,"bipod") and sitting){pitch*=.45;yaw*=.4;}if(weapon_has_attachment(wname,"lightweight_stock")){pitch*=1.12;yaw*=1.18;}if(weapon_has_attachment(wname,"precision_stock")){pitch*=.84;yaw*=.82;}if(weapon_has_attachment(wname,"recoil_buffer_stock")){pitch*=.72;yaw*=.76;}if(stamina<25){pitch*=1.2;yaw*=1.3;}
 double handling_mult=handling_recoil_multiplier(wname);pitch*=handling_mult;yaw*=handling_mult;
 if(weapon_sway_timer.elapsed<weapon_sway_duration){pitch*=1.25;yaw*=1.7;}
-int rise=int(round(pitch,0));if(rise<1)rise=1;turn+=rise;if(turn>180)turn=180;int drift=int(round((double(random(-1000,1000))/1000.0)*yaw,0));facing+=drift;while(facing<0)facing+=360;while(facing>=360)facing-=360;
+int rise=int(round(pitch,0));if(rise<1)rise=1;turn+=rise;int recoil_vertical_max=weapon_vertical_aim_max(wname);if(turn>recoil_vertical_max)turn=recoil_vertical_max;int drift=int(round((double(random(-1000,1000))/1000.0)*yaw,0));facing+=drift;while(facing<0)facing+=360;while(facing>=360)facing-=360;
 p.play_stationary("recoil_"+c+random(1,3)+".ogg",false);send_reliable(0,"turn "+facing,0);send_reliable(0,"turn2 "+turn,0);
 }
 
@@ -3277,6 +3279,7 @@ return;
 drawtimer.restart();
 weapons[w]=wname;
 apply_weapon_stats(wname);
+int draw_vertical_max=weapon_vertical_aim_max(wname);if(turn>draw_vertical_max){turn=draw_vertical_max;send_reliable(0,"turn2 "+turn,0);speak("The weight of this weapon lowers your aim to its "+turn+" degree unsupported elevation limit.");}
 speak(get_weapon_display_name(wname));
 send_reliable(1, "draw "+wname, 0);
 }
@@ -4092,51 +4095,12 @@ mouse_update();
 }
 }
 bool xp=key_pressed(kb("aim_down"));
-if(shift_is_down() and kX.pressing and turn>0)
-{
-turn-=1;
-p.play_stationary("turn.ogg", false);
-speak("vertical "+turn+" degrees");
-send_reliable(0, "turn2 "+turn, 0);
-}
-else if(xp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn>0)
-{
-if(turn>90)
-turn=90;
-else
-turn=0;
-p.play_stationary("turn.ogg", false);
-string s="";
-if(turn==90)
-s="straight forward";
-else if(turn==0)
-s="straight down";
-speak("facing "+s);
-send_reliable(0, "turn2 "+turn, 0);
-}
+string vertical_weapon=(w>=0 and w<int(weapons.length()))?weapons[w]:"empty";
+if(shift_is_down() and kX.pressing and turn>0 and vertical_aim_timer.elapsed>=weapon_vertical_aim_interval(vertical_weapon)){vertical_aim_timer.restart();set_weapon_vertical_aim(turn-1,true);}
+else if(xp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn>0)set_weapon_vertical_aim(turn>90?90:0,false);
 bool sp=key_pressed(kb("aim_up"));
-if(shift_is_down() and kS.pressing and turn<180)
-{
-turn+=1;
-p.play_stationary("turn.ogg", false);
-speak("vertical "+turn+" degrees");
-send_reliable(0, "turn2 "+turn, 0);
-}
-else if(sp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and turn<180)
-{
-if(turn<90)
-turn=90;
-else
-turn=180;
-p.play_stationary("turn.ogg", false);
-string s="";
-if(turn==90)
-s="straight forward";
-else if(turn==180)
-s="straight up";
-speak("facing "+s);
-send_reliable(0, "turn2 "+turn, 0);
-}
+if(shift_is_down() and kS.pressing and vertical_aim_timer.elapsed>=weapon_vertical_aim_interval(vertical_weapon)){vertical_aim_timer.restart();set_weapon_vertical_aim(turn+1,true);}
+else if(sp and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))set_weapon_vertical_aim(turn<90?90:180,false);
 bool ep=key_pressed(kb("turn_right"));
 if(!in_vehicle)
 {

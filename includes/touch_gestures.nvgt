@@ -1,4 +1,5 @@
 // touch_gestures.nvgt
+bool touch_portrait_mode=false;
 // Infinite Warfare bindings for the event-driven touch.nvgt gesture library.
 // The recognizer is split into three fixed normalized screen bands. touch.nvgt
 // routes every event using the immutable finger start_pos, so crossing a band
@@ -119,7 +120,7 @@ class iw_global_touch_interface : touch_interface {
 	int64 explore_finger=-1;float explore_y=.5f;
 	iw_global_touch_interface(touch_gesture_manager@ manager){super(manager);allow_passthrough=true;}
 	bool is_tap_chain_supported(uint next_count,uint finger_count){return finger_count==2 and next_count<=3;}
-	void on_tap(touch_screen_finger@ finger,uint count,uint fingers){if(fingers==2 and count==3 and finger.start_pos.y>=0.666667f)bottom_two_finger_triple_tap=true;}
+	void on_tap(touch_screen_finger@ finger,uint count,uint fingers){if(fingers==2 and count==3 and (touch_portrait_mode?finger.start_pos.x>=0.666667f:finger.start_pos.y>=0.666667f))bottom_two_finger_triple_tap=true;}
 	void on_touch_down(touch_screen_finger@ finger,uint fingers){if(fingers==1){explore_candidate=true;explore_armed=false;explore_finger=finger.id;}else {explore_candidate=false;explore_armed=false;}}
 	void on_touch_move(touch_screen_finger@ finger,uint fingers){if(!touch_menu_explore_enabled or fingers!=1 or finger.id!=explore_finger)return;float distance=(finger.current_pos-finger.start_pos).length();if(!explore_armed){if(distance>.035f){explore_candidate=false;return;}if(explore_candidate and finger.active_time>=450)explore_armed=true;}if(explore_armed){explore_y=finger.y;explore_pending=true;}}
 	void on_released_finger(touch_screen_finger@ finger){if(finger.id==explore_finger){explore_candidate=false;explore_armed=false;explore_finger=-1;}}
@@ -208,6 +209,12 @@ float touch_explore_take_y(){return globalTouch.take_explore_y();}
 bool take_global_gesture_help(){return globalTouch.take_context_help();}
 
 gesture_engine gengine;
+void apply_touch_orientation()
+{
+gengine.clear_events();
+if(touch_portrait_mode){topTouch.minx=0;topTouch.maxx=.333333f;topTouch.miny=0;topTouch.maxy=1;middleTouch.minx=.333333f;middleTouch.maxx=.666667f;middleTouch.miny=0;middleTouch.maxy=1;bottomTouch.minx=.666667f;bottomTouch.maxx=1;bottomTouch.miny=0;bottomTouch.maxy=1;}
+else{topTouch.minx=0;topTouch.maxx=1;topTouch.miny=0;topTouch.maxy=.333333f;middleTouch.minx=0;middleTouch.maxx=1;middleTouch.miny=.333333f;middleTouch.maxy=.666667f;bottomTouch.minx=0;bottomTouch.maxx=1;bottomTouch.miny=.666667f;bottomTouch.maxy=1;}
+}
 
 timer gesture_vehicle_timer;
 

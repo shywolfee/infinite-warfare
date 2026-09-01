@@ -103,8 +103,11 @@ int last_z=0;
 timer move_timer;
 int teleport_warnings=0;
 timer fire_timer;
+timer spawn_grace_timer;
+bool spawn_grace_active=true;
 int rapid_fire_warnings=0;
 int consecutive_shots=0;
+string last_damage_event_source="";int damage_event_total=0;timer damage_event_timer;
 string current_weapon="";
 int server_firetime=500;
 int server_walktime=200;
@@ -133,7 +136,11 @@ model_target_x=px;model_target_y=py;model_target_z=pz;
 name=pname;
 peer_id=ppeer_id;
 }
+
 }
+bool player_has_spawn_grace(player@ p){if(!p.spawn_grace_active)return false;if(p.spawn_grace_timer.elapsed>=5000){p.spawn_grace_active=false;return false;}return true;}
+void end_spawn_grace(player@ p){p.spawn_grace_active=false;}
+int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p))return 0;if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;if(source!="")p.hitby=source;return amount;}
 
 bool server_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
 bool server_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}
@@ -403,12 +410,13 @@ return int(acct.readn("credits"));
 }
 void spawn_player(int x, int y, int z, string map, string name,int pi)
 {
-player p1(x,y,z,map,name,pi);
+int[] safe=choose_safe_player_spawn(map,x,y,z);x=safe[0];y=safe[1];z=safe[2];player p1(x,y,z,map,name,pi);
 p1.credits=load_player_credits(name);
 p1.last_x=x;
 p1.last_y=y;
 p1.last_z=z;
 players.insert_last(p1);
+send_reliable(pi,"spawn_position "+x+" "+y+" "+z,0);
 send_reliable(0, "online "+x+" "+y+" "+z+" "+name+" "+map, 0);
 }
 int get_nearest_player(int px, int py, int pz, string pmap, int pindex=-1)

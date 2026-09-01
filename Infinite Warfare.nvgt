@@ -84,6 +84,7 @@ int peer,channel,size,elapsed_ms;
 void pump_network_for_form()
 {
 process_fullscreen_shortcut();
+process_screenshot_shortcut();
 helper_notification_tray_loop();helper_visual_hud_loop();
 if(connected and nv_form_network_timer.elapsed>=10){nv_form_network_timer.restart();netloop();}
 }
@@ -142,6 +143,15 @@ void process_fullscreen_shortcut()
 bool ctrl=key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL),shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
 if(ctrl and shift and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_pressed(kb("fullscreen_toggle")))toggle_fullscreen_mode();
 }
+void take_game_screenshot()
+{
+string folder=SCRIPT_MAIN_PATH+"/screenshots";if(!directory_exists(folder) and !directory_create(folder)){speak("The screenshots folder could not be created.");return;}string path=folder+"/infinite_warfare_"+ticks()+".png";process@ capture;
+if(system_is_mobile){string[] args={"/system/bin/screencap","-p",path};@capture=run(args,PROCESS_WAIT);}
+else if(system_is_windows){string safe=string_replace(path,"'","''",true);string command="Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bitmap=New-Object System.Drawing.Bitmap $bounds.Width,$bounds.Height; $graphics=[System.Drawing.Graphics]::FromImage($bitmap); $graphics.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size); $bitmap.Save('"+safe+"',[System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bitmap.Dispose()";string[] args={"powershell.exe","-NoProfile","-NonInteractive","-WindowStyle","Hidden","-Command",command};@capture=run(args,PROCESS_WAIT|PROCESS_CAPTURE);}
+else{speak("Screenshots are not supported on this operating system.");return;}
+if(@capture!=null and capture.valid and file_exists(path))speak("Screenshot saved to the screenshots folder.");else speak("The screenshot could not be saved.");
+}
+void process_screenshot_shortcut(){if(key_pressed(kb("screenshot")))take_game_screenshot();}
 string comp=generate_computer_id("blablablasdfgfdsydkugdfgsdfjk",true);
 bool melee=false;
 sound plane;
@@ -153,6 +163,7 @@ timer crossbow_charge_timer;
 int crossbow_charge_sound=-1;
 double crossbow_release_strength=1.0;
 bool pending_health_report=false;
+bool pending_spawn_position=false;
 bool go_reload=false;
 bool can_stop=true; 
 bool go_out=false;
@@ -3359,7 +3370,7 @@ register_vehicles_with_server();
 give_starting_loadout();
 weapons[w]=starting_loadout_weapon;
 apply_weapon_stats(weapons[w]);
-send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);
+pending_spawn_position=true;send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);timer spawn_ack_timer;while(pending_spawn_position and connected and spawn_ack_timer.elapsed<2500){wait(5);netloop();}
 send_reliable(1, "draw "+weapons[w], 0);
 send_reliable(0, "send_comp "+comp, 0);
 send_reliable(0, "admin", 0);
@@ -4413,6 +4424,7 @@ if (sd.d.exists("fullscreen_enabled")) fullscreen_enabled=(sd.readn("fullscreen_
 if (sd.d.exists("touch_keyboard_enabled")) touch_keyboard_enabled=(sd.readn("touch_keyboard_enabled")>=1);
 if (sd.d.exists("touch_keyboard_analogue")) touch_keyboard_analogue=(sd.readn("touch_keyboard_analogue")>=1);
 if (sd.d.exists("touch_pc_fullscreen_bands")) touch_pc_fullscreen_bands=(sd.readn("touch_pc_fullscreen_bands")>=1);
+if(sd.d.exists("touch_portrait_mode")){touch_portrait_mode=sd.readn("touch_portrait_mode")>=1;apply_touch_orientation();}
 if (sd.d.exists("touch_menu_explore_enabled")) touch_menu_explore_enabled=(sd.readn("touch_menu_explore_enabled")>=1);
 if (sd.d.exists("gameplay_volume")) gameplay_volume=sd.readn("gameplay_volume");
 if (sd.d.exists("interface_volume")) interface_volume=sd.readn("interface_volume");
@@ -4465,6 +4477,7 @@ sd.add("fullscreen_enabled",fullscreen_enabled ? 1 : 0);
 sd.add("touch_keyboard_enabled",touch_keyboard_enabled ? 1 : 0);
 sd.add("touch_keyboard_analogue",touch_keyboard_analogue ? 1 : 0);
 sd.add("touch_pc_fullscreen_bands",touch_pc_fullscreen_bands ? 1 : 0);
+sd.add("touch_portrait_mode",touch_portrait_mode?1:0);
 sd.add("touch_menu_explore_enabled",touch_menu_explore_enabled ? 1 : 0);
 sd.add("gameplay_volume",gameplay_volume);
 sd.add("interface_volume",interface_volume);
@@ -4554,6 +4567,10 @@ string[] parsed=string_split(full_msg," ",true);
 if(parsed[0]=="motd_response")
 {
 show_readonly_audio_form("Message of the Day",string_replace(full_msg,"motd_response ","",false));
+}
+else if(parsed[0]=="spawn_position" and parsed.length()>3)
+{
+me.x=string_to_number(parsed[1]);me.y=string_to_number(parsed[2]);me.z=string_to_number(parsed[3]);mr.x=me.x;mr.y=me.y;movement_momentum=0;momentum_direction="";pending_spawn_position=false;
 }
 else if(parsed[0]=="reset_ammo")
 {
@@ -5210,6 +5227,7 @@ send_reliable(1, "move_to_a "+me.x+" "+me.y+" "+me.z, 0);
 void mainloop()
 {
 process_fullscreen_shortcut();
+process_screenshot_shortcut();
 ammocheatloop();
 reload_loop_all();
 sourcecheckloop();

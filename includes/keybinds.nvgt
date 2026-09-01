@@ -228,6 +228,7 @@ _kb_reg_action("volume_down", "Volume down", KEY_END);
 _kb_reg_action("stamina_check", "Check stamina and effects", KEY_V, KEYMOD_CTRL|KEYMOD_SHIFT);
 _kb_reg_action("options_menu", "Options menu", KEY_F11);
 _kb_reg_action("fullscreen_toggle", "Toggle full screen", KEY_F12, KEYMOD_CTRL|KEYMOD_SHIFT);
+_kb_reg_action("screenshot", "Save a screenshot", KEY_PRINTSCREEN);
 if(!directory_exists(DIRECTORY_LOCAL_APPDATA+"/iw"))directory_create(DIRECTORY_LOCAL_APPDATA+"/iw");
 if (!directory_exists(KB_PROFILE_DIR)) directory_create(KB_PROFILE_DIR);
 string[] moved;

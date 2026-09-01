@@ -1761,6 +1761,7 @@ else if(parsed[0]=="spawn_planebomb")
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
+end_spawn_grace(players[index]);
 spawn_planebomb(players[index].x,players[index].y,players[index].z,players[index].map,players[index].name);
 play("planebomblounchoutside", players[index].x, players[index].y, players[index].z, players[index].map, -1, true, false, 5);
 send_reliable(0,"distsound planebomblounchdist.ogg "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map,0);
@@ -2233,6 +2234,7 @@ give_random_equipment_service_bundle(index);give_random_equipment_service_bundle
 }
 if(parsed[1]=="proximity_mine" or parsed[1]=="claymore" or parsed[1]=="time_bomb")
 {
+end_spawn_grace(players[index]);
 int owned_deployables=0;for(uint di=0;di<deployable_explosives.length();di++)if(deployable_explosives[di].owner==players[index].name)owned_deployables++;
 if(owned_deployables>=8)send_reliable(players[index].peer_id,"You may have no more than eight armed deployable explosives.",2);
 else{spawn_deployable_explosive(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);}
@@ -2242,6 +2244,7 @@ if(parsed[1]=="frag_grenade" or parsed[1]=="impact_grenade" or parsed[1]=="flash
 if(players[index].fraggrenadetimer.elapsed>5000)
 {
 int cooked_ms=parsed.length()>3?string_to_number(parsed[3]):0;if(cooked_ms<0)cooked_ms=0;if(cooked_ms>6000)cooked_ms=6000;
+end_spawn_grace(players[index]);
 spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration,cooked_ms);
 send_reliable(players[index].peer_id, "give "+parsed[1]+" -1", 0);
 players[index].fraggrenadetimer.restart();
@@ -2370,6 +2373,7 @@ if(parsed[1]=="torpedo")
 if(get_tile_at(players[index].x, players[index].y, players[index].z, players[index].map)=="shallow" and players[index].torpedotimer.elapsed>3000)
 {
 players[index].torpedotimer.restart();
+end_spawn_grace(players[index]);
 send_reliable(players[index].peer_id, "give torpedo -1", 0);
 spawn_torpedo(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name);
 play("torpedolounch",players[index].x,players[index].y,players[index].z,players[index].map);
@@ -3032,6 +3036,7 @@ else if(parsed[0]=="fire" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
+end_spawn_grace(players[index]);
 int min_fire_interval=players[index].server_firetime*3/4;
 if(min_fire_interval<50) min_fire_interval=50;
 if (players[index].fire_timer.elapsed<min_fire_interval)

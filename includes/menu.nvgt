@@ -1342,12 +1342,12 @@ nv_form_button@ f_gestures=controls_page.add_button("View Android touch gestures
 nv_form_button@ f_gesture_bindings=controls_page.add_button("Configure and reset Android gesture bindings", "gesture_bindings");
 nv_form_checkbox@ f_fullscreen=display_page.add_checkbox("Full-screen low-vision landscape presentation; occupies the focused display", "fullscreen", fullscreen_enabled);
 nv_form_checkbox@ f_helper_hud=display_page.add_checkbox("Enable large, high-contrast contextual icons and text", "helper_hud", helper_visual_hud);
-nv_form_button@ f_helper_status=display_page.add_button("Open textual game and connection status", "helper_status");
 nv_form_checkbox@ f_helper_confine=display_page.add_checkbox("Confine the mouse pointer while the game is focused", "helper_confine", helper_mouse_confined);
 nv_form_checkbox@ f_touch_keyboard=display_page.add_checkbox("Use the Infinite Warfare touch keyboard instead of the system keyboard", "touch_keyboard", touch_keyboard_enabled);
 nv_form_checkbox@ f_analogue_keyboard=display_page.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue_keyboard", touch_keyboard_analogue);
 nv_form_checkbox@ f_pc_touch_bands=display_page.add_checkbox("Expand all touch bands across the full laptop screen; enables touch mode and full screen", "pc_touch_bands", touch_pc_fullscreen_bands);
 nv_form_checkbox@ f_touch_explore=display_page.add_checkbox("Explore menu and audio-form controls by holding, then dragging", "touch_explore", touch_menu_explore_enabled);
+nv_form_checkbox@ f_touch_portrait=display_page.add_checkbox("Android portrait orientation; gesture bands run left to right", "touch_portrait", touch_portrait_mode);
 nv_form_input@ f_server_address=network_page.add_input("Server address", "server_address", netaddress);
 nv_form_input@ f_server_port=network_page.add_input("Server port", "server_port", ""+netport);
 nv_form_button@ f_server_manager=null;if(!SCRIPT_COMPILED or dev_unlocked)@f_server_manager=network_page.add_button("Developer server list and manager", "server_manager");
@@ -1396,7 +1396,6 @@ continue;
 }
 if(@f_server_manager!=null and network_page.is_pressed(f_server_manager)){server_manager();continue;}
 if(interface_page.is_pressed(f_test_notification)){helper_test_notification();continue;}
-if(display_page.is_pressed(f_helper_status)){helper_visual_status_panel();continue;}
 if(audio_page.is_pressed(f_toggle_system_mute)){helper_toggle_app_mute();continue;}
 if(interface_page.is_pressed(f_rerun_setup)){first_boot_setup_wizard();reconfigure_nvgt_helpers();optionsmenu();return;}
 if (f.is_pressed(f_save))
@@ -1422,6 +1421,7 @@ touch_keyboard_enabled=f_touch_keyboard.state;
 touch_keyboard_analogue=f_analogue_keyboard.state;
 touch_pc_fullscreen_bands=f_pc_touch_bands.state;
 touch_menu_explore_enabled=f_touch_explore.state;
+if(touch_portrait_mode!=f_touch_portrait.state){touch_portrait_mode=f_touch_portrait.state;apply_touch_orientation();}
 helper_visual_hud=f_helper_hud.state;helper_desktop_notifications=f_helper_notifications.state;helper_tray_controls=f_helper_tray.state;helper_voice_commands=f_helper_voice.state;helper_voice_wake_phrase=f_voice_wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=f_helper_mouse.state;helper_mouse_confined=f_helper_confine.state;set_app_volume_percent(string_to_number(f_system_volume.text));
 if(helper_visual_hud and !fullscreen_enabled)set_fullscreen_mode(true,true);
 if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;if(!fullscreen_enabled)set_fullscreen_mode(true,true);}

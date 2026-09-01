@@ -96,8 +96,7 @@ send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 }
 
 int applied=int(double(fraggrenades[i].damage)*(1.0-blast_distance/double(fraggrenades[i].radius)*.72));if(applied<0)applied=0;
-players[i2].health-=applied;
-players[i2].hitby=fraggrenades[i].owner+"'s "+fraggrenades[i].kind;
+applied=apply_player_damage(players[i2],applied,fraggrenades[i].owner+"'s "+fraggrenades[i].kind);if(applied<=0)continue;
 if(fraggrenades[i].kind=="flashbang"){send_reliable(players[i2].peer_id,"play_s flashbang_effect.ogg",0);send_reliable(players[i2].peer_id,"combat_slow 3000",0);}
 else if(fraggrenades[i].kind=="concussion_grenade")send_reliable(players[i2].peer_id,"combat_slow 6000",0);
 else if(fraggrenades[i].kind=="gas_grenade")send_reliable(players[i2].peer_id,"combat_slow 8000",0);

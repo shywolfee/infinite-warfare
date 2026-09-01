@@ -1,4 +1,6 @@
 New in 0.5.0.5, build 78 (2026-08-29)
+Added Windows-standard category navigation throughout NV_form. Control+Tab selects the next category and immediately focuses its first visible option; Control+Shift+Tab selects the previous category and does the same, wrapping at either end.
+Fixed NV_form processing Control+Tab twice in some property sheets, where the tab control handled the category change and the parent form then treated the same keystroke as ordinary Tab navigation.
 Added a persisted Android landscape/portrait option. Landscape remains the default vertical top/middle/bottom arrangement; portrait rotates the same logical gesture bands into left, centre, and right screen thirds without changing gesture assignments.
 Added a rebindable Print Screen action that saves timestamped PNG captures into a screenshots folder beside the running client. Windows uses a hidden native capture process and Android uses the platform screen-capture command, with success or failure reported after completion.
 Removed the obsolete visual-status test button from Options. The contextual low-vision layer now renders only live focus and game context instead of opening a test form containing state that may not exist.

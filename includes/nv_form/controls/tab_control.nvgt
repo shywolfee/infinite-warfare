@@ -72,7 +72,6 @@ class nv_form_tab_control: nv_form_control {
 					bool next = true;
 					if (key_down(KEY_LSHIFT) || key_down(KEY_RSHIFT))
 						next = false;
-					bool first_control = tab_pages[tab_page_index].control_index > -1;
 					tab_pages[tab_page_index].control_index = -1;
 					nv_form_play_feedback();
 					tab_page_index += (next ? 1 : -1);
@@ -81,7 +80,7 @@ class nv_form_tab_control: nv_form_control {
 					else if (tab_page_index < 0)
 						tab_page_index = tab_pages.length() - 1;
 					tab_pages[tab_page_index].control_index = -1;
-					if (first_control && tab_pages[tab_page_index].controls_count > 0) {
+					if (tab_pages[tab_page_index].controls_count > 0) {
 						speak(tab_pages[tab_page_index].name + "  property page");
 						tab_pages[tab_page_index].navigate_form(interrupt_previous_speech = false);
 					} else

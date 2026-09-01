@@ -191,7 +191,7 @@ class nv_form {
 				if (@tab == null || !tab.is_waiting_form) cancel_control.fire();
 			}
 		}
-		if (key_repeating(KEY_TAB)) {
+		if (!handled && key_repeating(KEY_TAB)) {
 			bool next_control = true;
 			if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) next_control = false;
 			navigate_form(next_control);

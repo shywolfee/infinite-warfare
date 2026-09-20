@@ -1,0 +1,16 @@
+"""Rebuild Poco's MessageHeader object using the installed compiler.
+
+Link before PocoNet so its older-compiler-compatible implementation is selected.
+The source and headers are both Poco 1.14.1; no CRT symbols are emulated.
+"""
+from pathlib import Path
+root = Path(Dir('#').abspath).parents[1]
+sdk = root / 'runtime_build/nvgt/windev'
+source = root / 'runtime_build/poco/Net/src'
+env = Environment()
+env.Append(CCFLAGS=['/EHsc', '/MT', '/O2', '/std:c++20', '/utf-8'],
+           CPPDEFINES=['POCO_STATIC', 'POCO_NO_AUTOMATIC_LIBS', 'NDEBUG', 'UNICODE'],
+           CPPPATH=[str(sdk / 'include')])
+objects = [env.Object(str(root / 'runtime_build/poco_net_objects' / p.stem), str(p))
+           for p in [source / 'MessageHeader.cpp']]
+Default(env.StaticLibrary(str(sdk / 'lib/IW_PocoNet'), objects))

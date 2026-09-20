@@ -1,0 +1,62 @@
+// Contextual feedback is generated from the same catalogue used by help.
+void explain_indirect_item(string item)
+{
+if(is_ammo_reserve_item(item)){use_ammo_item(item);return;}
+int ci=content_find(item);
+string title=ci>=0?content_database[ci].display_name:string_replace(item,"_"," ",true);
+string detail=ci>=0?content_database[ci].summary:"No direct action is registered for this item.";
+string category=ci>=0?content_database[ci].category:"Item";
+if(item_is_weapon_maintenance(item))detail+=" Draw the weapon to service and press "+kb_binding_label("weapon_maintenance")+". The maintenance action checks and uses the required supplies.";
+else if(item_is_vehicle_supply(item))detail+=" Stand beside the vehicle and open its workshop with Alt Shift V to choose the matching service or refit.";
+else if(item=="bunker_key" or item=="locker_access_module")detail+=" Keep this access credential in your inventory and interact with the matching lock.";
+else if(item=="nanomatic_components" or item=="repair_kit")detail+=" Use the Nanomatic Multitool and select compatible damaged equipment.";
+else detail+=" Select it and press Alt Enter for its full database help and usage details.";
+speak(title+". "+category+". This item is not used directly. "+detail);
+}
+
+void use_ammo_item(string item)
+{
+int ci=content_find(item);string title=ci>=0?content_database[ci].display_name:string_replace(item,"_"," ",true);
+string[] compatible;
+for(uint gi=0;gi<gun_ammos.length();gi++)
+{
+string gun=gun_ammos[gi].weapon_name;
+if(get_item_count(gun)<=0 and weapons.find(gun)<0 and holster1_weapon!=gun and holster2_weapon!=gun)continue;
+bool accepts=gun_ammos[gi].reserve_item==item;
+for(uint ai=0;ai<ammunition_loads.length() and !accepts;ai++)if(ammunition_loads[ai].reserve_item==item and ammunition_loads[ai].weapons.find(gun)>=0)accepts=true;
+if(accepts){string display=get_weapon_display_name(gun);if(compatible.find(display)<0)compatible.insert_last(display);}
+}
+string detail=title+" is ammunition and cannot be used directly. ";
+detail+=compatible.length()>0?"Weapons you own that accept it: "+content_join(compatible)+". ":"You do not currently carry a weapon that accepts it. ";
+detail+="Draw a compatible weapon, select its ammunition with Alt R, then reload. Manually fed weapons require their open, insert, close and cycle controls.";
+speak(detail);
+}
+
+int nearby_credit_atm()
+{
+int found=-1;double nearest=3.01;
+for(uint i=0;i<er_client_fixtures.length();i++)
+{er_client_fixture@ f=er_client_fixtures[i];if(f.type!="atm" or f.health<=0 or f.map!=mapname)continue;double distance=get_3d_distance(me.x,me.y,me.z,f.x,f.y,f.z);if(distance<=3 and distance<nearest){nearest=distance;found=int(i);}}
+return found;
+}
+string credit_chip_scan_text(string item)
+{
+int count=get_item_count(item),value=item=="er_small_credit_chip"?15:60;
+if(count<=0)return "You no longer carry this credit chip.";
+return (item=="er_small_credit_chip"?"Small":"Large")+" credit chip. Scanned value: "+value+" credits per chip. You carry "+count+", total value "+(int64(count)*value)+" credits. "+(nearby_credit_atm()<0?"You are not near an ATM. Stand within three tiles of a map ATM to deposit it.":"An ATM is within reach. Use Deposit at nearby ATM to open its controls.")+" Scanning does not consume or deposit the chip. Type /credits in chat to read your saved balance.";
+}
+void use_credit_chip(string item)
+{
+nv_form f;f.create_window("Scan credit chip",false,true);
+nv_form_input@ info=f.add_input("Chip scan","scan_info",credit_chip_scan_text(item),"",0,true,true);
+nv_form_button@ scan=f.add_button("Scan chip again","scan",true);
+nv_form_button@ deposit=f.add_button("Deposit at nearby ATM","deposit");
+nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(info);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();else return;
+if(f.is_pressed(close))return;
+if(f.is_pressed(scan)){info.default_text=credit_chip_scan_text(item);speak(info.default_text);}
+if(f.is_pressed(deposit)){int index=nearby_credit_atm();if(get_item_count(item)<=0)speak("You no longer carry that chip.");else if(index<0)speak("You are not near an ATM. Move within three tiles of one.");else{executioners_atm(er_client_fixtures[index].id);info.default_text=credit_chip_scan_text(item);}}
+}
+}

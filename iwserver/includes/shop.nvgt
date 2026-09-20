@@ -1,0 +1,69 @@
+bool online_shop_offer(const string &in key,string &out item,int &out quantity,int &out cost)
+{
+item="";quantity=0;cost=0;
+if(key=="9mm_sidearm_bundle"){item="9x19mm_15_round_magazine";quantity=2;cost=20;}
+else if(key=="556_rifle_bundle"){item="5.56mm_stanag_magazine";quantity=2;cost=30;}
+else if(key=="76239_rifle_bundle"){item="7.62x39mm_30_round_magazine";quantity=2;cost=34;}
+else if(key=="76251_rifle_bundle"){item="7.62x51mm_20_round_magazine";quantity=2;cost=42;}
+else if(key=="shotgun_bundle"){item="12_gauge_shell_box";quantity=2;cost=30;}
+else if(key=="bolt_bundle"){item="bolt_quiver";quantity=2;cost=30;}
+else if(key=="pulse_cell_bundle"){item="pulse_cell";quantity=2;cost=36;}
+else if(key=="nanocyte_solution"){item="nanocyte_solution_bottle";quantity=1;cost=50;}
+else if(key=="coagulant_serum"){item="coagulant_serum_bottle";quantity=1;cost=42;}
+else if(key=="antitoxin_tablets"){item="antitoxin_tablet_bottle";quantity=1;cost=38;}
+else if(key=="red_spark_pair"){item="energetic_potion_red";quantity=2;cost=25;}
+else if(key=="cleaning_patch_pack"){item="cleaning_patches";quantity=4;cost=18;}
+else if(key=="bore_solvent_pair"){item="bore_solvent";quantity=2;cost=25;}
+else if(key=="lubricant_pair"){item="action_lubricant";quantity=2;cost=22;}
+else if(key=="replacement_parts_pair"){item="weapon_replacement_parts";quantity=2;cost=55;}
+else if(key=="nanomatic_component_pack"){item="nanomatic_components";quantity=3;cost=45;}
+else if(key=="frag_pair"){item="frag_grenade";quantity=2;cost=45;}
+else if(key=="smoke_pair"){item="smoke_bomb";quantity=2;cost=32;}
+else if(key=="flash_pair"){item="flashbang";quantity=2;cost=38;}
+else if(key=="impact_grenade_single"){item="impact_grenade";quantity=1;cost=42;}
+else if(key=="claymore_single"){item="claymore";quantity=1;cost=65;}
+else if(key=="translocator_cell_pair"){item="translocator_cell";quantity=2;cost=45;}
+else if(key=="grapple_line"){item="grapple_line_cartridge";quantity=1;cost=30;}
+else if(key=="tire_patch_pair"){item="tire_patch_kit";quantity=2;cost=40;}
+else if(key=="gasoline_topup"){item="gasoline_can";quantity=1;cost=30;}
+else if(key=="diesel_topup"){item="diesel_can";quantity=1;cost=32;}
+else if(key=="aviation_topup"){item="aviation_fuel_can";quantity=1;cost=40;}
+else if(key=="soft_armor_patch_pair"){item="soft_armor_patch";quantity=2;cost=28;}
+return item!="" and quantity>0 and cost>0;
+}
+
+void handle_online_shop_request(uint peer,const string[] &in parsed)
+{
+int index=get_player_index(peer);
+if(index<0)return;
+if(parsed[0]=="market_balance")
+{
+send_reliable(peer,"market_balance "+players[index].credits,0);
+return;
+}
+if(parsed.length()<2)
+{
+send_reliable(peer,"market_purchase_error Missing catalogue selection.",0);
+return;
+}
+if(players[index].online_shop_timer.elapsed<250)
+{
+send_reliable(peer,"market_purchase_error The terminal is still processing the previous transaction.",0);
+return;
+}
+players[index].online_shop_timer.restart();
+string item;int quantity,cost;
+if(!online_shop_offer(parsed[1],item,quantity,cost))
+{
+send_reliable(peer,"market_purchase_error That listing is not in the authoritative catalogue.",0);
+return;
+}
+if(players[index].credits<cost)
+{
+send_reliable(peer,"market_purchase_error Insufficient credits. Balance "+players[index].credits+", price "+cost+".",0);
+return;
+}
+if(!change_player_credits(players[index],-cost)){send_reliable(peer,"market_purchase_error The balance could not be saved. Nothing was charged or delivered.",0);return;}
+send_reliable(peer,"give "+item+" "+quantity,0);
+send_reliable(peer,"market_purchase_ok "+players[index].credits+" "+item+" "+quantity+" "+cost,0);
+}

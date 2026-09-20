@@ -28,6 +28,7 @@ planebombs[i].z-=1;
 if(get_tile_at(planebombs[i].x, planebombs[i].y, planebombs[i].z, planebombs[i].map)!="")
 {
 play("planebombexplode",planebombs[i].x,planebombs[i].y,planebombs[i].z,planebombs[i].map);
+damage_world_objects_blast(planebombs[i].x,planebombs[i].y,planebombs[i].z,planebombs[i].map,20,650);
 send_reliable(0,"distsound planebombdist.ogg "+planebombs[i].x+" "+planebombs[i].y+" "+planebombs[i].z+" "+planebombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
@@ -71,9 +72,13 @@ z=bz;
 map=bmap;
 owner=bowner;
 payload=bpayload;
-if(payload=="mortar_fragmentation"){blast_radius=25;blast_damage=430;}
-else if(payload=="mortar_thermobaric"){blast_radius=28;blast_damage=620;}
-else if(payload=="mortar_incendiary"){blast_radius=18;blast_damage=280;}
+if(string_contains(payload,"fragmentation",1)>=0){blast_radius=25;blast_damage=430;}
+else if(string_contains(payload,"thermobaric",1)>=0){blast_radius=28;blast_damage=620;}
+else if(string_contains(payload,"incendiary",1)>=0){blast_radius=18;blast_damage=280;}
+else if(payload=="40mm_hedp"){blast_radius=9;blast_damage=300;}
+else if(payload=="50mm_ap"){blast_radius=6;blast_damage=360;}
+else if(payload=="75mm_ap"){blast_radius=8;blast_damage=440;}
+else if(payload=="throwing_blade_explosive"){blast_radius=6;blast_damage=260;}
 }
 }
 void mortarloop()
@@ -83,15 +88,15 @@ for (uint i=0; i<mortarbombs.length(); i++)
 if (mortarbombs[i].bombtimer.elapsed>=1)
 {
 mortarbombs[i].bombtimer.restart();
-play("120mm_mortarexplode",mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);
-send_reliable(0,"distsound 120mm_mortarexplodedist.ogg "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
+damage_world_objects_blast(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map,mortarbombs[i].blast_radius,mortarbombs[i].blast_damage);
+string explosion_sound="120mm_mortarexplode",explosion_distant="120mm_mortarexplodedist.ogg";if(string_contains(mortarbombs[i].payload,"thermobaric",1)>=0){explosion_sound="firefight_carrier_missile_explode";explosion_distant="firefight_carrier_missile_dist.ogg";}else if(string_contains(mortarbombs[i].payload,"fragmentation",1)>=0 or string_contains(mortarbombs[i].payload,"hedp",1)>=0){explosion_sound="firefight_conventional_missile_explode";explosion_distant="firefight_conventional_missile_dist.ogg";}else if(string_contains(mortarbombs[i].payload,"_ap",1)>=0){explosion_sound="firefight_cannon_ball_explode";explosion_distant="firefight_cannon_ball_dist.ogg";}else if(string_contains(mortarbombs[i].payload,"incendiary",1)>=0){explosion_sound="firefight_grenade_explode";explosion_distant="firefight_grenade_dist.ogg";}play(explosion_sound,mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);send_reliable(0,"distsound "+explosion_distant+" "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
 if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=mortarbombs[i].blast_radius and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
 {
 players[i2].hitby=mortarbombs[i].owner+"'s 120mm_mortar";
 apply_player_damage(players[i2],mortarbombs[i].blast_damage);
-if(mortarbombs[i].payload=="mortar_incendiary"){players[i2].burning=true;players[i2].burning_owner=mortarbombs[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
+if(string_contains(mortarbombs[i].payload,"incendiary",1)>=0){players[i2].burning=true;players[i2].burning_owner=mortarbombs[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
 play("120mm_mortarhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
 }
@@ -103,6 +108,7 @@ planes[i2].health-=500;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
+for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=mortarbombs[i].map or vehicle.health<=0)continue;double vd=get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vd>mortarbombs[i].blast_radius)continue;int vehicle_damage=int(double(mortarbombs[i].blast_damage)*(1.0-vd/double(mortarbombs[i].blast_radius)*.55));if(string_contains(mortarbombs[i].payload,"_ap",1)>=0)vehicle_damage=int(vehicle_damage*1.65);vehicle.armor-=vehicle_damage;if(vehicle.armor<0){vehicle.health+=vehicle.armor/2;vehicle.armor=0;}vehicle.health-=vehicle_damage/3;if(vehicle.health<0)vehicle.health=0;send_reliable(0,"veh_damage "+vehicle.id+" "+vehicle_damage+" "+vehicle.map+" "+vehicle.health+" "+vehicle.armor,0);}
 
 }
 mortarbombs.remove_at(i);
@@ -134,7 +140,13 @@ for (uint i=0; i<bunkerbombs.length(); i++)
 if (bunkerbombs[i].bombtimer.elapsed>=14000)
 {
 play("bunkerbombexplode",bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkerbombs[i].map);
+damage_world_objects_blast(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkerbombs[i].map,150,2000);
 send_reliable(0,"distsound bunkerbombdist.ogg "+bunkerbombs[i].x+" "+bunkerbombs[i].y+" "+bunkerbombs[i].z+" "+bunkerbombs[i].map,0);
+for(uint bunker_index=0;bunker_index<bunkers.length();bunker_index++)if(bunkers[bunker_index].map==bunkerbombs[i].map and get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkers[bunker_index].x,bunkers[bunker_index].y,bunkers[bunker_index].z)<=8)
+{
+string former_owner=bunkers[bunker_index].owner;bunkers[bunker_index].integrity=0;bunkers[bunker_index].owner="";bunkers[bunker_index].power=0;bunkers[bunker_index].medical_charges=0;bunkers[bunker_index].capturing_player="";bunkers[bunker_index].capture_progress=0;
+send_reliable(0,bunkers[bunker_index].name+" has been disabled by "+bunkerbombs[i].owner+". Its control system is neutral and may be captured again.",2);int former_index=get_player_index_from(former_owner);if(former_index>=0)refresh_bunker_owner_count(former_index);
+}
 for (uint i2=0; i2<players.length(); i2++)
 {
 if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=150 and players[i2].map==bunkerbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
@@ -190,6 +202,15 @@ int z;
 timer healtimer;
 string map;
 string  owner;
+int integrity=1000;
+int power=25;
+int medical_charges=3;
+string capturing_player="";
+int capture_progress=0;
+timer simulation_timer;
+timer power_timer;
+timer medical_timer;
+timer capture_report_timer;
 bunker(int bx,int by,int bz,string bmap,string bowner,string bname)
 {
 name=bname;
@@ -199,6 +220,27 @@ z=bz;
 map=bmap;
 owner=bowner;
 }
+}
+void refresh_bunker_owner_count(int player_index)
+{
+if(player_index<0 or player_index>=int(players.length()))return;int owned=0;
+for(uint b=0;b<bunkers.length();b++)if(bunkers[b].owner==players[player_index].name)owned++;
+players[player_index].bunkers_owned=owned;
+if(owned>=2 and !players[player_index].has_hypercomp){players[player_index].has_hypercomp=true;send_reliable(players[player_index].peer_id,"give hypercomp 1",0);send_reliable(players[player_index].peer_id,"play_s executioners_rage/ui/achievement.wav",0);send_reliable(players[player_index].peer_id,"You've secured your second bunker and earned a HyperComp structure-management device.",2);}
+}
+void begin_bunker_capture(int bunker_index,int player_index)
+{
+if(bunker_index<0 or bunker_index>=int(bunkers.length()) or player_index<0 or player_index>=int(players.length()))return;
+bunker@ b=bunkers[bunker_index];
+if(b.owner==players[player_index].name){send_reliable(players[player_index].peer_id,"You already own this bunker.",2);return;}
+if(b.owner!=""){send_reliable(players[player_index].peer_id,"This bunker is controlled by "+b.owner+". Disable it with a bunker bomb before attempting a capture.",2);return;}
+if(b.capturing_player!="" and b.capturing_player!=players[player_index].name){send_reliable(players[player_index].peer_id,b.capturing_player+" is already interfacing with this bunker.",2);return;}
+send_reliable(players[player_index].peer_id,"give bunker_key -1",0);b.capturing_player=players[player_index].name;b.capture_progress=0;b.capture_report_timer.restart();play("bunkerbombwarn",b.x,b.y,b.z,b.map);send_reliable(players[player_index].peer_id,"Capture started. Hold the control room for twelve seconds; leaving it or being contested interrupts the handshake.",2);
+}
+void complete_bunker_capture(bunker@ b,int player_index)
+{
+b.owner=players[player_index].name;b.capturing_player="";b.capture_progress=0;b.power=25;b.medical_charges=3;b.integrity=1000;
+send_reliable(0,"play_s notify.ogg",0);send_reliable(0,b.name+" has been secured by "+players[player_index].name+". Its medical station, sensor grid and reserve power are online.",2);refresh_bunker_owner_count(player_index);
 }
 ballista@[] ballistas(0);
 class ballista
@@ -219,14 +261,22 @@ void bunkerloop()
 {
 for (uint i=0; i<bunkers.length(); i++)
 {
-for (uint e=0; e<players.length(); e++)
+bunker@ b=bunkers[i];if(b.simulation_timer.elapsed<1000)continue;b.simulation_timer.restart();
+if(b.power_timer.elapsed>=5000){b.power_timer.restart();if(b.owner!="" and b.power<100)b.power++;}
+if(b.medical_timer.elapsed>=90000){b.medical_timer.restart();if(b.owner!="" and b.medical_charges<3)b.medical_charges++;}
+if(b.capturing_player!="")
 {
-if(bunkers[i].healtimer.elapsed>=3000 and players[e].x==bunkers[i].x and players[e].y==bunkers[i].y and players[e].z==bunkers[i].z and players[e].name==bunkers[i].owner)
-{
-play("healing",bunkers[i].x,bunkers[i].y,bunkers[i].z,bunkers[i].map);
-bunkers[i].healtimer.restart();
-players[e].health+=random(20,25);
+int capturer=get_player_index_from(b.capturing_player);bool valid=capturer>=0 and !players[capturer].death and players[capturer].map==b.map and get_3d_distance(players[capturer].x,players[capturer].y,players[capturer].z,b.x,b.y,b.z)<=6;bool contested=false;
+if(valid)for(uint opponent=0;opponent<players.length();opponent++)if(int(opponent)!=capturer and !players[opponent].death and players[opponent].map==b.map and get_3d_distance(players[opponent].x,players[opponent].y,players[opponent].z,b.x,b.y,b.z)<=8){contested=true;break;}
+if(!valid){if(capturer>=0)send_reliable(players[capturer].peer_id,"Bunker capture aborted because you left the control room.",2);b.capturing_player="";b.capture_progress=0;}
+else if(contested){if(b.capture_report_timer.elapsed>=3000){b.capture_report_timer.restart();send_reliable(players[capturer].peer_id,"Bunker capture contested. Clear the control room to continue.",2);}}
+else {b.capture_progress++;if(b.capture_progress>=12)complete_bunker_capture(b,capturer);else if(b.capture_progress%3==0)send_reliable(players[capturer].peer_id,"Bunker handshake "+int(double(b.capture_progress)/12.0*100.0)+" percent.",2);}
 }
+if(b.owner=="")continue;
+for(uint e=0;e<players.length();e++)
+{
+if(players[e].death or players[e].map!=b.map or get_3d_distance(players[e].x,players[e].y,players[e].z,b.x,b.y,b.z)>8)continue;
+if((players[e].name==b.owner or same_team(players[e].name,b.owner)) and players[e].health<1000 and b.medical_charges>0 and b.power>=5 and b.healtimer.elapsed>=3000){int treatment=random(55,75);players[e].health+=treatment;if(players[e].health>1000)players[e].health=1000;b.medical_charges--;b.power-=5;b.healtimer.restart();play("healing",b.x,b.y,b.z,b.map);send_reliable(players[e].peer_id,"Bunker medical station restored "+treatment+" health. "+b.medical_charges+" treatments remain.",2);break;}
 }
 }
 }
@@ -252,6 +302,7 @@ void explode()
 for (uint i=0; i<samtexs.length(); i++)
 {
 play("semtexexplode",samtexs[i].x,samtexs[i].y,samtexs[i].z,samtexs[i].map);
+damage_world_objects_blast(samtexs[i].x,samtexs[i].y,samtexs[i].z,samtexs[i].map,30,650);
 send_reliable(0,"distsound semtexdist.ogg "+samtexs[i].x+" "+samtexs[i].y+" "+samtexs[i].z+" "+samtexs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
@@ -364,6 +415,7 @@ for (uint i=0; i<bombs.length(); i++)
 if (bombs[i].bombtimer.elapsed>=100)
 {
 play("bombvestexplode",bombs[i].x,bombs[i].y,bombs[i].z,bombs[i].map);
+damage_world_objects_blast(bombs[i].x,bombs[i].y,bombs[i].z,bombs[i].map,25,1500);
 send_reliable(0,"distsound bombvestdist.ogg "+bombs[i].x+" "+bombs[i].y+" "+bombs[i].z+" "+bombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
@@ -443,6 +495,7 @@ for(int i=int(c4charges.length())-1; i>=0; i--)
 if(detonated>=count) break;
 if(c4charges[i].owner!=owner) continue;
 play("semtexexplode",c4charges[i].x,c4charges[i].y,c4charges[i].z,c4charges[i].map);
+damage_world_objects_blast(c4charges[i].x,c4charges[i].y,c4charges[i].z,c4charges[i].map,25,700);
 send_reliable(0,"distsound semtexdist.ogg "+c4charges[i].x+" "+c4charges[i].y+" "+c4charges[i].z+" "+c4charges[i].map,0);
 for(uint p=0; p<players.length(); p++)
 {
@@ -468,14 +521,20 @@ bunker_alarm_timers.resize(bunkers.length());
 for(uint i=0; i<bunkers.length(); i++)
 bunker_alarm_active[i]=false;
 }
+void ensure_bunker_alarm_arrays()
+{
+uint old=bunker_alarm_active.length();if(old>=bunkers.length())return;bunker_alarm_active.resize(bunkers.length());bunker_alarm_timers.resize(bunkers.length());for(uint i=old;i<bunkers.length();i++)bunker_alarm_active[i]=false;
+}
 void bunker_alarm_loop()
 {
+ensure_bunker_alarm_arrays();
 for(uint i=0; i<bunkers.length(); i++)
 {
 if(bunker_alarm_active[i] and bunker_alarm_timers[i].elapsed>=2000)
 {
+bunker@ b=bunkers[i];if(b.owner=="" or b.power<=0){bunker_alarm_active[i]=false;continue;}b.power--;
 bunker_alarm_timers[i].restart();
-play("bunkerbombwarn",bunkers[i].x,bunkers[i].y,bunkers[i].z,bunkers[i].map);
+play("bunkerbombwarn",b.x,b.y,b.z,b.map);
 }
 }
 }
@@ -496,6 +555,7 @@ for(uint p=0; p<players.length(); p++)
 if(players[p].name==bunkers[i].owner or players[p].death) continue;
 if(players[p].map==bunkers[i].map and get_3d_distance(players[p].x,players[p].y,players[p].z,bunkers[i].x,bunkers[i].y,bunkers[i].z)<=20)
 {
+if(bunkers[i].power<=0)break;bunkers[i].power--;
 send_reliable(players[owner_idx].peer_id, "play_s notify.ogg", 0);
 send_reliable(players[owner_idx].peer_id, "HyperComp alert: "+players[p].name+" detected near "+bunkers[i].name+"!", 2);
 }

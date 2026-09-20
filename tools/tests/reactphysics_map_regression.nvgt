@@ -1,0 +1,31 @@
+#include "bgt_compat.nvgt"
+#include "../../includes/reactphysics_core.nvgt"
+#include "../../includes/reactphysics_map.nvgt"
+string report_path,results;int failures=0;
+void check(bool ok,string label){results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)failures++;file f;f.open(report_path,"wb");f.write(results);f.close();}
+void main()
+{
+ string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-reactphysics-map-"+random(100000,999999999);directory_create(directory);report_path=directory+"/results.txt";
+ string[] maps={"battlegrounds","freeforall","freyas_ascent","habitat_alpha"};
+ for(uint i=0;i<maps.length();i++)
+ {
+  rp_world_owner world;rp_map_geometry geometry;
+  file f;bool opened=f.open("../../runtime_build/maps/"+maps[i]+".json","rb");
+  check(opened,maps[i]+" compiled data exists");if(!opened)continue;
+  string data=f.read();f.close();geometry.load(world,data);
+  check(geometry.solid_count>100,maps[i]+" creates native map solids");
+  // Native top-down queries must see the map, not just metadata.
+  rp_ray_result@ hit=world.cast_ray(vector(40,40,100),vector(40,40,-10));
+  check(hit.hit,maps[i]+" native ray finds authored surface");
+  check(hit.hit and geometry.material_for(hit.body)!="",maps[i]+" retains surface material attribution");
+  if(hit.hit)
+  {
+   uint64 ball=world.sphere(.2,hit.point+vector(0,0,2),1);
+   for(int t=0;t<120;t++){world.advance(1.0/60.0);world.take_contacts();}
+   check(abs(world.position(ball).z-hit.point.z-.2)<.06,maps[i]+" native body lands on compiled floor");
+   world.remove(ball);
+  }
+  geometry.unload();check(!world.cast_ray(vector(40,40,100),vector(40,40,-10)).hit,maps[i]+" unload removes native geometry");world.close();
+ }
+ file f;f.open(report_path,"wb");f.write(results+"Failures: "+failures+"\nStage: complete\n");f.close();
+}

@@ -1,0 +1,35 @@
+// Runs the real client functions without opening a game session or changing settings.
+#include "acoustic_regression.nvgt"
+string client_test_results;int client_test_failures=0;
+string client_test_directory;
+void client_checkpoint(string stage){file report;report.open(client_test_directory+"/results.txt","wb");report.write(client_test_results+"Stage: "+stage+"\n");report.close();}
+void client_check(bool value,string label){client_test_results+=(value?"PASS ":"FAIL ")+label+"\n";if(!value)client_test_failures++;}
+void run_client_regression()
+{
+#if IW_ACOUSTIC_REGRESSION
+run_acoustic_regression();return;
+#endif
+client_test_directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-client-regression-"+random(100000,999999999);directory_create(client_test_directory);client_checkpoint("building inventory");
+inv.delete_all();inventory_order.resize(0);partial_items.resize(0);invalidate_inventory_keys();inv_category_index=0;
+for(int i=0;i<10000;i++){string id="test_item"+i;content_register(id,"Test item "+i,"Utility","Regression fixture",1);give(id,1);}
+client_check(get_filtered_keys().length()==10000,"ten-thousand-item inventory index");
+client_checkpoint("selection timing");
+invpos=5000;string chosen=get_selected_item();timer performance;
+for(int i=0;i<1000;i++){string selection=get_selected_item();}
+client_test_results+="1000 cached selections, 10000 items: "+performance.elapsed+" ms\n";client_checkpoint("label timing");
+performance.restart();for(int i=0;i<1000;i++){string label=inv_menu_label(get_filtered_keys(),5000);}
+client_test_results+="1000 spoken-label constructions, 10000 items: "+performance.elapsed+" ms\n";client_checkpoint("mutation and acoustic checks");
+client_check(inventory_reorder(chosen,-100000) and get_filtered_keys()[0]==chosen,"reorder invalidates cached presentation");
+give(chosen,-1);client_check(get_filtered_keys().length()==9999 and get_filtered_keys().find(chosen)<0,"removing an entry invalidates cache");
+give("test_item0",2);client_check(get_item_count("test_item0")==3,"live quantities survive caching");
+inv_category_index=inv_categories.find("Ammo");client_check(get_filtered_keys().length()==0,"empty category does not reuse All cache");
+partial_items.insert_last(partial_ammo_item("test_magazine",3,10));client_check(get_filtered_keys().length()==1 and get_filtered_keys()[0]=="__partial__0","partial-container additions invalidate cache");
+partial_items.resize(0);client_check(get_filtered_keys().length()==0,"partial-container removal invalidates cache");
+inv.delete_all();invalidate_inventory_keys();inv_category_index=0;client_check(get_filtered_keys().length()==0,"session reset clears selection cache");
+client_check(!acoustic_local_world_source("menumove.ogg") and !acoustic_local_world_source("chat.ogg") and acoustic_local_world_source("grass3step1.ogg"),"dry interface versus physical local movement");
+register_gun("test_weapon","test","magazine",10,"test_standard","magazines",true,2,1000);
+string[] supported={"test_weapon"};register_ammunition_load("test_load","Test alternative","test_alt","Test","",supported,2);
+client_check(is_ammo_reserve_item("test_standard") and is_ammo_reserve_item("test_alt"),"base and alternative ammunition share classification");
+client_test_results+="Failures: "+client_test_failures+"\n";
+client_checkpoint("finished");
+}

@@ -1,3 +1,9 @@
 Credits
 
 Credits are the persistent account currency earned through combat. Each kill awards 10 to 20 credits; five kills awards 40 bonus credits and ten kills awards 75. Every award is saved to the account immediately and does not reset on death. The lobby account-information interface retrieves the current balance from the server. Kill credit also contributes to the killer's shared team point pool when applicable.
+
+Type /credits in the global chat box in a map or lobby to privately read your saved balance. Small credit chips contain 15 credits and large chips contain 60. Using a chip opens a read-only scanner showing the value per chip, the number carried and the total value. Scanning does not spend or consume anything. You must be within three tiles of a functioning map ATM to deposit chips; the scanner can open that nearby ATM. Each chip must have been granted by the server. Developer chip grants require server developer or administrator permission.
+
+Deposits and purchases complete only after the server saves and verifies the new balance. A failed save leaves credits and the chip unchanged. A delayed network response does not mean a deposit failed: check /credits and the remaining chips before retrying.
+
+Server operators: back up and retain the entire accounts directory, including each account's .dat, .wallet0 and .wallet1 files. The two encrypted wallet records alternate so a failed write does not overwrite the previous committed balance. Existing .dat credit balances migrate automatically on the first successful transaction. If both wallet records are unreadable, transactions are blocked rather than resetting the account to zero. Restore the wallet files from a known-good backup; do not delete them to recreate the balance.

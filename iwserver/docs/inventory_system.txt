@@ -1,6 +1,8 @@
 Inventory System
 
-Press I to open the inventory. Up and Down browse the current group, Left and Right change group, Enter selects, Shift+Enter uses the focused entry, and Alt+Enter opens its database documentation.
+Press I to open the inventory. Up and Down browse the current group; Page Up and Page Down move ten entries; Home and End jump to the boundaries; and typing several letters performs prefix navigation. Left/Right and Tab/Shift+Tab move through nonempty groups. Enter selects, Shift+Enter uses the focused entry, Alt+Enter opens its database documentation, Applications opens a discoverable item-action panel, and F1 reads every available control.
+
+The item-action panel retains the live inventory and offers only relevant actions: use or equip, dynamic help, give one to a player within ten tiles, and drop one seven tiles ahead. Throwable grenades continue to use Enter's pin-and-cook workflow so the panel cannot bypass their fuse simulation.
 
 The live groups are All, Weapons, Ammo, Explosives, Healing, Armour, Armour Repair, Weapon Maintenance, Vehicle Supplies, Attachments, Holsters, Team, Tools, Electronics, Containers and Equipment. Only All and groups containing at least one current item participate in Left/Right or K/Shift+K navigation; a group appears automatically when its first item is received and disappears from cycling when its last item is removed. The inventory traverses this same live category registry for both filtered views and All, so a database category cannot be visible in the selector but omitted from item browsing. Content is classified by the same runtime database used by the armoury and developer grant tools, so newly registered content does not require another hardcoded help list.
 
@@ -9,3 +11,5 @@ Tab and Shift+Tab cycle items without opening the form. K and Shift+K cycle cate
 Shift+I opens the quickbar manager. Clear quickbar removes all ten assignments for the current session. Automatically bind best loadout ranks the live inventory and lays out the strongest melee weapon, sidearm, primary and backup primary first, followed by the best distinct explosives, recovery choices and practical equipment. It reports every selected slot and its reason; unsuitable filler is left out.
 
 Partial magazines, cells and other feed devices remain typed inventory objects and report their remaining capacity and ammunition load. On death, carried inventory is transferred to the corpse loot system.
+
+Multi-dose liquid medicine bottles show fluid ounces remaining, and pill bottles show pills remaining. Data-driven bulk ammunition packages—including boxes, linked belts, belt boxes, bandoliers, quivers, shell cases and crates—use consistent container-style quantity announcements.

@@ -1,0 +1,97 @@
+// Native actor adapter. Inputs change a navigation goal; only the solver moves
+// the body. No coordinate snapping or manually integrated gravity is used.
+class rp_actor
+{
+ private rp_world_owner@ world;
+ private uint64 body=0,support=0;
+ private vector goal,support_local,support_previous;
+ private bool has_support_anchor=false;
+ float speed=5,acceleration=80;
+ private float half_height=.9;
+ private bool on_ground=false;
+ private bool jump_pending=false;
+ private uint64 jump_tick=0;
+ rp_actor(rp_world_owner@ owner,vector feet,float kilograms=80)
+ {
+  if(owner is null)throw("Actor needs a physics world");@world=owner;
+  rp_shape_part@[] parts;
+  rp_shape_part hull;hull.kind=2;hull.size=vector(.28,1.24,0);hull.name="movement";hull.friction=0;hull.query=false;parts.insert_last(hull);
+  add_part(parts,"head",vector(.17,0,0),vector(0,0,.73),true);
+  add_part(parts,"neck",vector(.09,.1,.07),vector(0,0,.50));
+  add_part(parts,"chest",vector(.23,.14,.20),vector(0,0,.25));
+  add_part(parts,"abdomen",vector(.20,.13,.12),vector(0,0,-.06));
+  add_part(parts,"pelvis",vector(.21,.14,.10),vector(0,0,-.27));
+  for(int side=-1;side<=1;side+=2)
+  {
+   string prefix=side<0?"left_":"right_";
+   add_part(parts,prefix+"upper_arm",vector(.075,.09,.15),vector(side*.31,0,.25));
+   add_part(parts,prefix+"forearm",vector(.065,.08,.13),vector(side*.31,0,-.04));
+   add_part(parts,prefix+"hand",vector(.065,.075,.055),vector(side*.31,0,-.23));
+   add_part(parts,prefix+"thigh",vector(.09,.11,.13),vector(side*.115,0,-.43));
+   add_part(parts,prefix+"shin",vector(.075,.085,.12),vector(side*.115,0,-.67));
+   add_part(parts,prefix+"foot",vector(.085,.14,.055),vector(side*.115,.04,-.845));
+  }
+  body=world.compound(parts,feet+vector(0,0,half_height),kilograms);world.lock_rotation(body,true);goal=feet;
+ }
+ private void add_part(rp_shape_part@[]&inout parts,string name,vector size,vector offset,bool sphere=false)
+ {rp_shape_part part;part.name=name;part.kind=sphere?1:0;part.size=size;part.offset=offset;part.simulation=false;parts.insert_last(part);}
+ ~rp_actor(){close();}
+ void close(){if(world !is null and body!=0)world.remove(body);body=0;@world=null;}
+ uint64 id()const{return body;}
+ vector feet(){return world.position(body)-vector(0,0,half_height);}
+ vector target()const{return goal;}
+ bool grounded()const{return on_ground;}
+ // Each command denotes exactly one cardinal metre, independent of render FPS.
+ void navigate(int dx,int dy)
+ {
+  if(abs(dx)+abs(dy)!=1)throw("Navigation input must be one cardinal step");
+  goal.x+=dx;goal.y+=dy;
+ }
+ void stop(){goal=feet();}
+ void set_equipped_mass(float kilograms){world.set_mass(body,kilograms);}
+ void before_step()
+ {
+  if(world is null or !world.contains(body))throw("Actor body is not live");
+  if(!(speed>0 and speed<=100 and acceleration>0 and acceleration<=1000))throw("Invalid actor movement tuning");
+  vector current=feet(),velocity=world.velocity(body),base_velocity;
+  rp_ray_result@ ground=world.cast_ray(current+vector(0,0,.12),current-vector(0,0,.14),0xffff,body);
+  on_ground=ground.hit and ground.normal.z>.65 and velocity.z<1;
+  if(jump_pending){if(world.step_number()==jump_tick)on_ground=false;else jump_pending=false;}
+  if(on_ground)
+  {
+   if(has_support_anchor and support==ground.body and world.contains(support))
+   {
+    vector next=world.world_point(support,support_local),delta=next-support_previous;
+    goal.x+=delta.x;goal.y+=delta.y;
+   }
+   support=ground.body;support_local=world.local_point(support,current);support_previous=world.world_point(support,support_local);has_support_anchor=true;
+   base_velocity=world.point_velocity(support,current);
+  }
+  else{support=0;has_support_anchor=false;}
+  vector delta=goal-current;delta.z=0;float distance=delta.length();
+  vector desired=base_velocity;desired.z=0;
+  if(distance>0.0001)
+  {
+   float stopping_speed=sqrt(2*acceleration*distance);
+   float requested=speed;if(stopping_speed<requested)requested=stopping_speed;
+   if(distance*60<requested)requested=distance*60;
+   desired+=delta*(requested/distance);
+  }
+  vector change=(desired-vector(velocity.x,velocity.y,0))*60;
+  // Muscular force is bounded independently of carried mass; extra equipment
+  // therefore changes acceleration rather than being cancelled by the servo.
+  float cap=(on_ground?acceleration:acceleration*.12)*80/world.mass(body);
+  if(change.length()>cap)change=change*(cap/change.length());
+  world.force(body,change*world.mass(body));
+ }
+ bool jump(float height)
+ {
+  if(!on_ground)return false;
+  if(!(height>0 and height<=5))throw("Invalid jump height");
+  // Force applied for one 60 Hz step supplies the takeoff impulse. Gravity,
+  // collisions and flight remain entirely native after takeoff.
+  float launch=sqrt(2*9.81*height);
+  world.force(body,vector(0,0,(launch-world.velocity(body).z)*world.mass(body)*60));
+  on_ground=false;support=0;has_support_anchor=false;jump_pending=true;jump_tick=world.step_number();return true;
+ }
+}

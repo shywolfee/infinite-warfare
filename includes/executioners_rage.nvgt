@@ -1,0 +1,139 @@
+// Gameplay integration for the imported Executioner's Rage recordings. These
+// controls expose concrete services; there is intentionally no sound gallery.
+class er_terminal_offer
+{
+string id,name,detail;int price;
+er_terminal_offer(string i,string n,string d,int p){id=i;name=n;detail=d;price=p;}
+}
+
+string executioners_decode_token(string value){return string_replace(value,"%20"," ",true);}
+
+er_terminal_offer@[] er_terminal_catalogue(string terminal)
+{
+er_terminal_offer@[] result;
+if(terminal=="drinks")
+{
+result.insert_last(er_terminal_offer("coke","Coke can","Mild stimulant drink; restores stamina and adds a small stimulant load.",6));
+result.insert_last(er_terminal_offer("doctor_pepper","Doctor Pepper can","Balanced stimulant drink with moderate stamina recovery.",7));
+result.insert_last(er_terminal_offer("sprite","Sprite can","Caffeine-free hydration with modest stamina recovery.",5));
+result.insert_last(er_terminal_offer("electrolyte_water","Electrolyte water","Restores stamina without adding stimulant load.",8));
+}
+else if(terminal=="snacks")
+{
+result.insert_last(er_terminal_offer("fried_pig_skins","Fried pig skins","Salty ration with modest recovery.",6));
+result.insert_last(er_terminal_offer("fudge_brownie","Fudge brownie","Dense high-energy ration with stronger recovery.",8));
+result.insert_last(er_terminal_offer("hot_fries","Hot fries","Quick ration that restores a small amount of health and stamina.",5));
+result.insert_last(er_terminal_offer("snickers","Snickers chocolate bar","Balanced field ration for health and stamina.",7));
+}
+else
+{
+result.insert_last(er_terminal_offer("mini_med","Mini trauma dressing","Fast low-volume field dressing for minor wounds.",15));
+result.insert_last(er_terminal_offer("mid_med","Standard trauma dressing","General-purpose sterile dressing and sealant.",28));
+result.insert_last(er_terminal_offer("super_med","Advanced trauma dressing","High-capacity clotting and tissue-stabilization package.",45));
+result.insert_last(er_terminal_offer("mega_med","Emergency reconstruction pack","Maximum-strength field treatment, still bounded by full health.",70));
+}
+return result;
+}
+
+void executioners_terminal(string terminal,int fixture_id)
+{
+if(!connected){speak("This terminal requires an active server connection.");return;}
+er_terminal_offer@[] offers=er_terminal_catalogue(terminal);string title=terminal=="drinks"?"Beverage Vending Machine":(terminal=="snacks"?"Snack Vending Machine":"Field Medical Dispenser");
+send_reliable(0,"market_balance",0);string balance_response;int credits=0;if(wait_for_service_response("market_balance ",balance_response,3000))credits=string_to_number(string_replace(balance_response,"market_balance ","",false));else{speak("The credit service did not answer.");return;}
+nv_form f;f.create_window(title,false,true);nv_form_input@ balance=f.add_input("Account balance","balance",credits+" credits","",0,true,true);nv_form_list_box@ list=f.add_list("Available products","products");for(uint i=0;i<offers.length();i++)list.add(offers[i].name+"; "+offers[i].price+" credits. "+offers[i].detail,offers[i].id);if(list.items.length()>0)list.set_pos(0,false);nv_form_button@ buy=f.add_button("Buy selected product","buy",true);nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(list);p.play_stationary("executioners_rage/environment/objects/kiosk/menuopen.wav",false);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();else return;if(f.is_pressed(close)){p.play_stationary("executioners_rage/environment/objects/kiosk/menuclose.wav",false);return;}if(!f.is_pressed(buy))continue;int selected=list.list_position;if(selected<0 or selected>=int(offers.length())){speak("Select a product first.");continue;}p.play_stationary("executioners_rage/environment/objects/kiosk/menuenter.wav",false);send_reliable(0,"er_purchase "+terminal+" "+offers[selected].id+" "+fixture_id,0);string response;if(!wait_for_service_response("er_purchase_",response,3000)){speak("The vending request timed out without charging you.");continue;}if(string_contains(response,"er_purchase_ok ",1)==0){string[] fields=string_split(response," ",true);if(fields.length()>1)credits=string_to_number(fields[1]);balance.default_text=credits+" credits";string stock=fields.length()>3?" Machine stock remaining "+fields[3]+".":"";speak("Dispensed "+offers[selected].name+". Remaining balance "+credits+" credits."+stock);}else speak(string_replace(response,"er_purchase_error ","Purchase declined: ",false));
+}
+}
+
+uint credit_redemption_request=0;
+void executioners_atm(int fixture_id)
+{
+if(!connected){speak("The field ATM requires an active server connection.");return;}
+send_reliable(0,"market_balance",0);string response;int credits=0;
+if(wait_for_service_response("market_balance ",response,3000))credits=string_to_number(string_replace(response,"market_balance ","",false));
+else{speak("The account service did not answer.");return;}
+if(credits<0){speak("Your saved wallet is unavailable. Please contact a developer before using the ATM.");return;}
+nv_form f;f.create_window("Field ATM",false,true);
+nv_form_input@ balance=f.add_input("Authenticated account balance","balance",credits+" credits","",0,true,true);
+nv_form_button@ small=f.add_button("Redeem one small credit chip: 15 credits","small");
+nv_form_button@ large=f.add_button("Redeem one large credit chip: 60 credits","large");
+nv_form_button@ close=f.add_button("Remove card and close","close",false,true);
+f.focus_control(balance);p.play_stationary("executioners_rage/environment/objects/atm/door_open.wav",false);p.play_stationary("executioners_rage/environment/objects/atm/insert_card.wav",false);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();else return;
+if(f.is_pressed(close)){p.play_stationary("executioners_rage/environment/objects/atm/remove_card.wav",false);p.play_stationary("executioners_rage/environment/objects/atm/door_close.wav",false);return;}
+string size="";if(f.is_pressed(small))size="small";else if(f.is_pressed(large))size="large";if(size=="")continue;
+if(get_item_count("er_"+size+"_credit_chip")<=0){speak("You do not carry a "+size+" credit chip.");continue;}
+p.play_stationary("executioners_rage/environment/objects/atm/keypress.wav",false);
+string request_id=""+(++credit_redemption_request);
+send_reliable(0,"er_redeem "+size+" "+fixture_id+" "+request_id,0);
+string reply,prefix="er_credit_reply "+request_id+" ";
+if(!wait_for_service_response(prefix,reply,5000)){speak("The ATM response is delayed. Check /credits and your remaining chips before trying another deposit.");continue;}
+reply=string_replace(reply,prefix,"",false);
+if(string_contains(reply,"ok ",1)==0){credits=string_to_number(string_replace(reply,"ok ","",false));balance.default_text=credits+" credits";speak("Credit chip redeemed. Saved balance "+credits+" credits.");}
+else speak("Redemption declined: "+string_replace(reply,"error ","",false));
+}
+}
+
+bool executioners_handles_item(string item)
+{
+return string_contains(item,"er_",1)==0 or item=="field_atm_terminal" or item=="beverage_vending_access" or item=="snack_vending_access" or item=="field_medical_console" or item=="supply_kiosk_access" or item=="salvage_scanner" or item=="security_radio_receiver" or item=="field_television_receiver" or item=="auto_hover_drone" or item=="bomber_hover_drone" or item=="bioengineered_chimp_beacon";
+}
+bool executioners_item_use(string item)
+{
+if(item=="er_small_credit_chip" or item=="er_large_credit_chip"){use_credit_chip(item);return true;}
+if(executioners_handles_item(item)){send_reliable(0,item_use_command(item),0);return true;}return false;
+}
+
+bool handle_executioners_packet(string full_msg)
+{
+string[] parsed=string_split(full_msg," ",true);if(parsed.length()==0)return false;if(parsed[0]=="er_sound" and parsed.length()>5){string sound_map=executioners_decode_token(parsed[5]);if(sound_map==mapname)p.play_3d(parsed[1],me.x,me.y,me.z,string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),calculate_theta(facing),false);return true;}if(parsed[0]=="er_quad_state" and parsed.length()>1){p.play_stationary(parsed[1]=="on"?"executioners_rage/character/affects/quad_damage/powerup.wav":"executioners_rage/character/affects/quad_damage/powerdown.wav",false);speak(parsed[1]=="on"?"Overdrive amplification active for twenty seconds.":"Overdrive amplification depleted.");return true;}if(parsed[0]=="er_open" and parsed.length()>2){int fixture_id=string_to_number(parsed[2]);if(parsed[1]=="atm")executioners_atm(fixture_id);else if(parsed[1]=="kiosk")online_supply_shop();else executioners_terminal(parsed[1],fixture_id);return true;}if(parsed[0]=="er_fixture_batch" and parsed.length()>2){string batch_map=executioners_decode_token(parsed[1]);string payload=string_replace(full_msg,"er_fixture_batch "+parsed[1]+" ","",false);string[] entries=string_split(payload,";",true);for(uint i=0;i<entries.length();i++){string[] fields=string_split(entries[i],",",true);if(fields.length()<8)continue;add_executioners_fixture(string_to_number(fields[0]),fields[1],string_to_number(fields[2]),string_to_number(fields[3]),string_to_number(fields[4]),string_to_number(fields[5]),batch_map,string_to_number(fields[6]),string_to_number(fields[7]));}return true;}if(parsed[0]=="er_fixture_add" and parsed.length()>7){int stock=parsed.length()>8?string_to_number(parsed[8]):0,max_stock=parsed.length()>9?string_to_number(parsed[9]):0;add_executioners_fixture(string_to_number(parsed[1]),parsed[2],string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),executioners_decode_token(parsed[7]),stock,max_stock);return true;}if(parsed[0]=="er_fixture_health" and parsed.length()>3){update_executioners_fixture(string_to_number(parsed[1]),string_to_number(parsed[2]),executioners_decode_token(parsed[3]));return true;}if(parsed[0]=="er_fixture_stock" and parsed.length()>4){update_executioners_fixture_stock(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),executioners_decode_token(parsed[4]));return true;}if(parsed[0]=="er_fixture_state" and parsed.length()>3){set_executioners_fixture_state(string_to_number(parsed[1]),string_to_number(parsed[2])!=0,executioners_decode_token(parsed[3]));return true;}if(parsed[0]=="er_fixture_remove" and parsed.length()>2){remove_executioners_fixture(string_to_number(parsed[1]),executioners_decode_token(parsed[2]));return true;}return false;
+}
+
+class er_client_fixture
+{
+int id,x,y,z,health,stock,max_stock,map_element_id=-1;string type,map;bool enabled=true;
+er_client_fixture(int i,string t,int px,int py,int pz,int hp,string m,int current_stock=0,int capacity=0){id=i;type=t;x=px;y=py;z=pz;health=hp;map=m;stock=current_stock;max_stock=capacity;}
+}
+er_client_fixture@[] er_client_fixtures;
+int find_executioners_fixture(int id){for(uint i=0;i<er_client_fixtures.length();i++)if(er_client_fixtures[i].id==id)return int(i);return -1;}
+string executioners_fixture_name(string type){return string_replace(type,"_"," ",true);}
+bool executioners_door_fixture(string type){return string_contains(type,"door_",1)==0;}
+bool executioners_fixture_solid(string type){return type!="streams" and type!="atrium_speaker" and type!="well_speaker";}
+string executioners_fixture_material(string type){if(type=="door_screen")return "wallglass";if(type=="door_gate")return "wallfence";if(type=="door_room" or type=="table")return "wallwood";return "wallmetal";}
+void rebuild_executioners_fixture(er_client_fixture@ f)
+{
+if(f.map_element_id>=0)dynamic_map_destroy(f.map_element_id);f.map_element_id=dynamic_map_create("field_fixture",executioners_fixture_name(f.type),10000+f.id,f.x,f.y,f.z,0);dynamic_map_element@ e=dynamic_map_elements[f.map_element_id];bool solid=executioners_fixture_solid(f.type) and (!executioners_door_fixture(f.type) or f.enabled);e.add_tile(-.42,.42,-.42,.42,0,1.8,executioners_fixture_material(f.type),executioners_fixture_name(f.type)+", health "+f.health,solid);
+}
+void add_executioners_fixture(int id,string type,int x,int y,int z,int health,string map,int stock=0,int max_stock=0)
+{
+if(map!=mapname)return;int old=find_executioners_fixture(id);if(old>=0){er_client_fixtures[old].health=health;er_client_fixtures[old].stock=stock;er_client_fixtures[old].max_stock=max_stock;return;}er_client_fixtures.insert_last(er_client_fixture(id,type,x,y,z,health,map,stock,max_stock));rebuild_executioners_fixture(er_client_fixtures[er_client_fixtures.length()-1]);
+}
+void update_executioners_fixture(int id,int health,string map){int i=find_executioners_fixture(id);if(i>=0 and er_client_fixtures[i].map==map)er_client_fixtures[i].health=health;}
+void update_executioners_fixture_stock(int id,int stock,int max_stock,string map){int i=find_executioners_fixture(id);if(i>=0 and er_client_fixtures[i].map==map){er_client_fixtures[i].stock=stock;er_client_fixtures[i].max_stock=max_stock;}}
+void set_executioners_fixture_state(int id,bool enabled,string map){int i=find_executioners_fixture(id);if(i<0 or er_client_fixtures[i].map!=map)return;er_client_fixtures[i].enabled=enabled;rebuild_executioners_fixture(er_client_fixtures[i]);}
+void remove_executioners_fixture(int id,string map){int i=find_executioners_fixture(id);if(i<0 or er_client_fixtures[i].map!=map)return;dynamic_map_destroy(er_client_fixtures[i].map_element_id);er_client_fixtures.remove_at(i);}
+void clear_executioners_fixtures(){for(uint i=0;i<er_client_fixtures.length();i++)dynamic_map_destroy(er_client_fixtures[i].map_element_id);er_client_fixtures.resize(0);}
+int nearest_executioners_fixture(double x,double y,double z,double radius=3)
+{
+int result=-1;double nearest=radius+1;for(uint i=0;i<er_client_fixtures.length();i++){if(er_client_fixtures[i].map!=mapname)continue;double distance=get_3d_distance(x,y,z,er_client_fixtures[i].x,er_client_fixtures[i].y,er_client_fixtures[i].z);if(distance<=radius and distance<nearest){nearest=distance;result=int(i);}}return result;
+}
+bool interact_nearest_executioners_fixture(){int i=nearest_executioners_fixture(me.x,me.y,me.z,3);if(i<0)return false;send_reliable(0,"er_fixture_interact "+er_client_fixtures[i].id,0);return true;}
+string nearby_executioners_fixtures(double x,double y,double z)
+{
+string result="";for(uint i=0;i<er_client_fixtures.length();i++){if(er_client_fixtures[i].map!=mapname)continue;double distance=get_3d_distance(x,y,z,er_client_fixtures[i].x,er_client_fixtures[i].y,er_client_fixtures[i].z);if(distance<=30){if(result!="")result+=" ";result+=executioners_fixture_name(er_client_fixtures[i].type)+", "+int(distance)+" tiles away, "+er_client_fixtures[i].health+" health"+(er_client_fixtures[i].max_stock>0?", stock "+er_client_fixtures[i].stock+" of "+er_client_fixtures[i].max_stock:"")+".";}}return result;
+}
+bool executioners_fixture_collision_sound(double x,double y,double z)
+{
+for(uint i=0;i<er_client_fixtures.length();i++){if(er_client_fixtures[i].map!=mapname)continue;if(get_3d_distance(x,y,z,er_client_fixtures[i].x,er_client_fixtures[i].y,er_client_fixtures[i].z)>.8)continue;string type=er_client_fixtures[i].type;if(executioners_door_fixture(type)){p.play_stationary("executioners_rage/doors/"+string_replace(type,"door_","",false)+"/loop.wav",false);return true;}string action=(type=="hospital_coagulator" or type=="hospital_defibolator" or type=="hospital_ventilator" or type=="instrument_prep" or type=="fridge" or type=="security_radio1" or type=="tv" or type=="sink1" or type=="sink2")?"loop":"collide";p.play_stationary("executioners_rage/environment/objects/"+type+"/"+action+".wav",false);return true;}return false;
+}
+
+timer executioners_ambience_timer;int executioners_ambience_sound=-1;string executioners_ambience_map="";
+void executioners_ambience_loop()
+{
+if(mapname=="main"){if(executioners_ambience_sound>=0)p.destroy_sound(executioners_ambience_sound);executioners_ambience_sound=-1;executioners_ambience_map="";return;}if(executioners_ambience_map!=mapname){if(executioners_ambience_sound>=0)p.destroy_sound(executioners_ambience_sound);executioners_ambience_sound=-1;executioners_ambience_map=mapname;executioners_ambience_timer.restart();}if(executioners_ambience_timer.elapsed<90000)return;executioners_ambience_timer.restart();string[] bank;string lower=string_to_lower_case(mapname+" "+get_zone_at(int(mr.x),int(mr.y),int(me.z)));
+if(string_contains(lower,"coruscant",1)>=0 or string_contains(lower,"city",1)>=0)bank={"1st_street","arcasino","bank_atrium","bank_counter","city_day","city_night","franklin","freeway","jasmine_street","office","parking_lot_extra","parking_lot_police","parking_lot_pow","parkway","police_station/armory","police_station/default","post_office","sidewalk_bank","sidewalk_stoner","stoner1","stoner2","train_station"};else if(string_contains(lower,"ghost",1)>=0)bank={"bf_scrap_yard","cave","dark_forest","dead_zone","extra","melee_place","newbie_forest","warehouse","whbathroom","whiskey_well","whiskey_well_patio"};else if(string_contains(lower,"aurelia",1)>=0)bank={"birds","blue_sky","budleaf_park","fountain","grassy","rainforest"};else bank={"bathroom","corridor","eats","hospital","house1","house2","indoor","store1","store2"};if(bank.length()==0)return;if(executioners_ambience_sound>=0)p.destroy_sound(executioners_ambience_sound);executioners_ambience_sound=p.play_stationary("executioners_rage/environment/ambiance/"+bank[random(0,bank.length()-1)]+".wav",false);
+}

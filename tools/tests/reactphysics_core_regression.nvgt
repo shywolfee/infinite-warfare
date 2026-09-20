@@ -1,0 +1,36 @@
+#include "bgt_compat.nvgt"
+#include "../../includes/reactphysics_core.nvgt"
+string report_path,results;int failures=0;
+void check(bool ok,string label){results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)failures++;file f;f.open(report_path,"wb");f.write(results);f.close();}
+void main()
+{
+ string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-reactphysics-core-"+random(100000,999999999);directory_create(directory);report_path=directory+"/results.txt";
+ rp_world_owner world,other;
+ uint64 ground=world.box(vector(10,10,.25),vector(0,0,-.25));
+ uint64 ball=world.sphere(.25,vector(0,0,2),1);
+ check(world.contains(ball),"owned body ID resolves");
+ check(!other.contains(ball),"body IDs cannot cross worlds");
+ check(world.advance(.5)==8,"catch-up work respects step budget");
+ check(world.pending_seconds()>.36,"simulation debt is not discarded");
+ world.advance(0,60);check(world.step_number()==30,"retained debt catches up exactly");
+ for(int i=0;i<90;i++)world.advance(1.0/60.0);
+ check(abs(world.position(ball).z-.25)<.05,"owner delegates gravity and contacts to native solver");
+ rp_contact_event@[] contacts=world.take_contacts();
+ check(contacts.length()>0,"native contacts copied into owned events");
+ check(contacts.length()>0 and contacts[0].a!=0 and contacts[0].b!=0,"contact bodies resolve to generation IDs");
+ check(world.take_contacts().length()==0,"contact drain does not replay old impacts");
+ rp_ray_result@ ray_hit=world.cast_ray(vector(0,0,5),vector(0,0,-2));
+ check(ray_hit.hit and ray_hit.body==ball,"owned raycast returns nearest body ID");
+ uint64 joint=world.fixed_joint(ground,ball,world.position(ball));
+ world.force(ball,vector(100,0,0));world.advance(1.0/60.0);
+ check(abs(world.position(ball).x)<.05,"owned fixed joint constrains body");
+ check(world.remove(ball),"body removal destroys connected joint before shape");
+ check(!world.remove_joint(joint),"connected joint ID invalidated");
+ check(!world.contains(ball) and !world.force(ball,vector(1,0,0)),"stale ID cannot mutate native memory");
+ uint64 replacement=world.sphere(.25,vector(0,0,2),1);
+ check(replacement!=ball and !world.contains(ball),"recycled slot changes generation");
+ for(int i=0;i<200;i++){uint64 id=world.sphere(.1,vector(1,1,1),1);world.remove(id);}
+ check(world.contains(replacement),"repeated recycling preserves other bodies");
+ world.close();world.close();other.close();check(!world.contains(replacement),"world close is idempotent and invalidates IDs");
+ file f;f.open(report_path,"wb");f.write(results+"Failures: "+failures+"\nStage: complete\n");f.close();
+}

@@ -199,7 +199,7 @@ if (action=="accept")
 string invited; if (!pending_team_invites.get(string_to_lower_case(pname), invited)) { send_reliable(players[pi].peer_id, "You have no pending team invitation.", 2); return true; }
 if (ti>-1) { send_reliable(players[pi].peer_id, "Leave your current team first.", 2); return true; }
 int nti=get_team_index_by_name(invited); if (nti<0) return true;
-teams[nti].members.insert_last(team_member(pname)); pending_team_invites.delete(string_to_lower_case(pname)); save_teams(); team_notice(nti, pname+" joined the team."); return true;
+teams[nti].members.insert_last(team_member(pname)); pending_team_invites.delete(string_to_lower_case(pname)); save_teams(); send_reliable(players[pi].peer_id,"play_s firefight_team_in.ogg",0);team_notice(nti, pname+" joined the team."); return true;
 }
 if (ti<0) { send_reliable(players[pi].peer_id, "You are not on a team. Create one or accept an invitation.", 2); return true; }
 if (action=="info")
@@ -211,20 +211,20 @@ send_reliable(players[pi].peer_id, text, 2); return true;
 if (action=="chat" and p.length()>2)
 {
 string message=string_replace(raw, "/team chat ", "", false).trim_whitespace();
-if (message!="")team_notice(ti,pname+": "+message);
+if (message!=""){for(uint tm=0;tm<teams[ti].members.length();tm++){int recipient=get_player_index_from(teams[ti].members[tm].name);if(recipient>=0)send_reliable(players[recipient].peer_id,"play_s firefight_team_com.ogg",0);}team_notice(ti,pname+": "+message);}
 return true;
 }
 if (action=="invite" and p.length()>2)
 {
 if (!team_can_manage(actor, "invite")) { send_reliable(players[pi].peer_id, "You do not have invitation permission.", 2); return true; }
 int target=get_player_index_from(p[2]); if (target<0 or get_team_index_for_member(players[target].name)>-1) { send_reliable(players[pi].peer_id, "That player is unavailable or already on a team.", 2); return true; }
-pending_team_invites.set(string_to_lower_case(players[target].name), teams[ti].name); send_reliable(players[target].peer_id, pname+" invited you to team "+teams[ti].name+". Open Team in the game menu and choose Accept invitation.", 2); send_reliable(players[pi].peer_id, "Invitation sent.", 2); return true;
+pending_team_invites.set(string_to_lower_case(players[target].name), teams[ti].name); send_reliable(players[target].peer_id,"play_s executioners_rage/ui/team_invited.wav",0);send_reliable(players[target].peer_id, pname+" invited you to team "+teams[ti].name+". Open Team in the game menu and choose Accept invitation.", 2); send_reliable(players[pi].peer_id, "Invitation sent.", 2); return true;
 }
 if (action=="remove" and p.length()>2)
 {
 if (!team_can_manage(actor, "remove")) { send_reliable(players[pi].peer_id, "You do not have member-removal permission.", 2); return true; }
 int target=get_team_member_index(ti, p[2]); if (target<0 or teams[ti].members[target].role=="owner") { send_reliable(players[pi].peer_id, "That member cannot be removed.", 2); return true; }
-string removed=teams[ti].members[target].name; teams[ti].members.remove_at(target); save_teams(); team_notice(ti, removed+" was removed by "+pname+"."); return true;
+string removed=teams[ti].members[target].name;int removed_player=get_player_index_from(removed);if(removed_player>=0)send_reliable(players[removed_player].peer_id,"play_s firefight_team_remove.ogg",0);teams[ti].members.remove_at(target); save_teams(); team_notice(ti, removed+" was removed by "+pname+"."); return true;
 }
 if (action=="manager" and p.length()>2)
 {
@@ -267,7 +267,7 @@ teams[ti].points-=cost;if(key=="plane"){teams[ti].plane_kit_bought=true;teams[ti
 if (action=="leave")
 {
 if (@actor!=null and actor.role=="owner" and teams[ti].members.length()>1) { send_reliable(players[pi].peer_id, "The owner must remove members or appoint a successor before leaving.", 2); return true; }
-teams[ti].members.remove_at(mi); if (teams[ti].members.length()==0) teams.remove_at(ti); save_teams(); send_reliable(players[pi].peer_id, "You left the team.", 2); return true;
+send_reliable(players[pi].peer_id,"play_s firefight_team_out.ogg",0);teams[ti].members.remove_at(mi); if (teams[ti].members.length()==0) teams.remove_at(ti); save_teams(); send_reliable(players[pi].peer_id, "You left the team.", 2); return true;
 }
 send_reliable(players[pi].peer_id, "Unknown team action.", 2); return true;
 }

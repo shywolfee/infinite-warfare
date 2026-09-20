@@ -1,0 +1,37 @@
+// One scheduler for a map's native world and adapters. Catch-up runs each
+// pre/post-step hook once per solver tick, never once per incoming packet.
+class rp_simulation
+{
+ rp_world_owner world;
+ private rp_actor@[] actors;
+ private rp_structure@[] structures;
+ private double debt=0;
+ uint max_steps_per_service=8;
+ uint64 serviced_ticks=0;
+ void add_actor(rp_actor@ actor)
+ {if(actor is null or !world.contains(actor.id()))throw("Actor belongs to another world");for(uint i=0;i<actors.length();i++)if(actors[i] is actor)return;actors.insert_last(actor);}
+ void remove_actor(rp_actor@ actor)
+ {for(uint i=0;i<actors.length();i++)if(actors[i] is actor){actors.remove_at(i);return;}}
+ void add_structure(rp_structure@ structure)
+ {if(structure is null or !structure.belongs_to(world))throw("Structure belongs to another world");for(uint i=0;i<structures.length();i++)if(structures[i] is structure)return;structures.insert_last(structure);}
+ double pending_seconds()const{return debt;}
+ uint service(double elapsed)
+ {
+  if(!(elapsed>=0 and elapsed<3600) or max_steps_per_service==0 or max_steps_per_service>600)throw("Invalid simulation time budget");
+  debt+=elapsed;uint steps=0;const double dt=1.0/60.0;
+  while(debt+1e-12>=dt and steps<max_steps_per_service)
+  {
+   for(uint i=0;i<actors.length();i++)actors[i].before_step();
+   world.advance(dt,1);
+   for(uint i=0;i<structures.length();i++)structures[i].after_step();
+   debt-=dt;if(debt<0)debt=0;steps++;serviced_ticks++;
+  }
+  return steps;
+ }
+ void close()
+ {
+  for(uint i=0;i<structures.length();i++)structures[i].close();structures.resize(0);
+  for(uint i=0;i<actors.length();i++)actors[i].close();actors.resize(0);world.close();
+ }
+ ~rp_simulation(){close();}
+}

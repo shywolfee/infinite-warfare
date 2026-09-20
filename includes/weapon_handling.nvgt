@@ -33,14 +33,14 @@ weapon_handling_states.insert_last(state);
 return weapon_handling_states[weapon_handling_states.length()-1];
 }
 
-bool handling_is_manual_bolt(string w){return w=="awp_sniper_rifle" or w=="sg08_sniper_rifle";}
+bool handling_is_manual_bolt(string w){return w=="awp_sniper_rifle" or w=="sg08_sniper_rifle" or w=="barrett_mrad" or w=="mosin_1891" or w=="er_tactical_sniper";}
 bool handling_has_heat(string w)
 {
 string c=get_weapon_class(w);return c=="submachine_gun" or c=="light_machine_gun" or c=="energy" or c=="incendiary" or c=="tool";
 }
 bool handling_has_fouling(string w)
 {
-string c=get_weapon_class(w);return c=="pistol" or c=="revolver" or c=="submachine_gun" or c=="assault_rifle" or c=="battle_rifle" or c=="sniper_rifle" or c=="light_machine_gun" or c=="shotgun";
+string c=get_weapon_class(w);return c=="pistol" or c=="revolver" or c=="submachine_gun" or c=="assault_rifle" or c=="battle_rifle" or c=="sniper_rifle" or c=="light_machine_gun" or c=="shotgun" or c=="grenade_launcher";
 }
 string melee_stance_name(int n){if(n==1)return "power";if(n==2)return "guard";return "balanced";}
 string rifle_configuration(string c,int n)
@@ -68,6 +68,7 @@ if(c=="sniper_rifle")return handling_is_manual_bolt(w)?"The bolt must be cycled 
 if(c=="light_machine_gun")return "The bipod may be deployed while sitting. Selected heavy machine guns can also brace against a solid wall directly ahead while standing. Long bursts build barrel heat; an overheated barrel must cool or be serviced.";
 if(c=="energy")return "Energy discharge builds emitter heat independently of cell charge. High-output cooling and manual venting manage thermal lockout.";
 if(c=="explosive")return "The weapon must be deployed on the ground before firing and packed before normal movement.";
+if(c=="grenade_launcher")return "The break-action launcher retains its breech state. Open it, insert one round, close it, and cycle the action before firing; its low-velocity shell follows a steep physical arc.";
 if(c=="incendiary")return "The pilot and pressure system must be started before fuel can discharge. Continuous use builds dangerous heat.";
 if(c=="tool")return "The motor must be started before the powered cutting head can engage. Load builds heat and consumes stamina.";
 if(c=="archery")return w=="crossbow"?"Hold the trigger to set draw strength; release to launch. Precision hold trades movement for stability.":"The mechanism must be cocked before each launch; precision hold trades movement for stability.";
@@ -108,7 +109,7 @@ if(handling_has_fouling(w))s.fouling+=c=="assault_rifle" and s.configuration==1?
 if(s.fouling>100)s.fouling=100;s.cooling.restart();
 }
 
-bool weapon_can_wall_brace(string weapon){return weapon=="m249_saw" or weapon=="pkm_lmg" or weapon=="mg42";}
+bool weapon_can_wall_brace(string weapon){return weapon=="m249_saw" or weapon=="pkm_lmg" or weapon=="mg42" or weapon=="m2_browning" or weapon=="gorgon_lmg" or weapon=="mg4_lmg" or weapon=="mk48_lmg" or weapon=="m60_gpmg" or weapon=="er_machine_gun";}
 bool wall_brace_surface_ahead()
 {
 double radians=facing*3.14159265358979323846/180.0;int sx=int(round(sine(radians),0)),sy=int(round(cosine(radians),0));if(sx==0 and sy==0)return false;string chest=get_tile_at(mr.x+sx,mr.y+sy,me.z),upper=get_tile_at(mr.x+sx,mr.y+sy,me.z+1);return string_contains(chest,"wall",1)>=0 or string_contains(upper,"wall",1)>=0;

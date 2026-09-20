@@ -1,0 +1,304 @@
+string er_encode_token(string value){return string_replace(value," ","%20",true);}
+void er_play(string path,player@ source){send_reliable_map(source.map,"er_sound executioners_rage/"+path+".wav "+source.x+" "+source.y+" "+source.z+" "+er_encode_token(source.map),0);}
+void er_play_at(string path,int x,int y,int z,string map){send_reliable_map(map,"er_sound executioners_rage/"+path+".wav "+x+" "+y+" "+z+" "+er_encode_token(map),0);}
+void er_play_near(string path,int x,int y,int z,string map,int radius=35)
+{
+string packet="er_sound executioners_rage/"+path+".wav "+x+" "+y+" "+z+" "+er_encode_token(map);
+for(uint i=0;i<players.length();i++)if(players[i].map==map and !players[i].death and get_3d_distance(x,y,z,players[i].x,players[i].y,players[i].z)<=radius)send_reliable(players[i].peer_id,packet,0);
+}
+
+bool er_play_wall_impact(string tile,string weapon_class,int x,int y,int z,string map)
+{
+string lower=string_to_lower_case(tile),material="";
+if(string_contains(lower,"fence",1)>=0)material="fence";
+else if(string_contains(lower,"shelf",1)>=0)material="shelf";
+else if(string_contains(lower,"counter",1)>=0)material="counter";
+else if(string_contains(lower,"glass",1)>=0 or string_contains(lower,"window",1)>=0)material=weapon_class=="sniper_rifle" or weapon_class=="light_machine_gun"?"window_large":(weapon_class=="pistol" or weapon_class=="submachine_gun"?"window_small":"window");
+else if(string_contains(lower,"metal",1)<0)material="default";
+if(material=="")return false;
+er_play_at("environment/walls/"+material+"/hit",x,y,z,map);return true;
+}
+
+bool er_vending_offer(string terminal,string key,string &out item,int &out price,string &out product_sound)
+{
+item="";price=0;product_sound="";
+if(terminal=="drinks")
+{
+if(key=="coke"){item="er_coke_can";price=6;product_sound="coke_machine/drinks/coke";}
+else if(key=="doctor_pepper"){item="er_doctor_pepper_can";price=7;product_sound="coke_machine/drinks/doctor_pepper";}
+else if(key=="sprite"){item="er_sprite_can";price=5;product_sound="coke_machine/drinks/sprite";}
+else if(key=="electrolyte_water"){item="er_electrolyte_water";price=8;product_sound="coke_machine/drinks/cans/"+random(1,5);}
+}
+else if(terminal=="snacks")
+{
+if(key=="fried_pig_skins"){item="er_fried_pig_skins";price=6;product_sound="vending_machine/snacks/fried_pig_skins";}
+else if(key=="fudge_brownie"){item="er_fudge_brownie";price=8;product_sound="vending_machine/snacks/fudge_brownie";}
+else if(key=="hot_fries"){item="er_hot_fries";price=5;product_sound="vending_machine/snacks/hot_fries";}
+else if(key=="snickers"){item="er_snickers_bar";price=7;product_sound="vending_machine/snacks/snickers_chocolate_bar";}
+}
+else if(terminal=="medical")
+{
+if(key=="mini_med"){item="er_mini_med_pack";price=15;product_sound="hospital_coagulator/loop";}
+else if(key=="mid_med"){item="er_mid_med_pack";price=28;product_sound="instrument_prep/loop";}
+else if(key=="super_med"){item="er_super_med_pack";price=45;product_sound="hospital_ventilator/loop";}
+else if(key=="mega_med"){item="er_mega_med_pack";price=70;product_sound="hospital_defibolator/loop";}
+}
+return item!="";
+}
+
+int fixture_max_stock(string type)
+{
+if(type=="coke_machine" or type=="vending_machine")return 24;
+if(type=="hospital_coagulator" or type=="hospital_defibolator" or type=="hospital_ventilator" or type=="instrument_prep")return 10;
+if(type=="fridge")return 2;
+if(type=="crate" or type=="dumpster" or type=="wooden_planter" or type=="scrap_yard1" or type=="scrap_yard2" or string_contains(type,"parked_car",1)==0)return 3;
+return 0;
+}
+int fixture_restock_ms(string type)
+{
+if(type=="coke_machine" or type=="vending_machine")return 90000;
+if(type=="hospital_coagulator" or type=="hospital_defibolator" or type=="hospital_ventilator" or type=="instrument_prep")return 300000;
+if(type=="fridge")return 600000;
+if(type=="crate" or type=="dumpster" or type=="wooden_planter" or type=="scrap_yard1" or type=="scrap_yard2" or string_contains(type,"parked_car",1)==0)return 480000;
+return 0;
+}
+int fixture_respawn_ms(string type){if(string_contains(type,"parked_car",1)==0 or string_contains(type,"tree",1)==0)return 1200000;return 900000;}
+
+class er_fixture
+{
+int id,x,y,z,health,stock,max_stock;
+string type,map,owner,landmark;
+bool enabled=true,active=true;
+timer use_timer,restock_timer,respawn_timer;
+er_fixture(int i,string t,int px,int py,int pz,string m,string o,string place="")
+{
+id=i;type=t;x=px;y=py;z=pz;map=m;owner=o;landmark=place;health=fixture_health(t);max_stock=fixture_max_stock(t);stock=max_stock;
+}
+}
+er_fixture@[] er_fixtures;
+int er_next_fixture_id=1;
+dictionary er_fixture_user_cooldowns;
+
+string fixture_display(string type){return string_replace(type,"_"," ",true);}
+bool fixture_is_door(string type){return string_contains(type,"door_",1)==0;}
+int fixture_health(string type)
+{
+if(type=="parked_car1" or type=="parked_car2" or type=="parked_car3")return 900;
+if(type=="dumpster" or type=="scrap_yard1" or type=="scrap_yard2")return 650;
+if(type=="tree1" or type=="tree2" or type=="tree3" or type=="tree4" or type=="tree5")return 500;
+return 320;
+}
+string fixture_object_base(string type){return fixture_is_door(type)?"doors/"+string_replace(type,"door_","",false):"environment/objects/"+type;}
+int fixture_impact_count(string type)
+{
+if(type=="parked_car2")return 9;if(type=="parked_car3")return 5;
+if(type=="parked_car1" or type=="dumpster" or type=="wooden_planter")return type=="wooden_planter"?6:4;
+if(type=="tree1" or type=="tree2" or type=="tree3" or type=="tree4" or type=="tree5" or type=="scrap_yard1" or type=="scrap_yard2" or type=="sign" or type=="street_light" or type=="atm" or type=="hospital_bed")return 3;
+return 0;
+}
+string fixture_contact_action(string type)
+{
+if(fixture_is_door(type) or type=="hospital_coagulator" or type=="hospital_defibolator" or type=="hospital_ventilator" or type=="instrument_prep" or type=="fridge" or type=="security_radio1" or type=="tv" or type=="sink1" or type=="sink2")return "loop";
+return "collide";
+}
+string fixture_destroy_action(string type){if(fixture_is_door(type))return "open";if(type=="crate")return "collide";if(type=="security_radio1")return "loop";return "dest";}
+int find_er_fixture_id(int id){for(uint i=0;i<er_fixtures.length();i++)if(er_fixtures[i].id==id)return int(i);return -1;}
+
+void er_send_fixture_stock(er_fixture@ f,uint peer=0)
+{
+if(f.max_stock<=0)return;string msg="er_fixture_stock "+f.id+" "+f.stock+" "+f.max_stock+" "+er_encode_token(f.map);if(peer==0)send_reliable_map(f.map,msg,0);else send_reliable(peer,msg,0);
+}
+void er_send_fixture(er_fixture@ f,uint peer=0)
+{
+if(!f.active)return;string msg="er_fixture_add "+f.id+" "+f.type+" "+f.x+" "+f.y+" "+f.z+" "+f.health+" "+er_encode_token(f.map)+" "+f.stock+" "+f.max_stock;if(peer==0)send_reliable_map(f.map,msg,0);else send_reliable(peer,msg,0);
+if(fixture_is_door(f.type)){string state="er_fixture_state "+f.id+" "+(f.enabled?1:0)+" "+er_encode_token(f.map);if(peer==0)send_reliable_map(f.map,state,0);else send_reliable(peer,state,0);}
+}
+void er_sync_fixtures_to(uint peer,string map)
+{
+sync_world_objects(peer,map);
+string prefix="er_fixture_batch "+er_encode_token(map)+" ",packet=prefix;int entries=0;
+for(uint i=0;i<er_fixtures.length();i++)
+{
+er_fixture@ f=er_fixtures[i];if(f.map!=map or !f.active)continue;string entry=f.id+","+f.type+","+f.x+","+f.y+","+f.z+","+f.health+","+f.stock+","+f.max_stock;
+if(entries>0 and packet.length()+entry.length()+1>900){send_reliable(peer,packet,0);packet=prefix;entries=0;}if(entries>0)packet+=";";packet+=entry;entries++;
+}
+if(entries>0)send_reliable(peer,packet,0);
+for(uint i=0;i<er_fixtures.length();i++)if(er_fixtures[i].map==map and er_fixtures[i].active and fixture_is_door(er_fixtures[i].type))send_reliable(peer,"er_fixture_state "+er_fixtures[i].id+" "+(er_fixtures[i].enabled?1:0)+" "+er_encode_token(map),0);
+}
+
+bool fixture_user_ready(er_fixture@ f,player@ user,int cooldown_ms,string action)
+{
+double now=double(uptimer.elapsed),last=0;string key=string_to_lower_case(user.name)+"|"+action;
+if(er_fixture_user_cooldowns.get(key,last)){double remaining=double(cooldown_ms)-(now-last);if(remaining>0){send_reliable(user.peer_id,"Map infrastructure can provide "+action+" to you again in "+int(ceil(remaining/1000.0))+" seconds.",2);return false;}}
+er_fixture_user_cooldowns.set(key,now);return true;
+}
+bool fixture_take_stock(er_fixture@ f,player@ user)
+{
+if(f.max_stock<=0)return true;if(f.stock<=0){send_reliable(user.peer_id,"The "+fixture_display(f.type)+" is out of stock. It replenishes gradually rather than generating unlimited supplies.",2);return false;}f.stock--;er_send_fixture_stock(f);return true;
+}
+bool fixture_terminal_matches(er_fixture@ f,string terminal)
+{
+if(terminal=="atm")return f.type=="atm";if(terminal=="drinks")return f.type=="coke_machine";if(terminal=="snacks")return f.type=="vending_machine";if(terminal=="medical")return f.type=="hospital_coagulator" or f.type=="hospital_defibolator" or f.type=="hospital_ventilator" or f.type=="instrument_prep";return false;
+}
+er_fixture@ fixture_request(uint peer,int id,string terminal)
+{
+int pi=get_player_index(peer),fi=find_er_fixture_id(id);if(pi<0 or fi<0)return null;er_fixture@ f=er_fixtures[fi];if(!f.active or !fixture_terminal_matches(f,terminal) or players[pi].map!=f.map or get_3d_distance(players[pi].x,players[pi].y,players[pi].z,f.x,f.y,f.z)>3)return null;return f;
+}
+
+void er_purchase(uint peer,const string[] &in parsed)
+{
+int index=get_player_index(peer);if(index<0)return;if(parsed.length()<4){send_reliable(peer,"er_purchase_error Malformed vending request.",0);return;}
+er_fixture@ fixture=fixture_request(peer,string_to_number(parsed[3]),parsed[1]);if(fixture is null){send_reliable(peer,"er_purchase_error You must remain beside the correct map vending fixture.",0);return;}
+if(players[index].online_shop_timer.elapsed<250){send_reliable(peer,"er_purchase_error The machine is processing the previous request.",0);return;}players[index].online_shop_timer.restart();
+string item,product_sound;int price;if(!er_vending_offer(parsed[1],parsed[2],item,price,product_sound)){send_reliable(peer,"er_purchase_error Unknown product.",0);return;}
+string machine=parsed[1]=="drinks"?"coke_machine":"vending_machine";if(players[index].credits<price){er_play("environment/objects/"+machine+"/beep_no_money",players[index]);send_reliable(peer,"er_purchase_error Insufficient credits.",0);return;}
+if(fixture.stock<=0){er_play("environment/objects/"+machine+"/beep_no_money",players[index]);send_reliable(peer,"er_purchase_error This machine is out of stock and replenishes gradually.",0);return;}
+if(!fixture_user_ready(fixture,players[index],1500,"another purchase")){send_reliable(peer,"er_purchase_error Wait for the current dispensing cycle to finish.",0);return;}
+if(!change_player_credits(players[index],-price)){send_reliable(peer,"er_purchase_error The balance could not be saved. Nothing was charged or dispensed.",0);return;}
+fixture_take_stock(fixture,players[index]);er_play("environment/objects/"+machine+"/beep",players[index]);er_play("environment/objects/"+machine+"/dispense",players[index]);er_play("environment/objects/"+product_sound,players[index]);send_reliable(peer,"give "+item+" 1",0);send_reliable(peer,"er_purchase_ok "+players[index].credits+" "+item+" "+fixture.stock,0);
+}
+void er_credit_reply(uint peer,const string[] &in parsed,bool success,string body)
+{
+// Request correlation prevents a late response to a previous deposit from
+// being displayed as the outcome of the next one. Retain older client syntax.
+if(parsed.length()>3 and parsed[3].length()<=12 and string_is_digits(parsed[3]))
+send_reliable(peer,"er_credit_reply "+parsed[3]+" "+(success?"ok ":"error ")+body,0);
+else send_reliable(peer,(success?"er_credit_ok ":"er_credit_error ")+body,0);
+}
+void er_redeem(uint peer,const string[] &in parsed)
+{
+int index=get_player_index(peer);if(index<0)return;
+if(parsed.length()<3 or (parsed[1]!="small" and parsed[1]!="large")){er_credit_reply(peer,parsed,false,"Invalid chip or terminal.");return;}
+er_fixture@ fixture=fixture_request(peer,string_to_number(parsed[2]),"atm");
+if(fixture is null){er_credit_reply(peer,parsed,false,"You must remain beside the ATM that authenticated this session.");return;}
+string item=parsed[1]=="small"?"er_small_credit_chip":"er_large_credit_chip";
+if(credit_chip_count(players[index],item)<=0){er_credit_reply(peer,parsed,false,"No authenticated "+parsed[1]+" credit chip is available. Developer grants must be authorized by this server.");return;}
+if(!fixture_user_ready(fixture,players[index],1000,"another redemption")){er_credit_reply(peer,parsed,false,"Wait for the current ATM cycle to finish.");return;}
+if(!commit_credit_chip_deposit(players[index],item)){er_credit_reply(peer,parsed,false,"Your balance could not be saved; the chip was not consumed.");return;}
+er_play("collectable/pickup_cred_"+parsed[1],players[index]);
+er_credit_reply(peer,parsed,true,""+players[index].credits);
+}
+
+bool er_contains_any(string value,const string[] &in terms){for(uint i=0;i<terms.length();i++)if(string_contains(value,terms[i],1)>=0)return true;return false;}
+string er_primary_fixture_for_poi(string map,string landmark,int seed)
+{
+string lower=string_to_lower_case(landmark);
+string[] medical={"clinic","hospital","medical","infirmary","health centre"};string[] commerce={"market","store","mall","exchange","tavern","hotel","provision","arcade"};string[] industry={"workshop","works","foundry","industrial","salvage","reclamation","quarry","machine","reactor","tool","depot","warehouse","glassworks","freight"};string[] security={"police","security","barracks","guard","watch","fire station","firehouse","lifeboat","weather station","signal house","customs","gatehouse"};string[] residence={"residential","apartments","hotel","lodge","shelter","residence"};string[] nature={"park","orchard","forest","woods","meadow","conservatory","garden","grove","crag","slope","foothill","ridge"};string[] civic={"office","archive","library","college","assembly","civic","ministry","terminal","station","hall","court","bureau","memorial"};
+if(er_contains_any(lower,medical)){string[] types={"hospital_coagulator","hospital_defibolator","hospital_ventilator","instrument_prep"};return types[seed%types.length()];}
+if(string_contains(lower,"bank",1)>=0)return "atm";
+if(er_contains_any(lower,commerce)){string[] types={"coke_machine","vending_machine","kiosk"};return types[seed%types.length()];}
+if(er_contains_any(lower,industry)){string[] types={"table","crate","scrap_yard1","scrap_yard2","dumpster"};return types[seed%types.length()];}
+if(er_contains_any(lower,security)){string[] types={"security_radio1","computer2","tv"};return types[seed%types.length()];}
+if(er_contains_any(lower,residence)){string[] types={"fridge","sink1","sink2","toilet1","toilet2","tv"};return types[seed%types.length()];}
+if(er_contains_any(lower,nature)){string[] types={"tree1","tree2","tree3","tree4","tree5","wooden_planter","streams"};return types[seed%types.length()];}
+if(er_contains_any(lower,civic)){string[] types={"computer1","computer2","atrium_speaker","post_box"};return types[seed%types.length()];}
+if(map=="freyas_ascent"){string[] types={"tree1","tree2","tree3","tree4","tree5","wooden_planter","streams"};return types[seed%types.length()];}
+string[] urban={"street_light","sign","parked_car1","parked_car2","parked_car3"};return urban[seed%urban.length()];
+}
+bool er_fixture_position_available(int x,int y,int z,string map)
+{
+if(spawn_tile_blocked(x,y,z,map))return false;for(uint i=0;i<er_fixtures.length();i++)if(er_fixtures[i].map==map and get_3d_distance(x,y,z,er_fixtures[i].x,er_fixtures[i].y,er_fixtures[i].z)<1.6)return false;return true;
+}
+bool er_add_map_fixture(string type,int preferred_x,int preferred_y,int preferred_z,string map,string landmark,int seed)
+{
+int[] offsets={2,0,-2,0,0,2,0,-2,3,1,-3,1,1,3,1,-3,3,-1,-3,-1,-1,3,-1,-3,4,0,-4,0,0,4,0,-4};int choices=int(offsets.length()/2),start=(seed*5)%choices;
+for(int attempt=0;attempt<choices;attempt++){int oi=((start+attempt)%choices)*2,nx=preferred_x+offsets[oi],ny=preferred_y+offsets[oi+1];if(!er_fixture_position_available(nx,ny,preferred_z,map))continue;er_fixtures.insert_last(er_fixture(er_next_fixture_id++,type,nx,ny,preferred_z,map,"map",landmark));return true;}return false;
+}
+void clear_er_fixtures_for_map(string map)
+{
+for(int i=int(er_fixtures.length())-1;i>=0;i--)if(er_fixtures[i].map==map){if(er_fixtures[i].active)send_reliable_map(map,"er_fixture_remove "+er_fixtures[i].id+" "+er_encode_token(map),0);er_fixtures.remove_at(i);}
+}
+void spawn_fixtures_for_map(string map)
+{
+clear_er_fixtures_for_map(map);int mi=get_map_index(map);if(mi<0)return;
+string[] authored=delinear(maps[mi].rawdata);
+if(authored.find("fixtures:authored")>=0)
+{
+for(uint i=0;i<authored.length();i++)
+{
+string[] fields=authored[i].split(":");if(fields.length()!=6 or fields[0]!="fixture")continue;
+int x=string_to_number(fields[2]),y=string_to_number(fields[3]),z=string_to_number(fields[4]);
+if(er_fixture_position_available(x,y,z,map))er_fixtures.insert_last(er_fixture(er_next_fixture_id++,fields[1],x,y,z,map,"map",fields[5]));
+}
+return;
+}
+for(uint i=0;i<maps[mi].poidefs.length();i++)
+{
+poidef@ poi=maps[mi].poidefs[i];string type=er_primary_fixture_for_poi(map,poi.name,int(i));er_add_map_fixture(type,poi.x,poi.y,poi.z,map,poi.name,int(i));string lower=string_to_lower_case(poi.name);
+if(string_contains(lower,"clinic",1)>=0 or string_contains(lower,"hospital",1)>=0 or string_contains(lower,"medical",1)>=0 or string_contains(lower,"infirmary",1)>=0)er_add_map_fixture("hospital_bed",poi.x,poi.y,poi.z,map,poi.name,int(i)+13);
+else if(string_contains(lower,"bank",1)>=0)er_add_map_fixture("kiosk",poi.x,poi.y,poi.z,map,poi.name,int(i)+17);
+else if((string_contains(lower,"market",1)>=0 or string_contains(lower,"mall",1)>=0 or string_contains(lower,"store",1)>=0) and i%2==0)er_add_map_fixture(type=="coke_machine"?"vending_machine":"coke_machine",poi.x,poi.y,poi.z,map,poi.name,int(i)+19);
+}
+}
+void spawn_all_map_fixtures(){for(uint i=0;i<maps.length();i++)spawn_fixtures_for_map(maps[i].name);}
+void er_fixture_loop()
+{
+for(uint i=0;i<er_fixtures.length();i++)
+{
+er_fixture@ f=er_fixtures[i];if(!f.active){if(f.respawn_timer.elapsed<fixture_respawn_ms(f.type))continue;f.active=true;f.enabled=true;f.health=fixture_health(f.type);f.stock=f.max_stock;f.restock_timer.restart();er_send_fixture(f);continue;}int restock=fixture_restock_ms(f.type);if(f.max_stock>0 and f.stock<f.max_stock and restock>0 and f.restock_timer.elapsed>=restock){f.stock++;f.restock_timer.restart();er_send_fixture_stock(f);}
+}
+}
+
+void interact_er_fixture(uint peer,int id)
+{
+int player_index=get_player_index(peer),fixture_index=find_er_fixture_id(id);if(player_index<0 or fixture_index<0)return;player@ user=players[player_index];er_fixture@ f=er_fixtures[fixture_index];
+if(!f.active){send_reliable(peer,"That fixture is destroyed and awaiting infrastructure service.",2);return;}if(user.map!=f.map or get_3d_distance(user.x,user.y,user.z,f.x,f.y,f.z)>3){send_reliable(peer,"That fixture is out of reach.",2);return;}if(f.use_timer.elapsed<750){send_reliable(peer,"That fixture is still completing its previous cycle.",2);return;}f.use_timer.restart();string base=fixture_object_base(f.type);
+if(f.type=="atm"){er_play_at(base+"/door_open",f.x,f.y,f.z,f.map);send_reliable(peer,"er_open atm "+f.id,0);}
+else if(fixture_is_door(f.type)){f.enabled=!f.enabled;er_play_at(base+"/"+(f.enabled?"close":"open"),f.x,f.y,f.z,f.map);send_reliable_map(f.map,"er_fixture_state "+f.id+" "+(f.enabled?1:0)+" "+er_encode_token(f.map),0);send_reliable(peer,fixture_display(f.type)+(f.enabled?" closed and is blocking its tile.":" opened; its tile is now passable."),2);}
+else if(f.type=="coke_machine")send_reliable(peer,"er_open drinks "+f.id,0);else if(f.type=="vending_machine")send_reliable(peer,"er_open snacks "+f.id,0);else if(f.type=="kiosk")send_reliable(peer,"er_open kiosk "+f.id,0);else if(f.type=="hospital_coagulator" or f.type=="hospital_defibolator" or f.type=="hospital_ventilator" or f.type=="instrument_prep")send_reliable(peer,"er_open medical "+f.id,0);
+else if(f.type=="hospital_bed")
+{
+if(user.health>=600){send_reliable(peer,"The stabilization bed treats critical injuries only; your health is already above its six-hundred-point threshold.",2);return;}if(!fixture_user_ready(f,user,180000,"another stabilization"))return;er_play_at(base+"/lie",f.x,f.y,f.z,f.map);int heal=600-user.health;if(heal>80)heal=80;user.health+=heal;send_reliable(peer,"The bed stabilizes "+heal+" health. It cannot replace carried medicine or restore health beyond 600.",2);er_play_at(base+"/stand",f.x,f.y,f.z,f.map);
+}
+else if(f.type=="fridge")
+{
+if(f.stock<=0){fixture_take_stock(f,user);return;}if(!fixture_user_ready(f,user,300000,"another emergency dressing") or !fixture_take_stock(f,user))return;er_play_at(base+"/open",f.x,f.y,f.z,f.map);send_reliable(peer,"give er_mini_med_pack 1",0);send_reliable(peer,"The refrigerator dispenses one of its limited trauma dressings. "+f.stock+" remain.",2);er_play_at(base+"/close",f.x,f.y,f.z,f.map);
+}
+else if(f.type=="crate" or f.type=="dumpster" or f.type=="wooden_planter" or f.type=="scrap_yard1" or f.type=="scrap_yard2" or string_contains(f.type,"parked_car",1)==0)
+{
+if(f.stock<=0){fixture_take_stock(f,user);return;}if(!fixture_user_ready(f,user,300000,"another salvage search") or !fixture_take_stock(f,user))return;string[] loot={"cleaning_patches","nanomatic_components","vehicle_wiring_harness","weapon_replacement_parts","shop_rag","small_lubricant_bottle"};string found=loot[random(0,loot.length()-1)];string action=f.type=="crate"?"get_item":(f.type=="dumpster"?"place_item":(f.type=="wooden_planter"?"search"+random(1,3):fixture_contact_action(f.type)));er_play_at(base+"/"+action,f.x,f.y,f.z,f.map);send_reliable(peer,"give "+found+" 1",0);send_reliable(peer,"Recovered one "+string_replace(found,"_"," ",true)+". This location has "+f.stock+" salvage units remaining.",2);
+}
+else if(f.type=="security_radio1" or f.type=="tv" or f.type=="computer2")
+{
+if(!fixture_user_ready(f,user,15000,"another tactical report"))return;int hostile=0,friendly=0;for(uint i=0;i<players.length();i++)if(players[i].map==user.map and !players[i].death and players[i].name!=user.name){if(same_team(players[i].name,user.name))friendly++;else hostile++;}if(f.type=="tv"){er_play_at(base+"/"+(f.enabled?"off":"on"),f.x,f.y,f.z,f.map);f.enabled=!f.enabled;}else er_play_at(base+"/loop",f.x,f.y,f.z,f.map);send_reliable(peer,"Local tactical infrastructure reports "+friendly+" friendly and "+hostile+" hostile players on this map.",2);
+}
+else if(f.type=="street_light"){f.enabled=!f.enabled;er_play_at(base+"/"+(f.enabled?"loop_night":"loop"),f.x,f.y,f.z,f.map);send_reliable(peer,"Street light "+(f.enabled?"enabled.":"disabled."),2);}
+else if(f.type=="post_box")
+{
+if(!fixture_user_ready(f,user,30000,"another team-directory check"))return;er_play_at(base+"/open",f.x,f.y,f.z,f.map);int ti=get_team_index_for_member(user.name),online=0;if(ti<0)send_reliable(peer,"The post box terminal has no team route for you.",2);else{for(uint i=0;i<teams[ti].members.length();i++)if(get_player_index_from(teams[ti].members[i].name)>=0)online++;er_play_at(base+"/place_item",f.x,f.y,f.z,f.map);send_reliable(peer,"Team post directory: "+online+" of "+teams[ti].members.length()+" members are online. It does not manufacture or duplicate supplies.",2);}
+}
+else if(f.type=="sink1" or f.type=="sink2" or f.type=="streams")
+{
+if(!fixture_user_ready(f,user,60000,"another hydration cycle"))return;if(f.type=="streams")er_play_at(base+"/"+random(1,3),f.x,f.y,f.z,f.map);else er_play_at(base+"/loop",f.x,f.y,f.z,f.map);int recovery=f.type=="streams"?12:8;send_reliable(peer,"stamina_restore "+recovery,0);send_reliable(peer,"You complete a measured hydration cycle and recover "+recovery+" stamina.",2);
+}
+else if(f.type=="computer1"){er_play_at(base+"/loop",f.x,f.y,f.z,f.map);send_reliable(peer,"er_open kiosk "+f.id,0);}
+else if(f.type=="atrium_speaker" or f.type=="well_speaker"){f.enabled=!f.enabled;er_play_at(base+"/loop",f.x,f.y,f.z,f.map);send_reliable(peer,fixture_display(f.type)+(f.enabled?" public-address feed enabled.":" public-address feed muted."),2);}
+else if(f.type=="toilet1" or f.type=="toilet2"){er_play_at(base+"/loop",f.x,f.y,f.z,f.map);send_reliable(peer,"The sanitation fixture flushes and begins its purification cycle.",2);}
+else if(f.type=="table"){er_play_at(base+"/loop",f.x,f.y,f.z,f.map);send_reliable(peer,"This fixed work table provides a stable, mapped landmark for weapon maintenance. It does not generate tools or parts.",2);}
+else send_reliable(peer,fixture_display(f.type)+" is permanent map infrastructure near "+f.landmark+".",2);
+}
+
+bool er_damage_fixture(double x,double y,double z,string map,int damage)
+{
+for(uint i=0;i<er_fixtures.length();i++)
+{
+er_fixture@ f=er_fixtures[i];double dx=x-f.x,dy=y-f.y;if(!f.active or f.map!=map or sqrt((dx*dx)+(dy*dy))>.75 or z<f.z-.1 or z>f.z+1.9)continue;if(f.type=="streams")return false;f.health-=damage;int impacts=fixture_impact_count(f.type);if(impacts>0)er_play_at(fixture_object_base(f.type)+"/impact"+random(1,impacts),f.x,f.y,f.z,f.map);else er_play_at(fixture_object_base(f.type)+"/"+fixture_contact_action(f.type),f.x,f.y,f.z,f.map);if(string_contains(f.type,"parked_car",1)==0 and f.enabled){f.enabled=false;er_play_at(fixture_object_base(f.type)+"/alarm",f.x,f.y,f.z,f.map);}if(f.health<=0){f.health=0;f.active=false;f.respawn_timer.restart();er_play_at(fixture_object_base(f.type)+"/"+fixture_destroy_action(f.type),f.x,f.y,f.z,f.map);send_reliable_map(f.map,"er_fixture_remove "+f.id+" "+er_encode_token(f.map),0);}else send_reliable_map(f.map,"er_fixture_health "+f.id+" "+f.health+" "+er_encode_token(f.map),0);return true;
+}
+return false;
+}
+
+int er_nearest_hostile(int owner,double radius){int target=-1;double nearest=radius+1;for(uint i=0;i<players.length();i++){if(int(i)==owner or players[i].death or players[i].map!=players[owner].map or same_team(players[owner].name,players[i].name))continue;double distance=get_3d_distance(players[owner].x,players[owner].y,players[owner].z,players[i].x,players[i].y,players[i].z);if(distance<=radius and distance<nearest){nearest=distance;target=int(i);}}return target;}
+bool er_use_item(player@ user,string item,int configuration)
+{
+int index=get_player_index_from(user.name);if(index<0)return false;
+if(string_contains(item,"er_fixture_kit_",1)==0 or item=="field_atm_terminal" or item=="beverage_vending_access" or item=="snack_vending_access" or item=="field_medical_console" or item=="supply_kiosk_access"){send_reliable(user.peer_id,"give "+item+" -100000",0);send_reliable(user.peer_id,"That obsolete fixture or access item was retired in 0.5.0.9. Use permanent infrastructure at logical map landmarks instead.",2);return true;}
+if(item=="er_coke_can" or item=="er_doctor_pepper_can" or item=="er_sprite_can" or item=="er_electrolyte_water"){int stamina=item=="er_coke_can"?18:(item=="er_doctor_pepper_can"?24:(item=="er_sprite_can"?13:30));if(item!="er_sprite_can" and item!="er_electrolyte_water")user.energy_stimulant_load+=item=="er_coke_can"?8:12;send_reliable(user.peer_id,"stamina_restore "+stamina,0);send_reliable(user.peer_id,"give "+item+" -1",0);er_play("environment/objects/coke_machine/drinks/cans/"+random(1,5),user);send_reliable(user.peer_id,"Drink finished. Restored "+stamina+" stamina.",2);return true;}
+if(item=="er_fried_pig_skins" or item=="er_fudge_brownie" or item=="er_hot_fries" or item=="er_snickers_bar"){int heal=item=="er_fried_pig_skins"?35:(item=="er_fudge_brownie"?70:(item=="er_hot_fries"?30:55));user.health+=heal;if(user.health>1000)user.health=1000;send_reliable(user.peer_id,"stamina_restore "+(heal/2),0);send_reliable(user.peer_id,"give "+item+" -1",0);er_play("collectable/pickup_misc",user);send_reliable(user.peer_id,"Ration consumed. Restored "+heal+" health.",2);return true;}
+if(item=="er_mini_med_pack" or item=="er_mid_med_pack" or item=="er_super_med_pack" or item=="er_mega_med_pack"){int heal=item=="er_mini_med_pack"?80:(item=="er_mid_med_pack"?160:(item=="er_super_med_pack"?280:450));user.health+=heal;if(user.health>1000)user.health=1000;string size=item=="er_mini_med_pack"?"mini":(item=="er_mid_med_pack"?"mid":(item=="er_super_med_pack"?"super":"mega"));er_play("collectable/use_"+size+"_med",user);er_play("character/health/"+(heal<120?"100":(heal<260?"250":"500")),user);send_reliable(user.peer_id,"give "+item+" -1",0);send_reliable(user.peer_id,"Treatment applied. Restored "+heal+" health.",2);return true;}
+if(item=="er_overdrive_amplifier"){if(user.er_quad_active){send_reliable(user.peer_id,"The overdrive amplifier is already active.",2);return true;}user.er_quad_active=true;user.er_quad_timer.restart();send_reliable(user.peer_id,"give "+item+" -1",0);send_reliable(user.peer_id,"er_quad_state on",0);er_play("character/affects/quad_damage/powerup",user);return true;}
+if(item=="salvage_scanner"){if(user.er_utility_timer.elapsed<25000){send_reliable(user.peer_id,"The salvage scanner is recalibrating.",2);return true;}user.er_utility_timer.restart();string[] loot={"weapon_replacement_parts","nanomatic_components","cleaning_patches","vehicle_wiring_harness"};string found=loot[random(0,loot.length()-1)];string source=random(0,1)==0?"crate/get_item":"wooden_planter/search"+random(1,3);er_play("environment/objects/"+source,user);send_reliable(user.peer_id,"give "+found+" 1",0);send_reliable(user.peer_id,"Salvage scan recovered "+string_replace(found,"_"," ",true)+".",2);return true;}
+if(item=="security_radio_receiver" or item=="field_television_receiver"){int hostile=0,friendly=0;for(uint i=0;i<players.length();i++){if(players[i].death or players[i].map!=user.map or players[i].name==user.name)continue;if(same_team(user.name,players[i].name))friendly++;else hostile++;}er_play(item=="security_radio_receiver"?"environment/objects/security_radio1/loop":"environment/objects/tv/on",user);send_reliable(user.peer_id,(item=="security_radio_receiver"?"Security radio":"Field television tactical feed")+": "+friendly+" friendly and "+hostile+" hostile active on this map.",2);return true;}
+if(item=="auto_hover_drone" or item=="bomber_hover_drone"){string kind=item=="auto_hover_drone"?"auto_hover_drone":"bomber_hover_drone";int target=er_nearest_hostile(index,item=="auto_hover_drone"?35:45);if(target<0){er_play("weapons/drones/"+kind+"/npcnope",user);send_reliable(user.peer_id,"The drone found no hostile target and returned to its case.",2);return true;}send_reliable(user.peer_id,"give "+item+" -1",0);er_play("npcping",user);er_play("weapons/drones/"+kind+"/activate",user);er_play_at("weapons/drones/"+kind+"/fly",players[target].x,players[target].y,players[target].z,players[target].map);int damage=item=="auto_hover_drone"?120:210;damage=apply_player_damage(players[target],damage,user.name+"'s "+kind);er_play_at("weapons/drones/"+kind+"/impact"+random(1,3),players[target].x,players[target].y,players[target].z,players[target].map);er_play_at("weapons/drones/"+kind+"/destroy",players[target].x,players[target].y,players[target].z,players[target].map);send_reliable(user.peer_id,"Drone strike delivered "+damage+" damage.",2);return true;}
+if(item=="bioengineered_chimp_beacon"){int target=er_nearest_hostile(index,18);if(target<0){er_play("animals/chimpanzee/phrases/vocal"+random(1,4),user);send_reliable(user.peer_id,"The bioengineered scout found no hostile and stayed with you.",2);return true;}send_reliable(user.peer_id,"give "+item+" -1",0);er_play("animals/chimpanzee/phrases/attack"+random(1,5),user);er_play_at("animals/chimpanzee/combat/fire"+random(1,6),players[target].x,players[target].y,players[target].z,players[target].map);int damage=apply_player_damage(players[target],random(80,150),user.name+"'s bioengineered scout");er_play_at("animals/chimpanzee/combat/impact"+random(1,3),players[target].x,players[target].y,players[target].z,players[target].map);er_play_at("animals/chimpanzee/phrases/death"+random(1,4),players[target].x,players[target].y,players[target].z,players[target].map);send_reliable(user.peer_id,"Bioengineered scout attack delivered "+damage+" damage.",2);return true;}
+return false;
+}

@@ -1,0 +1,74 @@
+#include "bgt_compat.nvgt"
+string report_path,results;
+int failures=0,contacts=0,hits=0,contact_points=0;
+vector saved_contact_normal;
+void checkpoint(string message){file f;f.open(report_path,"wb");f.write(results+"Stage: "+message+"\n");f.close();}
+void check(bool passed,string name){results+=(passed?"PASS ":"FAIL ")+name+"\n";if(!passed)failures++;checkpoint(name);}
+void contact(const physics_collision_callback_data& data)
+{
+contacts++;
+if(contact_points>0 or data.nb_contact_pairs==0)return;
+checkpoint("reading native contact pair");
+physics_contact_pair pair=data.get_contact_pair(0);
+if(pair.nb_contact_points==0)return;
+checkpoint("reading native contact point");
+physics_contact_point point=pair.get_contact_point(0);
+checkpoint("reading native contact normal");
+vector normal=point.world_normal;
+saved_contact_normal=normal;
+check(normal.length()>.9 and normal.length()<1.1,"contact normal has unit length");contact_points++;
+}
+void overlap(const physics_overlap_callback_data& data){}
+void failing_contact(const physics_collision_callback_data& data){throw("intentional physics callback failure");}
+float hit(const raycast_info&in info){hits++;return info.hit_fraction;}
+void main()
+{
+string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-reactphysics-capabilities-"+random(100000,999999999);directory_create(directory);report_path=directory+"/results.txt";
+checkpoint("creating world");
+physics_world_settings settings;settings.gravity=vector(0,0,-9.81);settings.world_name="isolated capabilities";
+physics_world@ world=physics_world(settings);
+check(world !is null,"native world factory");
+physics_box_shape@ floor_shape=physics_box_shape(vector(10,10,.25));
+physics_sphere_shape@ sphere_shape=physics_sphere_shape(.25);
+physics_rigid_body@ ground=world.create_rigid_body(physics_transform(vector(0,0,-.25),IDENTITY_QUATERNION));ground.type=PHYSICS_BODY_STATIC;
+physics_transform local;local.set_to_identity();
+physics_collider@ floor_collider=ground.add_collider(floor_shape,local);
+physics_rigid_body@ ball=world.create_rigid_body(physics_transform(vector(0,0,2),IDENTITY_QUATERNION));
+physics_collider@ ball_collider=ball.add_collider(sphere_shape,local);ball.mass=1;
+check(ball.entity.id!=ground.entity.id,"native entity IDs distinguish bodies");
+ball_collider.material.bounciness=0;floor_collider.material.bounciness=0;
+checkpoint("registering callbacks");world.set_callbacks(contact,overlap);
+checkpoint("fixed-step falling body");for(int i=0;i<120;i++)world.update(1.0/60.0);
+check(abs(ball.transform.position.z-.25)<.05,"gravity and solid floor response");check(contacts>0,"native collision event callback");
+check(saved_contact_normal.length()>.9,"contact snapshot survives callback return");
+checkpoint("native force integration");
+ball.is_gravity_enabled=false;ball.linear_velocity=vector();ball.apply_world_force(vector(60,0,0));world.update(1.0/60.0);
+check(ball.linear_velocity.x>.8 and ball.linear_velocity.x<1.2,"force integrates mass and timestep");
+float vx=ball.linear_velocity.x;world.update(1.0/60.0);
+check(abs(ball.linear_velocity.x-vx)<.1,"force accumulator clears after step");
+checkpoint("native torque integration");ball.apply_world_torque(vector(0,0,1));world.update(1.0/60.0);
+check(ball.angular_velocity.z>0,"native torque produces angular motion");
+checkpoint("fixed constraint");
+physics_joint@ joint=world.create_fixed_joint(ground,ball,ball.transform.position);
+check(joint !is null,"native fixed joint factory");
+vector fixed_position=ball.transform.position;
+for(int i=0;i<60;i++){ball.apply_world_force(vector(100,0,0));world.update(1.0/60.0);}
+check((ball.transform.position-fixed_position).length()<.05,"fixed joint resists applied force");
+world.destroy_joint(joint);@joint=null;
+checkpoint("hinge constraint");@joint=world.create_hinge_joint(ground,ball,ball.transform.position,vector(0,0,1),-.5,.5);
+check(joint !is null,"native hinge joint factory");world.update(1.0/60.0);world.destroy_joint(joint);@joint=null;
+checkpoint("slider constraint");@joint=world.create_slider_joint(ground,ball,ball.transform.position,vector(1,0,0),-.2,.2);
+check(joint !is null,"native slider joint factory");world.update(1.0/60.0);world.destroy_joint(joint);@joint=null;
+checkpoint("ball constraint");@joint=world.create_ball_joint(ground,ball,ball.transform.position);
+check(joint !is null,"native ball joint factory");world.update(1.0/60.0);world.destroy_joint(joint);@joint=null;
+checkpoint("raycast");world.raycast(ray(vector(0,0,5),vector(0,0,-1)),hit);check(hits>0,"native world raycast callback");
+checkpoint("callback exception propagation");
+ball.transform=physics_transform(vector(0,0,.1),IDENTITY_QUATERNION);world.set_callbacks(failing_contact,null);
+bool caught=false;try{world.update(1.0/60.0);}catch{caught=true;}
+check(caught,"callback exceptions reach script caller");
+checkpoint("null callback safety");world.set_callbacks(null,null);world.update(1.0/60.0);check(true,"null callbacks are safe");
+checkpoint("destroying bodies");world.destroy_rigid_body(ball);@ball=null;@ball_collider=null;world.destroy_rigid_body(ground);@ground=null;@floor_collider=null;
+checkpoint("destroying shapes");physics_sphere_shape_destroy(sphere_shape);@sphere_shape=null;physics_box_shape_destroy(floor_shape);@floor_shape=null;
+checkpoint("destroying world");physics_world_destroy(world);@world=null;
+check(true,"ordered native teardown");results+="Failures: "+failures+"\n";checkpoint("complete");
+}

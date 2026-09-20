@@ -1,3 +1,4 @@
+string explosive_audio_prefix(string kind){if(kind=="er_directional_claymore")return "er_claymore";if(kind=="er_proximity_mine")return "er_mine";return kind;}
 fraggrenade@[] fraggrenades(0);
 class fraggrenade
 {
@@ -37,8 +38,15 @@ else if(kind=="flashbang"){fuse=1800;radius=18;damage=0;}
 else if(kind=="concussion_grenade"){fuse=2000;radius=16;damage=60;}
 else if(kind=="incendiary_grenade"){fuse=1500;radius=10;damage=350;}
 else if(kind=="gas_grenade"){fuse=1800;radius=14;damage=140;}
+else if(kind=="er_frag_grenade"){fuse=2400;radius=17;damage=520;}
+else if(kind=="er_molotov"){fuse=1500;radius=11;damage=280;}
+else if(kind=="er_bowling_bomb"){fuse=3500;radius=19;damage=680;horizontal=9.5;vertical=2.1;}
+else if(kind=="carrier_missile"){fuse=5000;radius=20;damage=720;horizontal=23;vertical=3.8;}
+else if(kind=="conventional_guided_missile"){fuse=4000;radius=16;damage=590;horizontal=20;vertical=4.8;}
+else if(kind=="cannon_ball"){fuse=3600;radius=14;damage=520;horizontal=16;vertical=6.2;}
+vx=sine(radians)*horizontal;vy=cosine(radians)*horizontal;vz=vertical;
 if(cooked_ms<0)cooked_ms=0;if(cooked_ms>fuse-1)cooked_ms=fuse-1;fuse-=cooked_ms;
-if(play_launch)play(kind=="frag_grenade"?"fraggrenadethrow":kind+"_throw",x,y,z,map);
+if(play_launch){string launch=kind=="frag_grenade"?"fraggrenadethrow":(kind=="er_bowling_bomb"?"er_bowling_bomb_start":kind+"_throw");play(launch,x,y,z,map);}
 simulationtimer.restart();
 }
 }
@@ -64,14 +72,14 @@ string xtile=get_tile_at(nx,fraggrenades[i].y,int(fraggrenades[i].z),fraggrenade
 string ytile=get_tile_at(fraggrenades[i].x,ny,int(fraggrenades[i].z),fraggrenades[i].map);
 if(string_contains(xtile,"wall",1)>=0)fraggrenades[i].vx*=-.48;
 if(string_contains(ytile,"wall",1)>=0)fraggrenades[i].vy*=-.48;
-fraggrenades[i].bounces++;play(fraggrenades[i].kind=="frag_grenade"?"fraggrenadeboink":fraggrenades[i].kind+"_bounce",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+fraggrenades[i].bounces++;string bounce=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeboink":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":((fraggrenades[i].kind=="er_molotov" or fraggrenades[i].kind=="er_frag_grenade")?fraggrenades[i].kind+"_impact":fraggrenades[i].kind+"_bounce"));play(bounce,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
 }
 else{fraggrenades[i].x=nx;fraggrenades[i].y=ny;}
 string below=get_tile_at(fraggrenades[i].x,fraggrenades[i].y,int(nz-.15),fraggrenades[i].map);
 if(nz<=0 or (fraggrenades[i].vz<0 and below!="" and below!="blank"))
 {
 fraggrenades[i].z=nz<0?0:nz+.12;fraggrenades[i].vz*=-.38;fraggrenades[i].vx*=.67;fraggrenades[i].vy*=.67;fraggrenades[i].bounces++;
-play(fraggrenades[i].kind=="frag_grenade"?"fraggrenadeland":fraggrenades[i].kind+"_bounce",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+string landing=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeland":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":(fraggrenades[i].kind=="er_molotov"?"er_molotov_land":(fraggrenades[i].kind=="er_frag_grenade"?"er_frag_grenade_land":fraggrenades[i].kind+"_bounce")));play(landing,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
 if(fraggrenades[i].bounces>=4 or (absolute(fraggrenades[i].vz)<.45 and absolute(fraggrenades[i].vx)+absolute(fraggrenades[i].vy)<.8)){fraggrenades[i].landed=true;fraggrenades[i].vz=0;break;}
 }
 else fraggrenades[i].z=nz;
@@ -82,8 +90,9 @@ if(fraggrenades[i].landed and fraggrenades[i].audio_id>=0){send_reliable_map(fra
 if (fraggrenades[i].explodetimer.elapsed>=fraggrenades[i].fuse or (fraggrenades[i].kind=="impact_grenade" and fraggrenades[i].bounces>0))
 {
 if(fraggrenades[i].audio_id>=0)send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);
-play(fraggrenades[i].kind=="frag_grenade"?"fraggrenadeexplode":fraggrenades[i].kind+"_explode",fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
-string distant=fraggrenades[i].kind=="frag_grenade"?"fraggrenadedist.ogg":fraggrenades[i].kind+"_dist.ogg";send_distant_sound(fraggrenades[i].map,distant,int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),35);
+string explosion=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeexplode":(fraggrenades[i].kind=="er_molotov"?"er_molotov_fire_loop":explosive_audio_prefix(fraggrenades[i].kind)+"_explode");play(explosion,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+if(fraggrenades[i].kind!="flashbang" and fraggrenades[i].kind!="gas_grenade" and fraggrenades[i].kind!="smoke_grenade")damage_world_objects_blast(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage);
+string distant=(fraggrenades[i].kind=="frag_grenade" or fraggrenades[i].kind=="er_frag_grenade" or fraggrenades[i].kind=="er_molotov")?"fraggrenadedist.ogg":((fraggrenades[i].kind=="er_dr_bomb" or fraggrenades[i].kind=="er_ghost_bomb")?"er_time_bomb_dist.ogg":explosive_audio_prefix(fraggrenades[i].kind)+"_dist.ogg");send_distant_sound(fraggrenades[i].map,distant,int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),35);
 for (uint i2=0; i2<players.length(); i2++)
 {
 double blast_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[i2].x,players[i2].y,players[i2].z);
@@ -101,6 +110,9 @@ if(fraggrenades[i].kind=="flashbang"){send_reliable(players[i2].peer_id,"play_s 
 else if(fraggrenades[i].kind=="concussion_grenade")send_reliable(players[i2].peer_id,"combat_slow 6000",0);
 else if(fraggrenades[i].kind=="gas_grenade")send_reliable(players[i2].peer_id,"combat_slow 8000",0);
 else if(fraggrenades[i].kind=="incendiary_grenade"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
+else if(fraggrenades[i].kind=="er_molotov"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
+else if(fraggrenades[i].kind=="er_dr_bomb")send_reliable(players[i2].peer_id,"combat_slow 9000",0);
+else if(fraggrenades[i].kind=="er_bowling_bomb")send_reliable(players[i2].peer_id,"combat_slow 3500",0);
 play("fraggrenadehit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 play("playerhit"+random(1,6),players[i2].x,players[i2].y,players[i2].z,players[i2].map);
 }
@@ -119,6 +131,10 @@ planes[i2].health-=500;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
+for(uint vi=0;vi<authoritative_vehicles.length();vi++)
+{
+authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=fraggrenades[i].map or vehicle.health<=0)continue;double vehicle_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vehicle_distance>fraggrenades[i].radius)continue;int vehicle_damage=int(double(fraggrenades[i].damage)*(1.0-vehicle_distance/double(fraggrenades[i].radius)*.6));if(fraggrenades[i].kind=="carrier_missile")vehicle_damage=int(vehicle_damage*1.65);else if(fraggrenades[i].kind=="conventional_guided_missile")vehicle_damage=int(vehicle_damage*1.3);vehicle.armor-=vehicle_damage;if(vehicle.armor<0){vehicle.health+=vehicle.armor/2;vehicle.armor=0;}vehicle.health-=vehicle_damage/3;if(vehicle.health<0)vehicle.health=0;send_reliable(0,"veh_damage "+vehicle.id+" "+vehicle_damage+" "+vehicle.map+" "+vehicle.health+" "+vehicle.armor,0);
+}
 fraggrenades.remove_at(i);
 continue;
 }
@@ -127,36 +143,38 @@ continue;
 void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int delivery=1,int cooked_ms=0)
 {
 fraggrenade e1(x,y,z,dir,map,owner,kind,true,delivery,cooked_ms);
-e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+kind+"_flight_loop.ogg "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
+e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();string loop=kind=="er_bowling_bomb"?"er_bowling_bomb_loop.ogg":(kind=="er_molotov"?"er_molotov_fire_loop.ogg":(kind=="er_frag_grenade"?"frag_grenade_flight_loop.ogg":kind+"_flight_loop.ogg"));send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+loop+" "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
 fraggrenades.insert_last(e1);
 }
 
 deployable_explosive@[] deployable_explosives;
 class deployable_explosive
 {
-int x,y,z,dir,arming_ms=1200;double sensor_mult=1;string map,owner,kind;timer armed_timer;timer life_timer;
-deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind,int profile=1){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;if(profile==0){arming_ms=650;sensor_mult=.78;}else if(profile==2){arming_ms=2200;sensor_mult=1.3;}play(kind+"_place",x,y,z,map);}
+int x,y,z,dir,arming_ms=1200;double sensor_mult=1;string map,owner,kind;timer armed_timer;timer life_timer;timer trigger_timer;bool triggered=false;
+deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind,int profile=1){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;if(profile==0){arming_ms=650;sensor_mult=.78;}else if(profile==2){arming_ms=2200;sensor_mult=1.3;}play(explosive_audio_prefix(kind)+"_place",x,y,z,map);if(kind=="er_time_bomb")play("er_time_bomb_countdown",x,y,z,map);}
 }
 void detonate_deployable(int index)
 {
 deployable_explosive@ d=deployable_explosives[index];fraggrenade@ blast=fraggrenade(d.x,d.y,d.z,d.dir,d.map,d.owner,d.kind,false);blast.landed=true;blast.vx=0;blast.vy=0;blast.vz=0;blast.fuse=0;
-if(d.kind=="proximity_mine"){blast.radius=11;blast.damage=430;}else if(d.kind=="claymore"){blast.radius=9;blast.damage=600;}else{blast.radius=14;blast.damage=700;}
+if(d.kind=="proximity_mine" or d.kind=="er_proximity_mine"){blast.radius=11;blast.damage=430;}else if(d.kind=="claymore" or d.kind=="er_directional_claymore"){blast.radius=9;blast.damage=600;}else if(d.kind=="er_motion_bomb"){blast.radius=16;blast.damage=540;}else if(d.kind=="er_ghost_bomb"){blast.radius=8;blast.damage=420;}else if(d.kind=="er_dr_bomb"){blast.radius=15;blast.damage=360;}else{blast.radius=14;blast.damage=700;}
 fraggrenades.insert_last(blast);deployable_explosives.remove_at(index);
 }
 void deployable_explosive_loop()
 {
 for(int i=int(deployable_explosives.length())-1;i>=0;i--)
 {
-deployable_explosive@ d=deployable_explosives[i];if(d.kind=="time_bomb" and d.life_timer.elapsed>=10000){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
+deployable_explosive@ d=deployable_explosives[i];if((d.kind=="time_bomb" or d.kind=="er_time_bomb") and d.life_timer.elapsed>=10000){detonate_deployable(i);continue;}if(d.kind=="er_dr_bomb" and d.life_timer.elapsed>=8000){detonate_deployable(i);continue;}if(d.kind=="er_motion_bomb" and d.triggered and d.trigger_timer.elapsed>=3000){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
 int owner_index=get_player_index_from(d.owner);bool triggered=false;
 for(uint pidx=0;pidx<players.length();pidx++)
 {
 player@ target=players[pidx];if(target.death or target.map!=d.map or target.name==d.owner or (owner_index>=0 and same_team(players[owner_index].name,target.name)))continue;double dx=double(target.x-d.x),dy=double(target.y-d.y),distance=sqrt(dx*dx+dy*dy);
-if(d.kind=="proximity_mine" and distance<=3.2*d.sensor_mult)triggered=true;
-else if(d.kind=="claymore" and distance<=5.5*d.sensor_mult){double radians=double(d.dir)*3.14159265358979323846/180.0,dot=dx*sine(radians)+dy*cosine(radians);if(dot>distance*.55)triggered=true;}
+if((d.kind=="proximity_mine" or d.kind=="er_proximity_mine") and distance<=3.2*d.sensor_mult)triggered=true;
+else if((d.kind=="claymore" or d.kind=="er_directional_claymore") and distance<=5.5*d.sensor_mult){double radians=double(d.dir)*3.14159265358979323846/180.0,dot=dx*sine(radians)+dy*cosine(radians);if(dot>distance*.55)triggered=true;}
+else if(d.kind=="er_ghost_bomb" and distance<=2.3*d.sensor_mult)triggered=true;
+else if(d.kind=="er_motion_bomb" and distance<=7.0*d.sensor_mult){if(!d.triggered){d.triggered=true;d.trigger_timer.restart();play("er_motion_bomb_countdown",d.x,d.y,d.z,d.map);}triggered=false;}
 if(triggered)break;
 }
-if(triggered)detonate_deployable(i);
+if(triggered){if(d.kind=="er_directional_claymore")play("er_claymore_detonate",d.x,d.y,d.z,d.map);detonate_deployable(i);}
 }
 }
 void spawn_deployable_explosive(int x,int y,int z,int dir,string map,string owner,string kind,int profile=1){deployable_explosives.insert_last(deployable_explosive(x,y,z,dir,map,owner,kind,profile));}

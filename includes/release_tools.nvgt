@@ -28,6 +28,7 @@ string executable=string_replace(SCRIPT_EXECUTABLE,"\\","/",true);string[] parts
 }
 void release_stage_current_plugins(string release,nv_form@ form,nv_form_input@ status,nv_form_progress_bar@ progress)
 {
+#if_not IW_REACTPHYSICS_RUNTIME
 // The executable declares nvgt_curl explicitly. Always take that plugin from
 // the compiler which produced this build, never from a potentially stale game
 // lib folder left by an older NVGT release.
@@ -36,9 +37,15 @@ release_status(form,status,progress,"Validating runtime plugins",0,"Locating the
 if(!file_exists(compiler_plugin))throw("The active NVGT installation does not provide lib/nvgt_curl.dll at "+compiler_plugin);
 if(!file_copy(compiler_plugin,staged_plugin,true))throw("Could not stage the current nvgt_curl plugin");
 release_status(form,status,progress,"Validating runtime plugins",100,"Replaced the staged curl plugin with "+compiler_plugin+".");
+#endif
+#if IW_REACTPHYSICS_RUNTIME
+// The pinned native-physics runtime provides url_get in its core HTTP API.
+// Do not ship an older compiler's curl plugin beside this executable.
+if(file_exists(release+"/lib/nvgt_curl.dll"))file_delete(release+"/lib/nvgt_curl.dll");
+release_status(form,status,progress,"Validating runtime plugins",100,"Using the pinned runtime's built-in HTTP implementation; obsolete curl plugin excluded.");
+#endif
 string[] helper_plugins={"notifications.dll","nvgt_app_volume.dll","voice_command.dll"};for(uint i=0;i<helper_plugins.length();i++){string source=SCRIPT_MAIN_PATH+"/lib/"+helper_plugins[i],destination=release+"/lib/"+helper_plugins[i];if(!file_exists(source))throw("Missing integrated helper runtime "+source);if(!file_copy(source,destination,true))throw("Could not stage helper runtime "+helper_plugins[i]);}
-if(file_exists(release+"/lib/graphics.dll"))file_delete(release+"/lib/graphics.dll");
-release_status(form,status,progress,"Validating runtime plugins",100,"Staged notifications, application-volume, and voice-command runtimes. The incompatible NVGT 0.89 graphics plugin was excluded in favor of NVGT 0.90 native status forms.");
+release_status(form,status,progress,"Validating runtime plugins",100,"Staged notifications, application-volume, and voice-command runtimes. Graphics use the NVGT 0.90-integrated graphics helper and require no legacy plugin.");
 }
 void compress_release_build()
 {
@@ -61,6 +68,7 @@ for(uint i=0;i<sources.length();i++){release_status(f,status,progress,"Copying c
 release_status(f,status,progress,"Copying core release files",100,"Executable, sound archive, changelog and readme copied.");
 if(!directory_exists(root+"/lib"))throw("The lib folder is missing");int total=release_count_files(root+"/lib"),completed=0;if(!release_copy_tree(root+"/lib",release+"/lib",f,status,progress,total,completed))throw("Could not copy the complete lib folder");
 release_stage_current_plugins(release,f,status,progress);
+if(!directory_exists(root+"/iwserver/content/weapons"))throw("The data-driven weapon definitions are missing");int weapon_total=release_count_files(root+"/iwserver/content/weapons"),weapon_completed=0;release_status(f,status,progress,"Copying weapon database",0,"Staging the runtime weapon definitions required by the compiled client.");if(!release_copy_tree(root+"/iwserver/content/weapons",release+"/content/weapons",f,status,progress,weapon_total,weapon_completed))throw("Could not copy the runtime weapon database");release_status(f,status,progress,"Copying weapon database",100,"Staged "+weapon_completed+" data-driven weapon definitions.");
 release_status(f,status,progress,"Compressing release",0,"Creating "+archive+" from the completed release folder.");if(file_exists(archive))file_delete(archive);
 string pscommand="Compress-Archive -Path '"+release+"/*' -DestinationPath '"+archive+"' -Force";string[] zip_args={"powershell.exe","-NoProfile","-NonInteractive","-Command",pscommand};process@ zipper=run(zip_args,PROCESS_BACKGROUND,root);
 if(zipper is null or !zipper.valid or zipper.wait()!=0 or !file_exists(archive))throw("PowerShell Compress-Archive did not create release.zip");

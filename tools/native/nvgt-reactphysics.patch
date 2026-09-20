@@ -1,0 +1,215 @@
+diff --git a/SConstruct b/SConstruct
+index 9b6ed36..744feb4 100644
+--- a/SConstruct
++++ b/SConstruct
+@@ -47,7 +47,7 @@ if ARGUMENTS.get("debug", "0") == "1":
+ 	Alias('cdb', cdb)
+ 
+ # Platform setup and system libraries
+-common_libs = ["PocoJSON", "PocoNet", "PocoNetSSL", "PocoUtil", "PocoXML", "PocoCrypto", "PocoFoundation", "expat", "angelscript", "SDL3_ttf", "freetype", "bz2", "enet", "reactphysics3d", "ssl", "crypto", "utf8proc", "pcre2-8", "vorbisfile", "vorbisenc", "vorbis", "ogg", "opusfile", "opusenc", "opus", "tinyexpr", "tiny-aes-c", "ffi"]
++common_libs = ["PocoJSON", "IW_PocoNet", "PocoNet", "PocoNetSSL", "PocoUtil", "PocoXML", "PocoCrypto", "PocoFoundation", "expat", "angelscript", "SDL3_ttf", "freetype", "bz2", "enet", "reactphysics3d", "ssl", "crypto", "utf8proc", "pcre2-8", "vorbisfile", "vorbisenc", "vorbis", "ogg", "opusfile", "opusenc", "opus", "tinyexpr", "tiny-aes-c", "ffi"]
+ if env["NVGT_TARGET"] == "windows":
+ 	deb_rel_flags = ["/MTd", "/Od", "/Z7"] if ARGUMENTS.get("debug", "0") == "1" else ["/MT", "/O2"]
+ 	env.Append(CCFLAGS = ["/EHsc", "/J", "/utf-8", "/Gy", "/std:c++20", "/GF", "/Zc:inline", "/bigobj", "/permissive-", "/W3" if ARGUMENTS.get("warnings", "0") == "1" else "", "/WX" if ARGUMENTS.get("warnings_as_errors", "0") == "1" else ""] + deb_rel_flags)
+diff --git a/src/nvgt_angelscript.cpp b/src/nvgt_angelscript.cpp
+index a2c6fee..e003b88 100644
+--- a/src/nvgt_angelscript.cpp
++++ b/src/nvgt_angelscript.cpp
+@@ -624,6 +624,9 @@ int CompileScript(asIScriptEngine *engine, const string &scriptFile) {
+ 	builder.SetPragmaCallback(PragmaCallback, 0);
+ 	if (builder.StartNewModule(engine, "nvgt_game") < 0)
+ 		return -1;
++	// Infinite Warfare project-local runtime profile; distinguishes the pinned
++	// physics/HTTP bindings without changing ordinary installed NVGT builds.
++	builder.DefineWord("IW_REACTPHYSICS_RUNTIME");
+ 	if (g_platform != "auto") builder.DefineWord(g_platform.c_str());
+ 	if (g_platform == "ios" || g_platform == "android") builder.DefineWord("mobile");
+ 	else builder.DefineWord("desktop");
+diff --git a/src/reactphysics.cpp b/src/reactphysics.cpp
+index 8b3f0d0..0447625 100644
+--- a/src/reactphysics.cpp
++++ b/src/reactphysics.cpp
+@@ -21,6 +21,11 @@
+ #include "nvgt_angelscript.h"
+ #include "reactphysics.h"
+ 
++// Windows headers define GetObject, which conflicts with AngelScript's method.
++#ifdef GetObject
++#undef GetObject
++#endif
++
+ using namespace std;
+ using namespace reactphysics3d;
+ 
+@@ -72,8 +77,26 @@ bool aabb_test_ray_intersect(const AABB& aabb, Vector3 start, Vector3 dir, float
+ 	return aabb.testRayIntersect(start, invdir, dist);
+ }
+ 
+-CollisionCallback::ContactPoint contact_pair_get_contact_point(const CollisionCallback::ContactPair& pair, uint32 index) {
+-	return pair.getContactPoint(index);
++// Infinite Warfare modification: contact data is a value snapshot, not a
++// borrowed pointer to RP3D's temporary ContactPoint return value.
++struct script_contact_point {
++	Vector3 world_normal, local_point_on_collider1, local_point_on_collider2;
++	float penetration_depth = 0;
++};
++
++void contact_pair_get_contact_point(asIScriptGeneric* call) {
++	const auto& pair = *static_cast<const CollisionCallback::ContactPair*>(call->GetObject());
++	uint32 index = call->GetArgDWord(0);
++	if (index >= pair.getNbContactPoints()) {
++		asGetActiveContext()->SetException("Contact point index out of bounds");
++		return;
++	}
++	auto point = pair.getContactPoint(index);
++	auto* snapshot = new (call->GetAddressOfReturnLocation()) script_contact_point();
++	snapshot->world_normal = point.getWorldNormal();
++	snapshot->local_point_on_collider1 = point.getLocalPointOnCollider1();
++	snapshot->local_point_on_collider2 = point.getLocalPointOnCollider2();
++	snapshot->penetration_depth = point.getPenetrationDepth();
+ }
+ 
+ AABB aabb_from_triangle(CScriptArray* points) {
+@@ -81,7 +104,52 @@ AABB aabb_from_triangle(CScriptArray* points) {
+ 	return AABB::createAABBForTriangle(reinterpret_cast<const Vector3*>(points->GetBuffer()));
+ }
+ 
++// Infinite Warfare modification: construct real derived joint descriptions.
++// The old base JointInfo factory leaves the solver reading past the object.
++bool joint_bodies_valid(PhysicsWorld* world, RigidBody* a, RigidBody* b) {
++	bool found_a = false, found_b = false;
++	for (uint32 i = 0; i < world->getNbRigidBodies(); ++i) {
++		auto* body = world->getRigidBody(i);
++		found_a |= body == a;
++		found_b |= body == b;
++	}
++	if (a != b && found_a && found_b) return true;
++	asGetActiveContext()->SetException("Joint requires two different live bodies in this world");
++	return false;
++}
++Joint* create_fixed_joint(PhysicsWorld* world, RigidBody* a, RigidBody* b, const Vector3& anchor, bool collision) {
++	if (!joint_bodies_valid(world, a, b)) return nullptr;
++	FixedJointInfo info(a, b, anchor); info.isCollisionEnabled = collision;
++	return world->createJoint(info);
++}
++Joint* create_ball_joint(PhysicsWorld* world, RigidBody* a, RigidBody* b, const Vector3& anchor, bool collision) {
++	if (!joint_bodies_valid(world, a, b)) return nullptr;
++	BallAndSocketJointInfo info(a, b, anchor); info.isCollisionEnabled = collision;
++	return world->createJoint(info);
++}
++Joint* create_hinge_joint(PhysicsWorld* world, RigidBody* a, RigidBody* b, const Vector3& anchor, const Vector3& axis, float lower, float upper, bool collision) {
++	if (!joint_bodies_valid(world, a, b)) return nullptr;
++	if (!(axis.lengthSquare() > 0) || !(lower <= 0 && lower >= -6.283185307f && upper >= 0 && upper <= 6.283185307f)) {
++		asGetActiveContext()->SetException("Invalid hinge axis or limits"); return nullptr;
++	}
++	HingeJointInfo info(a, b, anchor, axis.getUnit(), lower, upper); info.isCollisionEnabled = collision;
++	return world->createJoint(info);
++}
++Joint* create_slider_joint(PhysicsWorld* world, RigidBody* a, RigidBody* b, const Vector3& anchor, const Vector3& axis, float lower, float upper, bool collision) {
++	if (!joint_bodies_valid(world, a, b)) return nullptr;
++	if (!(axis.lengthSquare() > 0) || !(lower <= 0 && upper >= 0)) {
++		asGetActiveContext()->SetException("Invalid slider axis or limits"); return nullptr;
++	}
++	SliderJointInfo info(a, b, anchor, axis.getUnit(), lower, upper); info.isCollisionEnabled = collision;
++	return world->createJoint(info);
++}
++Joint* reject_base_joint(PhysicsWorld*, const JointInfo&) {
++	asGetActiveContext()->SetException("Use create_fixed_joint, create_ball_joint, create_hinge_joint or create_slider_joint; base joint descriptions are unsafe");
++	return nullptr;
++}
++
+ void simple_void_callback(asIScriptFunction* callback, const void* data) {
++	if (!callback) return;
+ 	asIScriptContext* ACtx = asGetActiveContext();
+ 	bool new_context = ACtx == NULL || ACtx->PushState() < 0;
+ 	asIScriptContext* ctx = (new_context ? g_ScriptEngine->RequestContext() : ACtx);
+@@ -94,11 +162,14 @@ void simple_void_callback(asIScriptFunction* callback, const void* data) {
+ 		return;
+ 	}
+ 	ctx->SetArgObject(0, (void*)data);
+-	ctx->Execute();
++	int result = ctx->Execute();
++	string error = result == asEXECUTION_EXCEPTION ? ctx->GetExceptionString() : "";
+ 	if (new_context)
+ 		g_ScriptEngine->ReturnContext(ctx);
+ 	else
+ 		ctx->PopState();
++	// Preserve failures after restoring the caller, rather than hiding them.
++	if (!error.empty() && ACtx) ACtx->SetException(error.c_str());
+ }
+ 
+ class raycast_callback : public RaycastCallback {
+@@ -189,6 +260,7 @@ void world_test_collision(PhysicsWorld& world, asIScriptFunction* callback) {
+ }
+ 
+ void world_destroy_listener(PhysicsWorld* world) {
++	world->setEventListener(nullptr);
+ 	if (!g_physics_event_listeners.contains(world)) return;
+ 	event_listener* l = g_physics_event_listeners[world];
+ 	if (l->on_contact_callback) l->on_contact_callback->Release();
+@@ -261,6 +333,11 @@ void physics_shape_destroy(CollisionShape* shape) {
+ 	// First dispatch on the broad shape type
+ 	CollisionShapeType shapeType = shape->getType();
+ 	switch (shapeType) {
++		// Infinite Warfare repair: capsules are not convex polyhedra in RP3D.
++		case CollisionShapeType::CAPSULE: {
++			capsule_shape_destroy(static_cast<CapsuleShape*>(shape));
++			break;
++		}
+ 		case CollisionShapeType::SPHERE: {
+ 			SphereShape* sphereShape = static_cast<SphereShape*>(shape);
+ 			sphere_shape_destroy(sphereShape);
+@@ -1080,6 +1157,13 @@ void RegisterPhysicsEntities(asIScriptEngine* engine) {
+ void RegisterPhysicsBodies(asIScriptEngine* engine) {
+ 	RegisterPhysicsBody<Body>(engine, "physics_body");
+ 	RegisterPhysicsBody<RigidBody>(engine, "physics_rigid_body");
++	// Infinite Warfare modification: use the solver's accumulated forces/torques.
++	engine->RegisterObjectMethod("physics_rigid_body", "void apply_world_force(const vector&in force)", asMETHOD(RigidBody, applyWorldForceAtCenterOfMass), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_rigid_body", "void apply_local_force(const vector&in force)", asMETHOD(RigidBody, applyLocalForceAtCenterOfMass), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_rigid_body", "void apply_world_force_at_position(const vector&in force, const vector&in position)", asMETHOD(RigidBody, applyWorldForceAtWorldPosition), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_rigid_body", "void apply_local_force_at_position(const vector&in force, const vector&in position)", asMETHOD(RigidBody, applyLocalForceAtLocalPosition), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_rigid_body", "void apply_world_torque(const vector&in torque)", asMETHOD(RigidBody, applyWorldTorque), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_rigid_body", "void apply_local_torque(const vector&in torque)", asMETHOD(RigidBody, applyLocalTorque), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_rigid_body", "float get_mass() const property", asMETHOD(RigidBody, getMass), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_rigid_body", "void set_mass(float mass) property", asMETHOD(RigidBody, setMass), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_rigid_body", "vector get_linear_velocity() const property", asMETHOD(RigidBody, getLinearVelocity), asCALL_THISCALL);
+@@ -1256,17 +1340,19 @@ void RegisterTriangleMeshAndConcaveShape(asIScriptEngine* engine) {
+ }
+ 
+ void RegisterPhysicsWorldAndCallbacks(asIScriptEngine* engine) {
+-	engine->RegisterObjectType("physics_contact_point", 0, asOBJ_REF);
+-	engine->RegisterObjectBehaviour("physics_contact_point", asBEHAVE_ADDREF, "void f()", asFUNCTION(no_refcount), asCALL_CDECL_OBJFIRST);
+-	engine->RegisterObjectBehaviour("physics_contact_point", asBEHAVE_RELEASE, "void f()", asFUNCTION(no_refcount), asCALL_CDECL_OBJFIRST);
+-	engine->RegisterObjectMethod("physics_contact_point", "const vector& get_world_normal() const property", asMETHOD(CollisionCallback::ContactPoint, getWorldNormal), asCALL_THISCALL);
+-	engine->RegisterObjectMethod("physics_contact_point", "const vector& get_local_point_on_collider1() const property", asMETHOD(CollisionCallback::ContactPoint, getLocalPointOnCollider1), asCALL_THISCALL);
+-	engine->RegisterObjectMethod("physics_contact_point", "const vector& get_local_point_on_collider2() const property", asMETHOD(CollisionCallback::ContactPoint, getLocalPointOnCollider2), asCALL_THISCALL);
++	engine->RegisterObjectType("physics_contact_point", sizeof(script_contact_point), asOBJ_VALUE | asGetTypeTraits<script_contact_point>());
++	engine->RegisterObjectBehaviour("physics_contact_point", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(rp_construct<script_contact_point>), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectBehaviour("physics_contact_point", asBEHAVE_CONSTRUCT, "void f(const physics_contact_point&in point)", asFUNCTION(rp_copy_construct<script_contact_point>), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectBehaviour("physics_contact_point", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(rp_destruct<script_contact_point>), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectProperty("physics_contact_point", "vector world_normal", asOFFSET(script_contact_point, world_normal));
++	engine->RegisterObjectProperty("physics_contact_point", "vector local_point_on_collider1", asOFFSET(script_contact_point, local_point_on_collider1));
++	engine->RegisterObjectProperty("physics_contact_point", "vector local_point_on_collider2", asOFFSET(script_contact_point, local_point_on_collider2));
++	engine->RegisterObjectProperty("physics_contact_point", "float penetration_depth", asOFFSET(script_contact_point, penetration_depth));
+ 	engine->RegisterObjectType("physics_contact_pair", sizeof(CollisionCallback::ContactPair), asOBJ_VALUE | asGetTypeTraits<CollisionCallback::ContactPair>());
+ 	engine->RegisterObjectBehaviour("physics_contact_pair", asBEHAVE_CONSTRUCT, "void f(const physics_contact_pair&in pair)", asFUNCTION((rp_construct<CollisionCallback::ContactPair, const CollisionCallback::ContactPair&>)), asCALL_CDECL_OBJFIRST);
+ 	engine->RegisterObjectBehaviour("physics_contact_pair", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(rp_destruct<CollisionCallback::ContactPair>), asCALL_CDECL_OBJFIRST);
+ 	engine->RegisterObjectMethod("physics_contact_pair", "uint get_nb_contact_points() const property", asMETHOD(CollisionCallback::ContactPair, getNbContactPoints), asCALL_THISCALL);
+-	engine->RegisterObjectMethod("physics_contact_pair", "physics_contact_point@ get_contact_point(uint index) const", asMETHOD(CollisionCallback::ContactPair, getContactPoint), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_contact_pair", "physics_contact_point get_contact_point(uint index) const", asFUNCTION(contact_pair_get_contact_point), asCALL_GENERIC);
+ 	engine->RegisterObjectMethod("physics_contact_pair", "physics_body@ get_body1() const property", asMETHOD(CollisionCallback::ContactPair, getBody1), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_contact_pair", "physics_body@ get_body2() const property", asMETHOD(CollisionCallback::ContactPair, getBody2), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_contact_pair", "physics_collider@ get_collider1() const property", asMETHOD(CollisionCallback::ContactPair, getCollider1), asCALL_THISCALL);
+@@ -1329,7 +1415,11 @@ void RegisterPhysicsWorldAndCallbacks(asIScriptEngine* engine) {
+ 	engine->RegisterObjectMethod("physics_world", "void set_contacts_position_correction_technique(physics_contact_position_correction_technique technique) property", asMETHOD(PhysicsWorld, setContactsPositionCorrectionTechnique), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_world", "physics_rigid_body@ create_rigid_body(const physics_transform&in transform)", asMETHOD(PhysicsWorld, createRigidBody), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_world", "void destroy_rigid_body(physics_rigid_body& body)", asFUNCTION(world_destroy_rigid_body), asCALL_CDECL_OBJFIRST);
+-	engine->RegisterObjectMethod("physics_world", "physics_joint@ create_joint(const physics_joint_info&in joint_info)", asMETHOD(PhysicsWorld, createJoint), asCALL_THISCALL);
++	engine->RegisterObjectMethod("physics_world", "physics_joint@ create_joint(const physics_joint_info&in joint_info)", asFUNCTION(reject_base_joint), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectMethod("physics_world", "physics_joint@ create_fixed_joint(physics_rigid_body@ a, physics_rigid_body@ b, const vector&in anchor, bool collision = false)", asFUNCTION(create_fixed_joint), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectMethod("physics_world", "physics_joint@ create_ball_joint(physics_rigid_body@ a, physics_rigid_body@ b, const vector&in anchor, bool collision = false)", asFUNCTION(create_ball_joint), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectMethod("physics_world", "physics_joint@ create_hinge_joint(physics_rigid_body@ a, physics_rigid_body@ b, const vector&in anchor, const vector&in axis, float lower, float upper, bool collision = false)", asFUNCTION(create_hinge_joint), asCALL_CDECL_OBJFIRST);
++	engine->RegisterObjectMethod("physics_world", "physics_joint@ create_slider_joint(physics_rigid_body@ a, physics_rigid_body@ b, const vector&in anchor, const vector&in axis, float lower, float upper, bool collision = false)", asFUNCTION(create_slider_joint), asCALL_CDECL_OBJFIRST);
+ 	engine->RegisterObjectMethod("physics_world", "void destroy_joint(physics_joint& joint)", asMETHOD(PhysicsWorld, destroyJoint), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_world", "vector get_gravity() const property", asMETHOD(PhysicsWorld, getGravity), asCALL_THISCALL);
+ 	engine->RegisterObjectMethod("physics_world", "void set_gravity(const vector&in gravity) property", asMETHOD(PhysicsWorld, setGravity), asCALL_THISCALL);

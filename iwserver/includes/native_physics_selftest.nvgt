@@ -1,0 +1,44 @@
+// Invoked before normal main startup. Does not bind a network port, load/save
+// accounts, run the item economy or connect a client. Uses the real server types.
+string physics_test_path,physics_test_results;int physics_test_failures=0;
+void physics_test_check(bool ok,string name)
+{
+ physics_test_results+=(ok?"PASS ":"FAIL ")+name+"\n";if(!ok)physics_test_failures++;
+ file f;f.open(physics_test_path,"wb");f.write(physics_test_results);f.close();
+}
+void server_physics_selftest()
+{
+ string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-physics-server-"+random(100000,999999999);directory_create(directory);physics_test_path=directory+"/results.txt";
+ physics_test_check(!native_server_enabled,"native model preview is off by default");
+ init_mapsystem();server_physics_start("../runtime_build/maps");
+ physics_test_check(native_server_maps.length()==maps.length() and native_server_maps.length()==4,"real server maps load into native lifecycle");
+ player swimmer(20,100,0,"battlegrounds","isolated_swimmer",992);
+ physics_test_check(!server_physics_eligible(swimmer),"unported swimming remains on existing controller");
+ player p(40,40,0,"battlegrounds","isolated_physics_test",991);players.insert_last(p);server_physics_sync_players();
+ physics_test_check(server_physics_has_player(p),"real player registry creates native actor");
+ uint64 first_id=native_server_players[0].actor.id();
+ for(int i=0;i<30;i++)server_physics_service(1.0/60.0);
+ p.x=41;set_player_model_target(p,41,40,0);double before=p.model_x;update_player_physical_model(p);
+ physics_test_check(p.model_x==before,"legacy interpolation cannot also move native-owned model");
+ server_physics_service(1.0/60.0);
+ physics_test_check(p.model_x>40 and p.model_x<41,"accepted game coordinates initiate continuous native model motion");
+ for(int i=0;i<120;i++)server_physics_service(1.0/60.0);
+ physics_test_check(abs(p.model_x-41)<.03,"native result reaches real gameplay model position");
+ physics_test_check(p.x==41 and p.y==40 and p.health==1000,"navigation coordinates and nonphysical health remain unchanged");
+ p.equipped_armor_weight=25;server_physics_sync_players();
+ physics_test_check(abs(native_server_players[0].map.simulation.world.mass(native_server_players[0].actor.id())-105)<.01,"server equipment weight updates native mass");
+ p.map="freeforall";p.x=40;server_physics_sync_players();
+ physics_test_check(native_server_players.length()==1 and native_server_players[0].map.name=="freeforall" and native_server_players[0].actor.id()!=first_id,"map transfer replaces actor and native world ownership");
+ p.death=true;server_physics_sync_players();physics_test_check(!server_physics_has_player(p),"death removes active native actor");
+ p.death=false;server_physics_sync_players();p.in_plane=true;server_physics_sync_players();physics_test_check(!server_physics_has_player(p),"legacy plane controller is excluded from on-foot native ownership");
+ p.in_plane=false;server_physics_sync_players();uint64 prior=native_server_players[0].actor.id();players.resize(0);
+ player replacement(40,40,0,"freeforall","isolated_physics_test",991);players.insert_last(replacement);server_physics_sync_players();
+ physics_test_check(native_server_players.length()==1 and native_server_players[0].target is replacement and native_server_players[0].actor.id()!=prior,"peer-ID reuse cannot inherit previous actor");
+ players.resize(0);server_physics_sync_players();physics_test_check(native_server_players.length()==0,"disconnect registry removal releases native actor");
+ maps[0].rawdata+="\n";server_physics_service(1.0/60.0);
+ physics_test_check(!native_server_enabled and native_server_maps.length()==0 and native_server_last_error!="","map edits disable stale native geometry without crashing server");
+ bool rejected=false;try{server_physics_start("../runtime_build/maps");}catch{rejected=true;}
+ physics_test_check(rejected and !native_server_enabled and native_server_maps.length()==0,"startup rejects stale compiled map and rolls back worlds");
+ server_physics_close();server_physics_close();physics_test_check(true,"native server shutdown is idempotent");
+ file f;f.open(physics_test_path,"wb");f.write(physics_test_results+"Failures: "+physics_test_failures+"\nStage: complete\n");f.close();
+}

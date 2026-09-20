@@ -1,0 +1,72 @@
+// Two verified alternating records keep the last committed balance intact if
+// writing the next record fails. Account metadata is never truncated to save money.
+string wallet_accounts_directory="accounts";
+string wallet_path(string name,int slot){return wallet_accounts_directory+"/"+string_to_lower_case(name)+".wallet"+slot;}
+bool read_wallet_slot(string name,int slot,double &out revision,int &out balance)
+{
+revision=-1;balance=0;
+try
+{
+savedata data(wallet_path(name,slot),ACCOUNT_SECRET);data.load();
+if(data.read("owner")!=string_to_lower_case(name) or !data.d.exists("balance") or !data.d.exists("revision"))return false;
+double amount=data.readn("balance"),rev=data.readn("revision");
+if(amount<0 or amount>2000000000 or amount!=floor(amount) or rev<1 or rev!=floor(rev))return false;
+balance=int(amount);revision=rev;return true;
+}
+catch{return false;}
+}
+int load_player_credits(string name)
+{
+double a,b;int av,bv;bool first=read_wallet_slot(name,0,a,av),second=read_wallet_slot(name,1,b,bv);
+if(first or second)return first and (!second or a>=b)?av:bv;
+// Existing but unreadable wallet files must not silently reset an account.
+if(file_exists(wallet_path(name,0)) or file_exists(wallet_path(name,1)))return -1;
+try
+{
+savedata account(wallet_accounts_directory+"/"+string_to_lower_case(name)+".dat",ACCOUNT_SECRET);account.load();
+if(account.d.get_size()==0)return -1;
+double balance=account.readn("credits");if(balance<0 or balance>2000000000)return -1;
+return int(balance);
+}
+catch{return -1;}
+}
+bool save_player_credits(string name,int amount)
+{
+if(amount<0 or amount>2000000000 or load_player_credits(name)<0)return false;
+double a,b;int av,bv;bool first=read_wallet_slot(name,0,a,av),second=read_wallet_slot(name,1,b,bv);
+int slot=first and (!second or a>=b)?1:0;
+double revision=(a>b?a:b)+1;if(revision<1)revision=1;
+try
+{
+savedata next(wallet_path(name,slot),ACCOUNT_SECRET);next.add("owner",string_to_lower_case(name));next.add("balance",double(amount));next.add("revision",revision);next.save();
+double check_revision;int check_balance;
+return read_wallet_slot(name,slot,check_revision,check_balance) and check_revision==revision and check_balance==amount;
+}
+catch{return false;}
+}
+bool change_player_credits(player@ user,int delta)
+{
+int64 next=int64(user.credits)+delta;
+if(user.credits<0 or next<0 or next>2000000000 or !save_player_credits(user.name,int(next)))
+{send_reliable(user.peer_id,"Credit transaction failed: the account balance could not be saved. No credits were changed. Please contact a developer if this continues.",2);return false;}
+user.credits=int(next);return true;
+}
+
+bool is_credit_chip(string item){return item=="er_small_credit_chip" or item=="er_large_credit_chip";}
+int credit_chip_count(player@ user,string item){return item=="er_small_credit_chip"?user.er_small_chips:(item=="er_large_credit_chip"?user.er_large_chips:0);}
+bool commit_credit_chip_deposit(player@ user,string item)
+{
+if(!is_credit_chip(item) or credit_chip_count(user,item)<=0)return false;
+if(!change_player_credits(user,item=="er_small_credit_chip"?15:60))return false;
+send_reliable(user.peer_id,"give "+item+" -1",0);return true;
+}
+// Observe only authoritative, targeted inventory grants/removals, not client claims.
+void track_credit_chip_grant(uint peer,const string &in message)
+{
+if(string_contains(message,"give er_",1)!=0)return;
+string[] fields=string_split(message," ",true);if(fields.length()!=3 or !is_credit_chip(fields[1]))return;
+int index=get_player_index(peer);if(index<0)return;
+int64 count=int64(credit_chip_count(players[index],fields[1]))+int64(string_to_number(fields[2]));
+if(count<0)count=0;if(count>1000000)count=1000000;
+if(fields[1]=="er_small_credit_chip")players[index].er_small_chips=int(count);else players[index].er_large_chips=int(count);
+}

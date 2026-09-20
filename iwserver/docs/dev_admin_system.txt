@@ -2,14 +2,17 @@ Admin System (Developer Reference)
 
 The admin system controls server access and moderation.
 
-Admin list: Stored in admins.txt on the server, contains computer IDs of administrators.
+Legacy admin list: Stored in admins.txt on the server and contains computer IDs of administrators.
+Persistent account roles: administration/staff_roles.svr assigns administrator, moderator, support or builder to an account. Only a developer may change roles. Use the in-game Staff and Administrator Panel, /staffrole account role, /unstaff account and /staff to review assignments.
 Authorization mode: When enabled, new accounts must be approved by an admin before they can log in. Toggle via the admin panel or /admin_set_authmode.
 
-Account browser: Administrators and developers can enter /accounts from global chat in the lobby or a mode, or select it from the Commands form. The resulting list opens each account as a read-only record containing its identity, authorization state, current role and online status, credits, warning count, and active ban details. List and detail requests are independently authorized by the server.
+Account browser: Staff with account permission can enter /accounts from global chat in the lobby or a mode. The resulting list opens each account as a read-only record containing its identity, authorization state, persistent role, online status, credits, warning count and active ban details. List and detail requests are independently authorized by the server.
+
+Role permissions: moderators manage warnings, bans and kicks; support staff browse accounts and handle player-service queues; builders use the validated current-map editing tools; administrators have broad server management; developers alone assign persistent roles and perform destructive server lifecycle operations.
 
 Players use /start_admin to activate their admin role if their computer ID is in the admin list.
 
-Admin panel: Accessible from the main menu when running from source. Connects to the server and verifies access. Allows toggling authorization mode and viewing unauthenticated players with their authorization codes.
+Staff and Administrator Panel: Available from the in-game menu in source and compiled clients, or directly with the rebindable Control+Shift+F8 shortcut. The server verifies access and every selected operation. Categories cover account authorization, support services, staff roles, moderation, communication, world tools, server controls and developer access.
 
 Developers automatically have admin privileges when running from source (SCRIPT_COMPILED==false). The developer suite (Shift+D) provides a give-all function for testing.
 Source-only Release Builder

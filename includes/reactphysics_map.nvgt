@@ -1,0 +1,60 @@
+// Loader for the ordered-static-volumes stage. Ramps, fluid simulation,
+// structural joints and authored furniture are separate migration adapters.
+class rp_map_volume
+{
+ vector minimum,maximum;
+ string material,kind;
+ int source_line;
+ uint64 body=0;
+}
+class rp_map_geometry
+{
+ private rp_world_owner@ owner;
+ private rp_map_volume@[] volumes;
+ uint solid_count=0,fluid_count=0;
+ ~rp_map_geometry(){unload();}
+ void unload()
+ {
+  if(owner !is null)for(uint i=0;i<volumes.length();i++)if(volumes[i].body!=0)owner.remove(volumes[i].body);
+  volumes.resize(0);@owner=null;solid_count=0;fluid_count=0;
+ }
+ void load(rp_world_owner@ world,string data)
+ {
+  if(world is null)throw("Map geometry needs a world");
+  json_object@ root=parse_json(data);
+  if(root is null)throw("Map geometry must be a JSON object");
+  int schema=root["schema"];string units=root["units"],stage=root["geometry_stage"];
+  if(schema!=1 or units!="metres" or stage!="ordered-static-volumes")throw("Unsupported physical map schema or units");
+  json_array@ entries=root["volumes"];
+  if(entries is null or entries.length()>100000)throw("Invalid physical volume list");
+  rp_map_volume@[] parsed;
+  for(uint i=0;i<entries.length();i++)
+  {
+   json_object@ entry=entries[i];if(entry is null)throw("Invalid physical volume");
+   json_array@ low=entry["min"],high=entry["max"];
+   if(low is null or high is null or low.length()!=3 or high.length()!=3)throw("Invalid physical bounds");
+   float lx=low[0],ly=low[1],lz=low[2],hx=high[0],hy=high[1],hz=high[2];
+   if(!(lx<hx and ly<hy and lz<hz))throw("Reversed physical bounds");
+   rp_map_volume volume;volume.minimum=vector(lx,ly,lz);volume.maximum=vector(hx,hy,hz);
+   if(!(volume.minimum.length()<1e6 and volume.maximum.length()<1e6))throw("Physical bounds exceed supported extent");
+   volume.material=string(entry["material"]);volume.kind=string(entry["kind"]);volume.source_line=int(entry["source_line"]);
+   if(volume.kind!="solid" and volume.kind!="fluid")throw("Unknown physical volume kind");
+   parsed.insert_last(volume);
+  }
+  // Keep the old map if validation fails; roll back new bodies on creation failure.
+  try
+  {
+   for(uint i=0;i<parsed.length();i++)if(parsed[i].kind=="solid")
+    parsed[i].body=world.box((parsed[i].maximum-parsed[i].minimum)*.5,(parsed[i].maximum+parsed[i].minimum)*.5);
+  }
+  catch
+  {
+   string error=get_exception_info();for(uint i=0;i<parsed.length();i++)if(parsed[i].body!=0)world.remove(parsed[i].body);
+   throw(error);
+  }
+  unload();@owner=world;volumes=parsed;
+  for(uint i=0;i<volumes.length();i++){if(volumes[i].kind=="solid")solid_count++;else fluid_count++;}
+ }
+ string material_for(uint64 body)const
+ {for(uint i=0;i<volumes.length();i++)if(volumes[i].body==body and body!=0)return volumes[i].material;return "";}
+}

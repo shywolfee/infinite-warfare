@@ -1,0 +1,63 @@
+#if_not IW_WORLD_OBJECT_GEOMETRY
+#define IW_WORLD_OBJECT_GEOMETRY
+// Shared, map-authored component geometry. No client-supplied damage or health.
+class world_object_part
+{
+double x1,x2,y1,y2,z1,z2;
+string material;
+bool solid;
+bool contains(double x,double y,double z){return x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;}
+}
+class world_object
+{
+int id,health,max_health,dynamic_id=-1;
+double bullet_factor=1,blast_factor=1,last_impact=-1000;
+double x1=1e9,x2=-1e9,y1=1e9,y2=-1e9,z1=1e9,z2=-1e9;
+string name,hit_sound,break_sound;
+world_object_part@[] parts;
+bool contains(double x,double y,double z){return health>0 and x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;}
+string tile_at(double x,double y,double z,bool solid_only=false)
+{
+if(!contains(x,y,z))return "";
+for(int pass=0;pass<(solid_only?1:2);pass++)for(int i=int(parts.length())-1;i>=0;i--)if(parts[i].solid==(pass==0) and parts[i].contains(x,y,z))return parts[i].material;
+return "";
+}
+int apply_damage(int amount,bool blast)
+{
+if(health<=0 or amount<=0)return 0;
+int damage=int(ceil(amount*(blast?blast_factor:bullet_factor)));if(damage>health)damage=health;
+health-=damage;return damage;
+}
+}
+class world_object_set
+{
+world_object@[] objects;
+dictionary by_id;
+world_object@ find(int id){int index;if(!by_id.get(""+id,index) or index<0 or index>=int(objects.length()))return null;return objects[index];}
+void load(string raw)
+{
+objects.resize(0);by_id.delete_all();raw=string_replace(raw,"\r","",true);string[] lines=raw.split("\n");
+for(uint i=0;i<lines.length();i++)
+{
+string[] p=lines[i].split(":");
+if(p.length()==8 and p[0]=="object")
+{
+int id=string_to_number(p[1]),health=string_to_number(p[2]);if(id<1 or health<1 or find(id)!is null)continue;
+world_object o;o.id=id;o.health=health;o.max_health=health;o.bullet_factor=string_to_number(p[3]);o.blast_factor=string_to_number(p[4]);
+if(o.bullet_factor<=0 or o.blast_factor<=0)continue;
+o.hit_sound=p[5];o.break_sound=p[6];o.name=p[7];by_id.set(""+id,int(objects.length()));objects.insert_last(o);
+}
+else if(p.length()==10 and p[0]=="objectpart")
+{
+world_object@ o=find(int(string_to_number(p[1])));if(o is null)continue;
+world_object_part part;part.x1=string_to_number(p[2]);part.x2=string_to_number(p[3]);part.y1=string_to_number(p[4]);part.y2=string_to_number(p[5]);part.z1=string_to_number(p[6]);part.z2=string_to_number(p[7]);part.material=p[8];part.solid=p[9]=="1";
+if(part.x1>part.x2 or part.y1>part.y2 or part.z1>part.z2)continue;
+o.parts.insert_last(part);
+if(part.x1<o.x1)o.x1=part.x1;if(part.x2>o.x2)o.x2=part.x2;if(part.y1<o.y1)o.y1=part.y1;if(part.y2>o.y2)o.y2=part.y2;if(part.z1<o.z1)o.z1=part.z1;if(part.z2>o.z2)o.z2=part.z2;
+}
+}
+}
+string tile_at(double x,double y,double z)
+{for(int i=int(objects.length())-1;i>=0;i--){string tile=objects[i].tile_at(x,y,z);if(tile!="")return tile;}return "";}
+}
+#endif

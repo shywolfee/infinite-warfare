@@ -1,0 +1,100 @@
+#include "bgt_compat.nvgt"
+#include "../../includes/dynamic_map.nvgt"
+#include "../../includes/world_objects.nvgt"
+#include "../../iwserver/includes/world_objects.nvgt"
+#include "../../iwserver/includes/map_validation.nvgt"
+string[] delinear(string value){return string_replace(value,"\r","",true).split("\n");}
+// Only network/audio endpoints are replaced. Object parsing, damage, state
+// synchronization and client collision use the actual production functions.
+string mapname="test",results;
+int failed=0,sound_count=0,packets=0;
+bool shield=false;
+timer uptimer;
+vector me;
+int facing=0;
+double calculate_theta(int direction){return 0;}
+class test_pool {void play_3d(string path,double a,double b,double c,double d,double e,double f,double angle,bool loop){sound_count++;}}
+test_pool p;
+string er_encode_token(string value){return string_replace(value," ","%20",true);}
+string executioners_decode_token(string value){return string_replace(value,"%20"," ",true);}
+class test_map
+{
+world_object_set objects;
+string return_tile(double x,double y,double z){return shield and x==5?"wallstone":"";}
+}
+test_map@[] maps;
+int get_map_index(string name){return name==mapname and maps.length()>0?0:-1;}
+void send_reliable(uint peer,string message,uint channel){packets++;handle_world_object_packet(message);}
+void send_reliable_map(string name,string message,uint channel){packets++;handle_world_object_packet(message);}
+void check(bool ok,string name){results+=(ok?"PASS ":"FAIL ")+name+"\n";if(!ok)failed++;}
+string fixture_data()
+{
+return "object:1:100:1:1:wallwood:executioners_rage/environment/objects/table/dest.wav:Wood table\nobjectpart:1:10:14:10:14:0:1.9:wallwood:1\nobjectpart:1:10:14:10:14:2:2:wood:0\nobject:2:100:0.5:2:wallmetal:executioners_rage/environment/objects/dumpster/dest.wav:Metal cabinet\nobjectpart:2:20:24:10:14:0:3.9:wallmetal:1\nobjectpart:2:20:24:10:14:4:4:metal4:0\n";
+}
+void reset_fixture()
+{
+dynamic_map_elements.resize(0);maps.resize(0);test_map test;test.objects.load(fixture_data());maps.insert_last(test);load_client_world_objects(fixture_data());shield=false;packets=0;sound_count=0;
+}
+void main()
+{
+string destination=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-world-objects-regression-"+random(100000,999999999);directory_create(destination);
+try
+{
+reset_fixture();
+check(builder_map_valid("mapname:test\n"+fixture_data(),"test"),"builder accepts fractional object geometry");
+check(!builder_map_valid("mapname:test\n"+fixture_data()+"object:1:100:1:1:wallwood:treebreak:duplicate\n","test"),"builder rejects duplicate object IDs");
+check(!builder_map_valid("mapname:test\nobjectpart:99:1:2:1:2:0:2:wallwood:1\n","test"),"builder rejects orphan components");
+check(!builder_line_valid("objectpart:1:nan:2:1:2:0:2:wallwood:1","test",false),"builder rejects non-finite component input");
+check(maps[0].objects.objects.length()==2 and client_world_objects.objects.length()==2,"shared map parsing");
+check(dynamic_map_tile_at(12,12,1)=="wallwood" and dynamic_map_tile_at(12,12,2)=="wood","solid body and walkable top are distinct");
+check(dynamic_map_tile_at(1000,1000,0)=="","distant bounds reject furniture");
+check(!damage_world_object_at(0,0,0,mapname,20),"a missed projectile damages nothing");
+check(damage_world_object_at(12,12,1,mapname,30) and maps[0].objects.find(1).health==70,"authoritative impact consumes real health");
+check(maps[0].objects.find(2).health==100,"impact does not damage a different object");
+damage_world_object_at(22,12,1,mapname,30);check(maps[0].objects.find(2).health==85,"metal bullet resistance");
+damage_world_object_at(12,12,1,mapname,1000);
+check(maps[0].objects.find(1).health==0 and dynamic_map_tile_at(12,12,1)=="","destroy removes client and server collision");
+int previous=packets;check(!damage_world_object_at(12,12,1,mapname,1) and packets==previous,"destroyed objects do not emit repeated events");
+dynamic_map_elements.resize(0);load_client_world_objects(fixture_data());sync_world_objects(2,mapname);
+check(dynamic_map_tile_at(12,12,1)=="" and dynamic_map_tile_at(22,12,1)=="wallmetal","late join removes only destroyed objects");
+handle_world_object_packet("world_objects_destroyed other_map 2");check(dynamic_map_tile_at(22,12,1)=="wallmetal","cross-map state is ignored");
+handle_world_object_packet("world_objects_destroyed test -1,999999");check(dynamic_map_tile_at(22,12,1)=="wallmetal","unknown IDs are safe");
+reset_fixture();damage_world_objects_blast(12,12,0,mapname,5,60);
+check(maps[0].objects.find(1).health==40 and maps[0].objects.find(2).health==100,"blast falloff and radius");
+reset_fixture();shield=true;damage_world_objects_blast(0,12,0,mapname,30,1000);
+check(maps[0].objects.find(1).health==100 and maps[0].objects.find(2).health==100,"static wall shields furniture from blasts");
+reset_fixture();int count=sound_count;world_object_sound("firefight_archive/glass break 01.wav",maps[0].objects.find(1),mapname);check(sound_count==count+1,"asset paths containing spaces survive sound packets");
+string root=SCRIPT_MAIN_PATH+"/../../";
+string[] files={"battlegrounds/main.map","freyas_ascent/freyas_ascent.map","habitat_alpha/habitat_alpha.map","freeforall/freeforall.map"};
+file source;source.open(root+"Infinite Warfare.nvgt","rb");string[] source_lines=source.read().split("\n");source.close();string archive_key;
+for(uint i=0;i<source_lines.length();i++)if(source_lines[i].starts_with("const string sound_pack_key=")){string[] fields=source_lines[i].split("\"");if(fields.length()>1)archive_key=fields[1];}
+pack_file archive;check(archive.open(root+"sounds.dat",archive_key),"existing sound pack opens");
+for(uint fi=0;fi<files.length();fi++)
+{
+file input;check(input.open(root+"iwserver/content/maps/"+files[fi],"rb"),"open "+files[fi]);string raw=input.read();input.close();
+string[] ids={"battlegrounds","freyas_ascent","habitat_alpha","freeforall"};check(builder_map_valid(raw,ids[fi]),files[fi]+" passes real server builder validation");
+dynamic_map_elements.resize(0);load_client_world_objects(raw);world_object_set server;server.load(raw);
+int mismatches=0,missing=0;
+for(uint oi=0;oi<server.objects.length();oi++)
+{
+world_object@ o=server.objects[oi];string hit=o.hit_sound;if(!hit.ends_with(".wav") and !hit.ends_with(".ogg"))hit+=".ogg";
+if(!archive.file_exists(hit) or !archive.file_exists(o.break_sound))missing++;
+for(uint pi=0;pi<o.parts.length();pi++)
+{
+world_object_part@ part=o.parts[pi];double x=(part.x1+part.x2)/2,y=(part.y1+part.y2)/2,z=(part.z1+part.z2)/2;
+if(server.tile_at(x,y,z)!=dynamic_map_tile_at(x,y,z)){mismatches++;results+="Mismatch "+o.name+" "+x+","+y+","+z+": server="+server.tile_at(x,y,z)+" client="+dynamic_map_tile_at(x,y,z)+"\n";}
+for(int corner=0;corner<8;corner++)
+{
+double cx=(corner&1)==0?part.x1:part.x2,cy=(corner&2)==0?part.y1:part.y2,cz=(corner&4)==0?part.z1:part.z2;
+if(server.tile_at(cx,cy,cz)!=dynamic_map_tile_at(cx,cy,cz))mismatches++;
+}
+}
+}
+check(server.objects.length()>0 and mismatches==0,files[fi]+" server/client component parity");
+check(missing==0,files[fi]+" every object sound exists inside sounds.dat");
+}
+archive.close();
+}
+catch{check(false,"exception: "+get_exception_info());}
+results+="Failures: "+failed+"\n";file report;report.open(destination+"/results.txt","wb");report.write(results);report.close();
+}

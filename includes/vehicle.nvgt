@@ -65,6 +65,9 @@ vehicle_types.insert_last(vehicle_type("Tank",4000,2000,2,5.0,0.9,2.8,tank_win))
 bool[] van_win = {true, true, false, false, false};
 vehicle_types.insert_last(vehicle_type("Van",900,0,5,7.7,1.8,4.0,van_win));
 
+bool[] bike_win = {false};
+vehicle_types.insert_last(vehicle_type("Motorbike",520,0,1,17.5,5.4,7.5,bike_win));
+
 bool[] plane_win = {true, true, true, true};
 vehicle_types.insert_last(vehicle_type("Duo Plane",5000,500,4,13.3,3.5,4.5,plane_win));
 }
@@ -99,7 +102,7 @@ z = pz;
 health = vehicle_types[ti].max_health;
 armor = vehicle_types[ti].armor;
 facing = double(random(0, 7) * 45);
-door_open = false;
+door_open = vehicle_types[ti].name=="Motorbike";
 destroyed = false;
 observed_velocity = 0;
 fuel=vehicle_types[ti].fuel_capacity*.65;
@@ -209,11 +212,13 @@ int vehicle_interior_last_x=0,vehicle_interior_last_y=0,vehicle_interior_last_z=
 
 void vehicle_dimensions(vehicle@ v,double &out length,double &out width,double &out height)
 {
-length=6;width=4;height=3;string n=v.get_name();if(n=="Buggy"){length=5;width=3;height=2;}else if(n=="Pickup Truck"){length=8;width=4;height=3;}else if(n=="Van"){length=9;width=5;height=4;}else if(n=="Humvee"){length=8;width=5;height=4;}else if(n=="APC"){length=13;width=7;height=5;}else if(n=="Tank"){length=14;width=8;height=6;}else if(n=="Duo Plane"){length=18;width=22;height=6;}
+length=6;width=4;height=3;string n=v.get_name();if(n=="Motorbike"){length=3;width=1.5;height=1.4;}else if(n=="Buggy"){length=5;width=3;height=2;}else if(n=="Pickup Truck"){length=8;width=4;height=3;}else if(n=="Van"){length=9;width=5;height=4;}else if(n=="Humvee"){length=8;width=5;height=4;}else if(n=="APC"){length=13;width=7;height=5;}else if(n=="Tank"){length=14;width=8;height=6;}else if(n=="Duo Plane"){length=18;width=22;height=6;}
 }
 void vehicle_local_position(vehicle@ v,double wx,double wy,double &out forward,double &out side){double rad=v.facing*3.14159265358979323846/180.0,dx=wx-v.x,dy=wy-v.y;forward=dx*sine(rad)+dy*cosine(rad);side=dx*cosine(rad)-dy*sine(rad);}
 bool vehicle_contains_position(vehicle@ v,double wx,double wy,double wz,double margin=0){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);return absolute(forward)<=length*.5+margin and absolute(side)<=width*.5+margin and wz>=v.z and wz<=v.z+height;}
-bool vehicle_cabin_contains_position(vehicle@ v,double wx,double wy,double wz,double margin=0){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);double rear=-length*.18,front=length*.42,cabin_width=width*.43;string n=v.get_name();if(n=="Van" or n=="APC"){rear=-length*.42;front=length*.4;cabin_width=width*.42;}else if(n=="Tank"){rear=-length*.12;front=length*.22;cabin_width=width*.27;}else if(n=="Pickup Truck"){rear=length*.02;front=length*.43;}else if(n=="Duo Plane"){rear=-length*.3;front=length*.35;cabin_width=width*.16;}else if(n=="Buggy")cabin_width=width*.48;return forward>=rear-margin and forward<=front+margin and absolute(side)<=cabin_width+margin and wz>=v.z and wz<=v.z+height;}
+// Vehicle cabins are no longer walkable map rooms. The hull remains a physical
+// obstacle and the roof remains traversable, while V performs direct boarding.
+bool vehicle_cabin_contains_position(vehicle@ v,double wx,double wy,double wz,double margin=0){return false;}
 bool vehicle_is_roof_position(vehicle@ v,double wx,double wy,double wz){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);return absolute(forward)<=length*.5 and absolute(side)<=width*.5 and wz>=v.z+height-.25 and wz<=v.z+height+.65;}
 string vehicle_zone_at(vehicle@ v,double wx,double wy,double wz){double length,width,height,forward,side;vehicle_dimensions(v,length,width,height);vehicle_local_position(v,wx,wy,forward,side);if(vehicle_is_roof_position(v,wx,wy,wz))return "on the roof";if(vehicle_cabin_contains_position(v,wx,wy,wz) and wz>v.z+.35)return "inside the cabin";if(absolute(forward)<=length*.5 and absolute(side)<=width*.5)return "under the vehicle";if(forward>length*.5 and absolute(side)<=width*.75)return "in front of the engine";if(forward<length*-.5 and absolute(side)<=width*.75)return "behind the vehicle";return side<0?"along the left side":"along the right side";}
 void vehicle_seat_local_position(vehicle@ v,int seat,double &out forward,double &out side,double &out height){double length,width,h;vehicle_dimensions(v,length,width,h);int row=seat/2;forward=length*.27-double(row)*1.35;side=(seat%2==0?-.22:.22)*width;height=.5;}
@@ -223,8 +228,8 @@ double vehicle_door_distance(vehicle@ v,double px,double py,double pz){double dx
 
 void vehicle_update_door_geometry(vehicle@ v)
 {
-if(v.map_element_id<0 or v.map_element_id>=int(dynamic_map_elements.length()))return;dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];
-for(uint i=0;i<e.tiles.length();i++)if(string_contains(e.tiles[i].zone,"doorway",1)>=0){e.tiles[i].solid=!v.door_open;e.tiles[i].material=v.door_open?"metal4":"wallmetal";}
+// Doors control boarding, not holes in the moving collision hull.
+return;
 }
 
 void ensure_vehicle_map_element(vehicle@ v,int owner)
@@ -232,23 +237,10 @@ void ensure_vehicle_map_element(vehicle@ v,int owner)
 if(v.map_element_id>=0 and v.map_element_id<int(dynamic_map_elements.length())){dynamic_map_move(v.map_element_id,v.x,v.y,v.z,v.facing);vehicle_update_door_geometry(v);return;}
 v.map_element_id=dynamic_map_create("vehicle",v.get_name(),owner,v.x,v.y,v.z,v.facing);
 dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];double length,width,height;vehicle_dimensions(v,length,width,height);
-// Replacement surfaces are walkable map material, not metre-high collision
-// blocks. Hull and roof panels alone are solid. This lets the moving room
-// genuinely replace the static tiles beneath it without turning its floor into
-// an invisible wall.
+if(v.get_name()=="Motorbike"){e.add_tile(-length*.5,length*.5,-width*.42,width*.42,-.12,.14,"metal5","Motorbike chassis",false);e.add_tile(-.35,.35,-.42,.42,.05,.82,"carpet1","Motorbike saddle",false);return;}
 e.add_tile(-length*.5,length*.5,-width*.5,width*.5,-.12,.18,"metal5",v.get_name()+" chassis",false);
-e.add_tile(-length*.42,length*.42,-width*.36,width*.36,-.11,.22,"metal4",v.get_name()+" interior floor",false);
+e.add_tile(-length*.48,length*.48,-width*.48,width*.48,.18,height-.2,"wallmetal",v.get_name()+" body",true);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,height-.2,height,"metal4","roof of "+v.get_name(),true);
-double panel=.12;
-e.add_tile(-length*.42-panel,-length*.42+panel,-width*.36,width*.36,.2,height,"wallmetal",v.get_name()+" rear bulkhead",true);
-e.add_tile(length*.42-panel,length*.42+panel,-width*.36,width*.36,.2,height,"wallmetal",v.get_name()+" front bulkhead",true);
-e.add_tile(-length*.42,length*.04,-width*.36-panel,-width*.36+panel,.2,height,"wallmetal",v.get_name()+" left hull",true);
-e.add_tile(length*.30,length*.42,-width*.36-panel,-width*.36+panel,.2,height,"wallmetal",v.get_name()+" left front hull",true);
-e.add_tile(-length*.42,length*.04,width*.36-panel,width*.36+panel,.2,height,"wallmetal",v.get_name()+" right hull",true);
-e.add_tile(length*.30,length*.42,width*.36-panel,width*.36+panel,.2,height,"wallmetal",v.get_name()+" right front hull",true);
-e.add_tile(length*.04,length*.30,width*.28,width*.58,.2,1.65,v.door_open?"metal4":"wallmetal",v.get_name()+" doorway",!v.door_open);
-e.add_tile(-length*.42,length*.42,-width*.36,width*.36,.01,height-.21,"metal4","inside the "+v.get_name(),false);
-for(int seat=0;seat<v.get_max_passengers();seat++){double sf,ss,sz;vehicle_seat_local_position(v,seat,sf,ss,sz);e.add_tile(sf-.35,sf+.35,ss-.35,ss+.35,0,1.2,"carpet1",v.seat_label(seat),false);}
 }
 
 void vehicle_set_interior_local(vehicle@ v,double wx,double wy,double wz)
@@ -301,6 +293,10 @@ return vehicle_audio_id_from_name(v.get_name());
 
 void play_vehicle_audio(vehicle@ v, string action)
 {
+if(v.get_name()=="Motorbike")
+{
+string cue="";if(action=="enter")cue="pickup";else if(action=="exit" or action=="stop")cue="stopend";else if(action=="start")cue="stopstart";else if(action=="engine")cue="loop";else if(action=="accelerate")cue=vehicle_target_velocity>v.vehicle_effective_top_speed(v)*.7?"highspeed":"accel";else if(action=="decelerate")cue="decel";else if(action=="turn")cue=vehicle_target_velocity<=.05?"stoploop":"loop";else if(action=="horn")cue="horn";else if(action=="crash" or action=="destroy")cue=vehicle_current_velocity>v.vehicle_effective_top_speed(v)*.45?"crash_heavy":"crash_lite";if(cue!="")p.play_stationary("executioners_rage/vehicles/bike/"+cue+".wav",false);return;
+}
 if (v.get_name()=="Duo Plane")
 {
 string cue="";
@@ -452,6 +448,7 @@ speak("No vehicle nearby.");
 return;
 }
 vehicle@ door_vehicle=map_vehicles[vi];
+if(door_vehicle.get_name()=="Motorbike"){speak("The motorbike has no door. Use the vehicle interaction control beside its saddle to mount it.");return;}
 if(!in_vehicle and vehicle_door_distance(door_vehicle,me.x,me.y,me.z)>1.75){speak("Move next to the vehicle door first.");return;}
 if(in_vehicle and player_seat>1){speak("This seat cannot reach the vehicle door controls.");return;}
 map_vehicles[vi].door_open = !map_vehicles[vi].door_open;
@@ -478,7 +475,7 @@ if (in_vehicle)
 speak("You are already in a vehicle.");
 return;
 }
-int vi = vehicle_interior_index>=0?vehicle_interior_index:find_nearest_vehicle_door(me.x,me.y,me.z,1.75);
+int vi = find_nearest_vehicle_door(me.x,me.y,me.z,1.75);
 if (vi < 0)
 {
 speak("No vehicle nearby.");
@@ -489,9 +486,8 @@ if (map_vehicles[vi].destroyed)
 speak("This vehicle is destroyed.");
 return;
 }
-bool already_in_cabin=vehicle_interior_index==vi and vehicle_cabin_contains_position(map_vehicles[vi],me.x,me.y,me.z,.15);
-if(!already_in_cabin and vehicle_door_distance(map_vehicles[vi],me.x,me.y,me.z)>1.75){speak("Move next to the vehicle door first.");return;}
-if (!map_vehicles[vi].door_open and !already_in_cabin)
+if(vehicle_door_distance(map_vehicles[vi],me.x,me.y,me.z)>1.75){speak("Move next to the vehicle door first.");return;}
+if (!map_vehicles[vi].door_open)
 {
 speak("The door is closed. Press O to open it first.");
 return;
@@ -505,13 +501,6 @@ bool vehicle_was_empty=true;
 for(uint occupied=0; occupied<map_vehicles[vi].passengers.length(); occupied++)
 if(map_vehicles[vi].passengers[occupied]!="") vehicle_was_empty=false;
 int seat = map_vehicles[vi].find_empty_seat();
-// When the player physically explored the cabin, interact with the closest
-// available seat. V from outside retains the existing automatic entry path.
-if(already_in_cabin)
-{
-double nearest=9999;for(int candidate=0;candidate<map_vehicles[vi].get_max_passengers();candidate++){if(map_vehicles[vi].passengers[candidate]!="")continue;double sx,sy,sz;vehicle_seat_world_position(map_vehicles[vi],candidate,sx,sy,sz);double d=get_3d_distance(me.x,me.y,me.z,sx,sy,sz);if(d<nearest){nearest=d;seat=candidate;}}
-if(nearest>1.0){speak("Move next to an empty seat before sitting down.");return;}
-}
 if (seat < 0)
 {
 speak("No empty seats.");
@@ -521,6 +510,7 @@ map_vehicles[vi].passengers[seat] = pname;
 player_vehicle_index = vi;
 player_seat = seat;
 in_vehicle = true;
+vehicle_interior_index=-1;
 vehicle_current_velocity=0;
 vehicle_target_velocity=0;
 vehicle_decelerating = false;
@@ -553,10 +543,10 @@ if (seat >= 0)
 v.passengers[seat] = "";
 v.window_down[seat] = false;
 }
-speak("Stood up from the " + v.seat_label(seat) + " inside " + v.get_name() + ".");
+speak("Exited " + v.get_name() + " from the " + v.seat_label(seat) + ".");
 play_vehicle_audio(v, "exit");
 send_reliable(0, "veh_exit " + player_vehicle_index+" "+mapname, 0);
-double stand_x,stand_y,stand_z;vehicle_seat_world_position(v,seat,stand_x,stand_y,stand_z);me.x=stand_x;me.y=stand_y;me.z=stand_z;mr.x=round(me.x,0);mr.y=round(me.y,0);vehicle_interior_index=player_vehicle_index;vehicle_set_interior_local(v,me.x,me.y,me.z);ensure_vehicle_map_element(v,player_vehicle_index);
+double stand_x,stand_y,stand_z;vehicle_door_world_position(v,stand_x,stand_y,stand_z);double exit_rad=v.facing*3.14159265358979323846/180.0;stand_x+=cosine(exit_rad)*1.1;stand_y-=sine(exit_rad)*1.1;me.x=stand_x;me.y=stand_y;me.z=stand_z;mr.x=round(me.x,0);mr.y=round(me.y,0);vehicle_interior_index=-1;
 player_vehicle_index = -1;
 player_seat = -1;
 in_vehicle = false;
@@ -726,6 +716,11 @@ play_vehicle_audio(map_vehicles[player_vehicle_index], "decelerate");
 speak("Decelerating.");
 }
 
+void vehicle_horn()
+{
+if(!in_vehicle or player_vehicle_index<0)return;if(player_seat!=0){speak("Only the driver can use the horn.");return;}play_vehicle_audio(map_vehicles[player_vehicle_index],"horn");
+}
+
 // Turn vehicle 90 degrees (LEFT/RIGHT arrow in vehicle).
 void vehicle_turn(int dir)
 {
@@ -849,11 +844,6 @@ return s;
 void vehicle_loop()
 {
 for(uint dynamic_vehicle=0;dynamic_vehicle<map_vehicles.length();dynamic_vehicle++)if(!map_vehicles[dynamic_vehicle].destroyed)ensure_vehicle_map_element(map_vehicles[dynamic_vehicle],int(dynamic_vehicle));
-if(!in_vehicle and vehicle_interior_index>=0)
-{
-if(vehicle_interior_index>=int(map_vehicles.length()) or map_vehicles[vehicle_interior_index].destroyed)vehicle_interior_index=-1;
-else {vehicle@ interior_vehicle=map_vehicles[vehicle_interior_index];vehicle_apply_interior_local(interior_vehicle);if(interior_vehicle.x!=vehicle_interior_last_x or interior_vehicle.y!=vehicle_interior_last_y or interior_vehicle.z!=vehicle_interior_last_z)send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);vehicle_interior_last_x=interior_vehicle.x;vehicle_interior_last_y=interior_vehicle.y;vehicle_interior_last_z=interior_vehicle.z;}
-}
 if(vehicle_roof_index>=0)
 {
 if(vehicle_roof_index>=int(map_vehicles.length()) or map_vehicles[vehicle_roof_index].destroyed) vehicle_roof_index=-1;

@@ -1,0 +1,76 @@
+bool builder_integer(string value)
+{
+value=value.trim_whitespace();if(value=="")return false;uint start=0;if(string_left(value,1)=="-"){if(value.length()==1)return false;start=1;}for(uint i=start;i<value.length();i++){string ch=string_mid(value,i,1);if(ch<"0" or ch>"9")return false;}return true;
+}
+bool builder_decimal(string value)
+{
+if(value=="")return false;int dots=0,digits=0;
+for(uint i=0;i<value.length();i++){string ch=string_mid(value,i,1);if(ch=="-" and i==0)continue;if(ch=="."){if(++dots>1)return false;continue;}if(ch<"0" or ch>"9")return false;digits++;}
+return digits>0;
+}
+bool builder_line_valid(string line,string map_id,bool allow_mapname)
+{
+line=line.trim_whitespace();if(line=="" or string_contains(line,"\r",1)>=0 or string_contains(line,"\n",1)>=0)return false;if(string_left(line,2)=="//")return true;string[] fields=string_split(line,":",false);if(fields.length()<2)return false;string kind=fields[0];
+if(kind=="mapname")return allow_mapname and line=="mapname:"+map_id;
+if(kind=="fixtures")return line=="fixtures:authored";
+if(kind=="spawn")return fields.length()==4 and builder_integer(fields[1]) and builder_integer(fields[2]) and builder_integer(fields[3]);
+if(kind=="fixture")return fields.length()==6 and fields[1]!="" and builder_integer(fields[2]) and builder_integer(fields[3]) and builder_integer(fields[4]) and fields[5]!="";
+if(kind=="object")
+{
+if(fields.length()!=8 or !builder_integer(fields[1]) or !builder_integer(fields[2]))return false;
+if(string_to_number(fields[1])<1 or string_to_number(fields[2])<1 or string_to_number(fields[2])>1000000)return false;
+for(int i=3;i<=4;i++)if(!builder_decimal(fields[i]) or string_to_number(fields[i])<=0 or string_to_number(fields[i])>10)return false;
+for(int i=5;i<=6;i++)if(fields[i]=="" or string_contains(fields[i],"..",1)>=0 or string_left(fields[i],1)=="/" or string_contains(fields[i],"\\",1)>=0)return false;
+return fields[7]!="";
+}
+if(kind=="objectpart")
+{
+if(fields.length()!=10 or !builder_integer(fields[1]) or string_to_number(fields[1])<1 or (fields[9]!="0" and fields[9]!="1"))return false;
+for(int i=2;i<=7;i++)if(!builder_decimal(fields[i]) or abs(string_to_number(fields[i]))>100000)return false;
+return string_to_number(fields[2])<=string_to_number(fields[3]) and string_to_number(fields[4])<=string_to_number(fields[5]) and string_to_number(fields[6])<=string_to_number(fields[7]) and fields[8]!="";
+}
+if(kind=="maxx" or kind=="maxy" or kind=="maxz")return fields.length()==2 and builder_integer(fields[1]) and string_to_number(fields[1])>=(kind=="maxz"?0:1);
+if(kind=="poi" or kind=="bunker")return fields.length()>=5 and builder_integer(fields[1]) and builder_integer(fields[2]) and builder_integer(fields[3]);
+if(kind=="turbolift" or kind=="transition")return fields.length()>=5;
+if(kind!="tile" and kind!="zone" and kind!="src" and kind!="ispawn" and kind!="space" and kind!="openspace" and kind!="portal" and kind!="poiregion" and kind!="ramp")return false;
+if(fields.length()<8)return false;for(int i=1;i<=6;i++)if(!builder_integer(fields[i]))return false;if(string_to_number(fields[1])>string_to_number(fields[2]) or string_to_number(fields[3])>string_to_number(fields[4]) or string_to_number(fields[5])>string_to_number(fields[6]))return false;
+if(kind=="src" and fields.length()<9)return false;if(kind=="ispawn" and (fields.length()<10 or !builder_integer(fields[7]) or !builder_integer(fields[8]) or string_to_number(fields[7])<1 or string_to_number(fields[8])<1))return false;return true;
+}
+bool builder_map_valid(string data,string map_id)
+{
+if(data.length()==0 or data.length()>4194304)return false;
+string[] lines=delinear(data),object_ids;dictionary part_counts;bool found_name=false;
+for(uint i=0;i<lines.length();i++)
+{
+string line=lines[i].trim_whitespace();if(line=="")continue;if(!builder_line_valid(line,map_id,true))return false;
+if(line=="mapname:"+map_id){if(found_name)return false;found_name=true;}
+string[] fields=line.split(":");
+if(fields[0]=="object")
+{
+string id=""+int(string_to_number(fields[1]));if(part_counts.exists(id))return false;object_ids.insert_last(id);part_counts.set(id,0);
+}
+else if(fields[0]=="objectpart")
+{
+string id=""+int(string_to_number(fields[1]));int count=0;if(!part_counts.get(id,count))return false;part_counts.set(id,count+1);
+}
+}
+for(uint i=0;i<object_ids.length();i++){int count=0;part_counts.get(object_ids[i],count);if(count==0)return false;}
+return found_name;
+}
+
+// One in-memory undo point per map plus durable timestamped snapshots. Every
+// live-builder mutation calls this before touching the authoritative file.
+dictionary builder_undo_snapshots;
+bool builder_snapshot_map(string map_id,string path)
+{
+file source;if(path=="" or !source.open(path,"rb"))return false;string data=source.read();source.close();
+builder_undo_snapshots.set(map_id,data);directory_create("administration");directory_create("administration/map_backups");
+file backup;if(backup.open("administration/map_backups/"+map_id+"_"+ticks()+".map","wb")){backup.write(data);backup.close();}
+return true;
+}
+bool builder_restore_snapshot(string map_id,string path)
+{
+string data;if(path=="" or !builder_undo_snapshots.get(map_id,data) or !builder_map_valid(data,map_id))return false;
+file current;if(current.open(path,"rb")){string now=current.read();current.close();builder_undo_snapshots.set(map_id,now);}
+file output;if(!output.open(path,"wb"))return false;output.write(data);output.close();return true;
+}

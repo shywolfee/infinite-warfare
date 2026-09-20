@@ -1,0 +1,64 @@
+// Breakable physical links: connected parts remain dynamic, held by native
+// constraints. Failure removes the link, never teleports or deletes debris.
+class rp_structural_link
+{
+ uint64 joint=0,a=0,b=0;
+ float force_limit=0,torque_limit=0,integrity=1;
+ float fatigue=0;
+ bool broken=false;
+ string name;
+}
+class rp_fracture_event
+{
+ uint64 a=0,b=0,tick=0;
+ string name,reason;
+ float force=0,torque=0;
+}
+class rp_structure
+{
+ private rp_world_owner@ world;
+ private rp_structural_link@[] links;
+ private rp_fracture_event@[] events;
+ private uint64 last_tick=0;
+ rp_structure(rp_world_owner@ owner)
+ {if(owner is null)throw("Structure needs a world");@world=owner;last_tick=world.step_number();}
+ ~rp_structure(){close();}
+ bool belongs_to(rp_world_owner@ owner)const{return world is owner;}
+ void close()
+ {if(world !is null)for(uint i=0;i<links.length();i++)if(!links[i].broken)world.remove_joint(links[i].joint);links.resize(0);@world=null;}
+ uint attach(uint64 a,uint64 b,vector anchor,string name,float force_newtons,float torque_newton_metres)
+ {
+  if(!(force_newtons>0 and force_newtons<1e12 and torque_newton_metres>0 and torque_newton_metres<1e12))throw("Invalid structural strength");
+  rp_structural_link link;link.a=a;link.b=b;link.name=name;link.force_limit=force_newtons;link.torque_limit=torque_newton_metres;
+  link.joint=world.fixed_joint(a,b,anchor);links.insert_last(link);return links.length()-1;
+ }
+ bool broken(uint index)const{if(index>=links.length())throw("Invalid structural link");return links[index].broken;}
+ void damage(uint index,float fraction)
+ {
+  if(index>=links.length() or !(fraction>=0 and fraction<=1))throw("Invalid structural damage");
+  rp_structural_link@ link=links[index];if(link.broken)return;link.integrity-=fraction;
+  if(link.integrity<=0)fracture(link,"damage",0,0);
+ }
+ private void fracture(rp_structural_link@ link,string reason,float force,float torque)
+ {
+  if(link.broken)return;world.remove_joint(link.joint);link.broken=true;
+  rp_fracture_event event;event.a=link.a;event.b=link.b;event.tick=world.step_number();event.name=link.name;event.reason=reason;event.force=force;event.torque=torque;events.insert_last(event);
+ }
+ void after_step()
+ {
+  uint64 tick=world.step_number();if(tick==last_tick)return;
+  if(tick!=last_tick+1)throw("Structural stress must be sampled after each fixed step");last_tick=tick;
+  for(uint i=0;i<links.length();i++)
+  {
+   rp_structural_link@ link=links[i];if(link.broken)continue;
+   if(!world.contains_joint(link.joint)){fracture(link,"body_removed",0,0);continue;}
+   float force=world.reaction_force(link.joint).length(),torque=world.reaction_torque(link.joint).length();
+   float load=force/(link.force_limit*link.integrity),twist=torque/(link.torque_limit*link.integrity);if(twist>load)load=twist;
+   // Sustained near-limit load causes fatigue. Short sub-limit impulses do not
+   // instantly destroy supports; above-limit stress fractures immediately.
+   if(load>.7)link.fatigue+=(load-.7)*(load-.7)/60.0;
+   if(load>=1 or link.fatigue>=1)fracture(link,load>=1?"overload":"fatigue",force,torque);
+  }
+ }
+ rp_fracture_event@[] take_events(){rp_fracture_event@[] result=events;events.resize(0);return result;}
+}

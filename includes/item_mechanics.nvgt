@@ -5,8 +5,9 @@ dictionary client_medication_remaining;
 string cooked_grenade="";timer cooked_grenade_timer;int cooked_grenade_warning_stage=0;
 int item_configuration(string item){int value=1;if(item_configurations.exists(item))item_configurations.get(item,value);return value;}
 void set_item_configuration(string item,int value){if(value<0)value=0;if(value>2)value=2;item_configurations.set(item,value);}
-bool item_is_thrown_explosive(string i){return i=="frag_grenade" or i=="impact_grenade" or i=="flashbang" or i=="concussion_grenade" or i=="incendiary_grenade" or i=="gas_grenade";}
-int grenade_fuse_ms(string i){if(i=="frag_grenade")return 2200;if(i=="impact_grenade")return 5000;if(i=="flashbang")return 1800;if(i=="concussion_grenade")return 2000;if(i=="incendiary_grenade")return 1500;if(i=="gas_grenade")return 1800;return 2000;}
+bool item_is_thrown_explosive(string i){return i=="frag_grenade" or i=="impact_grenade" or i=="flashbang" or i=="concussion_grenade" or i=="incendiary_grenade" or i=="gas_grenade" or i=="er_frag_grenade" or i=="er_molotov" or i=="er_bowling_bomb";}
+bool item_is_launched_explosive(string i){return i=="carrier_missile" or i=="conventional_guided_missile" or i=="cannon_ball";}
+int grenade_fuse_ms(string i){if(i=="frag_grenade")return 2200;if(i=="er_frag_grenade")return 2400;if(i=="er_molotov")return 1500;if(i=="er_bowling_bomb")return 3500;if(i=="impact_grenade")return 5000;if(i=="flashbang")return 1800;if(i=="concussion_grenade")return 2000;if(i=="incendiary_grenade")return 1500;if(i=="gas_grenade")return 1800;return 2000;}
 bool grenade_pin_or_throw(string item)
 {
 if(!item_is_thrown_explosive(item))return false;
@@ -15,7 +16,7 @@ if(cooked_grenade!=item){speak("You are already cooking a "+string_replace(cooke
 int cooked=int(cooked_grenade_timer.elapsed);send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);cooked_grenade="";cooked_grenade_warning_stage=0;speak("Grenade thrown after "+round(double(cooked)/1000.0,2)+" seconds of cooking.");return true;
 }
 void grenade_cook_loop(){if(cooked_grenade=="")return;int remaining=grenade_fuse_ms(cooked_grenade)-int(cooked_grenade_timer.elapsed);if(remaining<=1000 and cooked_grenade_warning_stage<1){cooked_grenade_warning_stage=1;p.play_stationary("clock1.ogg",false);}if(remaining<=500 and cooked_grenade_warning_stage<2){cooked_grenade_warning_stage=2;p.play_stationary("clock2.ogg",false);}if(remaining>0)return;string item=cooked_grenade;int cooked=int(cooked_grenade_timer.elapsed);cooked_grenade="";cooked_grenade_warning_stage=0;send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);speak("The cooked grenade detonates as it leaves your hand!");}
-bool item_is_deployable_explosive(string i){return i=="proximity_mine" or i=="claymore" or i=="time_bomb";}
+bool item_is_deployable_explosive(string i){return i=="proximity_mine" or i=="claymore" or i=="time_bomb" or i=="er_motion_bomb" or i=="er_dr_bomb" or i=="er_ghost_bomb" or i=="er_time_bomb" or i=="er_proximity_mine" or i=="er_directional_claymore";}
 bool item_is_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
 bool item_is_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}
 bool item_is_loose_pill(string i){return string_contains(i,"loose_",1)==0 and (string_contains(i,"tablet",1)>=0 or string_contains(i,"capsule",1)>=0);}
@@ -28,10 +29,10 @@ int medication_pill_dose(string i,int mode){int recommended=i=="pain_blocker_cap
 string medication_recommended_dose(string i){if(item_is_liquid_medication(i))return "Recommended dose: "+medication_liquid_dose(i,1)+" fluid ounces";if(item_is_pill_bottle(i) or item_is_loose_pill(i))return "Recommended dose: "+(i=="pain_blocker_capsule_bottle"?2:1)+" pill"+(i=="pain_blocker_capsule_bottle"?"s":"");return "";}
 bool item_is_weapon_maintenance(string i){return i=="gun_cleaning_kit" or i=="handgun_cleaning_kit" or i=="rifle_field_tool" or i=="precision_bore_guide" or i=="shotgun_cleaning_rod" or i=="barrel_wrench" or i=="heat_resistant_gloves" or i=="emitter_service_key" or i=="fuel_system_wrench" or i=="drive_service_tool" or i=="field_honing_stone" or i=="weapon_inspection_gauge" or i=="cleaning_patches" or i=="precision_cleaning_patches" or i=="bore_solvent" or i=="copper_fouling_solvent" or i=="carbon_scraper" or i=="chamber_brush" or i=="shotgun_bore_swab" or i=="action_lubricant" or i=="thermal_vent_cartridge" or i=="dielectric_coolant" or i=="spare_machine_gun_barrel" or i=="burner_nozzle_cleaner" or i=="pressure_seal_kit" or i=="chain_lubricant" or i=="motor_coolant" or i=="blade_oil" or i=="rust_remover" or i=="grip_repair_wrap" or i=="fastener_compound" or i=="improvised_weapon_tool" or i=="gunsmith_multitool" or i=="weapon_replacement_parts" or i=="weapon_alignment_gauge" or i=="replacement_firing_pin" or i=="replacement_extractor" or i=="replacement_recoil_spring" or i=="trigger_group_parts" or i=="barrel_alignment_shims" or i=="receiver_repair_plate" or i=="jam_clearing_rod" or i=="headspace_gauge_set" or i=="electrical_contact_kit" or i=="optic_alignment_target";}
 bool item_is_vehicle_supply(string i){return i=="gasoline_can" or i=="diesel_can" or i=="aviation_fuel_can" or i=="empty_fuel_can" or i=="engine_oil" or i=="transmission_fluid" or i=="tire_patch_kit" or i=="spare_tire" or i=="engine_coolant" or i=="fuel_drain_pan" or i=="fuel_system_flush" or i=="spark_plug_set" or i=="diesel_glow_plug_set" or i=="brake_service_kit" or i=="offroad_tire_set" or i=="reinforced_suspension_kit" or i=="extended_fuel_tank" or i=="wiring_harness_kit" or i=="radiator_hose_kit" or i=="fuel_injector_cleaner" or string_contains(i,"vehicle_",1)==0;}
-bool item_has_configuration(string i){return item_is_thrown_explosive(i) or item_is_deployable_explosive(i) or item_is_medical(i) or i=="fake_item" or i=="smoke_bomb" or i=="rock";}
+bool item_has_configuration(string i){return item_is_thrown_explosive(i) or item_is_launched_explosive(i) or item_is_deployable_explosive(i) or item_is_medical(i) or i=="fake_item" or i=="smoke_bomb" or i=="rock";}
 string item_configuration_name(string i,int value)
 {
-if(item_is_thrown_explosive(i) or i=="rock")return value==0?"controlled lob":(value==1?"standard throw":"forceful long throw");
+if(item_is_thrown_explosive(i) or item_is_launched_explosive(i) or i=="rock")return value==0?"controlled lob":(value==1?"standard launch":"forceful long launch");
 if(item_is_deployable_explosive(i))return value==0?"rapid arming":(value==1?"balanced arming":"concealed arming");
 if(item_is_liquid_medication(i))return medication_liquid_dose(i,value)+" fluid ounces";
 if(item_is_pill_bottle(i))return medication_pill_dose(i,value)+" pills";
@@ -50,6 +51,7 @@ string item_mechanic_description(string i)
 {
 string detail="";
 if(item_is_thrown_explosive(i))detail="Uses continuous three-dimensional throw physics, bounce, drag, gravity, a payload-specific fuse and distance-scaled effects. Its controlled, standard and forceful throws trade arc height against horizontal velocity.";
+else if(item_is_launched_explosive(i))detail="Uses a dedicated heavy three-dimensional flight profile with continuous positional loop audio, physical bounce, drag and gravity. Controlled, standard and forceful launches trade arc height against horizontal velocity; payload size determines fuse, blast radius and damage.";
 else if(item_is_deployable_explosive(i))detail="Placement retains facing, owner and team safety. Rapid arming activates sooner with a smaller sensor envelope; balanced is general-purpose; concealed arming delays activation but expands detection.";
 else if(i=="c4")detail="Places a persistent owner-tracked remote charge; the controller reports active charges and detonates them as a group.";
 else if(i=="semtex" or i=="semtex_pack" or i=="semtex_controller")detail="Forms part of the adhesive-charge workflow: components are placed, tracked and remotely controlled rather than behaving like an ordinary grenade.";
@@ -74,6 +76,20 @@ else if(i=="biomonitor_bracelet")detail="Occupies the bracelet slot and supplies
 else if(i=="wirenet")detail="Occupies the medical slot and supplies a movable quickbar ability controlling three automatic emergency-heal charges.";
 else if(i=="hypercomp")detail="Opens the portable bunker-monitoring and control interface rather than being consumed directly.";
 else if(i=="binoculars")detail="Provides non-consuming reconnaissance of zones and points of interest.";
+else if(i=="hightech_grapple")detail="A reusable traversal tool that searches ten tiles forward for a solid anchor, attaches to the first valid wall, verifies every traversed tile and pulls the user to the last safe tile. It has an eight-second mechanical recovery.";
+else if(i=="grapple_line_cartridge")detail="A replacement high-tensile spool retained as service stock for the grapple instead of being used as a generic consumable.";
+else if(i=="anti_personnel_security_camera")detail="A reusable sixty-tile hostile-motion scan. It reports the closest contact and count, plays an alarm only when a target is acquired and observes a thirty-second sensor cooldown.";
+else if(i=="neural_intrusion_device")detail="A consumable close-range electronic weapon. It acquires the nearest hostile within twelve tiles and disrupts motor control for ten seconds; a failed acquisition does not consume it.";
+else if(i=="field_restraints")detail="Electronic restraints can be fitted only to a hostile within two tiles whose health is critically low. A successful fitting consumes the restraint and imposes a twenty-second movement disruption.";
+else if(i=="reconnaissance_ring")detail="A reusable wearable transponder that reports nearby friendly and hostile signatures after a short ten-second recovery.";
+else if(i=="portable_auction_terminal")detail="An authenticated online supply storefront. Purchases are validated against the account's server-side credit balance and delivered only after the server accepts the exact catalogue item, price and bundle quantity.";
+else if(i=="salvage_scanner")detail="Reusable twenty-five-second salvage scanner that recovers a real maintenance, vehicle or credit component from surrounding debris.";
+else if(i=="security_radio_receiver" or i=="field_television_receiver")detail="Reusable tactical receiver that reports friendly and hostile activity on the current map.";
+else if(i=="er_overdrive_amplifier")detail="Single-use twenty-second ballistic overdrive. It amplifies outgoing projectile energy, announces depletion, and remains subject to the global no-one-shot damage cap.";
+else if(i=="auto_hover_drone" or i=="bomber_hover_drone")detail="Single-use autonomous strike package. It acquires the closest valid hostile in range, retains itself if acquisition fails, and delivers a server-authoritative strike if it locks on.";
+else if(i=="bioengineered_chimp_beacon")detail="Single-use close-range bioengineered scout beacon. It retains itself when no hostile is available and performs one physical attack after a valid acquisition.";
+else if(string_contains(i,"er_",1)==0)detail="Executioner's Rage field content with a dedicated server-authoritative consumption, recovery, credit, or combat effect and purpose-specific authored audio.";
+else if(i=="locker_access_module")detail="A persistent encrypted access credential checked by compatible secured lockers; it is never consumed as a generic item.";
 else if(i=="bunker_key")detail="A persistent access credential checked by bunker interactions rather than consumed as a generic item.";
 else if(i=="fake_item")detail="Places a cooldown-limited owner decoy; its profile controls how conspicuous the deployment is.";
 else if(string_contains(i,"team_",1)==0 or i=="duo_plane_kit")detail="Requires team membership and invokes its team-authoritative shared deployment, distribution or reconnaissance function.";
@@ -86,3 +102,77 @@ return detail;
 }
 string item_use_command(string item){return "use "+item+" "+item_configuration(item);}
 double item_dose_multiplier(string item){int mode=item_configuration(item);return mode==0?.72:(mode==2?1.28:1.0);}
+
+class online_shop_offer
+{
+string key,label,category,description,item;
+int quantity,price;
+online_shop_offer(string k,string l,string c,string d,string i,int q,int p)
+{key=k;label=l;category=c;description=d;item=i;quantity=q;price=p;}
+}
+
+online_shop_offer@[] online_shop_catalogue()
+{
+online_shop_offer@[] offers;
+offers.insert_last(online_shop_offer("9mm_sidearm_bundle","9x19mm sidearm magazines","Ammunition","Two fifteen-round magazines for compatible 9x19mm sidearms.","9x19mm_15_round_magazine",2,20));
+offers.insert_last(online_shop_offer("556_rifle_bundle","5.56mm STANAG magazines","Ammunition","Two thirty-round STANAG magazines for compatible service rifles.","5.56mm_stanag_magazine",2,30));
+offers.insert_last(online_shop_offer("76239_rifle_bundle","7.62x39mm rifle magazines","Ammunition","Two thirty-round magazines for compatible 7.62x39mm rifles.","7.62x39mm_30_round_magazine",2,34));
+offers.insert_last(online_shop_offer("76251_rifle_bundle","7.62x51mm rifle magazines","Ammunition","Two twenty-round magazines for compatible battle rifles.","7.62x51mm_20_round_magazine",2,42));
+offers.insert_last(online_shop_offer("shotgun_bundle","12-gauge shell boxes","Ammunition","Two boxes of standard shells for compatible shotguns.","12_gauge_shell_box",2,30));
+offers.insert_last(online_shop_offer("bolt_bundle","Crossbow bolt quivers","Ammunition","Two quivers of standard crossbow bolts.","bolt_quiver",2,30));
+offers.insert_last(online_shop_offer("pulse_cell_bundle","Pulse energy cells","Ammunition","Two standard pulse cells for compatible energy weapons.","pulse_cell",2,36));
+offers.insert_last(online_shop_offer("nanocyte_solution","Nanocyte Reconstruction Solution","Medical","One measured multi-dose bottle for controlled tissue repair.","nanocyte_solution_bottle",1,50));
+offers.insert_last(online_shop_offer("coagulant_serum","Hemostatic Coagulant Serum","Medical","One measured bottle for bleeding control and modest recovery.","coagulant_serum_bottle",1,42));
+offers.insert_last(online_shop_offer("antitoxin_tablets","Broad-Spectrum Antitoxin Tablets","Medical","One ten-tablet bottle used to reduce accumulated medication toxicity.","antitoxin_tablet_bottle",1,38));
+offers.insert_last(online_shop_offer("red_spark_pair","Red Spark Energy Drinks","Medical","Two mild stamina drinks; stimulant load and delayed-crash rules still apply.","energetic_potion_red",2,25));
+offers.insert_last(online_shop_offer("cleaning_patch_pack","Cleaning patch pack","Maintenance","Four consumable patches for timed firearm servicing.","cleaning_patches",4,18));
+offers.insert_last(online_shop_offer("bore_solvent_pair","Bore solvent pair","Maintenance","Two solvent units used with compatible firearm cleaning tools.","bore_solvent",2,25));
+offers.insert_last(online_shop_offer("lubricant_pair","Action lubricant pair","Maintenance","Two measured lubricant units used after firearm cleaning.","action_lubricant",2,22));
+offers.insert_last(online_shop_offer("replacement_parts_pair","Weapon replacement parts","Maintenance","Two sets of springs, pins, extractors and action components for mechanical repair.","weapon_replacement_parts",2,55));
+offers.insert_last(online_shop_offer("nanomatic_component_pack","Nanomatic component pack","Maintenance","Three consumable repair-material units for the Nanomatic Multitool.","nanomatic_components",3,45));
+offers.insert_last(online_shop_offer("frag_pair","Fragmentation grenade pair","Explosives","Two cookable fragmentation grenades with continuous authoritative fuses.","frag_grenade",2,45));
+offers.insert_last(online_shop_offer("smoke_pair","Smoke bomb pair","Explosives","Two concealment payloads with configurable delivery profiles.","smoke_bomb",2,32));
+offers.insert_last(online_shop_offer("flash_pair","Flashbang pair","Explosives","Two optical and movement-disruption grenades.","flashbang",2,38));
+offers.insert_last(online_shop_offer("impact_grenade_single","Impact grenade","Explosives","One contact-fused compact explosive.","impact_grenade",1,42));
+offers.insert_last(online_shop_offer("claymore_single","Directional claymore","Explosives","One directional mine with a forward hostile-detection cone.","claymore",1,65));
+offers.insert_last(online_shop_offer("translocator_cell_pair","Translocator cell pair","Equipment","Two finite-charge cells for the translocator.","translocator_cell",2,45));
+offers.insert_last(online_shop_offer("grapple_line","Grapple line cartridge","Equipment","One high-tensile replacement line for grapple servicing.","grapple_line_cartridge",1,30));
+offers.insert_last(online_shop_offer("tire_patch_pair","Tyre patch pair","Equipment","Two temporary vehicle tyre-repair kits.","tire_patch_kit",2,40));
+offers.insert_last(online_shop_offer("gasoline_topup","Gasoline top-up can","Equipment","Twenty litres for spark-ignition road vehicles.","gasoline_can",1,30));
+offers.insert_last(online_shop_offer("diesel_topup","Diesel top-up can","Equipment","Twenty litres for heavy and utility vehicles.","diesel_can",1,32));
+offers.insert_last(online_shop_offer("aviation_topup","Aviation-fuel top-up can","Equipment","Twenty litres for aircraft; wrong-fuel damage rules remain active.","aviation_fuel_can",1,40));
+offers.insert_last(online_shop_offer("soft_armor_patch_pair","Soft-armour patch pair","Equipment","Two limited aramid field patches; they cannot rebuild destroyed armour.","soft_armor_patch",2,28));
+return offers;
+}
+
+void online_supply_shop()
+{
+if(!connected){speak("The Online Supply Terminal requires an active authenticated server connection.");return;}
+send_reliable(0,"market_balance",0);string balance_response;int credits=0;
+if(wait_for_service_response("market_balance ",balance_response,3000))credits=string_to_number(string_replace(balance_response,"market_balance ","",false));
+else {speak("The supply server did not return an account balance.");return;}
+online_shop_offer@[] offers=online_shop_catalogue();string[] categories={"Ammunition","Medical","Maintenance","Explosives","Equipment"};
+nv_form f;f.create_window("Online Supply Terminal",false,true);nv_form_input@ balance=f.add_input("Account balance","balance",credits+" credits","",0,true,true);nv_form_tab_control@ tabs=nv_form_tab_control(@f,"Shop categories","shop_categories",true);f.add_control(tabs);
+nv_form_tab_page@[] pages;nv_form_list_box@[] lists;nv_form_button@[] purchase_buttons;
+for(uint c=0;c<categories.length();c++)
+{
+nv_form_tab_page@ page=tabs.add_tab_page(categories[c]);pages.insert_last(page);nv_form_list_box@ list=page.add_list(categories[c]+" listings",categories[c].lower()+"_list");lists.insert_last(list);nv_form_button@ buy=page.add_button("Purchase selected listing",categories[c].lower()+"_buy",true);purchase_buttons.insert_last(buy);
+for(uint i=0;i<offers.length();i++)if(offers[i].category==categories[c])list.add(offers[i].label+"; quantity "+offers[i].quantity+"; "+offers[i].price+" credits. "+offers[i].description,offers[i].key);
+if(list.items.length()>0)list.set_pos(0,false);
+}
+nv_form_button@ close=f.add_button("Close terminal","close",false,true);tabs.focus();p.play_stationary("executioners_rage/environment/objects/kiosk/menuopen.wav",false);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();else {speak("Connection lost; the supply terminal has closed.");return;}
+if(f.is_pressed(close)){p.play_stationary("executioners_rage/environment/objects/kiosk/menuclose.wav",false);return;}
+for(uint c=0;c<categories.length();c++)if(pages[c].is_pressed(purchase_buttons[c]))
+{
+int selected=lists[c].list_position;if(selected<0 or selected>=int(lists[c].items.length())){speak("Select a listing first.");continue;}string key=lists[c].items[selected].id;online_shop_offer@ offer=null;for(uint i=0;i<offers.length();i++)if(offers[i].key==key){@offer=offers[i];break;}if(@offer==null){speak("That listing is no longer available.");continue;}
+if(question("Confirm supply purchase","Buy "+offer.label+", quantity "+offer.quantity+", for "+offer.price+" credits? Current balance "+credits+" credits.")!=1)continue;
+p.play_stationary("executioners_rage/environment/objects/kiosk/menuclick.wav",false);send_reliable(0,"market_buy "+offer.key,0);string result;
+if(!wait_for_service_response("market_purchase_",result,3000)){p.play_stationary("executioners_rage/ui/alert.wav",false);speak("The purchase timed out without charging the account.");continue;}
+if(string_contains(result,"market_purchase_ok ",1)==0){string[] fields=string_split(result," ",true);if(fields.length()>=2)credits=string_to_number(fields[1]);balance.default_text=credits+" credits";p.play_stationary("executioners_rage/ui/achievement.wav",false);speak("Purchase delivered. "+offer.label+", quantity "+offer.quantity+". Remaining balance "+credits+" credits.");}
+else {p.play_stationary("executioners_rage/ui/alert.wav",false);speak(string_replace(result,"market_purchase_error ","Purchase declined: ",false));}
+}
+}
+}

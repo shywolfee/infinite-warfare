@@ -20,18 +20,20 @@ int owner_id=-1;
 string kind,name;
 double x,y,z,facing;
 bool active=true;
+double horizontal_bound=0,lower_bound=0,upper_bound=0;
 dynamic_map_tile@[] tiles;
 dynamic_map_element() {}
 dynamic_map_element(string k,string n,int owner,double wx,double wy,double wz,double angle)
 {kind=k;name=n;owner_id=owner;x=wx;y=wy;z=wz;facing=angle;}
 void add_tile(double x1,double x2,double y1,double y2,double z1,double z2,string material,string zone,bool solid)
-{tiles.insert_last(dynamic_map_tile(x1,x2,y1,y2,z1,z2,material,zone,solid));}
+{double xb=abs(x1)>abs(x2)?abs(x1):abs(x2),yb=abs(y1)>abs(y2)?abs(y1):abs(y2);if(xb+yb>horizontal_bound)horizontal_bound=xb+yb;if(z1<lower_bound)lower_bound=z1;if(z2>upper_bound)upper_bound=z2;tiles.insert_last(dynamic_map_tile(x1,x2,y1,y2,z1,z2,material,zone,solid));}
+bool might_contain(double wx,double wy,double wz){return active and abs(wx-x)<=horizontal_bound and abs(wy-y)<=horizontal_bound and wz>=z+lower_bound and wz<=z+upper_bound;}
 void move_to(double wx,double wy,double wz,double angle){x=wx;y=wy;z=wz;facing=angle;}
 void destroy(){active=false;tiles.resize(0);}
 void world_to_local(double wx,double wy,double wz,double &out lx,double &out ly,double &out lz)
-{double r=facing*3.14159265358979323846/180.0,dx=wx-x,dy=wy-y;lx=dx*sine(r)+dy*cosine(r);ly=dx*cosine(r)-dy*sine(r);lz=wz-z;}
+{if(kind=="furniture" and facing==90){lx=wx-x;ly=y-wy;lz=wz-z;return;}double r=facing*3.14159265358979323846/180.0,dx=wx-x,dy=wy-y;lx=dx*sine(r)+dy*cosine(r);ly=dx*cosine(r)-dy*sine(r);lz=wz-z;}
 void local_to_world(double lx,double ly,double lz,double &out wx,double &out wy,double &out wz)
-{double r=facing*3.14159265358979323846/180.0;wx=x+sine(r)*lx+cosine(r)*ly;wy=y+cosine(r)*lx-sine(r)*ly;wz=z+lz;}
+{if(kind=="furniture" and facing==90){wx=x+lx;wy=y-ly;wz=z+lz;return;}double r=facing*3.14159265358979323846/180.0;wx=x+sine(r)*lx+cosine(r)*ly;wy=y+cosine(r)*lx-sine(r)*ly;wz=z+lz;}
 string zone_at_local(double lx,double ly,double lz){for(int i=int(tiles.length())-1;i>=0;i--)if(tiles[i].contains(lx,ly,lz))return tiles[i].zone;return "";}
 bool solid_at_local(double lx,double ly,double lz){for(int i=int(tiles.length())-1;i>=0;i--)if(tiles[i].contains(lx,ly,lz) and tiles[i].solid)return true;return false;}
 }
@@ -49,13 +51,13 @@ string dynamic_map_tile_at(double x,double y,double z)
 // expose the static road beneath it to footsteps, cameras and acoustics.
 for(int e=int(dynamic_map_elements.length())-1;e>=0;e--)
 {
-if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);
+if(!dynamic_map_elements[e].might_contain(x,y,z))continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);
 for(int t=int(dynamic_map_elements[e].tiles.length())-1;t>=0;t--)if(dynamic_map_elements[e].tiles[t].solid and dynamic_map_elements[e].tiles[t].contains(lx,ly,lz))return dynamic_map_elements[e].tiles[t].material;
 for(int t=int(dynamic_map_elements[e].tiles.length())-1;t>=0;t--)if(!dynamic_map_elements[e].tiles[t].solid and dynamic_map_elements[e].tiles[t].contains(lx,ly,lz) and dynamic_map_elements[e].tiles[t].material!="")return dynamic_map_elements[e].tiles[t].material;
 }
 return "";
 }
 bool dynamic_map_solid_at(double x,double y,double z)
-{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);if(dynamic_map_elements[e].solid_at_local(lx,ly,lz))return true;}return false;}
+{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].might_contain(x,y,z))continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);if(dynamic_map_elements[e].solid_at_local(lx,ly,lz))return true;}return false;}
 string dynamic_map_description_at(double x,double y,double z)
-{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].active)continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);string zone=dynamic_map_elements[e].zone_at_local(lx,ly,lz);if(zone!="")return dynamic_map_elements[e].name+", "+zone;}return "";}
+{for(int e=int(dynamic_map_elements.length())-1;e>=0;e--){if(!dynamic_map_elements[e].might_contain(x,y,z))continue;double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);string zone=dynamic_map_elements[e].zone_at_local(lx,ly,lz);if(zone!="")return dynamic_map_elements[e].name+", "+zone;}return "";}

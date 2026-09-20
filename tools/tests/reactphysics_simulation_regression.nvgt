@@ -1,0 +1,33 @@
+#include "bgt_compat.nvgt"
+#include "../../includes/reactphysics_core.nvgt"
+#include "../../includes/reactphysics_actor.nvgt"
+#include "../../includes/reactphysics_structure.nvgt"
+#include "../../includes/reactphysics_simulation.nvgt"
+string report_path,results;int failures=0;
+void check(bool ok,string label){results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)failures++;file f;f.open(report_path,"wb");f.write(results);f.close();}
+void main()
+{
+ string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-reactphysics-simulation-"+random(100000,999999999);directory_create(directory);report_path=directory+"/results.txt";
+ rp_simulation simulation;simulation.world.box(vector(50,50,.5),vector(0,0,-.5));
+ rp_actor@[] actors;
+ for(int i=0;i<32;i++){rp_actor actor(simulation.world,vector((i%8)*3,(i/8)*3,.02));actors.insert_last(actor);simulation.add_actor(actor);}
+ check(simulation.service(.5)==8,"simulation caps work per service call");
+ check(simulation.pending_seconds()>.36,"simulation retains time debt across service calls");
+ simulation.max_steps_per_service=60;simulation.service(0);check(simulation.serviced_ticks==30,"adapter hooks catch up once for each retained tick");
+ for(uint i=0;i<actors.length();i++)actors[i].navigate(1,0);
+ timer elapsed;double maximum=0;
+ for(int t=0;t<600;t++)
+ {
+  timer step_time;simulation.service(1.0/60.0);double time=step_time.elapsed;if(time>maximum)maximum=time;
+  simulation.world.take_contacts();
+ }
+ double total=elapsed.elapsed;
+ bool positioned=true,grounded=true;
+ for(uint i=0;i<actors.length();i++){if(abs(actors[i].feet().x-(int(i)%8)*3-1)>.03)positioned=false;if(!actors[i].grounded())grounded=false;}
+ check(positioned,"32 compound actors retain one-step navigation targets");
+ check(grounded,"32 compound actors remain supported by native floor");
+ check(simulation.world.contact_overflow_count()==0,"32 actor run does not overflow collision-event queue");
+ results+="BENCHMARK isolated 32-actor simulation, 600 ticks: total "+total+" ms, mean "+(total/600)+" ms, maximum "+maximum+" ms. Not a networked release load test.\n";
+ simulation.close();check(true,"32 actors and native world tear down safely");
+ file f;f.open(report_path,"wb");f.write(results+"Failures: "+failures+"\nStage: complete\n");f.close();
+}

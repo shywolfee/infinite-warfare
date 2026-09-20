@@ -47,7 +47,7 @@ for(uint i=0; i<corpses.length(); i++)
 {
 if(corpses[i].id==id)
 {
-play("corpse", corpses[i].x, corpses[i].y, corpses[i].z, corpses[i].map);
+er_play_at("collectable/loot_corpse",corpses[i].x,corpses[i].y,corpses[i].z,corpses[i].map);
 string[] keys;
 for(int x=0; x<2; x++)
 {

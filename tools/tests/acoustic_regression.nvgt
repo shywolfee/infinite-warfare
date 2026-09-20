@@ -1,0 +1,51 @@
+// The pre-optimization reference is kept to verify identical wall counts.
+int baseline_acoustic_walls_between(float lx,float ly,float lz,float sx,float sy,float sz)
+{
+float distance=get_3d_distance(lx,ly,lz,sx,sy,sz);if(distance<1)return 0;int steps=int(distance);if(steps>160)steps=160;
+int last=acoustic_effective_space_at(lx,ly,lz);bool last_encloses=last>=0 and acoustic_spaces[last].encloses;int walls=0;bool last_solid=false;
+for(int i=1;i<=steps;i++)
+{
+float t=float(i)/float(steps),x=lx+(sx-lx)*t,y=ly+(sy-ly)*t,z=lz+(sz-lz)*t;int here=acoustic_effective_space_at(x,y,z);bool here_encloses=here>=0 and acoustic_spaces[here].encloses;bool portal=acoustic_in_portal(x,y,z);
+// Authored acoustic-space boundaries are the reliable definition of a room
+// wall. Literal wall tiles remain a fallback for legacy areas, while runtime
+// solids make vehicle hulls participate in the same occlusion model.
+bool solid=(string_contains(get_static_tile_at(x,y,z),"wall",1)>=0 or dynamic_map_solid_at(x,y,z)) and !portal;
+bool boundary=here!=last and (last_encloses or here_encloses) and !portal;
+if(boundary or (solid and !last_solid)){walls++;if(walls>=3)return walls;}
+last=here;last_encloses=here_encloses;last_solid=solid;
+}
+return walls;
+}
+void run_acoustic_regression()
+{
+string destination=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-acoustic-regression-"+random(100000,999999999);directory_create(destination);
+string result;int failures=0;
+file input;if(!input.open("acoustic_test.map","rb") and !input.open(SCRIPT_MAIN_PATH+"/../../iwserver/content/maps/freyas_ascent/freyas_ascent.map","rb")){file failed;failed.open(destination+"/results.txt","wb");failed.write("FAIL missing acoustic_test.map");failed.close();return;}
+string[] lines=string_split(input.read(),"\n",false);input.close();
+for(uint i=0;i<lines.length();i++)
+{
+string[] parts=string_split(lines[i].trim_whitespace(),":",true);if(parts.length()<8)continue;
+int ax=string_to_number(parts[1]),bx=string_to_number(parts[2]),ay=string_to_number(parts[3]),by=string_to_number(parts[4]),az=string_to_number(parts[5]),bz=string_to_number(parts[6]);
+if(parts[0]=="tile")tile_regions.insert_last(map_region(ax,bx,ay,by,az,bz,parts[7]));
+else if(parts[0]=="portal")portal_regions.insert_last(map_region(ax,bx,ay,by,az,bz,parts[7]));
+else if(parts[0]=="space" or parts[0]=="openspace")spawn_acoustic_space(ax,bx,ay,by,az,bz,parts[7],parts.length()>8?parts[8]:"concrete",parts[0]=="space",parts.length()>9?parts[9]:"");
+}
+for(int i=0;i<300;i++){int id=dynamic_map_create("fixture","test",i,(i%20)*50,(i/20)*60,0,0);dynamic_map_elements[id].add_tile(-.42,.42,-.42,.42,0,1.8,"wallmetal","test",true);}
+int baseline_ms=0,optimized_ms=0;
+for(int i=0;i<12;i++)
+{
+float lx=80+i*30,ly=100+i*23,sx=lx+120,sy=ly+17;
+tile_lookup_cache.delete_all();timer elapsed;int original=baseline_acoustic_walls_between(lx,ly,0,sx,sy,0);baseline_ms+=elapsed.elapsed;
+elapsed.restart();int current=acoustic_walls_between(lx,ly,0,sx,sy,0);optimized_ms+=elapsed.elapsed;
+if(original!=current)failures++;
+result+=(original==current?"PASS ":"FAIL ")+"wall-count parity ray "+i+": "+original+" / "+current+"\n";
+}
+int vehicle=dynamic_map_create("vehicle","test",999,400,400,5,37);dynamic_map_element@ e=dynamic_map_elements[vehicle];e.add_tile(-4,4,-2,2,0,3,"wallmetal","body",true);
+double wx,wy,wz;e.local_to_world(3,1,2,wx,wy,wz);bool contained=e.might_contain(wx,wy,wz) and dynamic_map_solid_at(wx,wy,wz);
+result+=(contained?"PASS ":"FAIL ")+"rotated dynamic-body bounds preserve collision\n";if(!contained)failures++;
+e.move_to(700,600,8,129);e.local_to_world(-3,-1,1,wx,wy,wz);contained=e.might_contain(wx,wy,wz) and dynamic_map_solid_at(wx,wy,wz);
+result+=(contained?"PASS ":"FAIL ")+"translated rotated bounds preserve collision\n";if(!contained)failures++;
+result+="Regions: "+tile_regions.length()+" tiles, "+acoustic_spaces.length()+" acoustic spaces, "+portal_regions.length()+" portals, "+dynamic_map_elements.length()+" dynamic objects\n";
+result+="Twelve cold-cache traces: old "+baseline_ms+" ms, narrowed candidates "+optimized_ms+" ms\nFailures: "+failures+"\n";
+file report;report.open(destination+"/results.txt","wb");report.write(result);report.close();
+}

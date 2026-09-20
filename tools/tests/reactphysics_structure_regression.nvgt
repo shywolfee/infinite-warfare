@@ -1,0 +1,30 @@
+#include "bgt_compat.nvgt"
+#include "../../includes/reactphysics_core.nvgt"
+#include "../../includes/reactphysics_structure.nvgt"
+string report_path,results;int failures=0;
+void check(bool ok,string label){results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)failures++;file f;f.open(report_path,"wb");f.write(results);f.close();}
+void main()
+{
+ string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-reactphysics-structure-"+random(100000,999999999);directory_create(directory);report_path=directory+"/results.txt";
+ rp_world_owner world;uint64 ground=world.box(vector(20,20,.5),vector(0,0,-.5));
+ uint64 anchor=world.box(vector(.2,.2,.2),vector(0,0,4));
+ uint64 deck=world.box(vector(2,1,.15),vector(2,0,4),100);
+ rp_structure structure(world);uint link=structure.attach(anchor,deck,vector(0,0,4),"bridge bearing",10000,10000);
+ for(int i=0;i<60;i++){world.advance(1.0/60.0);structure.after_step();world.take_contacts();}
+ check(!structure.broken(link) and abs(world.position(deck).z-4)<.05,"native joint supports dynamic bridge against gravity");
+ structure.damage(link,.4);check(!structure.broken(link),"partial structural damage weakens bearing without deleting deck");
+ structure.damage(link,.6);check(structure.broken(link),"destroyed bearing releases native joint");
+ check(world.contains(deck),"fracture leaves physical debris body alive");
+ rp_fracture_event@[] events=structure.take_events();check(events.length()==1 and events[0].reason=="damage","fracture produces one attributed event");
+ structure.damage(link,1);check(structure.take_events().length()==0,"repeated damage does not duplicate fracture event");
+ for(int i=0;i<45;i++){world.advance(1.0/60.0);structure.after_step();world.take_contacts();}
+ check(world.position(deck).z<3,"unsupported structure collapses under native gravity");
+ uint64 weak=world.box(vector(.2,.2,.2),vector(-2,0,4),20);
+ uint weak_link=structure.attach(anchor,weak,vector(0,0,4),"overloaded bracket",10,10);
+ world.advance(1.0/60.0);structure.after_step();check(structure.broken(weak_link),"native reaction stress breaks overloaded support");
+ uint64 attached=world.box(vector(.2,.2,.2),vector(0,0,5),1);
+ uint removed_link=structure.attach(anchor,attached,vector(0,0,4),"removal",10000,10000);world.remove(attached);
+ world.advance(1.0/60.0);structure.after_step();check(structure.broken(removed_link),"removed component safely invalidates structural connection");
+ structure.close();world.close();check(true,"structure and native world tear down safely");
+ file f;f.open(report_path,"wb");f.write(results+"Failures: "+failures+"\nStage: complete\n");f.close();
+}

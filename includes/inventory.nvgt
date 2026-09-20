@@ -3,6 +3,10 @@ dictionary inv;
 // Stable client-side presentation order. NVGT dictionaries do not promise a
 // reorderable key sequence, so inventory navigation keeps an explicit index.
 string[] inventory_order;
+uint inventory_revision=0,inventory_cached_revision=0;
+int inventory_cached_category=-1,inventory_cached_size=-1,inventory_cached_partials=-1,inventory_cached_database=-1;
+string[] inventory_cached_keys;
+void invalidate_inventory_keys(){inventory_revision++;}
 string[] inventory_transfer_targets;
 bool inventory_transfer_targets_received=false;
 
@@ -10,7 +14,7 @@ bool inventory_transfer_targets_received=false;
 string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
 
 // Inventory category system.
-string[] inv_categories = {"All", "Weapons", "Ammo", "Explosives", "Healing", "Armour", "Armour Repair", "Weapon Maintenance", "Vehicle Supplies", "Attachments", "Holsters", "Team", "Tools", "Electronics", "Containers", "Equipment"};
+string[] inv_categories = {"All", "Weapons", "Ammo", "Explosives", "Healing", "Armour", "Armour Repair", "Weapon Maintenance", "Vehicle Supplies", "Attachments", "Holsters", "Team", "Tools", "Utility", "Electronics", "Containers", "Equipment"};
 int inv_category_index = 0;
 
 string get_item_category(string item)
@@ -19,7 +23,7 @@ int database_index=content_find(item);
 if(database_index>=0)
 {
 string database_category=content_database[database_index].category;
-string[] visible_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Electronics","Containers","Equipment"};
+string[] visible_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment"};
 for(uint c=0;c<visible_categories.length();c++)if(database_category==visible_categories[c])return database_category;
 return "Equipment";
 }
@@ -29,7 +33,7 @@ if (is_ammo_reserve_item(item)) return "Ammo";
 if (string_contains(item, "ammo", 1)>-1 or string_contains(item, "magazine", 1)>-1 or string_contains(item, "shell_box", 1)>-1 or string_contains(item, "clip", 1)>-1 or string_contains(item, "mortar_shell", 1)>-1 or string_contains(item, "ammo_belt", 1)>-1 or string_contains(item, "bolt_quiver", 1)>-1 or string_contains(item, "energy_cell", 1)>-1 or string_contains(item, "fuel_canister", 1)>-1) return "Ammo";
 if (item=="health_potion" or item=="ultra_health_potion" or item=="life_injection" or string_contains(item, "energetic_potion", 1)>-1 or item=="adrenaline_syringe") return "Healing";
 if(item=="bomb_vest")return "Armour";
-if(string_contains(item,"grenade",1)>=0 or string_contains(item,"bomb",1)>=0 or string_contains(item,"semtex",1)>=0 or item=="c4" or item=="claymore" or item=="proximity_mine" or item=="torpedo")return "Explosives";
+if(string_contains(item,"grenade",1)>=0 or string_contains(item,"bomb",1)>=0 or string_contains(item,"semtex",1)>=0 or string_contains(item,"mine",1)>=0 or string_contains(item,"claymore",1)>=0 or item=="c4" or item=="torpedo" or item=="er_molotov")return "Explosives";
 if(string_contains(item,"armor",1)>=0 or string_contains(item,"armour",1)>=0 or string_contains(item,"helmet",1)>=0 or string_contains(item,"vest",1)>=0 or string_contains(item,"greaves",1)>=0)return "Armour";
 if(find_attachment_def(item)>=0)return "Attachments";
 if(string_contains(item,"team_",1)==0 or item=="duo_plane_kit")return "Team";
@@ -47,11 +51,18 @@ return get_item_category(key);
 
 // Get filtered inventory keys based on current category.
 // Includes virtual keys for partial ammo items ("__partial__N").
-string[] get_filtered_keys()
+string[]@ get_filtered_keys()
 {
+if(inventory_cached_revision==inventory_revision and inventory_cached_category==inv_category_index and inventory_cached_size==int(inv.get_size()) and inventory_cached_partials==int(partial_items.length()) and inventory_cached_database==int(content_database.length()))return @inventory_cached_keys;
+inventory_cached_revision=inventory_revision;inventory_cached_category=inv_category_index;inventory_cached_size=int(inv.get_size());inventory_cached_partials=int(partial_items.length());inventory_cached_database=int(content_database.length());
 string[] dictionary_keys=inv.get_keys();
-for(int stale=int(inventory_order.length())-1;stale>=0;stale--)if(!inv.exists(inventory_order[stale]))inventory_order.remove_at(stale);
-for(uint missing=0;missing<dictionary_keys.length();missing++)if(inventory_order.find(dictionary_keys[missing])<0)inventory_order.insert_last(dictionary_keys[missing]);
+// Reconcile in linear time, including legacy direct inventory writes. Avoid
+// N array searches (and repeated remove_at shifts) for every arrow press.
+dictionary present;
+string[] ordered;
+for(uint i=0;i<inventory_order.length();i++)if(inv.exists(inventory_order[i]) and !present.exists(inventory_order[i])){ordered.insert_last(inventory_order[i]);present.set(inventory_order[i],true);}
+for(uint i=0;i<dictionary_keys.length();i++)if(!present.exists(dictionary_keys[i])){ordered.insert_last(dictionary_keys[i]);present.set(dictionary_keys[i],true);}
+inventory_order=ordered;
 string[] all_keys=inventory_order;
 // Append virtual keys for each partial ammo item.
 for (uint i = 0; i < partial_items.length(); i++)
@@ -65,7 +76,7 @@ string[] filtered;
 if(target=="")
 {
 for(uint i=0;i<all_keys.length();i++)if(all_keys[i]!="waypoint_marker")filtered.insert_last(all_keys[i]);
-return filtered;
+inventory_cached_keys=filtered;return @inventory_cached_keys;
 }
 for (uint c = 1; c < inv_categories.length(); c++)
 {
@@ -77,7 +88,7 @@ if (get_key_category(all_keys[i]) == inv_categories[c])
 filtered.insert_last(all_keys[i]);
 }
 }
-return filtered;
+inventory_cached_keys=filtered;return @inventory_cached_keys;
 }
 
 bool inventory_category_has_items(int category_index)
@@ -114,6 +125,7 @@ speak(inv_categories[inv_category_index] + ". " + filtered.length() + " items.")
 
 void give(string item, int amount)
 {
+invalidate_inventory_keys();
 if(item=="health_potion")item="nanocyte_solution_bottle";else if(item=="ultra_health_potion")item="trauma_repair_serum_bottle";
 if(item=="waypoint_marker"){if(inv.exists(item))inv.delete(item);for(int q=0;q<10;q++)if(quickbar[q]==item)quickbar[q]="";return;}
 content_ensure_item(item);
@@ -135,6 +147,13 @@ inv.set(item,a+amount);
 }
 }
 
+void give_developer_item(string item,int amount)
+{
+if(item=="er_small_credit_chip" or item=="er_large_credit_chip")
+{if(connected)send_reliable(0,"dev_credit_chip "+item+" "+amount,0);else speak("Credit chip grants require a server connection and administrator or developer permission.");return;}
+give(item,amount);
+}
+
 bool inventory_reorder(string key,int destination)
 {
 if(string_contains(key,"__partial__",1)==0)return false;
@@ -146,6 +165,7 @@ if(target_position<0 or target_position>=int(visible.length()) or target_positio
 string target_key=visible[target_position];if(string_contains(target_key,"__partial__",1)==0)return false;
 int target=inventory_order.find(target_key);if(target<0)return false;
 inventory_order[current]=target_key;inventory_order[target]=key;
+invalidate_inventory_keys();
 return true;
 }
 
@@ -164,7 +184,7 @@ while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))r
 }
 void cycle_inv(int dir)
 {
-string[] filtered = get_filtered_keys();
+const string[]@ filtered = get_filtered_keys();
 if (filtered.length() == 0)
 {
 if (inv_category_index == 0)
@@ -218,7 +238,7 @@ speak(a+" "+display_name+"s. "+(invpos+1)+" of "+filtered.length());
 // Get the currently selected item key (respecting category filter).
 string get_selected_item()
 {
-string[] filtered = get_filtered_keys();
+const string[]@ filtered = get_filtered_keys();
 if (filtered.length() == 0) return "";
 if (invpos >= int(filtered.length())) invpos = 0;
 return filtered[invpos];
@@ -245,9 +265,12 @@ int amount=0;inv.get(item,amount);return amount;
 // (ammo belts, shell boxes, bolt quivers) rather than discrete units like magazines.
 bool is_ammo_container(string item)
 {
-if (string_contains(item, "ammo_belt", 1)>-1) return true;
-if (string_contains(item, "shell_box", 1)>-1) return true;
-if (string_contains(item, "bolt_quiver", 1)>-1) return true;
+if(!is_ammo_reserve_item(item))return false;
+// Packaging comes from data-driven reserve IDs, not only the three original
+// hardcoded names. This covers caliber boxes, linked belts and belt boxes,
+// grenade bandoliers, bolt/blade quivers, shell cases and ammunition crates.
+string[] container_markers={"belt","box","bandolier","quiver","crate","shell_case"};
+for(uint marker=0;marker<container_markers.length();marker++)if(string_contains(item,container_markers[marker],1)>=0)return true;
 return false;
 }
 

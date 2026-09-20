@@ -1,0 +1,167 @@
+// Incremental live integration: native on-foot gameplay models. Native-runtime
+// server builds load their bundled physical maps automatically; command-line
+// switches are reserved for override/diagnostic use.
+#if IW_REACTPHYSICS_RUNTIME
+#include "../../includes/reactphysics_core.nvgt"
+#include "../../includes/reactphysics_actor.nvgt"
+#include "../../includes/reactphysics_structure.nvgt"
+#include "../../includes/reactphysics_simulation.nvgt"
+#include "../../includes/reactphysics_map.nvgt"
+class server_physics_map
+{
+ string name,source;
+ rp_simulation simulation;
+ rp_map_geometry geometry;
+ void close(){geometry.unload();simulation.close();}
+ ~server_physics_map(){close();}
+}
+class server_physics_player
+{
+ player@ target;
+ server_physics_map@ map;
+ rp_actor@ actor;
+ int x,y,z;
+ void close(){if(actor !is null){map.simulation.remove_actor(actor);actor.close();}@actor=null;@target=null;@map=null;}
+ ~server_physics_player(){close();}
+}
+server_physics_map@[] native_server_maps;
+server_physics_player@[] native_server_players;
+bool native_server_enabled=false;
+string native_server_directory;
+string native_server_last_error;
+timer native_server_timer;
+int server_physics_map_index(string name)
+{for(uint i=0;i<native_server_maps.length();i++)if(native_server_maps[i].name==name)return int(i);return -1;}
+int server_physics_player_index(player@ p)
+{for(uint i=0;i<native_server_players.length();i++)if(native_server_players[i].target is p)return int(i);return -1;}
+bool server_physics_has_player(player@ p)
+{return native_server_enabled and server_physics_player_index(p)>=0;}
+void server_physics_close()
+{
+ for(uint i=0;i<native_server_players.length();i++)native_server_players[i].close();native_server_players.resize(0);
+ for(uint i=0;i<native_server_maps.length();i++)native_server_maps[i].close();native_server_maps.resize(0);native_server_enabled=false;
+}
+void server_physics_start(string directory)
+{
+ if(native_server_enabled)throw("Native server models already started");
+ try
+ {
+  for(uint i=0;i<maps.length();i++)
+  {
+   file f;string path=directory+"/"+maps[i].name+".json";
+   if(!f.open(path,"rb"))throw("Missing compiled physics map: "+path);
+   string data=f.read();f.close();json_object@ metadata=parse_json(data);
+   if(metadata is null)throw("Invalid compiled physics map: "+path);
+   string expected=metadata["source_sha256"];
+   if(expected!=string_hash_sha256(string_replace(maps[i].rawdata,"\r","",true)))throw("Stale compiled physics map: "+maps[i].name+". Recompile maps before starting native models.");
+   server_physics_map context;context.name=maps[i].name;context.source=maps[i].rawdata;
+   context.geometry.load(context.simulation.world,data);native_server_maps.insert_last(context);
+  }
+ }
+ catch{string error=get_exception_info();server_physics_close();throw(error);}
+ native_server_directory=directory;native_server_last_error="";native_server_enabled=true;native_server_timer.restart();
+}
+bool server_physics_eligible(player@ p)
+{
+ if(p.death or p.in_plane)return false;
+ // Fluid support/buoyancy is not integrated yet; retain the current swimmer.
+ if(get_tile_at(p.x,p.y,p.z,p.map).starts_with("water"))return false;
+ // Legacy vehicle movement has not been ported. Never make its occupants
+ // simultaneously obey an on-foot collider and the vehicle controller.
+ for(uint i=0;i<authoritative_vehicles.length();i++)
+  if(authoritative_vehicles[i].map==p.map)for(uint j=0;j<authoritative_vehicles[i].occupants.length();j++)
+   if(authoritative_vehicles[i].occupants[j]==p.name)return false;
+ return true;
+}
+void server_physics_sync_players()
+{
+ if(!native_server_enabled)return;
+ for(int i=int(native_server_players.length())-1;i>=0;i--)
+ {
+  server_physics_player@ entry=native_server_players[i];bool found=false;
+  for(uint p=0;p<players.length();p++)if(players[p] is entry.target){found=true;break;}
+  if(!found or entry.target.map!=entry.map.name or !server_physics_eligible(entry.target))
+  {entry.close();native_server_players.remove_at(i);}
+ }
+ for(uint p=0;p<players.length();p++)
+ {
+  player@ target=players[p];if(!server_physics_eligible(target))continue;
+  int mi=server_physics_map_index(target.map);if(mi<0)continue;
+  int index=server_physics_player_index(target);
+  if(index<0)
+  {
+   server_physics_player entry;@entry.target=target;@entry.map=native_server_maps[mi];
+   @entry.actor=rp_actor(entry.map.simulation.world,vector(target.x,target.y,target.z+.02),80+target.equipped_armor_weight);
+   entry.x=target.x;entry.y=target.y;entry.z=target.z;entry.map.simulation.add_actor(entry.actor);native_server_players.insert_last(entry);index=native_server_players.length()-1;
+  }
+  server_physics_player@ entry=native_server_players[index];
+  int dx=target.x-entry.x,dy=target.y-entry.y,dz=target.z-entry.z;
+  // Until vertical input and teleport messages are versioned, vertical changes
+  // and explicit long moves are compatibility relocations, not simulated jumps.
+  if(dz!=0 or abs(dx)+abs(dy)>2)
+  {
+   entry.map.simulation.remove_actor(entry.actor);entry.actor.close();
+   @entry.actor=rp_actor(entry.map.simulation.world,vector(target.x,target.y,target.z+.02),80+target.equipped_armor_weight);entry.map.simulation.add_actor(entry.actor);
+  }
+  else
+  {
+   for(int d=0;d<abs(dx);d++)entry.actor.navigate(dx>0?1:-1,0);
+   for(int d=0;d<abs(dy);d++)entry.actor.navigate(0,dy>0?1:-1);
+  }
+  entry.x=target.x;entry.y=target.y;entry.z=target.z;
+  entry.actor.speed=1000.0/float(target.server_walktime>0?target.server_walktime:200);
+  float kilograms=80+target.equipped_armor_weight;
+  if(abs(entry.map.simulation.world.mass(entry.actor.id())-kilograms)>.01)entry.actor.set_equipped_mass(kilograms);
+ }
+}
+void server_physics_service(double elapsed)
+{
+ if(!native_server_enabled)return;
+ // Refuse stale geometry after a builder edit/reload rather than continuing
+ // with native walls that disagree with the map clients received.
+ bool changed=maps.length()!=native_server_maps.length();
+ for(uint i=0;i<maps.length() and !changed;i++)
+ {int mi=server_physics_map_index(maps[i].name);if(mi<0 or native_server_maps[mi].source!=maps[i].rawdata)changed=true;}
+ if(changed)
+ {
+  native_server_last_error="Native-model preview disabled: map geometry changed. Recompile physical maps and restart the preview.";
+  server_physics_close();
+  for(uint i=0;i<players.length();i++)if(players[i].dev or players[i].admin)send_reliable(players[i].peer_id,native_server_last_error,2);
+  return;
+ }
+ server_physics_sync_players();
+ for(uint i=0;i<native_server_maps.length();i++)
+ {native_server_maps[i].simulation.service(elapsed);native_server_maps[i].simulation.world.take_contacts();}
+ for(uint i=0;i<native_server_players.length();i++)
+ {
+  server_physics_player@ entry=native_server_players[i];vector position=entry.actor.feet(),velocity=entry.map.simulation.world.velocity(entry.actor.id());
+  entry.target.model_x=position.x;entry.target.model_y=position.y;entry.target.model_z=position.z;
+  entry.target.model_vx=velocity.x;entry.target.model_vy=velocity.y;entry.target.model_vz=velocity.z;
+ }
+}
+void server_physics_tick()
+{double elapsed=double(native_server_timer.elapsed)/1000.0;native_server_timer.restart();server_physics_service(elapsed);}
+void server_physics_boot()
+{
+ for(uint i=0;i<ARGS.length();i++)if(ARGS[i]=="--no-native-models"){native_server_last_error="Native server models were explicitly disabled for diagnostics.";return;}
+ for(uint i=0;i<ARGS.length();i++)if(ARGS[i]=="--native-models")
+ {if(i+1>=ARGS.length())throw("--native-models requires the compiled-map directory");server_physics_start(ARGS[i+1]);return;}
+ string bundled=SCRIPT_MAIN_PATH+"/physics_maps";
+ if(!directory_exists(bundled))throw("The native-physics server is missing its physics_maps directory. Run tools/build_physics_server.ps1 from the game source directory.");
+ server_physics_start(bundled);
+}
+string server_physics_status()
+{
+ if(!native_server_enabled)return "Native server models: disabled. "+native_server_last_error;
+ return "Native server physics: enabled automatically. "+native_server_maps.length()+" maps; "+native_server_players.length()+" native actors. Legacy client navigation protocol; vehicles, swimming and vertical compatibility relocations are not migrated.";
+}
+#endif
+#if_not IW_REACTPHYSICS_RUNTIME
+string server_physics_status(){return "Native server models: unavailable in this compiler/runtime. Existing physics is active.";}
+bool server_physics_has_player(player@ p){return false;}
+void server_physics_sync_players(){}
+void server_physics_tick(){}
+void server_physics_close(){}
+void server_physics_boot()
+{for(uint i=0;i<ARGS.length();i++)if(ARGS[i]=="--native-models")throw("Native models require a server built by tools/build_physics_server.ps1, not the installed legacy compiler.");}
+#endif

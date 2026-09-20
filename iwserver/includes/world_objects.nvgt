@@ -1,0 +1,61 @@
+#include "../../includes/world_object_geometry.nvgt"
+void world_object_sound(string path,world_object@ o,string map)
+{
+if(!path.ends_with(".wav") and !path.ends_with(".ogg"))path+=".ogg";
+send_reliable_map(map,"world_object_sound "+er_encode_token(path)+" "+int((o.x1+o.x2)/2)+" "+int((o.y1+o.y2)/2)+" "+int(o.z1)+" "+map,0);
+}
+void sync_world_objects(uint peer,string map)
+{
+int mi=get_map_index(map);if(mi<0)return;string ids="";
+for(uint i=0;i<maps[mi].objects.objects.length();i++)
+{
+world_object@ o=maps[mi].objects.objects[i];if(o.health>0)continue;
+if(ids.length()>700){send_reliable(peer,"world_objects_destroyed "+map+" "+ids,0);ids="";}
+if(ids!="")ids+=",";ids+=o.id;
+}
+if(ids!="")send_reliable(peer,"world_objects_destroyed "+map+" "+ids,0);
+}
+void damage_world_object(world_object@ o,int damage,bool blast,string map)
+{
+if(o is null or o.health<=0 or damage<=0)return;
+o.apply_damage(damage,blast);
+double now=double(uptimer.elapsed);
+if(o.health<=0)
+{
+world_object_sound(o.break_sound,o,map);
+send_reliable_map(map,"world_objects_destroyed "+map+" "+o.id,0);
+}
+else if(now-o.last_impact>=100){o.last_impact=now;world_object_sound(o.hit_sound,o,map);}
+}
+bool damage_world_object_at(double x,double y,double z,string map,int damage)
+{
+int mi=get_map_index(map);if(mi<0)return false;
+for(int i=int(maps[mi].objects.objects.length())-1;i>=0;i--)
+{
+world_object@ o=maps[mi].objects.objects[i];if(o.tile_at(x,y,z)=="")continue;
+damage_world_object(o,damage,false,map);return true;
+}
+return false;
+}
+void damage_world_objects_blast(double x,double y,double z,string map,double radius,int damage)
+{
+int mi=get_map_index(map);if(mi<0 or radius<=0 or damage<=0)return;
+for(uint i=0;i<maps[mi].objects.objects.length();i++)
+{
+world_object@ o=maps[mi].objects.objects[i];if(o.health<=0)continue;
+double dx=x<o.x1?o.x1-x:(x>o.x2?x-o.x2:0),dy=y<o.y1?o.y1-y:(y>o.y2?y-o.y2:0),dz=z<o.z1?o.z1-z:(z>o.z2?z-o.z2:0);
+double distance=sqrt(dx*dx+dy*dy+dz*dz);if(distance>=radius)continue;
+// Room walls and terrain shield furniture; do not blast through a whole
+// building simply because the target lies inside a spherical radius.
+double tx=x<o.x1?o.x1:(x>o.x2?o.x2:x),ty=y<o.y1?o.y1:(y>o.y2?o.y2:y),tz=o.z1+1;
+if(tz>o.z2)tz=o.z2;double origin_z=z+0.5;int steps=int(ceil(distance*2));bool blocked=false;
+for(int step=1;step<steps;step++)
+{
+double fraction=double(step)/steps;
+string tile=maps[mi].return_tile(int(round(x+(tx-x)*fraction,0)),int(round(y+(ty-y)*fraction,0)),int(floor(origin_z+(tz-origin_z)*fraction)));
+if(string_contains(tile,"wall",1)>=0 or tile=="glass" or tile=="tree"){blocked=true;break;}
+}
+if(blocked)continue;
+damage_world_object(o,int(damage*(1-distance/radius)),true,map);
+}
+}

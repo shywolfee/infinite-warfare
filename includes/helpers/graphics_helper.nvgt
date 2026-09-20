@@ -1,0 +1,27 @@
+// Adapted from the supplied NVGT Helpers graphics_helper. NVGT 0.90 exposes
+// the drawing surface through game_window, so this keeps the helper's stable
+// game-facing API without loading its obsolete pre-0.90 plugin ABI.
+class graphics_helper
+{
+game_window@ renderer;
+bool active=false;
+
+graphics_helper()
+{
+@renderer=get_window();
+active=@renderer!=null;
+}
+
+bool get_active(){return active and @renderer!=null;}
+void update(){if(get_active())renderer.present();}
+void clear_screen(int r,int g,int b){if(get_active())renderer.clear(r,g,b);}
+void draw_text(string text,int x,int y,int r,int g,int b){if(get_active())renderer.draw_text(text,x,y,r,g,b);}
+void draw_text_wrapped(string text,int x,int y,int w,int r,int g,int b){if(get_active())renderer.draw_text_wrapped(text,x,y,w,r,g,b);}
+void draw_line(int x1,int y1,int x2,int y2,int r,int g,int b,int thickness)
+{
+if(!get_active())return;
+int half=thickness/2;
+if(abs(x2-x1)>=abs(y2-y1))for(int offset=-half;offset<=half;offset++)renderer.draw_line(x1,y1+offset,x2,y2+offset,r,g,b);
+else for(int offset=-half;offset<=half;offset++)renderer.draw_line(x1+offset,y1,x2+offset,y2,r,g,b);
+}
+}

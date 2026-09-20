@@ -1,6 +1,6 @@
 Map File Format (Developer Reference)
 
-Map files are plain text stored in iwserver/map/ with the .map extension.
+Map files are plain text stored under iwserver/content/maps/[mode]/ with the .map extension.
 
 Header fields (one per line):
 mapname:[name] - The display name of the map.
@@ -31,3 +31,5 @@ transition:x1:x2:y1:y2:z1:z2:destx:desty:destz:label - An interaction point (suc
 
 The map system is initialized with init_mapsystem() on the server. Maps are sent to clients as raw text via the mapdata message.
 Live builder safety: Shift+B edits the authoritative file for the map the developer is currently occupying. The client keeps the network pump active while it loads, validates coordinate ranges and fields before submitting them, and the server independently rejects malformed, cross-map, oversized, nameless, duplicate-mapname, or structurally invalid changes before any write. The required mapname line cannot be deleted, and deleting the current map requires confirmation.
+
+The live builder can place spawns and permanent fixtures at the builder's current position; author rooms, open regions, portals and POI regions; create a rectangular destructible-object preset as one atomic validated update; inspect element counts; validate, reload or undo the current map; export timestamped local snapshots; and teleport to exact build coordinates. Before every append, edit, delete or full-map write, the server stores an in-memory undo point and a durable timestamped copy under administration/map_backups. Undo swaps the current and prior states, allowing a mistaken undo to be reversed once more.

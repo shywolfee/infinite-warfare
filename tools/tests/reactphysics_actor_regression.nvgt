@@ -1,0 +1,46 @@
+#include "bgt_compat.nvgt"
+#include "../../includes/reactphysics_core.nvgt"
+#include "../../includes/reactphysics_actor.nvgt"
+string report_path,results;int failures=0;
+void check(bool ok,string label){results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)failures++;file f;f.open(report_path,"wb");f.write(results);f.close();}
+void step(rp_world_owner@ world,rp_actor@ actor,int count)
+{for(int i=0;i<count;i++){actor.before_step();world.advance(1.0/60.0);world.take_contacts();}}
+void main()
+{
+ string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-reactphysics-actor-"+random(100000,999999999);directory_create(directory);report_path=directory+"/results.txt";
+ rp_world_owner world;world.box(vector(20,20,.5),vector(0,0,-.5));
+ rp_actor actor(world,vector(0,0,.02));step(world,actor,30);
+ check(actor.grounded() and abs(actor.feet().z)<.04,"upright capsule rests with feet at authored floor height");
+ rp_ray_result@ head=world.cast_ray(vector(0,-2,1.65),vector(0,2,1.65));
+ check(head.hit and head.body==actor.id() and head.part=="head","native head query hits anatomical head rather than movement hull");
+ rp_ray_result@ chest=world.cast_ray(vector(0,-2,1.15),vector(0,2,1.15));
+ check(chest.hit and chest.part=="chest","chest and head have distinct physical locations");
+ actor.navigate(1,0);step(world,actor,1);
+ check(actor.feet().x>0 and actor.feet().x<.2,"single tap starts continuous solver movement rather than teleporting");
+ step(world,actor,90);check(abs(actor.feet().x-1)<.025,"single tap settles at exactly one coordinate");
+ step(world,actor,120);check(abs(actor.feet().x-1)<.025,"momentum does not create a second navigation step");
+ actor.before_step();check(actor.jump(.8),"grounded jump applies takeoff impulse");
+ check(!actor.jump(.8),"cannot jump twice from one grounding state");
+ actor.before_step();check(!actor.jump(.8),"pre-step grounding refresh cannot duplicate a pending jump impulse");
+ world.advance(1.0/60.0);float highest=actor.feet().z;
+ for(int i=0;i<100;i++){step(world,actor,1);if(actor.feet().z>highest)highest=actor.feet().z;}
+ check(highest>.65 and highest<.95,"native gravity produces requested ballistic jump arc");
+ check(actor.grounded() and abs(actor.feet().z)<.04,"native jump returns to supporting surface");
+ world.box(vector(.1,3,2),vector(2,0,2));actor.navigate(1,0);actor.navigate(1,0);step(world,actor,120);
+ check(actor.feet().x<1.7,"full actor volume cannot traverse a wall");
+ check(world.angular_velocity(actor.id()).length()<.01,"standing actor stays upright through wall contact");
+ actor.set_equipped_mass(105);check(abs(world.mass(actor.id())-105)<.001,"equipment weight changes native actor mass and inertia");
+ uint64 old=actor.id();actor.close();check(!world.contains(old),"compound actor teardown invalidates every part");
+ rp_actor light(world,vector(-5,8,.02),80),heavy(world,vector(-5,12,.02),160);
+ for(int i=0;i<30;i++){light.before_step();heavy.before_step();world.advance(1.0/60.0);world.take_contacts();}
+ light.navigate(1,0);heavy.navigate(1,0);light.before_step();heavy.before_step();world.advance(1.0/60.0);
+ check(world.velocity(heavy.id()).x<world.velocity(light.id()).x*.7,"carried mass reduces acceleration under bounded movement force");
+ light.close();heavy.close();world.close();
+ rp_world_owner moving;moving.box(vector(20,20,.5),vector(0,0,-.5));
+ uint64 platform=moving.box(vector(2,2,.5),vector(0,0,.5),500);rp_actor rider(moving,vector(0,0,1.02));
+ step(moving,rider,60);
+ for(int i=0;i<120;i++){rider.before_step();moving.force(platform,vector((2-moving.velocity(platform).x)*500*60,0,0));moving.advance(1.0/60.0);moving.take_contacts();}
+ check(moving.position(platform).x>3 and abs(rider.feet().x-moving.position(platform).x)<.2,"native moving support carries rider without coordinate teleportation");
+ rider.close();moving.close();
+ file f;f.open(report_path,"wb");f.write(results+"Failures: "+failures+"\nStage: complete\n");f.close();
+}

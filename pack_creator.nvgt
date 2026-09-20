@@ -6,6 +6,7 @@ const string source_directory="sounds";
 const string output_file="sounds.dat";
 const string temporary_file="sounds.dat.new";
 const string test_sound_file="sound_pack_test.ogg";
+const string test_er_sound_file="sound_pack_test.wav";
 const string pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 
 string[] files_to_pack;
@@ -15,6 +16,7 @@ void fail(const string&in message)
 {
 file_delete(temporary_file);
 file_delete(test_sound_file);
+file_delete(test_er_sound_file);
 if (!silent) alert("Sound pack build failed", message);
 exit(1);
 }
@@ -73,15 +75,27 @@ if (verifier.get_file_count()!=int64(files_to_pack.length()))
 fail("Archive verification found the wrong number of files.");
 if (!verifier.file_exists("logo.ogg"))
 fail("Archive verification could not find logo.ogg.");
+if(!verifier.file_exists("firefight_archive/weapons/ak47/fire.ogg"))
+fail("Archive verification could not find the representative Firefight weapon recording.");
+if(!verifier.file_exists("executioners_rage/environment/objects/coke_machine/dispense.wav"))
+fail("Archive verification could not find the representative Executioner's Rage world recording.");
+string[] required_regression_sounds={"ak47fire1.ogg","m1garantbattleriflefire1.ogg","benelli_m4_shotgunfire1.ogg","wirenetequip.ogg","executioners_rage/ui/bf.wav","executioners_rage/ui/bfn.wav"};
+for(uint required_index=0;required_index<required_regression_sounds.length();required_index++)if(!verifier.file_exists(required_regression_sounds[required_index]))fail("Archive verification could not find required gameplay sound "+required_regression_sounds[required_index]+".");
 if (!verifier.extract_file("logo.ogg", test_sound_file))
 fail("Archive verification could not decrypt and extract logo.ogg.");
-verifier.close();
 
 sound decode_test;
 if (!decode_test.load(test_sound_file))
 fail("NVGT 0.90 could not decode logo.ogg from the completed archive.");
 decode_test.close();
 file_delete(test_sound_file);
+if(!verifier.extract_file("firefight_archive/weapons/ak47/fire.ogg",test_sound_file))fail("Could not decrypt the representative Firefight recording.");
+if(!decode_test.load(test_sound_file))fail("NVGT 0.90 could not decode the representative Firefight recording.");
+decode_test.close();file_delete(test_sound_file);
+if(!verifier.extract_file("executioners_rage/environment/objects/coke_machine/dispense.wav",test_er_sound_file))fail("Could not decrypt the representative Executioner's Rage recording.");
+if(!decode_test.load(test_er_sound_file))fail("NVGT 0.90 could not decode the representative Executioner's Rage recording.");
+decode_test.close();file_delete(test_er_sound_file);
+verifier.close();
 
 if (!file_copy(temporary_file, output_file, true))
 fail("The verified archive could not replace sounds.dat.");

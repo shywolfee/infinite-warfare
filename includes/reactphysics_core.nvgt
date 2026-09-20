@@ -1,0 +1,355 @@
+// Shared, metre-based native physics foundation. Not yet gameplay authority.
+// Only this owner sees raw RP3D handles. Consumers retain generation IDs.
+uint rp_generation_counter=0;
+// The authoritative solver runs on one simulation thread. Native callbacks
+// dispatch only during a scoped operation; no native listener owns a script
+// delegate (which would form a reference cycle with the world).
+rp_world_owner@ rp_active_world;
+class rp_contact_event
+{
+ uint64 a=0,b=0,tick=0;
+ string part_a,part_b;
+ int phase=0;
+ vector normal,point;
+ float depth=0;
+}
+class rp_ray_result
+{
+ bool hit=false;
+ uint64 body=0;
+ string part;
+ vector point,normal;
+ float fraction=1;
+}
+void rp_contact_dispatch(const physics_collision_callback_data& data)
+{if(rp_active_world !is null)rp_active_world.capture_contacts(data);}
+void rp_overlap_dispatch(const physics_overlap_callback_data& data){}
+float rp_ray_dispatch(const raycast_info&in info)
+{return rp_active_world is null?0:rp_active_world.capture_ray(info);}
+class rp_body_slot
+{
+ uint generation=0;
+ physics_rigid_body@ body;
+ physics_collision_shape@ shape;
+ physics_collision_shape@[] extra_shapes;
+ physics_collider@[] colliders;
+ bool pending=false;
+}
+class rp_shape_part
+{
+ // Box=0, sphere=1, upright capsule=2. Capsule size=(radius,cylinder height,0).
+ int kind=0;
+ vector size,offset;
+ quaternion rotation=IDENTITY_QUATERNION;
+ string name;
+ bool simulation=true;
+ bool query=true;
+ float density=1,friction=.5,bounce=0;
+}
+class rp_joint_slot
+{
+ uint generation=0;
+ uint64 a=0,b=0;
+ physics_joint@ joint;
+}
+class rp_world_owner
+{
+ private physics_world@ native;
+ private rp_body_slot@[] bodies;
+ private rp_joint_slot@[] joints;
+ private uint[] free_bodies,free_joints;
+ private uint64[] pending_destroy;
+ private double debt=0;
+ private bool stepping=false;
+ private uint64 ticks=0;
+ private dictionary native_ids;
+ private dictionary collider_labels;
+ private rp_contact_event@[] contacts;
+ private uint dropped_contacts=0;
+ private rp_ray_result@ ray_result;
+ private uint64 ray_ignore=0;
+ rp_world_owner()
+ {
+  physics_world_settings settings;settings.gravity=vector(0,0,-9.81);
+  @native=physics_world(settings);
+  native.set_callbacks(rp_contact_dispatch,rp_overlap_dispatch);
+ }
+ ~rp_world_owner(){close();}
+ private uint next_generation()
+ {
+  if(rp_generation_counter==0xffffffff)throw("Physics generation space exhausted");
+  return ++rp_generation_counter;
+ }
+ private uint64 key(uint slot,uint generation){return (uint64(generation)<<32)|uint64(slot+1);}
+ private int body_index(uint64 id)
+ {
+  uint low=uint(id&0xffffffff);
+  if(low==0 or low>bodies.length())return -1;
+  uint i=low-1;
+  if(bodies[i].generation!=uint(id>>32) or bodies[i].body is null or bodies[i].pending)return -1;
+  return int(i);
+ }
+ private int joint_index(uint64 id)
+ {
+  uint low=uint(id&0xffffffff);
+  if(low==0 or low>joints.length())return -1;
+  uint i=low-1;
+  if(joints[i].generation!=uint(id>>32) or joints[i].joint is null)return -1;
+  return int(i);
+ }
+ bool contains(uint64 id){return body_index(id)>=0;}
+ double pending_seconds()const{return debt;}
+ uint64 step_number()const{return ticks;}
+ private uint64 adopt(physics_collision_shape@ shape,vector position,float mass)
+ {
+  uint generation=next_generation();
+  uint i;
+  if(free_bodies.length()>0){i=free_bodies[free_bodies.length()-1];free_bodies.remove_last();}
+  else{i=bodies.length();bodies.insert_last(rp_body_slot());}
+  rp_body_slot@ slot=bodies[i];slot.generation=generation;slot.pending=false;@slot.shape=shape;
+  @slot.body=native.create_rigid_body(physics_transform(position,IDENTITY_QUATERNION));
+  native_ids.set(""+slot.body.entity.id,key(i,generation));
+  physics_collider@ collider=slot.body.add_collider(shape,IDENTITY_TRANSFORM);
+  slot.colliders.insert_last(collider);
+  if(mass==0)slot.body.type=PHYSICS_BODY_STATIC;
+  else
+  {
+   // Density changes mass and inertia together. Never set mass alone.
+   slot.body.update_mass_properties_from_colliders();
+   float ratio=mass/slot.body.mass;
+   slot.body.local_inertia_tensor=slot.body.local_inertia_tensor*ratio;
+   slot.body.mass=mass;
+  }
+  return key(i,generation);
+ }
+ private void validate_create(vector position,float mass)
+ {
+  if(native is null or stepping)throw("Cannot create a body in a closed or stepping world");
+  if(!(mass>=0 and mass<1e9) or !(abs(position.x)<1e7 and abs(position.y)<1e7 and abs(position.z)<1e7))throw("Invalid physical position or mass");
+ }
+ uint64 box(vector half_extents,vector position,float mass=0)
+ {
+  validate_create(position,mass);
+  if(!(half_extents.x>0 and half_extents.y>0 and half_extents.z>0 and half_extents.length()<1e6))throw("Invalid box dimensions");
+  return adopt(physics_box_shape(half_extents),position,mass);
+ }
+ uint64 sphere(float radius,vector position,float mass)
+ {
+  validate_create(position,mass);if(!(radius>0 and radius<1e6))throw("Invalid sphere radius");
+  return adopt(physics_sphere_shape(radius),position,mass);
+ }
+ uint64 capsule(float radius,float cylinder_height,vector position,float mass)
+ {
+  validate_create(position,mass);if(!(radius>0 and radius<1e6 and cylinder_height>0 and cylinder_height<1e6))throw("Invalid capsule dimensions");
+  rp_shape_part part;part.kind=2;part.size=vector(radius,cylinder_height,0);
+  rp_shape_part@[] parts={part};return compound(parts,position,mass);
+ }
+ uint64 compound(rp_shape_part@[] parts,vector position,float mass)
+ {
+  validate_create(position,mass);
+  if(parts.length()==0 or parts.length()>128)throw("Invalid compound part count");
+  for(uint p=0;p<parts.length();p++)
+  {
+   rp_shape_part@ part=parts[p];if(part is null)throw("Null compound part");
+   if(part.kind<0 or part.kind>2 or !(part.size.x>0 and part.size.length()<1e6 and part.offset.length()<1e6))throw("Invalid compound dimensions");
+   if(part.kind!=1 and !(part.size.y>0))throw("Invalid compound height");
+   if(part.kind==0 and !(part.size.z>0))throw("Invalid compound depth");
+   if(!(part.density>=0 and part.density<1e8 and part.friction>=0 and part.friction<=10 and part.bounce>=0 and part.bounce<=1))throw("Invalid compound material");
+   physics_transform transform(part.offset,part.rotation);if(!transform.is_valid)throw("Invalid compound orientation");
+  }
+  uint64 id=0;
+  try
+  {
+   for(uint p=0;p<parts.length();p++)
+   {
+    rp_shape_part@ part=parts[p];physics_collision_shape@ shape;
+    if(part.kind==0)@shape=physics_box_shape(part.size);
+    else if(part.kind==1)@shape=physics_sphere_shape(part.size.x);
+    else @shape=physics_capsule_shape(part.size.x,part.size.y);
+    physics_collider@ collider;
+    if(p==0){id=adopt(shape,position,0);@collider=bodies[body_index(id)].colliders[0];}
+    else
+    {
+     rp_body_slot@ slot=bodies[body_index(id)];slot.extra_shapes.insert_last(shape);
+     @collider=slot.body.add_collider(shape,IDENTITY_TRANSFORM);slot.colliders.insert_last(collider);
+    }
+    quaternion rotation=part.rotation;
+    if(part.kind==2)rotation=rotation*quaternion(.70710678118,0,0,.70710678118);
+    collider.local_to_body_transform=physics_transform(part.offset,rotation);
+    collider.material.mass_density=part.simulation?part.density:0;
+    collider.material.friction_coefficient=part.friction;collider.material.bounciness=part.bounce;
+    collider.is_simulation_collider=part.simulation;
+    collider.is_world_query_collider=part.query;
+    if(!part.simulation)collider.collide_with_mask=0;
+    collider_labels.set(""+collider.entity.id,part.name);
+   }
+   rp_body_slot@ slot=bodies[body_index(id)];
+   if(mass>0){slot.body.type=PHYSICS_BODY_DYNAMIC;set_mass(id,mass);}
+  }
+  catch{string error=get_exception_info();if(id!=0)remove(id);throw(error);}
+  return id;
+ }
+ bool set_mass(uint64 id,float mass)
+ {
+  int i=body_index(id);if(i<0)return false;if(!(mass>0 and mass<1e9))throw("Invalid dynamic mass");
+  physics_rigid_body@ body=bodies[i].body;body.update_mass_properties_from_colliders();
+  float ratio=mass/body.mass;body.local_inertia_tensor=body.local_inertia_tensor*ratio;body.mass=mass;return true;
+ }
+ float mass(uint64 id){int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.mass;}
+ bool lock_rotation(uint64 id,bool locked)
+ {int i=body_index(id);if(i<0)return false;bodies[i].body.angular_lock_axis_factor=locked?vector():vector(1,1,1);return true;}
+ vector angular_velocity(uint64 id){int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.angular_velocity;}
+ vector local_point(uint64 id,vector point)
+ {int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.transform.get_inverse()*point;}
+ vector world_point(uint64 id,vector point)
+ {int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.transform*point;}
+ vector point_velocity(uint64 id,vector point)
+ {int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.linear_velocity+bodies[i].body.angular_velocity.cross(point-bodies[i].body.transform.position);}
+ vector position(uint64 id)
+ {
+  int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.transform.position;
+ }
+ vector velocity(uint64 id)
+ {
+  int i=body_index(id);if(i<0)throw("Stale physics body ID");return bodies[i].body.linear_velocity;
+ }
+ bool force(uint64 id,vector value)
+ {
+  int i=body_index(id);if(i<0)return false;
+  if(!(value.length()<1e12))throw("Invalid force");
+  bodies[i].body.apply_world_force(value);return true;
+ }
+ bool torque(uint64 id,vector value)
+ {
+  int i=body_index(id);if(i<0)return false;
+  if(!(value.length()<1e12))throw("Invalid torque");
+  bodies[i].body.apply_world_torque(value);return true;
+ }
+ uint64 fixed_joint(uint64 a,uint64 b,vector anchor)
+ {return constraint(a,b,0,anchor,vector(0,0,1),0,0);}
+ // kind: fixed=0, hinge=1, slider=2, ball-and-socket=3.
+ uint64 constraint(uint64 a,uint64 b,int kind,vector anchor,vector axis,float lower,float upper)
+ {
+  int ia=body_index(a),ib=body_index(b);
+  if(native is null or stepping or ia<0 or ib<0 or ia==ib)throw("Invalid joint bodies or world state");
+  if(kind<0 or kind>3 or !(anchor.length()<1e7))throw("Invalid constraint kind or anchor");
+  if((kind==1 or kind==2) and !(axis.length()>.00001 and axis.length()<1e6 and lower<=0 and upper>=0 and abs(lower)<1e6 and abs(upper)<1e6))throw("Invalid constraint axis or limits");
+  if(kind==1 and (lower< -6.283185307 or upper>6.283185307))throw("Invalid hinge angular limits");
+  physics_joint@ created;
+  if(kind==0)@created=native.create_fixed_joint(bodies[ia].body,bodies[ib].body,anchor);
+  else if(kind==1)@created=native.create_hinge_joint(bodies[ia].body,bodies[ib].body,anchor,axis,lower,upper);
+  else if(kind==2)@created=native.create_slider_joint(bodies[ia].body,bodies[ib].body,anchor,axis,lower,upper);
+  else @created=native.create_ball_joint(bodies[ia].body,bodies[ib].body,anchor);
+  uint generation=next_generation(),i;
+  if(free_joints.length()>0){i=free_joints[free_joints.length()-1];free_joints.remove_last();}
+  else{i=joints.length();joints.insert_last(rp_joint_slot());}
+  rp_joint_slot@ slot=joints[i];slot.generation=generation;slot.a=a;slot.b=b;
+  @slot.joint=created;
+  return key(i,generation);
+ }
+ bool contains_joint(uint64 id){return joint_index(id)>=0;}
+ vector reaction_force(uint64 id)
+ {int i=joint_index(id);if(i<0)throw("Stale physics joint ID");return joints[i].joint.get_reaction_force(1.0/60.0);}
+ vector reaction_torque(uint64 id)
+ {int i=joint_index(id);if(i<0)throw("Stale physics joint ID");return joints[i].joint.get_reaction_torque(1.0/60.0);}
+ bool remove_joint(uint64 id)
+ {
+  if(stepping)throw("Joint removal must run outside a physics step");
+  int i=joint_index(id);if(i<0)return false;
+  native.destroy_joint(joints[i].joint);@joints[i].joint=null;free_joints.insert_last(uint(i));return true;
+ }
+ bool remove(uint64 id)
+ {
+  int i=body_index(id);if(i<0)return false;
+  bodies[i].pending=true;pending_destroy.insert_last(id);
+  if(!stepping)flush_destroy();return true;
+ }
+ private void flush_destroy()
+ {
+  for(uint p=0;p<pending_destroy.length();p++)
+  {
+   uint64 id=pending_destroy[p];uint i=uint(id&0xffffffff)-1;
+   for(uint j=0;j<joints.length();j++)
+    if(joints[j].joint !is null and (joints[j].a==id or joints[j].b==id))remove_joint(key(j,joints[j].generation));
+   native_ids.delete(""+bodies[i].body.entity.id);
+   for(uint c=0;c<bodies[i].colliders.length();c++)collider_labels.delete(""+bodies[i].colliders[c].entity.id);
+   native.destroy_rigid_body(bodies[i].body);@bodies[i].body=null;
+   bodies[i].colliders.resize(0);
+   physics_shape_destroy(bodies[i].shape);@bodies[i].shape=null;
+   for(uint s=0;s<bodies[i].extra_shapes.length();s++)physics_shape_destroy(bodies[i].extra_shapes[s]);
+   bodies[i].extra_shapes.resize(0);
+   free_bodies.insert_last(i);
+  }
+  pending_destroy.resize(0);
+ }
+ uint advance(double elapsed,uint max_steps=8)
+ {
+  if(native is null or stepping or rp_active_world !is null)throw("Cannot advance closed or recursive world");
+  if(!(elapsed>=0 and elapsed<3600) or max_steps==0 or max_steps>600)throw("Invalid physics step budget");
+  debt+=elapsed;uint count=0;const double dt=1.0/60.0;
+  while(debt+1e-12>=dt and count<max_steps)
+  {
+   stepping=true;@rp_active_world=this;
+   try{native.update(float(dt));}
+   catch{stepping=false;@rp_active_world=null;throw(get_exception_info());}
+   stepping=false;@rp_active_world=null;
+   debt-=dt;if(debt<0)debt=0;ticks++;count++;flush_destroy();
+  }
+  return count;
+ }
+ // Called only by the scoped native dispatcher; copies values before return.
+ void capture_contacts(const physics_collision_callback_data& data)
+ {
+  if(rp_active_world !is this or !stepping)return;
+  for(uint i=0;i<data.nb_contact_pairs;i++)
+  {
+   physics_contact_pair pair=data.get_contact_pair(i);
+   uint64 a=0,b=0;native_ids.get(""+pair.body1.entity.id,a);native_ids.get(""+pair.body2.entity.id,b);
+   if(a==0 or b==0)continue;
+   uint count=pair.nb_contact_points;if(count==0)count=1;
+   for(uint p=0;p<count;p++)
+   {
+    if(contacts.length()>=4096){dropped_contacts++;continue;}
+    rp_contact_event event;event.a=a;event.b=b;event.tick=ticks+1;event.phase=int(pair.event_type);
+    collider_labels.get(""+pair.collider1.entity.id,event.part_a);collider_labels.get(""+pair.collider2.entity.id,event.part_b);
+    if(pair.nb_contact_points>0)
+    {
+     physics_contact_point point=pair.get_contact_point(p);
+     event.normal=point.world_normal;event.depth=point.penetration_depth;
+     event.point=pair.collider1.get_local_to_world_transform()*point.local_point_on_collider1;
+    }
+    contacts.insert_last(event);
+   }
+  }
+ }
+ rp_contact_event@[] take_contacts()
+ {rp_contact_event@[] result=contacts;contacts.resize(0);return result;}
+ uint contact_overflow_count()const{return dropped_contacts;}
+ float capture_ray(const raycast_info&in info)
+ {
+  if(rp_active_world !is this or ray_result is null)return 0;
+  uint64 id=0;native_ids.get(""+info.body.entity.id,id);
+  if(id==0 or id==ray_ignore)return -1;
+  if(info.hit_fraction<ray_result.fraction)
+  {ray_result.hit=true;ray_result.body=id;ray_result.point=info.world_point;ray_result.normal=info.world_normal;ray_result.fraction=info.hit_fraction;ray_result.part="";collider_labels.get(""+info.collider.entity.id,ray_result.part);}
+  return ray_result.fraction;
+ }
+ rp_ray_result@ cast_ray(vector start,vector end,uint16 mask=0xffff,uint64 ignore_body=0)
+ {
+  if(native is null or stepping or rp_active_world !is null)throw("Cannot query closed or recursive world");
+  @ray_result=rp_ray_result();ray_ignore=ignore_body;
+  if((end-start).length()==0)return ray_result;
+  @rp_active_world=this;
+  try{native.raycast(ray(start,end),rp_ray_dispatch,mask);}
+  catch{@rp_active_world=null;@ray_result=null;throw(get_exception_info());}
+  @rp_active_world=null;rp_ray_result@ result=ray_result;@ray_result=null;return result;
+ }
+ void close()
+ {
+  if(native is null)return;
+  if(stepping)throw("Cannot destroy a world during a solver callback");
+  for(uint j=0;j<joints.length();j++)if(joints[j].joint !is null)remove_joint(key(j,joints[j].generation));
+  for(uint i=0;i<bodies.length();i++)if(bodies[i].body !is null and !bodies[i].pending)remove(key(i,bodies[i].generation));
+  flush_destroy();physics_world_destroy(native);@native=null;
+ }
+}

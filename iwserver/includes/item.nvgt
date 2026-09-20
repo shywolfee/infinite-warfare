@@ -9,7 +9,7 @@ string owner;
 string name;
 string map;
 timer deltimer;
-timer soundtimer;
+uint64 next_beep;
 item(int px, int py, int pz, string imap, string pname,string iowner)
 {
 bowner=iowner;
@@ -18,27 +18,22 @@ x=px;
 y=py;
 z=pz;
 name=pname;
+// Stagger cues created in the same loot batch instead of making every item
+// fight for the same audio frame and sound-pool slots.
+next_beep=ticks()+random(150,1800);
 }
 }
 void itemloop()
 {
-for(uint i=0; i<items.length(); i++)
+for(int i=int(items.length())-1;i>=0;i--)
 {
+if(items[i].deltimer.elapsed>180000){items.remove_at(i);continue;}
+if(ticks()>=items[i].next_beep){items[i].next_beep=ticks()+random(2200,3200);er_play_near("collectable/loop",items[i].x,items[i].y,items[i].z,items[i].map,35);}
 for(uint x=0; x<players.length(); x++)
 {
-if(items[i].soundtimer.elapsed>1000)
-{
-items[i].soundtimer.restart();
-play("item", items[i].x, items[i].y, items[i].z, items[i].map, -1, true, false, 5);
-}
-if(items[i].deltimer.elapsed>180000)
-{
-items.remove_at(i);
-continue;
-}
 if (get_3d_distance(items[i].x,items[i].y,items[i].z,players[x].x,players[x].y,players[x].z)<=2 and players[x].map==items[i].map and players[x].death==false and items[i].bowner!=players[x].name)
 {
-play("itemget"+random(1,3), items[i].x, items[i].y, items[i].z, items[i].map, x);
+string pickup_path="collectable/pickup_misc";if(items[i].name=="er_proximity_mine")pickup_path="weapons/mine/pickup";else if(items[i].name=="er_molotov")pickup_path="weapons/molotov/pickup";else if(string_contains(items[i].name,"ammo",1)>=0 or string_contains(items[i].name,"magazine",1)>=0 or string_contains(items[i].name,"shell",1)>=0)pickup_path="collectable/pickup_ammo";else if(string_contains(items[i].name,"armor",1)>=0 or string_contains(items[i].name,"armour",1)>=0 or string_contains(items[i].name,"helmet",1)>=0)pickup_path="collectable/pickup_armor";else if(string_contains(items[i].name,"grenade",1)>=0 or string_contains(items[i].name,"bomb",1)>=0 or string_contains(items[i].name,"mine",1)>=0)pickup_path="collectable/pickup_explosive";else if(string_contains(items[i].name,"med",1)>=0 or string_contains(items[i].name,"serum",1)>=0 or string_contains(items[i].name,"tablet",1)>=0)pickup_path="collectable/pickup_health";else if(find_wpn_stats(items[i].name)>=0)pickup_path="collectable/pickup_weapon";er_play_at(pickup_path,items[i].x,items[i].y,items[i].z,items[i].map);
 if(items[i].name=="fake.item")
 {
 apply_player_damage(players[x],5000,"a fake item on the ground");
@@ -62,7 +57,7 @@ send_unreliable(players[x].peer_id,"give "+items[i].name+" 1",0);
 send_reliable(players[x].peer_id, string_replace(items[i].name,"_"," ",true), 2);
 }
 items.remove_at(i);
-return;
+break;
 }
 }
 }

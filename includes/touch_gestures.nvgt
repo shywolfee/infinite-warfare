@@ -335,6 +335,7 @@ void gesture_target_region(int change) {
 		if(target_region_index>=int(target_regions.length()))target_region_index=0;
 		if(target_region_index<0)target_region_index=target_regions.length()-1;
 	}
+	p.play_stationary(change==0 ? "executioners_rage/ui/bfn.wav" : "executioners_rage/ui/bf.wav",false);
 	speak(change==0 ? "Target reset to whole body." : "Targeting "+target_regions[target_region_index]+".");
 }
 void gesture_channel_chat(int channel) {

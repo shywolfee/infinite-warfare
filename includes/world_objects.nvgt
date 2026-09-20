@@ -1,0 +1,30 @@
+#include "world_object_geometry.nvgt"
+world_object_set client_world_objects;
+void load_client_world_objects(string raw)
+{
+client_world_objects.load(raw);
+for(uint i=0;i<client_world_objects.objects.length();i++)
+{
+world_object@ o=client_world_objects.objects[i];
+// Centre-local bounds reject distant furniture before testing components.
+double cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2;
+o.dynamic_id=dynamic_map_create("furniture",o.name,o.id,cx,cy,o.z1,90);
+dynamic_map_element@ e=dynamic_map_elements[o.dynamic_id];
+// The vehicle coordinate convention at 90 degrees maps local Y to -world Y.
+// Reverse both Y bounds; otherwise asymmetric seats and backs are mirrored.
+for(uint j=0;j<o.parts.length();j++){world_object_part@ part=o.parts[j];e.add_tile(part.x1-cx,part.x2-cx,cy-part.y2,cy-part.y1,part.z1-o.z1,part.z2-o.z1,part.material,o.name,part.solid);}
+}
+}
+bool handle_world_object_packet(string message)
+{
+string[] fields=message.split(" ");
+if(fields.length()==6 and fields[0]=="world_object_sound")
+{
+if(fields[5]==mapname)p.play_3d(executioners_decode_token(fields[1]),me.x,me.y,me.z,string_to_number(fields[2]),string_to_number(fields[3]),string_to_number(fields[4]),calculate_theta(facing),false);
+return true;
+}
+if(fields.length()<1 or fields[0]!="world_objects_destroyed")return false;
+if(fields.length()!=3 or fields[1]!=mapname)return true;
+string[] ids=fields[2].split(",");for(uint i=0;i<ids.length();i++){world_object@ o=client_world_objects.find(int(string_to_number(ids[i])));if(o is null)continue;o.health=0;dynamic_map_destroy(o.dynamic_id);}
+return true;
+}

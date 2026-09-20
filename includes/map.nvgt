@@ -166,6 +166,8 @@ p.destroy_all();
 destroy_all_sources();
 acoustics_reset();
 dynamic_map_elements.resize(0);
+clear_executioners_fixtures();
+load_client_world_objects(mdata);
 map.resize(0);
 zones.resize(0);
 tile_regions.resize(0);
@@ -304,11 +306,16 @@ transitions.insert_last(t);
 }
 }
 }
+dictionary terrain_step_sound_count_cache;
+int available_terrain_step_sound_count(string terrain)
+{
+double cached=0;if(terrain_step_sound_count_cache.get(terrain,cached))return int(cached);int count=0;for(int i=1;i<=20;i++){if(fire_archive_index.file_exists(terrain+"step"+i+".ogg"))count=i;else if(i>count+2)break;}if(count<1)count=5;terrain_step_sound_count_cache.set(terrain,double(count));return count;
+}
 void playstep()
 {
 if(in_plane==false)
 {
-p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"step"+random(1, 5)+".ogg", false);
+string terrain=get_tile_at(mr.x,mr.y,me.z);p.play_stationary(terrain+"step"+random(1,available_terrain_step_sound_count(terrain))+".ogg", false);
 for(int i=0; i<ladders.length(); i++)
 {
 if(me.x==ladders[i].x and me.y==ladders[i].y and me.z>=ladders[i].miniz and me.z<=ladders[i].maxz)
@@ -327,7 +334,6 @@ if((here=="" or here=="blank") and below!="" and below!="blank" and string_conta
 }
 void move(string dir)
 {
-if(vehicle_try_interior_move(dir))return;
 if(dir==Up)
 {
 if(get_tile_at(mr.x, mr.y, me.z+1)!="" and get_tile_at(mr.x, mr.y, me.z+1)!="blank")
@@ -423,20 +429,14 @@ break;
 }
 if(vehicle_contains_position(obstacle,me.x,me.y,me.z))
 {
-if(vehicle_interior_index==int(vi) and obstacle.door_open){vehicle_set_interior_local(obstacle,me.x,me.y,me.z);continue;}
-// A whole-coordinate exterior step normally lands in the doorway approach
-// before its segment reaches the inner hull plane. Treat that authored
-// approach as part of the aperture; otherwise the body collision rejects the
-// first step and it is mathematically impossible to reach the crossing.
-if(vehicle_local_in_doorway(obstacle,local_forward,local_side) or vehicle_crosses_open_door(obstacle,ox,oy,me.x,me.y)){vehicle_enter_interior_through_door(obstacle,int(vi));mr.x=round(me.x,0);mr.y=round(me.y,0);continue;}
 p.play_stationary("metalfall.ogg",false);
-speak(obstacle.get_name()+" body blocking the way. Open its door to enter the interior.");
+speak(obstacle.get_name()+" body blocking the way. Use the vehicle control beside its open door to enter.");
 me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);
 return;
 }
 }
 if(vehicle_roof_index>=0 and (vehicle_roof_index>=int(map_vehicles.length()) or !vehicle_is_roof_position(map_vehicles[vehicle_roof_index],me.x,me.y,me.z))) vehicle_roof_index=-1;
-if(vehicle_interior_index>=0 and (vehicle_interior_index>=int(map_vehicles.length()) or !vehicle_cabin_contains_position(map_vehicles[vehicle_interior_index],me.x,me.y,me.z)))vehicle_interior_index=-1;
+vehicle_interior_index=-1;
 }
 for(int i=0; i<walls.length(); i++)
 {
@@ -449,7 +449,7 @@ me.y=oy;
 }
 if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)  
 {
-p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+if(!executioners_fixture_collision_sound(me.x,me.y,me.z))p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
 send_reliable(0, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
 me.x=ox;
 me.y=oy;

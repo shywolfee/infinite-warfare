@@ -48,7 +48,7 @@ while(true){wait(5);f.monitor();if(connected)server_accounts_network_pump();if(f
 
 void send_global_chat_or_command(string text)
 {
-text=text.trim_whitespace();if(text=="")return;if(string_to_lower_case(text)=="/accounts")show_server_accounts();else send_reliable(0,text,1);
+text=text.trim_whitespace();if(text=="")return;if(string_to_lower_case(text)=="/accounts")show_server_accounts();else if(string_to_lower_case(text)=="/credits")send_reliable(0,"account_balance",0);else send_reliable(0,text,1);
 }
 
 void show_player_profile(string selected_name)
@@ -285,10 +285,10 @@ bool freeforall_map_select()
 {
 iw_form f;
 f.create_window("Select a Free for All Map", false, true);
-int f_bg=f.create_button("&Shattersea - New Aurelia island and the Crown Canal", true);
-int f_ha=f.create_button("&Coruscant - four vast city levels and 144 named precincts");
-int f_gt=f.create_button("&Ghost Town - detailed streets, neighborhoods and wild outskirts");
-int f_fa=f.create_button("&Freya's Ascent - mountain terraces above Rootvault Caverns");
+int f_bg=f.create_button("&Shattersea - ferry quays, tidal crossings and a lighthouse headland", true);
+int f_ha=f.create_button("&Coruscant - freight streets beneath connected civic skywalks");
+int f_gt=f.create_button("&Ghost Town - saloon, railway depot, dry wash and cemetery");
+int f_fa=f.create_button("&Freya's Ascent - mill village, ravine trails, observatory and summit sanctuary");
 int f_back=f.create_button("Go &back", false, true);
 f.focus(f_bg);
 while(true)
@@ -298,12 +298,12 @@ f.monitor();
 lobby_form_netcheck();
 if (f.is_pressed(f_bg))
 {
-deploy_to_mode("battlegrounds", "Deploying to Shattersea at central New Aurelia.");
+deploy_to_mode("battlegrounds", "Deploying to Shattersea's coastal settlement.");
 return true;
 }
 else if (f.is_pressed(f_ha))
 {
-deploy_to_mode("habitat_alpha", "Deploying to Coruscant on the Civic Level transit forum.");
+deploy_to_mode("habitat_alpha", "Deploying to Coruscant's freight and civic district.");
 return true;
 }
 else if (f.is_pressed(f_gt))
@@ -313,7 +313,7 @@ return true;
 }
 else if (f.is_pressed(f_fa))
 {
-deploy_to_mode("freyas_ascent", "Deploying to Freya's Ascent in the Lower Settlement.");
+deploy_to_mode("freyas_ascent", "Deploying to Freya's Ascent.");
 return true;
 }
 else if (f.is_pressed(f_back))
@@ -549,7 +549,7 @@ int dash=string_contains(sel_name, " - ", 1);
 if(dash>0) sel_name=string_left(sel_name, dash);
 int space=string_contains(sel_name, " (", 1);
 if(space>0) sel_name=string_left(sel_name, space);
-p.play_stationary("trackingnew.ogg", false);
+p.play_stationary("executioners_rage/track.wav", false);
 speak("You are now tracking "+sel_name);
 tracking=sel_name;
 }
@@ -603,7 +603,7 @@ sel_name=string_left(sel_name, dash);
 int space=string_contains(sel_name, " (", 1);
 if(space>0)
 sel_name=string_left(sel_name, space);
-p.play_stationary("trackingnew.ogg", false);
+p.play_stationary("executioners_rage/track.wav", false);
 speak("You are now tracking "+sel_name);
 tracking=sel_name;
 return;

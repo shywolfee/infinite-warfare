@@ -323,7 +323,7 @@ void gesture_toggle_posture() {
 	if (in_vehicle) { speak("You cannot change posture while seated in a vehicle."); return; }
 	sitting=!sitting;
 	if (sitting) {
-		speak("Sitting. Movement is reduced, stamina recovers faster, and heavy weapons cannot be used.");
+		speak("Sitting. Movement is reduced, melee stamina recovers faster, and heavy weapons cannot be used.");
 		if (walktime>=300) speak("Your current heavy weapon is lowered until you stand.");
 	} else speak("Standing.");
 	send_reliable(0, sitting ? "posture sitting" : "posture standing", 0);
@@ -844,9 +844,9 @@ void android_equipment_menu() {
 // Native (touch) game menu used on Android in place of the escape_menu form.
 void android_escape_menu() {
 	while (true) {
-		string[] opts = {"Stats", "Equipment", "Team", "Account info", "View rules", "View developers", "Android gestures", "Exit game", "Close"};
+		string[] opts = {"Stats", "Equipment", "Team", "Account info", "View changes", "Staff and administrator panel", "View rules", "View developers", "Android gestures", "Exit game", "Close"};
 		int sel = android_select("Game Menu", opts);
-		if (sel < 0 or sel == 8) return;
+		if (sel < 0 or sel == 10) return;
 		if (sel == 0) {
 			string stats_text = "Weapon: " + string_replace(weapons[w], "_", " ", true) + "\n";
 			stats_text += "Location: " + get_location() + "\n";
@@ -871,23 +871,26 @@ void android_escape_menu() {
 			} else info += "\nNo registered account found for this username.";
 			android_message("Account Info", info);
 		} else if (sel == 4) {
+			show_changelog_form();
+		} else if (sel == 5) {
+			ingame_adminpanel();
+		} else if (sel == 6) {
 			file rf;
 			string rl = "Rules file not found.";
 			if (rf.open("rules.txt", "rb")) { rl = rf.read(); rf.close(); }
 			android_message("Rules", rl);
-		} else if (sel == 5) {
+		} else if (sel == 7) {
 			file df;
 			string dv = "Developers file not found.";
 			if (df.open("developers.txt", "rb")) { dv = df.read(); df.close(); }
 			android_message("Developers", dv);
-		} else if (sel == 6) {
+		} else if (sel == 8) {
 			show_android_gestures();
-		} else if (sel == 7) {
+		} else if (sel == 9) {
 			if (android_yesno("Are you sure you wish to exit the game?")) {
 				speak("Exiting the game");
 				send_reliable(0, "close", 0);
-				x = true;
-				xtimer.restart();
+				speak("Logout requested.");
 				return;
 			}
 		}

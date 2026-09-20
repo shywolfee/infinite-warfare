@@ -273,6 +273,25 @@ if(outval=="")outval=maps[index].return_tile(x, y, z);
 }
 return outval;
 }
+bool projectile_walkable_surface(string tile){return tile!="" and tile!="blank" and string_contains(tile,"wall",1)<0 and tile!="tree" and tile!="glass";}
+double projectile_cell_surface(int x,int y,double reference_z,string mapname)
+{
+int top=int(floor(reference_z+1.0)),bottom=top-10;for(int z=top;z>=bottom;z--)if(projectile_walkable_surface(get_tile_at(x,y,z,mapname)))return double(z)+.18;return -10000;
+}
+double projectile_surface_height(double x,double y,double reference_z,string mapname)
+{
+int x0=int(floor(x)),y0=int(floor(y));double fx=x-double(x0),fy=y-double(y0);double h00=projectile_cell_surface(x0,y0,reference_z,mapname);if(h00<-9000)return h00;
+double h10=projectile_cell_surface(x0+1,y0,reference_z,mapname),h01=projectile_cell_surface(x0,y0+1,reference_z,mapname),h11=projectile_cell_surface(x0+1,y0+1,reference_z,mapname);
+// Only blend adjacent one-unit stair/ramp samples. A larger discontinuity is
+// a ledge or wall and must remain a sharp drop rather than becoming a slope.
+if(h10<-9000 or absolute(h10-h00)>1.05)h10=h00;if(h01<-9000 or absolute(h01-h00)>1.05)h01=h00;
+double corner=(h10+h01)*.5;if(h11<-9000 or absolute(h11-corner)>1.05)h11=corner;
+double hx0=h00+(h10-h00)*fx,hx1=h01+(h11-h01)*fx;return hx0+(hx1-hx0)*fy;
+}
+void projectile_surface_gradient(double x,double y,double reference_z,string mapname,double &out gx,double &out gy)
+{
+double left=projectile_surface_height(x-.25,y,reference_z,mapname),right=projectile_surface_height(x+.25,y,reference_z,mapname),back=projectile_surface_height(x,y-.25,reference_z,mapname),front=projectile_surface_height(x,y+.25,reference_z,mapname);gx=(left<-9000 or right<-9000)?0:(right-left)*2.0;gy=(back<-9000 or front<-9000)?0:(front-back)*2.0;
+}
 bool spawn_tile_blocked(int x,int y,int z,string mapname)
 {
 string tile=get_tile_at(x,y,z,mapname);

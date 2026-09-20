@@ -48,7 +48,7 @@ while(true){wait(5);f.monitor();if(connected)server_accounts_network_pump();if(f
 
 void send_global_chat_or_command(string text)
 {
-text=text.trim_whitespace();if(text=="")return;if(string_to_lower_case(text)=="/accounts")show_server_accounts();else if(string_to_lower_case(text)=="/credits")send_reliable(0,"account_balance",0);else send_reliable(0,text,1);
+text=text.trim_whitespace();if(text=="")return;if(handle_local_chat_form_command(text))return;if(string_to_lower_case(text)=="/changes")show_changelog_form();else if(string_to_lower_case(text)=="/accounts")show_server_accounts();else if(string_to_lower_case(text)=="/credits")send_reliable(0,"account_balance",0);else send_reliable(0,text,1);
 }
 
 void show_player_profile(string selected_name)
@@ -90,7 +90,7 @@ return;
 
 void lobby_buffer_controls()
 {
-if (key_pressed(kb("chat"))) lobby_chat_prompt();
+if(kb_action_pressed("chat")) lobby_chat_prompt();
 chat_channel_shortcuts();
 if (key_pressed(kb("buffer_left")))
 {
@@ -112,7 +112,7 @@ if (key_pressed(KEY_PERIOD))
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) bottombufferitem();
 else nextbufferitem();
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_B)) buffer_manage_menu();
+if(kb_action_pressed("buffer_manager"))buffer_manage_menu();
 if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_C)) review_buffer_item();
 if (key_pressed(KEY_DELETE)) buffer_item_action_menu();
 }
@@ -570,7 +570,9 @@ f.add_list_item(f_list, shown[i]);
 int f_track=-1;
 int f_stop=-1;
 int f_profile=-1;
+int f_report=-1;
 if(shown.length()>0)f_profile=f.create_button("&View Profile");
+if(shown.length()>0)f_report=f.create_button("&Report Player");
 if (allow_tracking and shown.length()>0)
 {
 f_track=f.create_button("&Track");
@@ -612,6 +614,10 @@ return;
 if(f_profile>-1 and f.is_pressed(f_profile))
 {
 int sel=f.get_list_position(f_list);if(sel>=0 and sel<int(shown.length()))show_player_profile(player_name_from_list_label(shown[sel]));
+}
+if(f_report>-1 and f.is_pressed(f_report))
+{
+int sel=f.get_list_position(f_list);if(sel>=0 and sel<int(shown.length())){string target=player_name_from_list_label(shown[sel]);string reason=af_input("Reason for reporting "+target,"",true).trim_whitespace();if(reason!="")send_reliable(0,"/report "+target+" "+reason,1);}
 }
 if (f_stop>-1 and f.is_pressed(f_stop))
 {

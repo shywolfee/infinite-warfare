@@ -131,8 +131,7 @@ return "Duo Plane Kit, 500; Humvee Kit, 450; APC Kit, 700; Tank Kit, 900. Each v
 bool lobby_team_chat(string pname,uint peer,string raw)
 {
 string prefix=string_contains(raw,"/t ",1)==0?"/t ":"/team chat ";if(string_contains(raw,prefix,1)!=0)return false;int ti=get_team_index_for_member(pname);if(ti<0){send_reliable_id(peer,"You are not on a team.",2);return true;}string message=string_replace(raw,prefix,"",false).trim_whitespace();if(message=="")return true;
-for(uint tm=0;tm<teams[ti].members.length();tm++)for(uint li=0;li<lobby_clients.length();li++)if(string_to_lower_case(lobby_clients[li].name)==string_to_lower_case(teams[ti].members[tm].name))send_reliable_id(lobby_clients[li].peer_id,"Team: "+pname+": "+message,2);
-team_notice(ti,pname+": "+message);return true;
+send_team_chat_event(ti,pname,message);return true;
 }
 
 bool handle_team_command(int pi, string raw)
@@ -211,7 +210,7 @@ send_reliable(players[pi].peer_id, text, 2); return true;
 if (action=="chat" and p.length()>2)
 {
 string message=string_replace(raw, "/team chat ", "", false).trim_whitespace();
-if (message!=""){for(uint tm=0;tm<teams[ti].members.length();tm++){int recipient=get_player_index_from(teams[ti].members[tm].name);if(recipient>=0)send_reliable(players[recipient].peer_id,"play_s firefight_team_com.ogg",0);}team_notice(ti,pname+": "+message);}
+if (message!="")send_team_chat_event(ti,pname,message);
 return true;
 }
 if (action=="invite" and p.length()>2)

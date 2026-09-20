@@ -14,6 +14,7 @@
 #include "includes/world_objects.nvgt"
 #include "includes/team.nvgt"
 #include "includes/moderation.nvgt"
+#include "includes/chat_system.nvgt"
 #include "includes/rotation.nvgt"
 #include "includes/weapon.nvgt"
 #include "includes/grenade.nvgt"
@@ -65,8 +66,8 @@ int player_index=get_player_index(peer);if(player_index>=0)return staff_can(play
 #include "includes/map_validation.nvgt"
 void route_private_message(string sender,uint sender_peer,string target,string message)
 {
-int target_player=get_player_index_from(target);if(target_player>=0){send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_reliable(players[target_player].peer_id,"pm from "+sender+": "+message,2);send_reliable(sender_peer,"pm sent successfully",2);return;}
-for(uint i=0;i<lobby_clients.length();i++)if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(target)){send_reliable_id(lobby_clients[i].peer_id,"play_s pm.ogg",0);send_reliable_id(lobby_clients[i].peer_id,"pm from "+sender+": "+message,2);send_reliable(sender_peer,"pm sent successfully",2);return;}send_reliable(sender_peer,"player not found.",2);
+recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=message;record.scope="pm:"+sender;record.timestamp=chat_timestamp(false);int target_player=get_player_index_from(target);if(target_player>=0){if(chat_is_blocked(players[target_player].name,sender)){send_reliable(sender_peer,"That player is not accepting messages from you.",2);return;}send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_chat_event(players[target_player].peer_id,record.scope,sender,message,record);recent_chat_messages.insert_last(record);send_reliable(sender_peer,"pm sent successfully",2);return;}
+for(uint i=0;i<lobby_clients.length();i++)if(string_to_lower_case(lobby_clients[i].name)==string_to_lower_case(target)){if(chat_is_blocked(lobby_clients[i].name,sender)){send_reliable(sender_peer,"That player is not accepting messages from you.",2);return;}send_reliable_id(lobby_clients[i].peer_id,"play_s pm.ogg",0);send_chat_event(lobby_clients[i].peer_id,record.scope,sender,message,record);recent_chat_messages.insert_last(record);send_reliable(sender_peer,"pm sent successfully",2);return;}send_reliable(sender_peer,"player not found.",2);
 }
 int next_bug_id=1;
 const string BUG_SECRET = "IW_bUg_rPt_K3y_zX5vN8mQ2wL9!";
@@ -217,6 +218,7 @@ playerloop();
 itemloop();
 maploop();
 er_fixture_loop();
+chat_maintenance();
 }
 e=n.request();
 if(service_world and key_pressed(KEY_H))
@@ -236,6 +238,7 @@ if(e.type==event_disconnect)
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
+int combat_remaining=combat_logout_remaining(players[index]);if(!players[index].death and combat_remaining>0){players[index].combat_logout_ghost=true;admin_log(players[index].name,"COMBAT_DISCONNECT","world body retained for "+((combat_remaining+999)/1000)+" seconds");return;}
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
 wait(100);
 voice_rooms.delete(string_to_lower_case(players[index].name));
@@ -308,6 +311,10 @@ if(deliver) send_unreliable(players[vr].peer_id,outgoing,7);
 if (e.channel==1)
 {
 string[] parsed=string_split(get_event_message(), " ",true);
+if(parsed.length()==0)return;
+if(!validate_chat_command(e.peer_id,parsed[0]))return;
+if(service_requester_staff(e.peer_id) and administrative_chat_command(parsed[0]))admin_log(service_requester_name(e.peer_id),"STAFF_COMMAND",get_event_message());
+if(handle_chat_utility_command(e.peer_id,get_event_message()))return;
 if(parsed.length()>0 and parsed[0]=="/physicsstatus")
 {
 if(service_requester_staff(e.peer_id))send_reliable(e.peer_id,server_physics_status(),2);
@@ -625,7 +632,7 @@ if(players[index].dev==true)
 pn+="developer ";
 }
 pn+=players[index].name;
-send_reliable(0,pn+": "+get_event_message(),1);
+route_language_chat(players[index].peer_id,players[index].name,pn,get_event_message());
 }
 }
 else
@@ -649,13 +656,13 @@ string prefix;
 if (lobby_clients[lobby_index].admin) prefix+="admin ";
 if (lobby_clients[lobby_index].dev) prefix+="developer ";
 prefix+=lobby_clients[lobby_index].name;
-send_reliable(0, prefix+": "+get_event_message(), 1);
+route_language_chat(lobby_clients[lobby_index].peer_id,lobby_clients[lobby_index].name,prefix,get_event_message());
 }
 }
 }
 if(e.channel==6)
 {
-int map_sender=get_player_index(e.peer_id);if(map_sender>=0){string prefix=(players[map_sender].admin?"admin ":"")+(players[map_sender].dev?"developer ":"")+players[map_sender].name+": "+get_event_message();for(uint receiver=0;receiver<players.length();receiver++)if(players[receiver].map==players[map_sender].map)send_reliable(players[receiver].peer_id,prefix,6);}
+int map_sender=get_player_index(e.peer_id);if(map_sender>=0){string prefix=(players[map_sender].admin?"admin ":"")+(players[map_sender].dev?"developer ":"")+players[map_sender].name;recent_chat_message record;record.id=next_chat_message_id++;record.sender=players[map_sender].name;record.body=get_event_message();record.scope="map:"+players[map_sender].map;record.timestamp=chat_timestamp(false);for(uint receiver=0;receiver<players.length();receiver++)if(players[receiver].map==players[map_sender].map and !chat_is_blocked(players[receiver].name,players[map_sender].name))send_chat_event(players[receiver].peer_id,record.scope,prefix,get_event_message(),record);recent_chat_messages.insert_last(record);}
 }
 if (e.channel==0)
 {
@@ -1952,6 +1959,7 @@ if(index > -1)
 {
 if(players[index].in_plane==false)
 {
+players[index].authoritative_falling=true;players[index].fall_start_z=players[index].z;
 send_reliable(0, "fall "+players[index].name+" "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 0, index);
 }
 }
@@ -1961,6 +1969,16 @@ else if(parsed[0]=="hardland" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
+int reported=string_to_number(parsed[1]);if(reported<0)reported=0;if(reported>200)reported=200;
+int observed=players[index].authoritative_falling?players[index].fall_start_z-players[index].z:0;if(observed<0)observed=0;
+// Allow one tile of packet-order tolerance, but never accept a client claim
+// materially larger than the vertical displacement received by the server.
+int distance=reported;if(players[index].authoritative_falling and distance>observed+1)distance=observed+1;
+players[index].authoritative_falling=false;
+int damage=apply_player_damage(players[index],scaled_fall_damage(distance),"a "+distance+"-unit fall");
+double impact_speed=sqrt(2.0*9.81*double(distance));
+send_reliable(players[index].peer_id,"fall_damage "+damage+" "+distance+" "+impact_speed,0);
+send_reliable(0,"hardland "+players[index].name+" "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map,0,index);
 }
 }
 else if(parsed[0]=="trackinfo" and parsed.length()>1)
@@ -2159,7 +2177,6 @@ if(index > -1)
 {
 int item_configuration=parsed.length()>2?string_to_number(parsed[2]):1;if(item_configuration<0 or item_configuration>2)item_configuration=1;
 if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
-else if(server_energy_drink(parsed[1]))begin_server_energy_drink(players[index],parsed[1],item_configuration);
 else if(er_use_item(players[index],parsed[1],item_configuration)){return;}
 else if(parsed[1]=="hightech_grapple")
 {
@@ -2502,7 +2519,7 @@ send_reliable(players[index].peer_id, "you are already wearing a bomb_vest.", 0)
 string armor_region=armor_region_for(parsed[1]);
 if(armor_region!="")equip_player_armor(players[index],parsed[1]);
 if(string_contains(parsed[1],"_patch",1)>=0 or parsed[1]=="aramid_repair_tape" or parsed[1]=="ceramic_plate_epoxy" or parsed[1]=="armor_rivet_pack")apply_armor_patch(players[index],parsed[1]);
-string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","energetic_potion_red","energetic_potion_blue","energetic_potion_green","energetic_potion_rainbow","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","er_frag_grenade","er_molotov","er_bowling_bomb","er_motion_bomb","er_dr_bomb","er_ghost_bomb","er_time_bomb","er_proximity_mine","er_directional_claymore","carrier_missile","conventional_guided_missile","cannon_ball","hightech_grapple","anti_personnel_security_camera","neural_intrusion_device","field_restraints","reconnaissance_ring","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
+string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","er_frag_grenade","er_molotov","er_bowling_bomb","er_motion_bomb","er_dr_bomb","er_ghost_bomb","er_time_bomb","er_proximity_mine","er_directional_claymore","carrier_missile","conventional_guided_missile","cannon_ball","hightech_grapple","anti_personnel_security_camera","neural_intrusion_device","field_restraints","reconnaissance_ring","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
 bool is_usable=false;
 for(uint ui=0; ui<usable_items.length(); ui++)
 {
@@ -2648,7 +2665,8 @@ else if(parsed[0]=="close")
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
-send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
+int remaining=combat_logout_remaining(players[index]);if(!players[index].death and remaining>0){send_reliable(players[index].peer_id,"logout_denied "+((remaining+999)/1000),0);return;}send_reliable(players[index].peer_id,"logout_allowed",0);
+send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0,index);
 players.remove_at(index);
 }
 }
@@ -3162,6 +3180,7 @@ else if(parsed[0]=="player_remove")
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
+int remaining=combat_logout_remaining(players[index]);if(!players[index].death and remaining>0){send_reliable(players[index].peer_id,"logout_denied "+((remaining+999)/1000),0);return;}
 voice_rooms.delete(string_to_lower_case(players[index].name));
 players.remove_at(index);
 }

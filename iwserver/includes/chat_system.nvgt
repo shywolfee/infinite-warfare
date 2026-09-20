@@ -1,0 +1,93 @@
+// Persistent, server-authoritative chat routing and moderation support.
+string[] chat_language_ids={"english","spanish","french","german","italian","portuguese","dutch","polish","russian","ukrainian","czech","slovak","hungarian","romanian","bulgarian","greek","turkish","arabic","hebrew","persian","hindi","bengali","punjabi","urdu","tamil","telugu","marathi","gujarati","chinese","japanese","korean","vietnamese","thai","indonesian","malay","filipino","swahili","afrikaans","danish","swedish","unfiltered"};
+string[] chat_language_names={"English","Spanish","French","German","Italian","Portuguese","Dutch","Polish","Russian","Ukrainian","Czech","Slovak","Hungarian","Romanian","Bulgarian","Greek","Turkish","Arabic","Hebrew","Persian","Hindi","Bengali","Punjabi","Urdu","Tamil","Telugu","Marathi","Gujarati","Chinese","Japanese","Korean","Vietnamese","Thai","Indonesian","Malay","Filipino","Swahili","Afrikaans","Danish","Swedish","Unfiltered"};
+uint64 next_chat_message_id=1;
+timer chat_maintenance_timer;
+class recent_chat_message{uint64 id;string sender;string body;string scope;string timestamp;timer age;int[] recipients;bool withdrawn=false;}
+recent_chat_message@[] recent_chat_messages;
+class chat_group{string name;string owner;string[] members;}
+chat_group@[] chat_groups;
+string chat_pad(int value){return value<10?"0"+value:""+value;}
+string chat_join(const string[] &in values,string separator){string output="";for(uint i=0;i<values.length();i++){if(i>0)output+=separator;output+=values[i];}return output;}
+string chat_timestamp(bool date=true){calendar d;string time=chat_pad(d.hour)+":"+chat_pad(d.minute)+":"+chat_pad(d.second);return date?d.year+"-"+chat_pad(d.month)+"-"+chat_pad(d.day)+" "+time:time;}
+string chat_escape(string value){value=string_replace(value,"%","%25",true);value=string_replace(value,"|","%7C",true);value=string_replace(value,"\r","%0D",true);return string_replace(value,"\n","%0A",true);}
+string chat_safe_account(string name){string result="";name=string_to_lower_case(name);for(uint i=0;i<name.length();i++){string c=string_mid(name,i,1);if((c>="a" and c<="z") or (c>="0" and c<="9") or c=="_" or c=="-")result+=c;}return result==""?"unknown":result;}
+void admin_log(string actor,string action,string details)
+{
+if(!directory_exists("administration"))directory_create("administration");file f;if(f.open("administration/admin.log","ab")){f.write(chat_timestamp(true)+" | "+actor+" | "+action+" | "+details+"\r\n");f.close();}
+}
+int chat_language_index(string id){id=string_to_lower_case(id);for(uint i=0;i<chat_language_ids.length();i++)if(chat_language_ids[i]==id or string_to_lower_case(chat_language_names[i])==id)return i;return -1;}
+string chat_channel_for_peer(uint peer){int p=get_player_index(peer);if(p>=0)return players[p].chat_channel;int l=get_lobby_client_index(peer);return l>=0?lobby_clients[l].chat_channel:"english";}
+string chat_name_for_peer(uint peer){int p=get_player_index(peer);if(p>=0)return players[p].name;int l=get_lobby_client_index(peer);return l>=0?lobby_clients[l].name:"";}
+string blocked_path(string owner){return "administration/blocks/"+chat_safe_account(owner)+".txt";}
+bool chat_is_blocked(string owner,string sender)
+{
+if(string_to_lower_case(owner)==string_to_lower_case(sender))return false;string path=blocked_path(owner);if(!file_exists(path))return false;file f;if(!f.open(path,"rb"))return false;string[] names=string_split(f.read(),"\n",true);f.close();for(uint i=0;i<names.length();i++)if(string_to_lower_case(names[i].trim_whitespace())==string_to_lower_case(sender))return true;return false;
+}
+void chat_set_block(string owner,string target,bool blocked)
+{
+if(!directory_exists("administration/blocks"))directory_create("administration/blocks");string path=blocked_path(owner);string[] names;if(file_exists(path)){file f;if(f.open(path,"rb")){names=string_split(f.read(),"\n",true);f.close();}}string output="";bool found=false;for(uint i=0;i<names.length();i++){string n=names[i].trim_whitespace();if(n=="")continue;if(string_to_lower_case(n)==string_to_lower_case(target)){found=true;if(!blocked)continue;}output+=n+"\r\n";}if(blocked and !found)output+=target+"\r\n";file f;if(f.open(path,"wb")){f.write(output);f.close();}
+}
+void send_chat_event(uint peer,string scope,string sender,string body,recent_chat_message@ record)
+{
+send_reliable(peer,"chat_event|"+record.id+"|"+chat_escape(scope)+"|"+chat_escape(sender)+"|"+chat_escape(body)+"|"+chat_escape(record.timestamp),0);record.recipients.insert_last(peer);
+}
+void route_language_chat(uint sender_peer,string sender,string display_sender,string body)
+{
+recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=body;record.scope="language:"+chat_channel_for_peer(sender_peer);record.timestamp=chat_timestamp(false);for(uint i=0;i<players.length();i++)if(!players[i].combat_logout_ghost and players[i].chat_channel==chat_channel_for_peer(sender_peer) and !chat_is_blocked(players[i].name,sender))send_chat_event(players[i].peer_id,record.scope,display_sender,body,record);for(uint i=0;i<lobby_clients.length();i++)if(lobby_clients[i].chat_channel==chat_channel_for_peer(sender_peer) and !chat_is_blocked(lobby_clients[i].name,sender))send_chat_event(lobby_clients[i].peer_id,record.scope,display_sender,body,record);recent_chat_messages.insert_last(record);
+}
+void chat_staff_notice(string text)
+{
+for(uint i=0;i<players.length();i++)if(staff_can(players[i].name,"staff",players[i].dev,players[i].admin)){send_reliable(players[i].peer_id,"play_s notify.ogg",0);send_reliable(players[i].peer_id,text,2);}for(uint i=0;i<lobby_clients.length();i++)if(staff_can(lobby_clients[i].name,"staff",lobby_clients[i].dev,lobby_clients[i].admin)){send_reliable_id(lobby_clients[i].peer_id,"play_s notify.ogg",0);send_reliable_id(lobby_clients[i].peer_id,text,2);}
+}
+bool chat_withdraw(uint peer,string sender)
+{
+for(int i=int(recent_chat_messages.length())-1;i>=0;i--){recent_chat_message@ message=recent_chat_messages[i];if(message.sender!=sender or message.withdrawn)continue;if(message.age.elapsed>10000){send_reliable(peer,"Your last message is older than ten seconds and can no longer be withdrawn.",2);return true;}message.withdrawn=true;for(uint r=0;r<message.recipients.length();r++)send_reliable(message.recipients[r],"chat_withdraw|"+message.id+"|"+chat_escape(sender),0);string detail="withdrew #"+message.id+" from "+message.scope+": "+message.body;admin_log(sender,"MESSAGE_WITHDRAW",detail);chat_staff_notice(sender+" "+detail);send_reliable(peer,"Message withdrawn. Staff received an immediate audit copy.",2);return true;}send_reliable(peer,"You have no recent message to withdraw.",2);return true;
+}
+bool handle_chat_utility_command(uint peer,string raw)
+{
+string[] p=string_split(raw," ",true);if(p.length()==0)return false;string command=string_to_lower_case(p[0]);string actor=chat_name_for_peer(peer);if(command=="/channel"){if(p.length()<2){send_reliable(peer,"Usage: /channel language. Available: "+chat_join(chat_language_names,", "),2);return true;}int c=chat_language_index(p[1]);if(c<0){send_reliable(peer,"Unknown language channel. Use /channel by itself to list all forty languages and Unfiltered.",2);return true;}int pi=get_player_index(peer),li=get_lobby_client_index(peer);if(pi>=0)players[pi].chat_channel=chat_language_ids[c];if(li>=0)lobby_clients[li].chat_channel=chat_language_ids[c];send_reliable(peer,"Global chat channel changed to "+chat_language_names[c]+".",2);return true;}if(command=="/withdraw")return chat_withdraw(peer,actor);if(command=="/block" or command=="/unblock"){if(p.length()<2){send_reliable(peer,"Usage: "+command+" player",2);return true;}if(string_to_lower_case(p[1])==string_to_lower_case(actor)){send_reliable(peer,"You cannot block yourself.",2);return true;}chat_set_block(actor,p[1],command=="/block");send_reliable(peer,p[1]+(command=="/block"?" is now blocked.":" is no longer blocked."),2);return true;}if(command=="/blocked"){string path=blocked_path(actor);if(!file_exists(path)){send_reliable(peer,"Your blocked-player list is empty.",2);return true;}file f;f.open(path,"rb");string data=f.read();f.close();send_reliable(peer,data.trim_whitespace()==""?"Your blocked-player list is empty.":"Blocked players: "+string_replace(data,"\n",", ",true),2);return true;}if(command=="/group")return handle_group_command(peer,actor,raw);if(command=="/report")return handle_player_report(peer,actor,raw);if(command=="/reports")return handle_report_review(peer,p);if(command=="/gc")return handle_server_gc(peer,actor);if(command=="/adminlog")return handle_admin_log(peer,actor,p);return false;
+}
+
+int chat_group_index_for(string member){for(uint i=0;i<chat_groups.length();i++)for(uint m=0;m<chat_groups[i].members.length();m++)if(string_to_lower_case(chat_groups[i].members[m])==string_to_lower_case(member))return i;return -1;}
+void send_group_message(int group_index,string sender,string body)
+{
+recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=body;record.scope="group:"+chat_groups[group_index].name;record.timestamp=chat_timestamp(false);for(uint m=0;m<chat_groups[group_index].members.length();m++){string member=chat_groups[group_index].members[m];if(chat_is_blocked(member,sender))continue;int pi=get_player_index_from(member);if(pi>=0)send_chat_event(players[pi].peer_id,record.scope,sender,body,record);for(uint li=0;li<lobby_clients.length();li++)if(string_to_lower_case(lobby_clients[li].name)==string_to_lower_case(member))send_chat_event(lobby_clients[li].peer_id,record.scope,sender,body,record);}recent_chat_messages.insert_last(record);
+}
+void send_team_chat_event(int team_index,string sender,string body)
+{
+recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=body;record.scope="team";record.timestamp=chat_timestamp(false);for(uint m=0;m<teams[team_index].members.length();m++){string member=teams[team_index].members[m].name;if(chat_is_blocked(member,sender))continue;int pi=get_player_index_from(member);if(pi>=0){send_reliable(players[pi].peer_id,"play_s teamchat.ogg",0);send_chat_event(players[pi].peer_id,record.scope,sender,body,record);}for(uint li=0;li<lobby_clients.length();li++)if(string_to_lower_case(lobby_clients[li].name)==string_to_lower_case(member)){send_reliable_id(lobby_clients[li].peer_id,"play_s teamchat.ogg",0);send_chat_event(lobby_clients[li].peer_id,record.scope,sender,body,record);}}recent_chat_messages.insert_last(record);
+}
+bool handle_group_command(uint peer,string actor,string raw)
+{
+string[] p=string_split(raw," ",true);string action=p.length()>1?string_to_lower_case(p[1]):"info";int gi=chat_group_index_for(actor);if(action=="create"){if(gi>=0){send_reliable(peer,"Leave your current group first.",2);return true;}string name=string_replace(raw,"/group create ","",false).trim_whitespace();if(name=="" or string_contains(name,"|",1)>=0){send_reliable(peer,"Usage: /group create name",2);return true;}chat_group@ g=chat_group();g.name=name;g.owner=actor;g.members.insert_last(actor);chat_groups.insert_last(g);send_reliable(peer,"Created group "+name+". Add people with /group add player.",2);return true;}if(gi<0){send_reliable(peer,"You are not in a group. Use /group create name.",2);return true;}if(action=="add" and p.length()>2){if(chat_groups[gi].owner!=actor){send_reliable(peer,"Only the group owner can add members.",2);return true;}if(chat_group_index_for(p[2])>=0){send_reliable(peer,"That player is already in a group.",2);return true;}chat_groups[gi].members.insert_last(p[2]);send_group_message(gi,actor,p[2]+" joined the group.");return true;}if(action=="leave"){for(uint m=0;m<chat_groups[gi].members.length();m++)if(chat_groups[gi].members[m]==actor){chat_groups[gi].members.remove_at(m);break;}if(chat_groups[gi].members.length()==0)chat_groups.remove_at(gi);else if(chat_groups[gi].owner==actor)chat_groups[gi].owner=chat_groups[gi].members[0];send_reliable(peer,"You left the group.",2);return true;}if(action=="chat" and p.length()>2){send_group_message(gi,actor,string_replace(raw,"/group chat ","",false).trim_whitespace());return true;}send_reliable(peer,"Group "+chat_groups[gi].name+". Members: "+chat_join(chat_groups[gi].members,", ")+". Commands: /group chat message, /group add player, /group leave.",2);return true;
+}
+bool handle_player_report(uint peer,string actor,string raw)
+{
+string[] p=string_split(raw," ",true);if(p.length()<3){send_reliable(peer,"Usage: /report player reason. A message is not required.",2);return true;}string reason=string_replace(raw,"/report "+p[1]+" ","",false).trim_whitespace();if(!directory_exists("administration/player_reports"))directory_create("administration/player_reports");calendar d;string id=d.year+chat_pad(d.month)+chat_pad(d.day)+chat_pad(d.hour)+chat_pad(d.minute)+chat_pad(d.second)+"-"+chat_safe_account(actor)+"-"+random(1000,9999);file f;string path="administration/player_reports/"+id+".txt";if(f.open(path,"wb")){f.write("Report ID: "+id+"\r\nFiled: "+chat_timestamp(true)+"\r\nReporter: "+actor+"\r\nSubject: "+p[1]+"\r\nReason: "+reason+"\r\n");f.close();}admin_log(actor,"PLAYER_REPORT","subject="+p[1]+"; reason="+reason);chat_staff_notice("Player report "+id+" from "+actor+" against "+p[1]+": "+reason);send_reliable(peer,"Player report "+id+" was filed and staff were notified.",2);return true;
+}
+bool handle_report_review(uint peer,const string[] &in p)
+{
+if(!service_requester_staff(peer)){send_reliable(peer,"Staff access is required to review player reports.",2);return true;}if(p.length()>1){if(string_contains(p[1],"..",1)>=0 or string_contains(p[1],"/",1)>=0 or string_contains(p[1],"\\",1)>=0){send_reliable(peer,"That player report ID is invalid.",2);return true;}string path="administration/player_reports/"+p[1]+".txt";if(!file_exists(path)){send_reliable(peer,"That player report does not exist.",2);return true;}file f;f.open(path,"rb");string contents=f.read();f.close();send_reliable(peer,contents,2);return true;}string[] files=find_files("administration/player_reports/*.txt");if(files.length()==0){send_reliable(peer,"There are no player reports.",2);return true;}string output="Player reports: ";int start=int(files.length())-30;if(start<0)start=0;for(uint i=start;i<files.length();i++){if(i>uint(start))output+=", ";output+=string_replace(files[i],".txt","",true);}output+=". Use /reports report-id to read one.";send_reliable(peer,output,2);return true;
+}
+bool handle_server_gc(uint peer,string actor)
+{
+if(!service_requester_staff(peer)){send_reliable(peer,"Staff access is required to run server cleanup.",2);return true;}uint before=recent_chat_messages.length();for(int i=int(recent_chat_messages.length())-1;i>=0;i--)if(recent_chat_messages[i].age.elapsed>10000 and recent_chat_messages[i].withdrawn)recent_chat_messages.remove_at(i);garbage_collect(true);admin_log(actor,"SERVER_GC","recent chat records "+before+" to "+recent_chat_messages.length());send_reliable(peer,"Server cleanup completed. Recent chat records: "+before+" before, "+recent_chat_messages.length()+" after. A full runtime garbage collection was completed.",2);return true;
+}
+bool handle_admin_log(uint peer,string actor,const string[] &in p)
+{
+if(!service_requester_staff(peer)){send_reliable(peer,"Staff access is required to inspect the administration log.",2);return true;}if(!file_exists("administration/admin.log")){send_reliable(peer,"The administration log is empty.",2);return true;}file f;f.open("administration/admin.log","rb");string[] lines=string_split(f.read(),"\n",true);f.close();int count=p.length()>1?string_to_number(p[1]):20;if(count<1)count=1;if(count>100)count=100;string output="Administration log, latest "+count+" entries: ";int start=int(lines.length())-count;if(start<0)start=0;for(uint i=start;i<lines.length();i++)if(lines[i].trim_whitespace()!="")output+=lines[i].trim_whitespace()+"; ";send_reliable(peer,output,2);return true;
+}
+bool known_chat_command(string command)
+{
+string[] known={"/afk","/accounts","/adminlog","/ban","/bans","/blocked","/block","/bunkers","/channel","/chestfind","/gc","/getmyshit","/give","/givemyself","/go","/group","/kick","/motd","/newadmin","/notify","/physicsstatus","/pm","/quitserver","/reboot","/removeitems","/report","/reports","/staff","/staffrole","/start_admin","/t","/team","/unban","/unblock","/unstaff","/warn","/warnings","/withdraw"};for(uint i=0;i<known.length();i++)if(known[i]==command)return true;return false;
+}
+bool administrative_chat_command(string command){string[] commands={"/accounts","/adminlog","/ban","/bans","/gc","/give","/givemyself","/go","/kick","/motd","/newadmin","/notify","/physicsstatus","/quitserver","/reboot","/removeitems","/staff","/staffrole","/start_admin","/unban","/unstaff","/warn","/warnings"};command=string_to_lower_case(command);for(uint i=0;i<commands.length();i++)if(commands[i]==command)return true;return false;}
+bool validate_chat_command(uint peer,string command)
+{
+command=string_to_lower_case(command);if(command=="" or string_left(command,1)!="/")return true;if(known_chat_command(command))return true;string[] known={"/afk","/accounts","/adminlog","/ban","/bans","/blocked","/block","/bunkers","/channel","/chestfind","/gc","/give","/givemyself","/go","/group","/kick","/motd","/notify","/physicsstatus","/pm","/quitserver","/reboot","/removeitems","/report","/reports","/staff","/staffrole","/t","/team","/unban","/unblock","/unstaff","/warn","/warnings","/withdraw"};string matches="";int count=0;for(uint i=0;i<known.length();i++)if(string_contains(known[i],command,1)==0){if(count++>0)matches+=", ";matches+=known[i];}if(count>0)send_reliable(peer,"That abbreviation is ambiguous or incomplete. Matching commands: "+matches+". Enter the full command.",2);else send_reliable(peer,"Unknown command "+command+". The command was not sent as chat.",2);return false;
+}
+void chat_maintenance()
+{
+if(chat_maintenance_timer.elapsed<300000)return;chat_maintenance_timer.restart();for(int i=int(recent_chat_messages.length())-1;i>=0;i--)if(recent_chat_messages[i].age.elapsed>300000)recent_chat_messages.remove_at(i);garbage_collect(false);
+}

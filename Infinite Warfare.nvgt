@@ -20,6 +20,7 @@
 #include "includes/item_mechanics.nvgt"
 #include "includes/release_tools.nvgt"
 #include"includes/buffer.nvgt"
+#include "includes/chat_system.nvgt"
 #include"includes/dlg.nvgt"
 #include "includes/attachments.nvgt"
 #include"includes/inventory.nvgt"
@@ -53,6 +54,7 @@ bool menu_wrap_enabled=false;
 bool show_target_hp=false;
 bool remember_me=true;
 bool auto_log_buffers=false;
+bool show_chat_timestamps=true;
 bool classic_main_menu=false;
 bool fullscreen_enabled=false;
 bool touch_keyboard_enabled=false;
@@ -213,8 +215,6 @@ bool sitting=false;
 string[] target_regions={"whole body","head","torso","arms","legs"};
 int target_region_index=0;
 timer seated_jump_timer;
-timer sprint_stamina_timer;
-bool sprint_audio_active=false;
 bool in_plane=false;
 timer flytimer;
 bool bombloaded=false;
@@ -247,8 +247,8 @@ p.play_stationary(activation?"menuenter.ogg":"menumove.ogg",false);
 }
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.511;
-int build_number=84;
+double version=0.512;
+int build_number=85;
 string build_date="2026-09-19";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
@@ -508,7 +508,7 @@ register_attachment("sniper_suppressor", "Precision Suppressor", "silenced", "mu
 register_expanded_combat_attachments();
 initialize_ammunition_loads();
 // --- Holster registrations ---
-string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "taser_x26", "select_fire_machine_pistol", "er_service_pistol"};
+string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "select_fire_machine_pistol", "er_service_pistol"};
 register_holster("pistol_holster", "Pistol Holster", h_pistol, false, 0, "");
 string[] h_357 = {"taurus_model66_revolver"};
 register_holster("gun_belt_357", ".357 Gun Belt", h_357, true, 24, ".357_magnum_ammo_belt");
@@ -713,7 +713,7 @@ if(recent_pm_senders.length()==0){speak("Nobody has sent you a private message t
 }
 void chat_channel_shortcuts()
 {
-bool alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);if(alt and !shift and key_pressed(KEY_BACKSLASH)){recent_pm_form();return;}if(!alt and key_pressed(KEY_BACKSLASH)){if(!shift and mapname=="main"){speak("Map chat is available after entering a game mode.");return;}string text=af_input(shift?"Team chat":"Current map chat","",true).trim_whitespace();if(text!=""){if(shift)send_team_command("chat "+text);else send_reliable(0,text,6);}}
+if(kb_action_pressed("recent_private_messages")){recent_pm_form();return;}if(kb_action_pressed("group_chat")){string text=af_input("Group chat","",true).trim_whitespace();if(text!="")send_reliable(0,"/group chat "+text,1);return;}if(kb_action_pressed("team_chat")){string text=af_input("Team chat","",true).trim_whitespace();if(text!="")send_team_command("chat "+text);return;}if(kb_action_pressed("map_chat")){if(mapname=="main"){speak("Map chat is available after entering a game mode.");return;}string text=af_input("Current map chat","",true).trim_whitespace();if(text!="")send_reliable(0,text,6);}
 }
 void packet_diagnostics_viewer()
 {
@@ -1723,7 +1723,7 @@ int quickbar_item_score(string item)
 {
 int amount=0;inv.get(item,amount);int score=amount;
 if(item=="time_bomb")score+=1100;else if(item=="c4")score+=1050;else if(item=="frag_grenade")score+=1000;else if(item=="impact_grenade")score+=980;else if(item=="incendiary_grenade")score+=950;else if(item=="gas_grenade")score+=920;else if(item=="proximity_mine" or item=="claymore")score+=880;else if(item=="concussion_grenade" or item=="flashbang")score+=820;
-else if(item=="trauma_repair_serum_bottle")score+=1000;else if(item=="nanocyte_solution_bottle")score+=970;else if(item=="medigel_tonic_bottle")score+=940;else if(item=="coagulant_serum_bottle")score+=920;else if(item=="regenex_tablet_bottle")score+=900;else if(item=="life_injection")score+=850;else if(item=="adrenaline_syringe")score+=800;else if(string_contains(item,"energetic_potion",1)>=0)score+=700;
+else if(item=="trauma_repair_serum_bottle")score+=1000;else if(item=="nanocyte_solution_bottle")score+=970;else if(item=="medigel_tonic_bottle")score+=940;else if(item=="coagulant_serum_bottle")score+=920;else if(item=="regenex_tablet_bottle")score+=900;else if(item=="life_injection")score+=850;else if(item=="adrenaline_syringe")score+=800;
 else if(item=="translocator")score+=1000;else if(item=="biomonitor_bracelet" or item=="wirenet")score+=950;else if(item=="hypercomp")score+=900;else if(item=="binoculars")score+=850;else if(item=="nanomatic_multitool")score+=800;else if(string_contains(item,"team_",1)==0)score+=700;else score+=100;
 return score;
 }
@@ -1898,7 +1898,7 @@ void inv_menu_use(string key)
 	else
 	{
 		on_item_used(key);
-		if (string_contains(key, "energetic_potion", 1) < 0 and !executioners_handles_item(key) and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key) and !is_ammo_reserve_item(key))
+		if (!executioners_handles_item(key) and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key) and !is_ammo_reserve_item(key))
 			send_reliable(0,item_use_command(key),0);
 	}
 }
@@ -2059,13 +2059,6 @@ else if (item == "bomb_vest")
 {
 equip_item("bomb_vest", "body");
 speak("Bomb vest equipped.");
-}
-else if (string_contains(item,"energetic_potion",1)==0)
-{
-// Energy drinks are completed by the authoritative server after their audible
-// drinking interval; inventory, stamina, stimulant load and delayed crashes
-// therefore cannot be applied early or duplicated by the client.
-send_reliable(0,item_use_command(item),0);
 }
 else if (item == "translocator")
 {
@@ -3452,8 +3445,8 @@ else
 if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
-// Energetic potions, bomb vests, utility items, and attachments are client-only; others go to server.
-if (string_contains(item, "energetic_potion", 1) < 0 and !executioners_handles_item(item) and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item) and !is_ammo_reserve_item(item))
+// Client-owned utility items and attachments are handled locally; others go to server.
+if (!executioners_handles_item(item) and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item) and !is_ammo_reserve_item(item))
 send_reliable(0,item_use_command(item),0);
 }
 }
@@ -3571,7 +3564,7 @@ wirenet_check();
 anticheat_scan();
 if (afk_mode and !afk_transitioning)
 {
-if (key_pressed(kb("chat")))
+if(kb_action_pressed("chat"))
 {
 string chat=af_input("Enter your message","",true);
 if (chat=="/afk")
@@ -3642,14 +3635,7 @@ camera.x=mr.x;
 camera.y=mr.y;
 camera.z=me.z;
 }
-if(key_pressed(kb("volume_up")) and get_sound_master_volume()<0)
-{
-set_sound_master_volume(get_sound_master_volume()+5);
-}
-if(key_pressed(kb("volume_down")) and get_sound_master_volume()>-60)
-{
-set_sound_master_volume(get_sound_master_volume()-5);
-}
+handle_volume();
 if (key_pressed(kb("next_item")) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 if (shift_is_down())
@@ -3777,6 +3763,7 @@ if (fire_now)
 {
 if(!manual_weapon_can_fire(weapons[w],true))fire_now=false;
 if(fire_now and !weapon_handling_can_fire(weapons[w],true))fire_now=false;
+if(fire_now and melee and !stamina_can_melee(weapons[w],true))fire_now=false;
 }
 if (fire_now)
 {
@@ -3897,7 +3884,7 @@ start_reload_partial(weapons[w], pidx);
 else
 start_reload(weapons[w]);
 }
-if (key_pressed(kb("chat")) or gk_chat)
+if(kb_action_pressed("chat") or gk_chat)
 {
 string chat=af_input("Enter your message","",true);
 if (chat=="/afk")
@@ -3907,15 +3894,14 @@ send_team_command("chat "+string_mid(chat,3,chat.length()-3));
 else if (chat!="")
 send_global_chat_or_command(chat);
 }
-if (key_pressed(kb("health")))
+if(kb_action_pressed("help"))
 {
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 show_help_list();
-else
+}
+else if(kb_action_pressed("health"))
 {
 send_reliable(0,"health",0);
 pending_health_report=true;
-}
 }
 if ((key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(kb("stamina_check")))
 {
@@ -3977,7 +3963,7 @@ else
 speak("Current zone: unknown area of "+map_display_name(mapname));
 }
 }
-if((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_F1))key_practice_mode();
+if(kb_action_pressed("key_practice"))key_practice_mode();
 if (key_pressed(kb("player_list")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 speak("Fetching player list, please wait.");
@@ -4028,7 +4014,7 @@ else
 bufferright();
 }
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
+if(kb_action_pressed("buffer_manager"))
 {
 buffer_manage_menu();
 }
@@ -4136,7 +4122,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (string_contains(sel_item, "energetic_potion", 1) < 0 and !executioners_handles_item(sel_item) and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item) and !is_ammo_reserve_item(sel_item))
+if (!executioners_handles_item(sel_item) and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item) and !is_ammo_reserve_item(sel_item))
 send_reliable(0,item_use_command(sel_item),0);
 }
 }
@@ -4212,7 +4198,7 @@ sitting=!sitting;
 if (sitting)
 {
 p.play_stationary("modeenter.ogg",false);
-speak("Sitting. Movement is reduced, stamina recovers faster, and heavy weapons cannot be used.");
+speak("Sitting. Movement is reduced, melee stamina recovers faster, and heavy weapons cannot be used.");
 if (walktime>=300) speak("Your current heavy weapon is lowered until you stand.");
 }
 else {p.play_stationary("modeleave.ogg",false);speak("Standing.");}
@@ -4230,10 +4216,8 @@ jump_vertical_position=me.z;
 jump_vertical_velocity=9.7-total_equipment_weight()*.055-double(walktime>200?walktime-200:0)*.004;
 if(sitting)jump_vertical_velocity=4.8;
 if(jump_vertical_velocity<5.2)jump_vertical_velocity=5.2;
-stamina_on_jump();
 if (sitting)
 {
-degrade_stamina(12);
 seated_jump_timer.restart();
 }
 }
@@ -4324,7 +4308,6 @@ if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
 {
 if (in_vehicle)
 {
-if(sprint_audio_active){sprint_audio_active=false;p.play_stationary("modeleave.ogg",false);}
 // Vehicle controls: arrows control vehicle, not player movement.
 if (current_vehicle_can_fly() and key_pressed(KEY_PAGEUP)) vehicle_change_altitude(1);
 if (current_vehicle_can_fly() and key_pressed(KEY_PAGEDOWN)) vehicle_change_altitude(-1);
@@ -4355,15 +4338,9 @@ vehicle_turn(1);
 else
 {
 // Normal on-foot movement.
-bool wants_sprint=shift_is_down() and !sitting and stamina>0 and (key_down(kb("move_forward")) or key_down(kb("move_backward")) or key_down(kb("move_left")) or key_down(kb("move_right")));
+bool wants_sprint=shift_is_down() and !sitting and (key_down(kb("move_forward")) or key_down(kb("move_backward")) or key_down(kb("move_left")) or key_down(kb("move_right")));
 bool sprinting=wants_sprint and weapon_allows_sprint(weapons[w]);
-if(sprinting!=sprint_audio_active){sprint_audio_active=sprinting;p.play_stationary(sprinting?"modeenter.ogg":"modeleave.ogg",false);}
 if(wants_sprint and !sprinting and sprint_heavy_warning_timer.elapsed>2500){sprint_heavy_warning_timer.restart();speak("This weapon is too heavy to sprint with.");}
-if (sprinting and sprint_stamina_timer.elapsed>=750)
-{
-sprint_stamina_timer.restart();
-degrade_stamina(1);
-}
 if(key_down(kb("move_up")) and walktimer.elapsed>movetime)
 {
 walktimer.restart();
@@ -4383,7 +4360,7 @@ if(momentum_direction!="" and momentum_direction!=desired_move)movement_momentum
 momentum_direction=desired_move;
 int momentum_interval=int(double(movetime)*(1.18-.34*movement_momentum)*weight_factor);
 int minimum_safe_interval=walktime*3/4+5;if(momentum_interval<minimum_safe_interval)momentum_interval=minimum_safe_interval;
-if(walktimer.elapsed>momentum_interval){walktimer.restart();move(desired_move);movement_momentum+=.16/weight_factor;if(movement_momentum>1)movement_momentum=1;if(walktime>=300)stamina_on_heavy_move(walktime);}
+if(walktimer.elapsed>momentum_interval){walktimer.restart();move(desired_move);movement_momentum+=.16/weight_factor;if(movement_momentum>1)movement_momentum=1;}
 momentum_timer.restart();
 }
 else
@@ -4592,6 +4569,7 @@ if (sd.d.exists("remember_me"))
 remember_me=(sd.readn("remember_me")>=1);
 if (sd.d.exists("auto_log_buffers"))
 auto_log_buffers=(sd.readn("auto_log_buffers")>=1);
+if(sd.d.exists("show_chat_timestamps"))show_chat_timestamps=sd.readn("show_chat_timestamps")>=1;
 if (sd.d.exists("show_damage_readout"))
 show_damage_readout=(sd.readn("show_damage_readout")>=1);
 if (sd.d.exists("touch_mode"))
@@ -4653,6 +4631,7 @@ sd.add("menu_wrap",menu_wrap_enabled ? 1 : 0);
 sd.add("show_target_hp",show_target_hp ? 1 : 0);
 sd.add("remember_me",remember_me ? 1 : 0);
 sd.add("auto_log_buffers",auto_log_buffers ? 1 : 0);
+sd.add("show_chat_timestamps",show_chat_timestamps?1:0);
 sd.add("show_damage_readout",show_damage_readout ? 1 : 0);
 sd.add("touch_mode",touch_force_enabled ? 1 : 0);
 sd.add("gesture_practice_band",gesture_practice_speak_band ? 1 : 0);
@@ -4752,7 +4731,10 @@ if (e.channel==0)
 {
 string full_msg=get_event_message();
 string[] parsed=string_split(full_msg," ",true);
-if(capture_service_response(full_msg))
+if(handle_chat_protocol(full_msg))
+{
+}
+else if(capture_service_response(full_msg))
 {
 }
 else if(parsed[0]=="item_usage" and parsed.length()>1)
@@ -4787,6 +4769,14 @@ string previous_room=voice_room;voice_room=parsed[1]=="local"?"":parsed[1];voice
 else if(parsed[0]=="voice_room_denied")
 {
 voice_room_pending=voice_room;speak(string_replace(full_msg,"voice_room_denied ","",false));
+}
+else if(parsed[0]=="logout_denied" and parsed.length()>1)
+{
+speak("You cannot log out during combat. Wait "+parsed[1]+" more seconds.");
+}
+else if(parsed[0]=="logout_allowed")
+{
+x=true;xtimer.restart();
 }
 else if(parsed[0]=="spawn_position" and parsed.length()>3)
 {
@@ -5156,6 +5146,11 @@ if(parsed[1]!=name and map==mapname)
 p.play_3d(get_tile_at(x, y, z)+"fall.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
+else if(parsed[0]=="fall_damage" and parsed.length()>3)
+{
+int damage=string_to_number(parsed[1]),distance=string_to_number(parsed[2]);double speed=string_to_number(parsed[3]);
+if(damage>0)speak("Fall impact: "+distance+" vertical units at "+round(speed,1)+" meters per second; "+damage+" damage.");
+}
 else if(parsed[0]=="land")
 {
 int x=string_to_number(parsed[2]);
@@ -5310,12 +5305,11 @@ distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z, facing,false);
 }
 if (e.channel==1)
 {
-p.play_stationary("chat.ogg", false);
-add_buffer_item("chats",get_event_message());
+if(!handle_chat_protocol(get_event_message())){p.play_stationary("chat.ogg", false);add_buffer_item("chats",get_event_message());}
 }
 if(e.channel==6)
 {
-p.play_stationary("mapchat.ogg",false);add_buffer_item("chats",get_event_message());
+if(!handle_chat_protocol(get_event_message())){p.play_stationary("mapchat.ogg",false);add_buffer_item("chats",get_event_message());}
 }
 if(e.channel==4)
 {
@@ -5440,7 +5434,7 @@ if(falling==true and falltimer.elapsed > falltime and in_plane==false)
 if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
 {
 falling=false;
-if(falldistance < 10)
+if(falldistance <= 3)
 {
 p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
 send_reliable(1, "land", 0);
@@ -5483,15 +5477,11 @@ movetime=walktime;
 // Adrenaline Rush halves movement time.
 if (has_effect("Adrenaline Rush")) movetime = walktime / 2;
 if (has_effect("Energy Crash")) movetime = int(double(movetime) * 1.45);
-// Stamina affects movement speed gradually when low.
-if (stamina < 40) movetime = movetime + (40 - stamina) * 3;
 if (sitting) movetime=int(movetime*3.6);
 else if(combat_slow_timer.elapsed<combat_slow_duration)movetime=int(double(movetime)*1.75);
-else if (shift_is_down() and stamina>0 and weapon_allows_sprint(weapons[w]))
+else if (shift_is_down() and weapon_allows_sprint(weapons[w]))
 {
-// Full stamina reaches a 25 percent speed boost; exhaustion tapers it away.
-double sprint_factor=1.0-(double(stamina)/400.0);
-movetime=int(double(movetime)*sprint_factor);
+movetime=int(double(movetime)*.75);
 }
 fallloop();
 fallcheck();
@@ -5649,7 +5639,7 @@ while(true)
 {
 mainloop();
 netloop();
-if((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_F1))key_practice_mode();
+if(kb_action_pressed("key_practice"))key_practice_mode();
 if (key_pressed(kb("player_list")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 speak("Fetching player list, please wait.");
@@ -5692,7 +5682,7 @@ if(key_pressed(kb("move_forward")) and me.z<=74)
 {
 send_reliable(0, "go_up", 0);
 }
-if (key_pressed(kb("chat")))
+if(kb_action_pressed("chat"))
 {
 string chat=af_input("Enter your message","",true);
 if (chat!="")
@@ -5755,7 +5745,7 @@ if (key_pressed(KEY_PERIOD))
 {
 nextbufferitem();
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
+if(kb_action_pressed("buffer_manager"))
 {
 buffer_manage_menu();
 }
@@ -5780,7 +5770,7 @@ while(true)
 {
 mainloop();
 netloop();
-if((key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_F1))key_practice_mode();
+if(kb_action_pressed("key_practice"))key_practice_mode();
 if (key_pressed(kb("player_list")) and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
 speak("Fetching player list, please wait.");
@@ -5806,7 +5796,7 @@ if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
 }
-if (key_pressed(kb("chat")))
+if(kb_action_pressed("chat"))
 {
 string chat=af_input("Enter your message","",true);
 if (chat!="")
@@ -5873,7 +5863,7 @@ if (key_pressed(KEY_PERIOD))
 {
 nextbufferitem();
 }
-if ((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
+if(kb_action_pressed("buffer_manager"))
 {
 buffer_manage_menu();
 }

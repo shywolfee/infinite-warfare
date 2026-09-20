@@ -5,6 +5,7 @@ class lobby_client
 int peer_id;
 string name;
 string comp;
+string chat_channel="english";
 bool dev=false;
 bool admin=false;
 lobby_client(int p, string n, string c)
@@ -106,6 +107,14 @@ int teleport_warnings=0;
 timer fire_timer;
 timer spawn_grace_timer;
 bool spawn_grace_active=true;
+string chat_channel="english";
+timer damage_taken_timer;
+timer damage_dealt_timer;
+bool damage_taken_recent=false;
+bool damage_dealt_recent=false;
+bool combat_logout_ghost=false;
+bool authoritative_falling=false;
+int fall_start_z=0;
 int rapid_fire_warnings=0;
 int consecutive_shots=0;
 timer voice_rate_timer;
@@ -128,11 +137,10 @@ string bleeding_owner="";
 dictionary medication_remaining;
 int medication_toxicity=0,medication_heal_remaining=0,medication_tick_amount=0,medication_tick_interval=1000;
 timer medication_tick_timer,medication_toxicity_timer;
-bool drinking_energy=false,energy_crash_pending=false;
-string energy_drink_item="";
-int energy_drink_mode=1,energy_crash_amount=0,energy_crash_delay_ms=0;
+bool energy_crash_pending=false;
+int energy_crash_amount=0,energy_crash_delay_ms=0;
 double energy_stimulant_load=0;
-timer energy_drink_timer,energy_crash_timer,energy_metabolism_timer;
+timer energy_crash_timer,energy_metabolism_timer;
 timer grapple_timer,security_camera_timer,neural_intrusion_timer,restraint_timer,recon_ring_timer;
 bool er_quad_active=false;timer er_quad_timer,er_utility_timer;
 int er_small_chips=0,er_large_chips=0;
@@ -151,7 +159,21 @@ peer_id=ppeer_id;
 }
 bool player_has_spawn_grace(player@ p){if(!p.spawn_grace_active)return false;if(p.spawn_grace_timer.elapsed>=5000){p.spawn_grace_active=false;return false;}return true;}
 void end_spawn_grace(player@ p){p.spawn_grace_active=false;}
-int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p))return 0;if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;if(source!="")p.hitby=source;return amount;}
+int combat_attacker_index(string source)
+{
+if(source=="")return -1;string lower=string_to_lower_case(source);int best=-1,best_length=-1;for(uint i=0;i<players.length();i++){string candidate=string_to_lower_case(players[i].name);if(string_contains(lower,candidate,1)==0 and int(candidate.length())>best_length){best=int(i);best_length=candidate.length();}}return best;
+}
+int combat_logout_remaining(player@ p)
+{
+int remaining=0;if(p.damage_taken_recent){int value=30000-p.damage_taken_timer.elapsed;if(value>remaining)remaining=value;}if(p.damage_dealt_recent){int value=20000-p.damage_dealt_timer.elapsed;if(value>remaining)remaining=value;}return remaining>0?remaining:0;
+}
+int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p))return 0;if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;p.damage_taken_recent=true;p.damage_taken_timer.restart();int attacker=combat_attacker_index(source);if(attacker>=0 and players[attacker].name!=p.name){players[attacker].damage_dealt_recent=true;players[attacker].damage_dealt_timer.restart();}if(source!="")p.hitby=source;return amount;}
+int scaled_fall_damage(int distance)
+{
+// The first three vertical units are survivable. Beyond that, kinetic energy
+// and injury grow nonlinearly rather than switching to one fixed hard landing.
+if(distance<=3)return 0;int excess=distance-3;int damage=12*excess*excess;if(damage>900)damage=900;return damage;
+}
 
 bool server_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
 bool server_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}
@@ -182,19 +204,6 @@ void extract_server_pill(player@ p,string item)
 if(!server_pill_bottle(item)){send_reliable(p.peer_id,"Select a pill bottle first.",2);return;}double remaining;if(!p.medication_remaining.get(item,remaining))remaining=server_medication_capacity(item);if(remaining<1){send_reliable(p.peer_id,"That bottle is empty.",2);return;}remaining--;if(remaining<=0){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);}else p.medication_remaining.set(item,remaining);send_reliable(p.peer_id,"medication_remaining "+item+" "+remaining,0);send_reliable(p.peer_id,"give "+server_loose_pill_for(item)+" 1",0);send_reliable(p.peer_id,"Removed one pill. "+int(remaining)+" remain in the bottle.",2);
 }
 
-bool server_energy_drink(string item){return string_contains(item,"energetic_potion",1)==0;}
-string server_energy_drink_name(string item){if(item=="energetic_potion_red")return "Red Spark Energy Drink";if(item=="energetic_potion_blue")return "Blue Surge Energy Drink";if(item=="energetic_potion_green")return "Green Overdrive Energy Drink";return "Rainbow Hypercharge Energy Drink";}
-int server_energy_restore(string item){if(item=="energetic_potion_red")return random(15,25);if(item=="energetic_potion_blue")return random(25,40);if(item=="energetic_potion_green")return random(40,60);return random(75,100);}
-double server_energy_strength(string item){if(item=="energetic_potion_red")return 14;if(item=="energetic_potion_blue")return 20;if(item=="energetic_potion_green")return 28;return 44;}
-void begin_server_energy_drink(player@ p,string item,int mode)
-{
-if(p.drinking_energy){send_reliable(p.peer_id,"You are already drinking an energy drink.",2);return;}p.drinking_energy=true;p.energy_drink_item=item;p.energy_drink_mode=mode;p.energy_drink_timer.restart();play("health_potion",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"You begin drinking the "+server_energy_drink_name(item)+". The stamina effect is not instant.",2);
-}
-void finish_server_energy_drink(player@ p)
-{
-string item=p.energy_drink_item;int mode=p.energy_drink_mode;p.drinking_energy=false;p.energy_drink_item="";double dose=mode==0?.5:(mode==2?1.5:1.0);int restored=int(double(server_energy_restore(item))*(mode==0?.72:(mode==2?1.28:1.0)));p.energy_stimulant_load+=server_energy_strength(item)*dose;send_reliable(p.peer_id,"give "+item+" -1",0);send_reliable(p.peer_id,"stamina_restore "+restored,0);
-string report="Energy drink finished. Restored "+restored+" stamina. Stimulant load "+int(p.energy_stimulant_load)+" percent.";if(p.energy_stimulant_load>=55){int proposed=int((p.energy_stimulant_load-25)*1.15);if(proposed<30)proposed=30;if(proposed>100)proposed=100;if(proposed>p.energy_crash_amount)p.energy_crash_amount=proposed;if(!p.energy_crash_pending){p.energy_crash_pending=true;p.energy_crash_delay_ms=36000-int(p.energy_stimulant_load*180);if(p.energy_crash_delay_ms<10000)p.energy_crash_delay_ms=10000;p.energy_crash_timer.restart();}report+=" Warning: accumulated stimulant load will cause a delayed energy crash if it is not metabolized.";}else report+=" Conservative servings spaced apart are metabolized with substantially less crash risk.";send_reliable(p.peer_id,report,2);
-}
 
 string[] server_weapon_attachments(player@ p,string weapon_name){string[] result;string data;if(!p.weapon_attachment_state.get(weapon_name,data) or data=="")return result;return string_split(data,"|",true);}
 bool server_weapon_has_attachment(player@ p,string weapon_name,string attachment){string[] items=server_weapon_attachments(p,weapon_name);for(uint i=0;i<items.length();i++)if(items[i]==attachment)return true;return false;}
@@ -231,6 +240,7 @@ double dt=double(p.model_motion_timer.elapsed)/1000.0;if(dt<.005)return;if(dt>.0
 }
 void playerloop()
 {
+for(int ghost=int(players.length())-1;ghost>=0;ghost--)if(players[ghost].combat_logout_ghost and combat_logout_remaining(players[ghost])<=0){send_reliable(0,"offline "+players[ghost].x+" "+players[ghost].y+" "+players[ghost].z+" "+players[ghost].name+" "+players[ghost].map,0);voice_rooms.delete(string_to_lower_case(players[ghost].name));players.remove_at(ghost);}
 for(uint i=0; i<players.length(); i++)
 {
 update_player_physical_model(players[i]);
@@ -246,7 +256,6 @@ else if(players[i].bleeding_tick_timer.elapsed>=2000){players[i].bleeding_tick_t
 }
 if(players[i].medication_heal_remaining>0 and players[i].medication_tick_timer.elapsed>=players[i].medication_tick_interval){players[i].medication_tick_timer.restart();int healed=players[i].medication_tick_amount;if(healed>players[i].medication_heal_remaining)healed=players[i].medication_heal_remaining;players[i].health+=healed;players[i].medication_heal_remaining-=healed;}
 if(players[i].medication_toxicity>0 and players[i].medication_toxicity_timer.elapsed>=15000){players[i].medication_toxicity_timer.restart();players[i].medication_toxicity--;if(players[i].medication_toxicity>100){int harm=(players[i].medication_toxicity-100)*2;players[i].health-=harm;players[i].hitby="ongoing medication toxicity";}}
-if(players[i].drinking_energy and players[i].energy_drink_timer.elapsed>=1800)finish_server_energy_drink(players[i]);
 if(players[i].energy_stimulant_load>0 and players[i].energy_metabolism_timer.elapsed>=2000){players[i].energy_metabolism_timer.restart();players[i].energy_stimulant_load-=1;if(players[i].energy_stimulant_load<0)players[i].energy_stimulant_load=0;}
 if(players[i].energy_crash_pending and players[i].energy_crash_timer.elapsed>=players[i].energy_crash_delay_ms){players[i].energy_crash_pending=false;int loss=players[i].energy_crash_amount;players[i].energy_crash_amount=0;players[i].energy_stimulant_load*=.45;send_reliable(players[i].peer_id,"energy_crash "+loss,0);send_reliable(players[i].peer_id,"The accumulated stimulants wear off in a delayed energy crash. Smaller servings spaced far enough apart reduce this risk.",2);}
 if(players[i].er_quad_active and players[i].er_quad_timer.elapsed>=20000){players[i].er_quad_active=false;send_reliable(players[i].peer_id,"er_quad_state off",0);er_play("character/affects/quad_damage/powerdown",players[i]);}

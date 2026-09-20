@@ -66,7 +66,10 @@ return modifiers;
 
 bool kb_action_pressed(string action)
 {
-for(uint i=0;i<_kb_act_names.length();i++)if(_kb_act_names[i]==action)return key_pressed(_kb_act_binds[i]) and kb_current_modifiers()==_kb_act_modifiers[i];
+// Test the modifier mask before reading the edge-triggered base key. Calling
+// key_pressed first consumes a shared key even when this is the wrong chord
+// (for example Alt+Backslash would consume Shift+Backslash/map chat).
+for(uint i=0;i<_kb_act_names.length();i++)if(_kb_act_names[i]==action)return kb_current_modifiers()==_kb_act_modifiers[i] and key_pressed(_kb_act_binds[i]);
 return false;
 }
 
@@ -197,7 +200,12 @@ _kb_reg_action("extract_pill", "Remove one pill from selected medication bottle"
 _kb_reg_action("ammo_check", "Check ammo", KEY_A);
 _kb_reg_action("use_item", "Use item", KEY_RETURN);
 _kb_reg_action("chat", "Chat", KEY_SLASH);
+_kb_reg_action("map_chat", "Current map chat", KEY_BACKSLASH);
+_kb_reg_action("team_chat", "Team chat", KEY_BACKSLASH, KEYMOD_SHIFT);
+_kb_reg_action("recent_private_messages", "Recent private-message contacts", KEY_BACKSLASH, KEYMOD_ALT);
+_kb_reg_action("group_chat", "Group chat", KEY_SLASH, KEYMOD_ALT);
 _kb_reg_action("health", "Health", KEY_H);
+_kb_reg_action("help", "Open help", KEY_H, KEYMOD_SHIFT);
 _kb_reg_action("facing", "Facing direction", KEY_F);
 _kb_reg_action("coordinates", "Coordinates", KEY_C);
 _kb_reg_action("zone", "Current zone", KEY_B);
@@ -237,16 +245,18 @@ _kb_reg_action("dev_poi_teleport", "Developer POI teleport", KEY_J, KEYMOD_ALT|K
 _kb_reg_action("packet_monitor", "Toggle developer packet reporting", KEY_F10, KEYMOD_SHIFT);
 _kb_reg_action("packet_viewer", "Open developer packet viewer", KEY_F11, KEYMOD_SHIFT);
 _kb_reg_action("menu", "Game menu", KEY_ESCAPE);
-_kb_reg_action("quickbar_view", "View quickbar", KEY_I);
+_kb_reg_action("quickbar_view", "View quickbar", KEY_I, KEYMOD_SHIFT);
 _kb_reg_action("inventory", "Open inventory menu", KEY_I);
 _kb_reg_action("buffer_left", "Buffer left", KEY_LBRACKET);
 _kb_reg_action("buffer_right", "Buffer right", KEY_RBRACKET);
-_kb_reg_action("volume_up", "Volume up", KEY_HOME);
-_kb_reg_action("volume_down", "Volume down", KEY_END);
+_kb_reg_action("buffer_manager", "Open buffer manager", KEY_B, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("volume_up", "Raise selected mixer volume", KEY_HOME);
+_kb_reg_action("volume_down", "Lower selected mixer volume", KEY_END);
 _kb_reg_action("stamina_check", "Check stamina and effects", KEY_V, KEYMOD_CTRL|KEYMOD_SHIFT);
 _kb_reg_action("options_menu", "Options menu", KEY_F11);
 _kb_reg_action("fullscreen_toggle", "Toggle full screen", KEY_F12, KEYMOD_CTRL|KEYMOD_SHIFT);
 _kb_reg_action("screenshot", "Save a screenshot", KEY_PRINTSCREEN);
+_kb_reg_action("key_practice", "Open key practice", KEY_F1, KEYMOD_SHIFT);
 if(!directory_exists(DIRECTORY_LOCAL_APPDATA+"/iw"))directory_create(DIRECTORY_LOCAL_APPDATA+"/iw");
 if (!directory_exists(KB_PROFILE_DIR)) directory_create(KB_PROFILE_DIR);
 string[] moved;
@@ -592,14 +602,53 @@ while(true)
 wait(5);if(connected)netloop();
 for(int key=1;key<=211;key++)if(key_pressed(key))
 {
+if(key==KEY_LSHIFT or key==KEY_RSHIFT or key==KEY_LMENU or key==KEY_RMENU or key==KEY_LCONTROL or key==KEY_RCONTROL)continue;
 if(key==KEY_ESCAPE){speak("Key practice closed.");return;}
-int modifiers=0;if(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))modifiers|=KEYMOD_SHIFT;if(key_down(KEY_LMENU) or key_down(KEY_RMENU))modifiers|=KEYMOD_ALT;if(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL))modifiers|=KEYMOD_CTRL;
+int modifiers=kb_current_modifiers();
 string label=kb_modifier_label(modifiers)+kb_key_label(key),actions="";
 for(uint action=0;action<_kb_act_names.length();action++)if(_kb_act_binds[action]==key and _kb_act_modifiers[action]==modifiers){if(actions!="")actions+=", ";actions+=_kb_act_labels[action];}
+string contextual=kb_contextual_action(key,modifiers);if(contextual!=""){if(actions!="")actions+=", ";actions+=contextual;}
 if(actions=="")speak(label+" is not bound to a configurable action.");else speak(label+" is bound to "+actions+".");
 break;
 }
 }
+}
+
+string kb_contextual_action(int key,int modifiers)
+{
+if(key==KEY_COMMA)return modifiers==KEYMOD_SHIFT?"Jump to first message in current buffer":(modifiers==0?"Previous message in current buffer":"");
+if(key==KEY_PERIOD)return modifiers==KEYMOD_SHIFT?"Jump to last message in current buffer":(modifiers==0?"Next message in current buffer":"");
+if(key==KEY_DELETE and modifiers==0)return "Current buffer-message actions";
+if(key==KEY_C and modifiers==(KEYMOD_ALT|KEYMOD_SHIFT))return "Review current buffer message";
+if(key==KEY_C and modifiers==KEYMOD_ALT)return "Open command menu";
+if(key==KEY_RETURN and modifiers==KEYMOD_SHIFT)return "Open selected weapon information";
+if(key==KEY_BACK and modifiers==KEYMOD_SHIFT)return "Draw or holster current weapon";
+if(key==KEY_BACK and modifiers==KEYMOD_ALT)return "Unequip a holster";
+if(key==KEY_S and modifiers==KEYMOD_ALT)return "Open support";
+if(key==KEY_F and modifiers==KEYMOD_ALT)return "Open feedback";
+if(key==KEY_E and modifiers==KEYMOD_ALT)return "Open equipment";
+if(key==KEY_Z and modifiers==KEYMOD_ALT)return "Sit or stand";
+if(key==KEY_W and modifiers==KEYMOD_ALT)return "Open or close vehicle window";
+if(key==KEY_LBRACKET and modifiers==KEYMOD_SHIFT)return "Jump to first message buffer";
+if(key==KEY_RBRACKET and modifiers==KEYMOD_SHIFT)return "Jump to last message buffer";
+if(key==KEY_UP and modifiers==KEYMOD_ALT)return "Move selected inventory item earlier";
+if(key==KEY_DOWN and modifiers==KEYMOD_ALT)return "Move selected inventory item later";
+if(key==KEY_HOME and modifiers==KEYMOD_ALT)return "Select previous volume mixer; in inventory, move selected item first";
+if(key==KEY_END and modifiers==KEYMOD_ALT)return "Select next volume mixer; in inventory, move selected item last";
+if(key==KEY_RETURN and modifiers==KEYMOD_ALT)return "Open dynamic help for selected inventory item";
+if(key==KEY_TAB and modifiers==KEYMOD_SHIFT)return "Previous inventory category where supported";
+if(key==KEY_APPS and modifiers==0)return "Open selected inventory item actions";
+if(key==KEY_SPACE and modifiers==0)return "Jump; in inventory, give selected item to a nearby player";
+if(key==KEY_BACK and modifiers==0)return "Drop selected inventory item seven tiles ahead when inventory is open";
+if(key==KEY_Q and modifiers==KEYMOD_SHIFT)return "Fine turn left";
+if(key==KEY_E and modifiers==KEYMOD_SHIFT)return "Fine turn right";
+if(key==KEY_S and modifiers==KEYMOD_SHIFT)return "Fine aim up";
+if(key==KEY_X and modifiers==KEYMOD_SHIFT)return "Fine aim down";
+if((key>=KEY_1 and key<=KEY_0) and modifiers==KEYMOD_ALT)return "Bind the selected item to this quickbar slot";
+if((key>=KEY_1 and key<=KEY_0) and modifiers==0)return "Activate this quickbar slot";
+if(key==KEY_D and modifiers==KEYMOD_SHIFT)return "Open developer suite when authorized";
+if(key==KEY_B and modifiers==KEYMOD_SHIFT)return "Open live map builder when authorized";
+return "";
 }
 
 void options_keybinds()

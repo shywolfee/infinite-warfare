@@ -75,12 +75,12 @@ if(string_contains(ytile,"wall",1)>=0)fraggrenades[i].vy*=-.48;
 fraggrenades[i].bounces++;string bounce=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeboink":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":((fraggrenades[i].kind=="er_molotov" or fraggrenades[i].kind=="er_frag_grenade")?fraggrenades[i].kind+"_impact":fraggrenades[i].kind+"_bounce"));play(bounce,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
 }
 else{fraggrenades[i].x=nx;fraggrenades[i].y=ny;}
-string below=get_tile_at(fraggrenades[i].x,fraggrenades[i].y,int(nz-.15),fraggrenades[i].map);
-if(nz<=0 or (fraggrenades[i].vz<0 and below!="" and below!="blank"))
+double surface=projectile_surface_height(fraggrenades[i].x,fraggrenades[i].y,nz,fraggrenades[i].map);
+if(nz<=0 or (fraggrenades[i].vz<0 and surface>-9000 and nz<=surface+.15))
 {
-fraggrenades[i].z=nz<0?0:nz+.12;fraggrenades[i].vz*=-.38;fraggrenades[i].vx*=.67;fraggrenades[i].vy*=.67;fraggrenades[i].bounces++;
+fraggrenades[i].z=nz<0?0:surface+.12;fraggrenades[i].vz*=-.38;fraggrenades[i].vx*=.67;fraggrenades[i].vy*=.67;double slope_x=0,slope_y=0;projectile_surface_gradient(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,slope_x,slope_y);fraggrenades[i].vx-=slope_x*9.81*dt;fraggrenades[i].vy-=slope_y*9.81*dt;fraggrenades[i].bounces++;
 string landing=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeland":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":(fraggrenades[i].kind=="er_molotov"?"er_molotov_land":(fraggrenades[i].kind=="er_frag_grenade"?"er_frag_grenade_land":fraggrenades[i].kind+"_bounce")));play(landing,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
-if(fraggrenades[i].bounces>=4 or (absolute(fraggrenades[i].vz)<.45 and absolute(fraggrenades[i].vx)+absolute(fraggrenades[i].vy)<.8)){fraggrenades[i].landed=true;fraggrenades[i].vz=0;break;}
+if((fraggrenades[i].bounces>=8 or (absolute(fraggrenades[i].vz)<.45 and absolute(fraggrenades[i].vx)+absolute(fraggrenades[i].vy)<.8)) and absolute(slope_x)+absolute(slope_y)<.08){fraggrenades[i].landed=true;fraggrenades[i].vz=0;break;}
 }
 else fraggrenades[i].z=nz;
 }

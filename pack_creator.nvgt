@@ -79,7 +79,7 @@ if(!verifier.file_exists("firefight_archive/weapons/ak47/fire.ogg"))
 fail("Archive verification could not find the representative Firefight weapon recording.");
 if(!verifier.file_exists("executioners_rage/environment/objects/coke_machine/dispense.wav"))
 fail("Archive verification could not find the representative Executioner's Rage world recording.");
-string[] required_regression_sounds={"ak47fire1.ogg","m1garantbattleriflefire1.ogg","benelli_m4_shotgunfire1.ogg","wirenetequip.ogg","executioners_rage/ui/bf.wav","executioners_rage/ui/bfn.wav"};
+string[] required_regression_sounds={"ak47fire1.ogg","m1garantbattleriflefire1.ogg","benelli_m4_shotgunfire1.ogg","wirenetequip.ogg","mossberg_500reload_open.ogg","mossberg_500reload_insert.ogg","mossberg_500reload_close.ogg","mossberg_500reload_cycle.ogg","grenade_launcherreload_open.ogg","grenade_launcherreload_insert.ogg","grenade_launcherreload_close.ogg","handheld_cannonreload_open.ogg","handheld_cannonreload_insert.ogg","handheld_cannonreload_close.ogg","er_double_barrelreload_open.ogg","er_pump_shotgunreload_insert.ogg","er_mlk870reload_cycle.ogg","plasma_flyby1.ogg","plasma_flyby6.ogg","executioners_rage/ui/bf.wav","executioners_rage/ui/bfn.wav"};
 for(uint required_index=0;required_index<required_regression_sounds.length();required_index++)if(!verifier.file_exists(required_regression_sounds[required_index]))fail("Archive verification could not find required gameplay sound "+required_regression_sounds[required_index]+".");
 if (!verifier.extract_file("logo.ogg", test_sound_file))
 fail("Archive verification could not decrypt and extract logo.ogg.");

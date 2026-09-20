@@ -117,17 +117,13 @@ return (mode == FIREMODE_AUTO or mode == FIREMODE_BURST);
 int stamina = 100;
 int max_stamina = 100;
 timer stamina_regen_timer;
-int jump_count = 0;
-timer jump_window_timer;
 bool stamina_degraded = false;
 
 void reset_stamina()
 {
 stamina = max_stamina;
-jump_count = 0;
 stamina_degraded = false;
 stamina_regen_timer.restart();
-jump_window_timer.restart();
 }
 
 void degrade_stamina(int amount)
@@ -143,27 +139,17 @@ stamina += amount;
 if (stamina > max_stamina) stamina = max_stamina;
 }
 
+int melee_stamina_cost(string weapon="")
+{
+int cost=5;if(weapon!="")cost=int(round(5.0*handling_melee_stamina_multiplier(weapon),0));if(cost<1)cost=1;return cost;
+}
+bool stamina_can_melee(string weapon="",bool report=true)
+{
+int cost=melee_stamina_cost(weapon);if(stamina>=cost)return true;if(report)speak("You need "+cost+" stamina for that melee attack; "+stamina+" remains.");return false;
+}
 void stamina_on_melee(string weapon="")
 {
-int cost=5;if(weapon!="")cost=int(round(5.0*handling_melee_stamina_multiplier(weapon),0));if(cost<1)cost=1;degrade_stamina(cost);
-}
-
-void stamina_on_jump()
-{
-if (jump_window_timer.elapsed > 25000)
-{
-jump_count = 0;
-jump_window_timer.restart();
-}
-jump_count++;
-if (jump_count > 3)
-degrade_stamina(8);
-}
-
-void stamina_on_heavy_move(int walktime_val)
-{
-if (walktime_val >= 300)
-degrade_stamina(1);
+degrade_stamina(melee_stamina_cost(weapon));
 }
 
 void stamina_loop()
@@ -758,7 +744,9 @@ reload_audio_rounds=0;
 reload_audio_inserted=0;
 reload_cycle_pending=false;
 manual_action=false;
-for(uint wi=0;wi<wpn_cache.length();wi++)if(wpn_cache[wi].id==wn and (wpn_cache[wi].wclass=="revolver" or wpn_cache[wi].wclass=="shotgun" or wpn_cache[wi].wclass=="grenade_launcher"))manual_action=true;
+// A weapon class alone does not make a gun individually fed.  In particular,
+// the SGX shotguns use detachable drums and must follow the magazine workflow.
+if(!im)for(uint wi=0;wi<wpn_cache.length();wi++)if(wpn_cache[wi].id==wn and (wpn_cache[wi].wclass=="revolver" or wpn_cache[wi].wclass=="shotgun" or wpn_cache[wi].wclass=="grenade_launcher"))manual_action=true;
 action_open=false;
 chamber_ready=mag_loaded>0;
 }
@@ -800,7 +788,6 @@ string[] mortars={"120mm_mortar"};register_ammunition_load("120mm_fragmentation"
 string[] m79={"grenade_launcher"};register_ammunition_load("40mm_hedp","40mm HEDP Grenade","40mm_hedp_bandolier","Dual-purpose shaped fragmentation grenade with improved penetration.","firefight_40mm_hedp",m79,6);register_ammunition_load("40mm_smoke","40mm Smoke Grenade","40mm_smoke_bandolier","Low-damage projectile that creates a concealment screen on impact.","firefight_40mm_smoke",m79,6);register_ammunition_load("40mm_buckshot","40mm Buckshot Cartridge","40mm_buckshot_bandolier","Short-range multi-pellet antipersonnel load without an explosive burst.","firefight_40mm_buckshot",m79,6);register_ammunition_load("40mm_less_lethal","40mm Sponge Grenade","40mm_sponge_bandolier","Low-damage blunt projectile that strongly impairs movement.","firefight_40mm_sponge",m79,6);
 string[] hand_cannon={"handheld_cannon"};register_ammunition_load("50mm_fragmentation","50mm Fragmentation Shell","50mm_fragmentation_shell_case","Wide fragmentation payload.","firefight_50mm_fragmentation",hand_cannon,5);register_ammunition_load("50mm_thermobaric","50mm Thermobaric Shell","50mm_thermobaric_shell_case","Large pressure burst with increased radius and no penetrator.","firefight_50mm_thermobaric",hand_cannon,3);register_ammunition_load("50mm_ap","50mm Armour-Piercing Shell","50mm_ap_shell_case","Narrow hardened payload with increased penetration and a smaller blast.","firefight_50mm_ap",hand_cannon,4);
 string[] field_cannon={"field_cannon"};register_ammunition_load("75mm_ap","75mm Armour-Piercing Shell","75mm_ap_shell_crate","High-retention penetrator for structures and vehicles.","firefight_75mm_ap",field_cannon,3);register_ammunition_load("75mm_canister","75mm Canister Shell","75mm_canister_shell_crate","Close-range cone of heavy shot without a high-explosive burst.","firefight_75mm_canister",field_cannon,3);register_ammunition_load("75mm_incendiary","75mm Incendiary Shell","75mm_incendiary_shell_crate","Impact burst that ignites personnel in its radius.","firefight_75mm_incendiary",field_cannon,3);
-string[] taser={"taser_x26"};register_ammunition_load("taser_extended_range","Extended-range Taser Cartridge","extended_range_taser_cartridge","Longer probe wires and a faster dart at moderately reduced effect.","firefight_taser_extended",taser,4);register_ammunition_load("taser_high_voltage","High-voltage Taser Cartridge","high_voltage_taser_cartridge","Heavier incapacitation pulse with a fourteen-second movement disruption.","firefight_taser_high_voltage",taser,3);register_ammunition_load("taser_training","Taser Training Cartridge","taser_training_cartridge","Low-energy practice probes that cause minimal injury and brief disruption.","firefight_taser_training",taser,6);
 string[] sword_throwers={"sword_thrower"};register_ammunition_load("throwing_blade_serrated","Serrated Throwing Blade","serrated_throwing_blade_quiver","Expanding-profile blade that causes severe bleeding but penetrates less armour.","firefight_blade_serrated",sword_throwers,8);register_ammunition_load("throwing_blade_explosive","Explosive Throwing Blade","explosive_throwing_blade_quiver","Impact-triggered blade with a compact explosive charge.","firefight_blade_explosive",sword_throwers,5);register_ammunition_load("throwing_blade_shock","Shock Throwing Blade","shock_throwing_blade_quiver","Conductive blade that disrupts movement after impact.","firefight_blade_shock",sword_throwers,6);
 string[] resonance={"dr_resonance_projector"};register_ammunition_load("resonance_disruptor","Resonance Disruptor Cell","resonance_disruptor_cell","A phase-offset pulse that impairs weapon stability after impact.","",resonance,6);register_ammunition_load("resonance_overdrive","Resonance Overdrive Cell","resonance_overdrive_cell","A faster, harder pulse with increased emitter burden.","",resonance,5);register_ammunition_load("resonance_scatter","Resonance Scatter Cell","resonance_scatter_cell","Splits the pulse into five independently simulated short-range particles.","",resonance,6);
 string[] rockets={"er_rocket_launcher"};register_ammunition_load("66mm_heat","66mm HEAT Rocket","66mm_heat_rocket_tube","A focused anti-armour shaped charge with a tighter burst and greater penetration.","",rockets,3);register_ammunition_load("66mm_fragmentation","66mm Fragmentation Rocket","66mm_fragmentation_rocket_tube","A wide anti-personnel fragmentation warhead.","",rockets,3);register_ammunition_load("66mm_thermobaric","66mm Thermobaric Rocket","66mm_thermobaric_rocket_tube","A pressure warhead with a broader blast and no penetrator.","",rockets,2);
@@ -895,6 +882,14 @@ return -1;
 }
 
 bool is_manual_fed_weapon(string wname){int gi=find_gun(wname);return gi>=0 and gun_ammos[gi].manual_action;}
+bool manual_weapon_requires_cycle(string wname)
+{
+int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action)return false;
+string device=string_to_lower_case(gun_ammos[gi].feed_device);
+// Break-action and breech-loaded arms put the round in battery when closed.
+// Tube-fed pump and manually cycled shotguns still require an explicit cycle.
+return get_weapon_class(wname)=="shotgun" and string_contains(device,"break-action",0)<0 and string_contains(device,"breech",0)<0;
+}
 bool manual_weapon_can_fire(string wname,bool report=true)
 {
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action)return true;gun_ammo@ g=gun_ammos[gi];
@@ -914,7 +909,7 @@ int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weap
 if(g.reloading){speak("Finish the current operation first.");return;}
 g.action_open=!g.action_open;
 if(g.action_open){g.chamber_ready=false;p.play_stationary(weapon_sound_profile(wname)+"reload_open.ogg",false);speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" opened. "+g.mag_loaded+" rounds remain.");}
-else{p.play_stationary(weapon_sound_profile(wname)+"reload_close.ogg",false);if(get_weapon_class(wname)=="revolver")g.chamber_ready=g.mag_loaded>0;speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" closed."+((get_weapon_class(wname)=="shotgun" or get_weapon_class(wname)=="grenade_launcher") and g.mag_loaded>0?" Cycle the action to chamber a round.":""));}
+else{p.play_stationary(weapon_sound_profile(wname)+"reload_close.ogg",false);if(get_weapon_class(wname)=="revolver" or !manual_weapon_requires_cycle(wname))g.chamber_ready=g.mag_loaded>0;speak((get_weapon_class(wname)=="revolver"?"Cylinder":"Action")+" closed."+(manual_weapon_requires_cycle(wname) and g.mag_loaded>0?" Cycle the action to chamber a round.":""));}
 }
 void manual_insert_round(string wname)
 {
@@ -929,6 +924,7 @@ void manual_cycle_weapon(string wname)
 {
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action){speak("This weapon has no manual action to cycle.");return;}gun_ammo@ g=gun_ammos[gi];
 if(get_weapon_class(wname)=="revolver"){speak("The revolver advances its cylinder with the trigger; close the cylinder to make it ready.");return;}
+if(!manual_weapon_requires_cycle(wname)){speak("This break action chambers its round when it is closed; no separate cycle is required.");return;}
 if(g.action_open){speak("Close the action before cycling it.");return;}if(g.mag_loaded<=0){speak("The weapon is empty. Open it and insert a shell first.");return;}
 g.chamber_ready=true;p.play_stationary(weapon_sound_profile(wname)+"reload_cycle.ogg",false);speak("Action cycled. Round chambered.");
 }
@@ -1290,7 +1286,7 @@ bool start_reload(string wname)
 int i=find_gun(wname);
 if (i<0) return false;
 gun_ammo@ g=gun_ammos[i];
-if(g.manual_action){speak("This weapon is manually fed. Use "+kb_binding_label("manual_action")+" to open it, "+kb_binding_label("manual_insert")+" once per round, then close it"+(get_weapon_class(wname)=="shotgun"?" and use "+kb_binding_label("manual_cycle")+" to chamber the first round.":"."));return false;}
+if(g.manual_action){speak("This weapon is manually fed. Use "+kb_binding_label("manual_action")+" to open it, "+kb_binding_label("manual_insert")+" once per round, then close it"+(manual_weapon_requires_cycle(wname)?" and use "+kb_binding_label("manual_cycle")+" to chamber the first round.":"."));return false;}
 if (g.reloading) { speak("Already reloading."); return false; }
 g.reload_from_partial=-1;
 g.reload_round_count=-1;

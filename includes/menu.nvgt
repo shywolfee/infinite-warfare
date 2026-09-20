@@ -332,6 +332,7 @@ while(true)
 {
 wait(5);
 f.monitor();
+if(connected)netloop();
 if (f.is_pressed(f_close))
 break;
 }
@@ -962,7 +963,7 @@ int f_changes = f.create_button("View &changes");
 int f_rules = f.create_button("View &rules");
 int f_account = f.create_button("&Account info");
 int f_devs = f.create_button("View &developers");
-int f_admin=-1;if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)f_admin=f.create_button("Staff and administrator panel");
+int f_admin=f.create_button("Staff and administrator panel");
 int f_exit = f.create_button("E&xit game");
 int f_close = f.create_button("Cl&ose", true, true);
 f.focus(f_stats);
@@ -1058,7 +1059,7 @@ df.close();
 }
 dlg(dv);
 }
-else if (f_admin>-1 and f.is_pressed(f_admin))
+else if (f.is_pressed(f_admin))
 {
 ingame_adminpanel();
 escape_menu();
@@ -1071,8 +1072,7 @@ if (q == 1)
 {
 speak("Exiting the game");
 send_reliable(0, "close", 0);
-x = true;
-xtimer.restart();
+speak("Logout requested.");
 return;
 }
 }
@@ -1352,6 +1352,7 @@ nv_form_input@ f_mouse_aim=mouse_page.add_input("Vertical aim sensitivity, 10 to
 nv_form_checkbox@ f_fullscreen=display_page.add_checkbox("Full-screen low-vision landscape presentation; occupies the focused display", "fullscreen", fullscreen_enabled);
 nv_form_checkbox@ f_helper_hud=display_page.add_checkbox("Enable large, high-contrast contextual icons and text", "helper_hud", helper_visual_hud);
 nv_form_checkbox@ f_helper_notifications=notifications_page.add_checkbox("Show Windows notifications for private messages, tickets, and server events", "helper_notifications", helper_desktop_notifications);
+nv_form_checkbox@ f_chat_timestamps=notifications_page.add_checkbox("Show server timestamps at the end of chat messages", "chat_timestamps", show_chat_timestamps);
 nv_form_checkbox@ f_helper_tray=notifications_page.add_checkbox("Add Windows tray controls for show, hide, and mute", "helper_tray", helper_tray_controls);
 nv_form_button@ f_test_notification=notifications_page.add_button("Test Windows desktop notifications", "test_notification");
 nv_form_checkbox@ f_helper_voice=voice_page.add_checkbox("Enable Windows voice commands", "helper_voice", helper_voice_commands);
@@ -1362,11 +1363,11 @@ nv_form_input@ f_server_port=network_page.add_input("Server port", "server_port"
 nv_form_button@ f_server_manager=null;if(!SCRIPT_COMPILED or dev_unlocked)@f_server_manager=network_page.add_button("Developer server list and manager", "server_manager");
 nv_form_checkbox@ f_own_projectiles=audio_page.add_checkbox("Hear your own projectile flight loops and near-miss sounds", "own_projectiles", hear_own_projectile_audio);
 nv_form_checkbox@ f_occlusion=audio_page.add_checkbox("Enable wall and doorway sound occlusion", "occlusion", acoustic_occlusion_enabled);
-nv_form_input@ f_vol=audio_page.add_input("Master volume, minus 60 to 0", "volume", ""+mastervol);
-nv_form_input@ f_gameplay_vol=audio_page.add_input("Weapons, items, and player effects volume, minus 60 to 0", "gameplay_volume", ""+gameplay_volume);
-nv_form_input@ f_world_vol=audio_page.add_input("World and positional ambience volume, minus 60 to 0", "world_volume", ""+world_volume);
-nv_form_input@ f_interface_vol=audio_page.add_input("Menus and interface volume, minus 60 to 0", "interface_volume", ""+interface_volume);
-nv_form_input@ f_notification_vol=audio_page.add_input("Messages and notifications volume, minus 60 to 0", "notification_volume", ""+notification_volume);
+nv_form_input@ f_vol=audio_page.add_input("Master volume, 0 to 100 percent", "volume", ""+volume_db_to_percent(mastervol));
+nv_form_input@ f_gameplay_vol=audio_page.add_input("Weapons, items, and player effects volume, 0 to 100 percent", "gameplay_volume", ""+volume_db_to_percent(gameplay_volume));
+nv_form_input@ f_world_vol=audio_page.add_input("World and positional ambience volume, 0 to 100 percent", "world_volume", ""+volume_db_to_percent(world_volume));
+nv_form_input@ f_interface_vol=audio_page.add_input("Menus and interface volume, 0 to 100 percent", "interface_volume", ""+volume_db_to_percent(interface_volume));
+nv_form_input@ f_notification_vol=audio_page.add_input("Messages and notifications volume, 0 to 100 percent", "notification_volume", ""+volume_db_to_percent(notification_volume));
 nv_form_input@ f_system_volume=audio_page.add_input("Windows application volume, 0 to 100", "system_volume", ""+round(app_volume_percent(),0));
 nv_form_button@ f_toggle_system_mute=audio_page.add_button("Mute or restore game audio at the Windows level", "system_mute");
 nv_form_button@ f_rerun_setup=interface_page.add_button("Run the first-boot setup wizard again", "rerun_setup");
@@ -1428,19 +1429,17 @@ touch_pc_fullscreen_bands=f_pc_touch_bands.state;
 touch_menu_explore_enabled=f_touch_explore.state;
 if(touch_portrait_mode!=f_touch_portrait.state){touch_portrait_mode=f_touch_portrait.state;apply_touch_orientation();}
 helper_visual_hud=f_helper_hud.state;helper_desktop_notifications=f_helper_notifications.state;helper_tray_controls=f_helper_tray.state;helper_voice_commands=f_helper_voice.state;helper_voice_wake_phrase=f_voice_wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=f_helper_mouse.state;helper_mouse_confined=f_helper_confine.state;helper_mouse_wheel_inventory=f_mouse_wheel.state;helper_mouse_invert_vertical=f_mouse_invert.state;helper_mouse_turn_sensitivity=string_to_number(f_mouse_turn.text);helper_mouse_aim_sensitivity=string_to_number(f_mouse_aim.text);if(helper_mouse_turn_sensitivity<10)helper_mouse_turn_sensitivity=10;if(helper_mouse_turn_sensitivity>300)helper_mouse_turn_sensitivity=300;if(helper_mouse_aim_sensitivity<10)helper_mouse_aim_sensitivity=10;if(helper_mouse_aim_sensitivity>300)helper_mouse_aim_sensitivity=300;set_app_volume_percent(string_to_number(f_system_volume.text));
+show_chat_timestamps=f_chat_timestamps.state;
 if(helper_visual_hud and !fullscreen_enabled)set_fullscreen_mode(true,true);
 if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;if(!fullscreen_enabled)set_fullscreen_mode(true,true);}
 string requested_address=f_server_address.text.trim_whitespace();int requested_port=string_to_number(f_server_port.text);if(requested_address!="")netaddress=requested_address;if(requested_port>0 and requested_port<=65535)netport=requested_port;else speak("Invalid server port; keeping port "+netport+".");
-string vol_str=f_vol.text;
-int newvol=string_to_number(vol_str);
-if (newvol<-60) newvol=-60;
-if (newvol>0) newvol=0;
-mastervol=newvol;
+int newpercent=string_to_number(f_vol.text);if(newpercent<0)newpercent=0;if(newpercent>100)newpercent=100;
+mastervol=volume_percent_to_db(newpercent);
 set_sound_master_volume(mastervol);
-gameplay_volume=string_to_number(f_gameplay_vol.text); if(gameplay_volume<-60) gameplay_volume=-60; if(gameplay_volume>0) gameplay_volume=0;
-world_volume=string_to_number(f_world_vol.text); if(world_volume<-60) world_volume=-60; if(world_volume>0) world_volume=0;
-interface_volume=string_to_number(f_interface_vol.text); if(interface_volume<-60) interface_volume=-60; if(interface_volume>0) interface_volume=0;
-notification_volume=string_to_number(f_notification_vol.text); if(notification_volume<-60) notification_volume=-60; if(notification_volume>0) notification_volume=0;
+int gp=string_to_number(f_gameplay_vol.text);if(gp<0)gp=0;if(gp>100)gp=100;gameplay_volume=volume_percent_to_db(gp);
+int wp=string_to_number(f_world_vol.text);if(wp<0)wp=0;if(wp>100)wp=100;world_volume=volume_percent_to_db(wp);
+int ip=string_to_number(f_interface_vol.text);if(ip<0)ip=0;if(ip>100)ip=100;interface_volume=volume_percent_to_db(ip);
+int np=string_to_number(f_notification_vol.text);if(np<0)np=0;if(np>100)np=100;notification_volume=volume_percent_to_db(np);
 gameplay_mixer.volume=gameplay_volume;
 world_mixer.volume=world_volume;
 interface_mixer.volume=interface_volume;
@@ -1788,6 +1787,9 @@ nv_form_button@ f_kick=moderation.add_button("Kick an online player", "kick");
 nv_form_button@ f_ban=moderation.add_button("Ban an account", "ban");
 nv_form_button@ f_unban=moderation.add_button("Unban an account", "unban");
 nv_form_button@ f_bans=moderation.add_button("List active bans", "bans");
+nv_form_button@ f_player_report=moderation.add_button("File a report against a player", "player_report");
+nv_form_button@ f_player_reports=moderation.add_button("List filed player reports", "player_reports");
+nv_form_button@ f_admin_log=moderation.add_button("Read the administration log", "admin_log");
 nv_form_button@ f_notify=communication.add_button("Broadcast a server notification", "notify");
 nv_form_button@ f_motd=communication.add_button("Replace the message of the day", "motd");
 nv_form_button@ f_builder=world.add_button("Open the live map builder", "builder");
@@ -1796,6 +1798,7 @@ nv_form_button@ f_give=world.add_button("Give an item to a player", "give");
 nv_form_button@ f_physics=server.add_button("Read physics backend status", "physics");
 nv_form_button@ f_reboot=server.add_button("Schedule a server reboot", "reboot");
 nv_form_button@ f_cancel_reboot=server.add_button("Cancel a scheduled reboot", "cancel_reboot");
+nv_form_button@ f_server_gc=server.add_button("Run server garbage collection and stale-state cleanup", "server_gc");
 nv_form_button@ f_devkey=developer.add_button("Enter developer unlock key", "devkey");
 nv_form_button@ f_close=f.add_button("Close", "close", false, true);
 tabs.focus();
@@ -1939,6 +1942,9 @@ else if(moderation.is_pressed(f_kick)){string target=af_input("Online player to 
 else if(moderation.is_pressed(f_ban)){string target=af_input("Account to ban","",true).trim_whitespace();string reason=af_input("Ban reason","",true).trim_whitespace();if(target!="" and reason!="")send_reliable(0,"/ban "+target+" "+reason,1);}
 else if(moderation.is_pressed(f_unban)){string target=af_input("Account to unban","",true).trim_whitespace();if(target!="")send_reliable(0,"/unban "+target,1);}
 else if(moderation.is_pressed(f_bans))send_reliable(0,"/bans",1);
+else if(moderation.is_pressed(f_player_report))player_report_form();
+else if(moderation.is_pressed(f_player_reports))send_reliable(0,"/reports",1);
+else if(moderation.is_pressed(f_admin_log))send_reliable(0,"/adminlog 50",1);
 else if(communication.is_pressed(f_notify)){string message=af_input("Server notification","",true).trim_whitespace();if(message!="")send_reliable(0,"/notify "+message,1);}
 else if(communication.is_pressed(f_motd)){string message=af_input("New message of the day","",true).trim_whitespace();if(message!="")send_reliable(0,"/motd "+message,1);}
 else if(world.is_pressed(f_builder)){builder_menu();return;}
@@ -1947,6 +1953,7 @@ else if(world.is_pressed(f_give)){string request=af_input("Player, item ID, and 
 else if(server.is_pressed(f_physics))send_reliable(0,"/physicsstatus",1);
 else if(server.is_pressed(f_reboot)){string seconds=af_input("Seconds before reboot, from 5 to 3600","",true).trim_whitespace();string reason=af_input("Reboot reason","",true).trim_whitespace();if(seconds!="" and reason!="")send_reliable(0,"/reboot "+seconds+" "+reason,1);}
 else if(server.is_pressed(f_cancel_reboot))send_reliable(0,"/reboot cancel",1);
+else if(server.is_pressed(f_server_gc))send_reliable(0,"/gc",1);
 else if(developer.is_pressed(f_devkey))
 {
 string key=af_input("Enter developer unlock key", "", true);

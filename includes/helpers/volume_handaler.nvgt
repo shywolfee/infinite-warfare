@@ -1,16 +1,29 @@
 #pragma plugin nvgt_app_volume
+int active_volume_category=0;
+string[] volume_category_names={"Master","Gameplay","World and ambience","Interface","Notifications"};
+int volume_db_to_percent(int db)
+{
+if(db<=-60)return 0;if(db>=0)return 100;return int(((db+60)*100+30)/60);
+}
+int volume_percent_to_db(int percent){if(percent<=0)return -60;if(percent>=100)return 0;return -60+int((percent*60+50)/100);}
+int selected_volume_db(){if(active_volume_category==0)return mastervol;if(active_volume_category==1)return gameplay_volume;if(active_volume_category==2)return world_volume;if(active_volume_category==3)return interface_volume;return notification_volume;}
+void apply_selected_volume_db(int db)
+{
+if(db<-60)db=-60;if(db>0)db=0;
+if(active_volume_category==0){mastervol=db;set_sound_master_volume(db);}
+else if(active_volume_category==1){gameplay_volume=db;gameplay_mixer.volume=db;}
+else if(active_volume_category==2){world_volume=db;world_mixer.volume=db;}
+else if(active_volume_category==3){interface_volume=db;interface_mixer.volume=db;}
+else{notification_volume=db;notification_mixer.volume=db;}
+}
+void report_selected_volume(){speak(volume_category_names[active_volume_category]+", "+volume_db_to_percent(selected_volume_db())+" percent");}
+void cycle_volume_category(int direction){active_volume_category+=direction;if(active_volume_category<0)active_volume_category=int(volume_category_names.length())-1;if(active_volume_category>=int(volume_category_names.length()))active_volume_category=0;report_selected_volume();}
+void adjust_selected_volume(int direction){int percent=volume_db_to_percent(selected_volume_db())+direction*5;if(percent<0)percent=0;if(percent>100)percent=100;apply_selected_volume_db(volume_percent_to_db(percent));report_selected_volume();}
 void handle_volume()
 {
-if(key_pressed(KEY_HOME))
-{
-sys_audio_set_app_volume(sys_audio_get_app_volume()+0.1);
-speak("volume up");
-}
-if(key_pressed(KEY_END))
-{
-sys_audio_set_app_volume(sys_audio_get_app_volume()-0.1);
-speak("volume down");
-}
+bool alt=key_down(KEY_LMENU) or key_down(KEY_RMENU);
+if(key_pressed(kb("volume_up"))){if(alt)cycle_volume_category(-1);else adjust_selected_volume(1);}
+if(key_pressed(kb("volume_down"))){if(alt)cycle_volume_category(1);else adjust_selected_volume(-1);}
 }
 double app_volume_percent(){return sys_audio_get_app_volume()*100.0;}
 void set_app_volume_percent(double percent){if(percent<0)percent=0;if(percent>100)percent=100;sys_audio_set_app_volume(percent/100.0);}

@@ -21,28 +21,24 @@ items=items1;
 }
 void move_buffer_back()
 {
-string name=buffers[bufferpos].name;
-string [] items=buffers[bufferpos].items;
-string snd=buffers[bufferpos].soundname;
-if(bufferpos>0) 
+if(bufferpos>0)
 {
+buffer@ selected=buffers[bufferpos];
 buffers.remove_at(bufferpos);
-buffer b(name,snd,items);
-buffers.insert_at(bufferpos-1, b);
+buffers.insert_at(bufferpos-1, selected);
 bufferpos--;
+speak("Moved "+selected.name+" earlier, position "+(bufferpos+1)+" of "+buffers.length()+".");
 }
 }
 void move_buffer_next()
 {
-string name=buffers[bufferpos].name;
-string [] items=buffers[bufferpos].items;
-string snd=buffers[bufferpos].soundname;
-if(bufferpos<buffers.length()-1) 
+if(bufferpos<buffers.length()-1)
 {
+buffer@ selected=buffers[bufferpos];
 buffers.remove_at(bufferpos);
-buffer b(name,snd,items);
-buffers.insert_at(bufferpos+1, b);
+buffers.insert_at(bufferpos+1, selected);
 bufferpos++;
+speak("Moved "+selected.name+" later, position "+(bufferpos+1)+" of "+buffers.length()+".");
 }
 }
 void create_buffer(string bname, string snd="")
@@ -386,6 +382,8 @@ if (buf_indices.length()==0)
 f.add_list_item(f_list, "No buffers with content.");
 }
 int f_toggle=f.create_button("&Toggle mute", true);
+int f_earlier=f.create_button("Move &earlier");
+int f_later=f.create_button("Move &later");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_list);
 bool refresh=false;
@@ -403,6 +401,10 @@ buffers[bi].speak=!buffers[bi].speak;
 speak(buffers[bi].name + (buffers[bi].speak ? " unmuted." : " muted."));
 refresh=true;
 }
+}
+if(f.is_pressed(f_earlier) or f.is_pressed(f_later))
+{
+int sel=f.get_list_position(f_list);if(sel>=0 and sel<int(buf_indices.length())){bufferpos=buf_indices[sel];if(f.is_pressed(f_earlier))move_buffer_back();else move_buffer_next();refresh=true;}
 }
 if (f.is_pressed(f_close))
 return;

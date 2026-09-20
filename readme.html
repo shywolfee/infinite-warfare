@@ -3,218 +3,245 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Infinite Warfare 0.5.1.1 Manual</title>
+<title>Infinite Warfare 0.5.1.2 Manual</title>
 <style>
-:root{color-scheme:dark;--bg:#0b1118;--panel:#121b25;--line:#2b3b4d;--text:#e4edf6;--muted:#aab9c8;--accent:#75bfff;--accent2:#a8d7ff;--warn:#ffd479}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{max-width:1120px;margin:auto;padding:1.5rem;font:1rem/1.58 system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
-h1,h2,h3{line-height:1.2;color:var(--accent2)}h1{font-size:2.1rem;border-bottom:2px solid var(--line);padding-bottom:.5rem}h2{margin-top:2.5rem;border-bottom:1px solid var(--line);padding-bottom:.35rem}h3{margin-top:1.6rem}
-a{color:var(--accent)}code,kbd{font-family:ui-monospace,monospace;background:#1b2734;border:1px solid var(--line);border-radius:.3rem;padding:.1rem .35rem}kbd{white-space:nowrap;color:#fff}
-.badge{display:inline-block;background:#1769aa;color:#fff;padding:.25rem .65rem;border-radius:.35rem}.note,.warning{padding:.8rem 1rem;margin:1rem 0;background:var(--panel);border-left:4px solid var(--accent);border-radius:.25rem}.warning{border-color:var(--warn)}
-.toc{columns:2;gap:2rem;background:var(--panel);border:1px solid var(--line);border-radius:.5rem;padding:1rem 1.5rem}.toc li{break-inside:avoid;margin:.25rem 0}
-.table{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:600px;margin:.8rem 0 1.4rem}th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}th{background:#172330;color:var(--accent2)}tr:nth-child(even){background:#101923}
-ul,ol{padding-left:1.4rem}li{margin:.25rem 0}.small{color:var(--muted);font-size:.92rem}@media(max-width:700px){body{padding:1rem}.toc{columns:1}h1{font-size:1.7rem}}
+:root{color-scheme:dark;--bg:#090f16;--panel:#111b26;--panel2:#172433;--line:#33465a;--text:#e7eef6;--muted:#aec0d1;--link:#7bc4ff;--heading:#b9ddff;--warn:#ffd479}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{max-width:1120px;margin:auto;padding:1.5rem;font:1rem/1.62 system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+h1,h2,h3{line-height:1.25;color:var(--heading)}h1{font-size:2.25rem;margin-bottom:.35rem}h2{margin-top:2.7rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}h3{margin-top:1.6rem}
+a{color:var(--link)}code,kbd{font-family:ui-monospace,"Cascadia Mono",monospace;background:#1b2938;border:1px solid var(--line);border-radius:.3rem;padding:.1rem .35rem}kbd{white-space:nowrap;color:#fff}
+.hero{padding:1.25rem 1.4rem;background:linear-gradient(135deg,#14283a,#101923);border:1px solid var(--line);border-radius:.65rem}.version{display:inline-block;padding:.25rem .7rem;background:#1769aa;color:#fff;border-radius:.35rem;font-weight:700}
+.lead{font-size:1.1rem}.note,.warning{padding:.85rem 1rem;margin:1rem 0;background:var(--panel);border-left:4px solid var(--link);border-radius:.25rem}.warning{border-color:var(--warn)}
+.toc{columns:2;gap:2rem;background:var(--panel);border:1px solid var(--line);border-radius:.5rem;padding:1rem 1.6rem}.toc li{break-inside:avoid;margin:.3rem 0}
+.table{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:610px;margin:.8rem 0 1.4rem}th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}th{background:var(--panel2);color:var(--heading)}tr:nth-child(even){background:#0e1721}
+ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line)}
+@media(max-width:700px){body{padding:1rem}.toc{columns:1}h1{font-size:1.8rem}.hero{padding:1rem}}
 </style>
 </head>
 <body>
-<header>
+<header class="hero">
 <h1>Infinite Warfare</h1>
-<p><span class="badge">Version 0.5.1.1 · Build 84</span></p>
-<p>In maps or the lobby, type <kbd>/credits</kbd> in global chat to privately check your saved account balance. Use a credit chip to scan its value without consuming it: small chips contain 15 credits and large chips contain 60. Deposit authenticated chips at a functioning ATM within three tiles. Transactions save before a chip is consumed or a purchase is delivered; if the response is delayed, check your balance and remaining chips before retrying.</p>
-<p>Server operators must preserve the complete <code>accounts</code> directory, including the alternating encrypted <code>.wallet0</code> and <code>.wallet1</code> balance records. Legacy balances migrate on the first successful transaction. Keep client and server updated together for the new ATM responses.</p>
-<p>An online, audio-first action game built with NVGT. The world, combat, interfaces, maps, vehicles, and communication systems are designed for nonvisual play on Windows and Android.</p>
-<p class="small">Manual synchronized with the live code and content database on August 31, 2026.</p>
+<p><span class="version">Version 0.5.1.2 &middot; Build 85</span></p>
+<p class="lead">An open-source, audio-first online action game for Windows and Android, with a supplemental high-contrast visual layer for players with residual vision.</p>
+<p>This manual describes the current game rather than retired prototypes. Exact weapon, ammunition, attachment, armour, item, and vehicle statistics come from the live database and are available through Dynamic Help and the Dynamic Armoury.</p>
 </header>
 
 <nav aria-label="Manual contents">
 <h2>Contents</h2>
 <ol class="toc">
-<li><a href="#start">Starting and navigating</a></li>
-<li><a href="#maps">Maps and modes</a></li>
+<li><a href="#start">Quick start</a></li>
+<li><a href="#access">Menus and accessibility</a></li>
 <li><a href="#controls">Default controls</a></li>
-<li><a href="#combat">Combat simulation</a></li>
+<li><a href="#combat">Combat and weapons</a></li>
 <li><a href="#inventory">Inventory and equipment</a></li>
 <li><a href="#vehicles">Vehicles</a></li>
-<li><a href="#teams">Teams</a></li>
-<li><a href="#communication">Chat and voice</a></li>
-<li><a href="#options">Options</a></li>
+<li><a href="#world">Maps and world systems</a></li>
+<li><a href="#teams">Teams and credits</a></li>
+<li><a href="#communication">Chat, buffers, and voice</a></li>
 <li><a href="#touch">Android and touch</a></li>
-<li><a href="#help">Dynamic help and armoury</a></li>
-<li><a href="#server">Server and developer tools</a></li>
-<li><a href="#files">Local files and troubleshooting</a></li>
+<li><a href="#help">Help and practice</a></li>
+<li><a href="#staff">Staff and server operation</a></li>
+<li><a href="#source">Source builds and releases</a></li>
+<li><a href="#files">Files and troubleshooting</a></li>
 </ol>
 </nav>
 
 <main>
 <section id="start">
-<h2>1. Starting and navigating</h2>
-<p>The main menu provides connection and registration, account management, options, update checking, the changelog, game-sound learning, Android gesture help and practice, keyboard practice, this README, administration where permitted, source-only release packaging, and exit.</p>
-<p>After connecting, the lobby remains live while forms are open. You can chat, inspect players and accounts, browse killstreak rewards, open the dynamic armoury, or choose <strong>Modes → Free for All</strong> and select a map. Deployment gives a random melee weapon, sidearm, primary weapon, ammunition, maintenance supplies appropriate to the starting weapons, healing equipment, and explosives.</p>
-<div class="note">Press <kbd>Shift+H</kbd> for the in-game help browser, <kbd>Shift+F1</kbd> for keyboard practice, or use the Information section of the main menu. The in-game database is the authority for individual weapon, ammunition, attachment, armour, vehicle, and item statistics.</div>
+<h2>1. Quick start</h2>
+<ol>
+<li>Run <code>Infinite Warfare.exe</code>. The first-boot wizard configures essential interface, audio, platform, keyboard, mouse, and touch choices.</li>
+<li>Create or select an account, configure the server address if necessary, and connect.</li>
+<li>Use the lobby to chat, browse players, inspect the armoury, read help, manage your account, or deploy into a map.</li>
+<li>Move with the arrow keys, fire with <kbd>Ctrl</kbd>, reload with <kbd>R</kbd>, open inventory with <kbd>I</kbd>, and open the game menu with <kbd>Escape</kbd>.</li>
+</ol>
+<p>Deployment provides a random melee weapon, sidearm, primary weapon, sensible ammunition, healing supplies, explosives, and maintenance supplies appropriate to the starting firearms. Automatic quickbar assignment is optional.</p>
+<div class="note">Unsure what a key does? Press <kbd>Shift+F1</kbd> for key practice. Press <kbd>Shift+H</kbd> for the in-game help browser.</div>
 </section>
 
-<section id="maps">
-<h2>2. Maps and modes</h2>
-<p>All selectable maps currently use Free for All rules. Map protocol identifiers remain internal; players hear friendly names and precise local zones.</p>
-<p>Interactive services are placed explicitly in logical locations: banks and terminals have ATMs, clinics have stabilization beds, waiting areas have vending machines, and workshops have maintenance landmarks or supply terminals. Their existing stock, credit and cooldown limits still apply. Furniture is separate destructible cover: its shape, floor surfaces and material resistance are shared by the client and server. Destroyed furniture stays removed until the map is reloaded or the server restarts; it does not produce free items.</p>
-<div class="table"><table>
-<tr><th>Map</th><th>Dimensions</th><th>Current design</th></tr>
-<tr><td>Shattersea</td><td>420 × 420 × 80</td><td>A coastal settlement divided by a tidal race: ferry terminal, ticket office, luggage inspection, shipwright and rope loft, salvage yard, clinic, netmaker’s home and lighthouse headland. Timber and stone crossings connect the quays to Lantern island; stairs reach the lofts and headland. No global ocean loop.</td></tr>
-<tr><td>Coruscant</td><td>420 × 380 × 80</td><td>Freight dispatch, workshops and coolant courts below a connected elevated civic concourse. Public clinic, exchange bank, food hall and archive have separate rooms and service entrances. Multiple physical stairs and ramps connect street and concourse; the worker’s apartment has an upstairs bedroom.</td></tr>
-<tr><td>Ghost Town</td><td>400 × 360 × 80</td><td>Mercy Street and Assay Road connect a multi-room saloon, assay bank, sheriff’s office and cells, doctor, forge, railway depot and cemetery chapel. The dry wash, raised rail embankment, orchard and cemetery incline provide distinct outside routes.</td></tr>
-<tr><td>Freya’s Ascent</td><td>360 × 460 × 80</td><td>Meltwater foreland and a mill village lead through ravine trails to an observatory shelf and summit sanctuary. A rescue station, aqueduct inspection shelter, chart library, instrument workshop and weather station connect through real doorways and ramps rather than teleports.</td></tr>
-</table></div>
-<p>Every map declares twelve distributed spawn locations. The server checks floors and headroom before placing players. Doorway portals and room-sized acoustic spaces are authored separately from navigation zones. A repeatable geometry validator checks spawn safety, landmark and service access, doorways and connected routes with furniture present.</p>
+<section id="access">
+<h2>2. Menus and accessibility</h2>
+<p>Most interfaces use NV_form. Arrow keys move through controls, <kbd>Tab</kbd> and <kbd>Shift+Tab</kbd> move between control groups, <kbd>Enter</kbd> activates, and <kbd>Escape</kbd> goes back. Categorized forms use left and right on the category strip. <kbd>Ctrl+Tab</kbd> moves to the next category and its first option; <kbd>Ctrl+Shift+Tab</kbd> moves to the previous one.</p>
+<p>Audio-form navigation and activation sounds are optional. Forms continue pumping network and game state while open. Long text such as the message of the day, changelog, documentation, reports, and account details uses read-only forms.</p>
+<h3>Low-vision display</h3>
+<p>The visual layer uses a dark background, oversized high-contrast icons, focused labels, status text, and simple contextual layouts. It supplements the audio game rather than replacing spatial audio. <kbd>Ctrl+Shift+F12</kbd> toggles full screen. <kbd>Print Screen</kbd> saves a PNG in the <code>screenshots</code> folder beside the running client without blocking gameplay.</p>
+<h3>Input-box speech</h3>
+<p>While typing, <kbd>F1</kbd> toggles speaking typed characters, <kbd>F2</kbd> toggles speaking completed words, and <kbd>F3</kbd> toggles the caps-lock beep.</p>
 </section>
 
 <section id="controls">
 <h2>3. Default controls</h2>
-<p>Most actions are rebindable under <strong>Options → Keyboard → Open key binding editor</strong>. Keymaps are named profiles stored in the game's local application-data folder; duplicate names and unchanged or identical profiles are rejected.</p>
+<p>Configurable actions can be changed under <strong>Options, Keyboard, Key binding editor</strong>. Named keymaps live in the game application-data folder. Duplicate names, identical profiles, and unchanged profiles are rejected.</p>
 <div class="table"><table>
 <tr><th>Area</th><th>Defaults</th></tr>
-<tr><td>Movement</td><td><kbd>Arrows</kbd> move; hold <kbd>Shift</kbd> to sprint; <kbd>Space</kbd> jumps; <kbd>Alt+Z</kbd> sits or stands; <kbd>Page Up</kbd>/<kbd>Page Down</kbd> move vertically where supported. Momentum, gravity, stamina, equipment weight, posture, and wielded weapon affect the physical result.</td></tr>
-<tr><td>Turning and aim</td><td><kbd>Q</kbd>/<kbd>E</kbd> turn; Shift gives fine turning. <kbd>S</kbd>/<kbd>X</kbd> aim vertically. <kbd>Alt+[</kbd>/<kbd>Alt+]</kbd> cycle target body regions; <kbd>Alt+T</kbd> resets to the whole body.</td></tr>
-<tr><td>Core combat</td><td><kbd>Ctrl</kbd> fires; <kbd>R</kbd> reloads; <kbd>Shift+R</kbd> unloads; <kbd>A</kbd> reports ammunition; <kbd>Shift+A</kbd> changes fire mode; <kbd>Alt+R</kbd> cycles compatible ammunition; <kbd>Alt+A</kbd> opens the drawn weapon panel.</td></tr>
-<tr><td>Manual-fed weapons</td><td><kbd>Alt+Y</kbd> opens or closes the action; <kbd>Alt+I</kbd> inserts one selected round; <kbd>Alt+Shift+Y</kbd> cycles a closed action; <kbd>Alt+Shift+G</kbd> ejects ammunition while open.</td></tr>
-<tr><td>Weapon systems</td><td><kbd>Alt+N</kbd> operates the class-specific control; <kbd>Alt+Shift+N</kbd> services, cleans, or vents; <kbd>Alt+Shift+A</kbd> inspects handling state.</td></tr>
-<tr><td>Inventory</td><td><kbd>I</kbd> opens inventory; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> cycle items; <kbd>K</kbd>/<kbd>Shift+K</kbd> cycle only nonempty categories. In the inventory menu, <kbd>Alt+Up/Down</kbd> reorders by one, <kbd>Alt+Home/End</kbd> moves first or last, <kbd>Space</kbd> gives one to a player within ten tiles, and <kbd>Backspace</kbd> drops one seven tiles ahead. <kbd>Shift+Enter</kbd> uses and <kbd>Alt+Enter</kbd> opens dynamic help.</td></tr>
-<tr><td>Item mechanics</td><td><kbd>Alt+Shift+M</kbd> changes configuration or medication dose; <kbd>Alt+Shift+K</kbd> inspects mechanics and recommendations; <kbd>Alt+Shift+P</kbd> removes one pill from a bottle.</td></tr>
-<tr><td>Information</td><td><kbd>H</kbd> health; <kbd>V</kbd> stamina/effects; <kbd>Alt+B</kbd> buffs and debuffs; <kbd>F</kbd> facing; <kbd>C</kbd> coordinates; <kbd>B</kbd> zone; <kbd>M</kbd> nearby items; <kbd>P</kbd> nearby players; <kbd>J</kbd> points of interest; <kbd>W</kbd> tracking information.</td></tr>
+<tr><td>Movement</td><td><kbd>Arrow keys</kbd> move; hold <kbd>Shift</kbd> to sprint; <kbd>Space</kbd> jumps; <kbd>Alt+Z</kbd> sits or stands; <kbd>Page Up</kbd>/<kbd>Page Down</kbd> move vertically where supported.</td></tr>
+<tr><td>Turning and aim</td><td><kbd>Q</kbd>/<kbd>E</kbd> turn; add Shift for fine turning. <kbd>S</kbd>/<kbd>X</kbd> aim vertically. <kbd>Alt+[</kbd>/<kbd>Alt+]</kbd> select a target region; <kbd>Alt+T</kbd> returns to the whole body.</td></tr>
+<tr><td>Combat</td><td><kbd>Ctrl</kbd> fires; <kbd>R</kbd> reloads; <kbd>Shift+R</kbd> unloads; <kbd>A</kbd> reports ammunition/action state; <kbd>Shift+A</kbd> changes fire mode; <kbd>Alt+R</kbd> selects ammunition; <kbd>Alt+A</kbd> opens the drawn weapon panel.</td></tr>
+<tr><td>Weapon mechanics</td><td><kbd>Alt+N</kbd> operates a class-specific control; <kbd>Alt+Shift+N</kbd> services or vents; <kbd>Alt+Shift+A</kbd> inspects handling. <kbd>Alt+Y</kbd> opens/closes a manual action; <kbd>Alt+I</kbd> inserts a round; <kbd>Alt+Shift+Y</kbd> cycles a pump; <kbd>Alt+Shift+G</kbd> ejects while open.</td></tr>
+<tr><td>Inventory</td><td><kbd>I</kbd> opens inventory; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> cycle items; <kbd>K</kbd>/<kbd>Shift+K</kbd> cycle nonempty categories. <kbd>Shift+Enter</kbd> uses an item and <kbd>Alt+Enter</kbd> opens database help.</td></tr>
+<tr><td>Item mechanics</td><td><kbd>Alt+Shift+M</kbd> changes configuration or dose; <kbd>Alt+Shift+K</kbd> reports mechanics and recommendations; <kbd>Alt+Shift+P</kbd> removes one transferable pill.</td></tr>
+<tr><td>Status</td><td><kbd>H</kbd> health; <kbd>V</kbd> stamina/effects; <kbd>Alt+B</kbd> buffs/debuffs; <kbd>F</kbd> facing; <kbd>C</kbd> coordinates; <kbd>B</kbd> zone; <kbd>M</kbd> nearby content; <kbd>P</kbd> nearby players; <kbd>J</kbd> points of interest.</td></tr>
 <tr><td>Server information</td><td><kbd>F1</kbd> players; <kbd>F2</kbd> message of the day; <kbd>F3</kbd> ping statistics; <kbd>F4</kbd> uptime and traffic.</td></tr>
-<tr><td>Menus</td><td><kbd>Escape</kbd> game menu; <kbd>F11</kbd> Options; <kbd>Shift+H</kbd> Help; <kbd>Alt+E</kbd> Equipment; <kbd>Shift+I</kbd> quickbar and equipment abilities; <kbd>Ctrl+Shift+F12</kbd> full screen.</td></tr>
-<tr><td>Buffers</td><td><kbd>[</kbd>/<kbd>]</kbd> move between buffers. Buffer actions allow reading, copying, deleting, logging, and navigating messages without pausing network state.</td></tr>
+<tr><td>Menus</td><td><kbd>Escape</kbd> game menu; <kbd>F11</kbd> Options; <kbd>Shift+H</kbd> Help; <kbd>Alt+E</kbd> Equipment; <kbd>Alt+S</kbd> Support; <kbd>Shift+I</kbd> quickbar and abilities.</td></tr>
+<tr><td>Staff</td><td><kbd>Ctrl+Shift+F8</kbd> opens the Administrator Panel when authorized. <kbd>Shift+D</kbd> opens source/developer tools where permitted.</td></tr>
 </table></div>
+<p>Key practice recognizes the exact modifier chord and describes configurable bindings and contextual controls without confusing a plain key with its Shift, Alt, or Control variant.</p>
 </section>
 
 <section id="combat">
-<h2>4. Combat simulation</h2>
-<p>Combat is server-authoritative and projectile based. Firearms have flight time, velocity, drag, gravity, dispersion, recoil, penetration, and weapon-specific ballistics. Shotguns launch independent pellets; energy weapons use cells, heat, and focused or scatter behaviors; bows, crossbows, mortars, and thrown explosives retain their own trajectories and flight audio.</p>
-<p>Players are not one-point targets. Continuous, facing-aware physical models contain skull, neck, torso, pelvis, arms, and legs. A projectile intersects an actual volume, which determines damage region and the armour slot that can absorb it. Movement still uses predictable whole-coordinate navigation while the body moves continuously between accepted coordinates.</p>
-<h3>Weapon handling</h3>
+<h2>4. Combat and weapons</h2>
+<p>Combat is server-authoritative and projectile based. Firearms use weapon-specific velocity, flight time, drag, gravity, dispersion, recoil, penetration, range, and damage. Projectiles follow slopes and ramps in three dimensions. Shotguns emit individual pellets; explosives and thrown items have their own physics; bows, crossbows, mortars, energy weapons, fuel weapons, powered tools, and melee classes have distinct mechanics and audio.</p>
+<p>Players have continuous, facing-aware models containing separate skull, neck, torso, pelvis, arm, and leg volumes. Projectiles strike the actual volume they intersect, and only armour covering that region can mitigate the hit. One-shot damage is prevented. A silent five-second spawn grace period ends early when the protected player initiates a damaging action.</p>
+<h3>Handling and ammunition</h3>
 <ul>
-<li>Pistols have safeties; SMGs have stocks; assault rifles have gas settings; battle rifles can brace; precision rifles can steady and may require manual bolt cycling.</li>
-<li>Machine guns support automatic fire, bipods, recoil, barrel heat, and sustained-fire consequences.</li>
-<li>Energy weapons track emitter heat and thermal lockout. Fuel weapons, mortars, powered tools, crossbows, ballistae, and melee classes each expose distinct operating mechanics.</li>
-<li>Revolvers and shotguns are genuinely manual-fed. Firing is refused with a contextual explanation when the cylinder, action, chamber, or cycling state is wrong.</li>
-<li>Heat, fouling, alignment, and condition are shown only for weapons to which they apply. Maintenance consumes compatible supplies, takes time, has cooldowns, and can damage a weapon when performed incorrectly.</li>
+<li>A weapon exposes only states that apply to it. Melee weapons do not report impossible heat or fouling; conventional firearms do not pretend to use energy cells.</li>
+<li>Fire modes, ammunition, attachments, condition, bracing, recoil, heat, fouling, safeties, stocks, gas settings, bipods, bolt cycling, and charge strength apply to the relevant weapons.</li>
+<li>Revolvers and individually fed shotguns require their proper sequence. Break actions chamber on close, tube-fed pumps must be cycled, and detachable-magazine shotguns reload normally.</li>
+<li>Shells, cartridges, bolts, cells, magazines, belts, and other feed devices are real inventory objects and change ballistic or functional behavior. Extended magazines change real capacity.</li>
+<li>Maintenance consumes compatible tools and supplies, takes time, has cooldowns, and may worsen damage if performed incorrectly or abandoned during a difficult repair.</li>
 </ul>
-<h3>Ammunition and attachments</h3>
-<p>Weapons accept a dynamic set of real ammunition items: firearm cartridges and shells, specialist shotgun loads, bolt types, and energy cells. Ammunition changes actual projectile behavior. Attachments occupy logical slots and affect capacity, feed compatibility, velocity, recoil, dispersion, drag, range, movement, reload timing, and sound. Extended magazines alter real capacity. The weapon panel's damage, range, projectile count, dispersion, velocity, fire mode, ammunition, attachment, and condition readouts are live.</p>
+<p>The weapon panel is live: damage, range, capacity, projectile count, velocity, spread, recoil, fire mode, selected ammunition, attachments, condition, and applicable handling states update with the current configuration.</p>
+<h3>Movement and stamina</h3>
+<p>Movement uses momentum and simulated gravity while retaining predictable one-coordinate navigation. Sprinting has consistent speed and does not consume stamina, although extremely heavy weapons can prevent it. Stamina is reserved for melee attacks. Sitting slows movement, accelerates recovery, limits heavy weapons, and restricts jumping.</p>
 </section>
 
 <section id="inventory">
 <h2>5. Inventory, equipment, and items</h2>
-<p>The content database is shared by inventory, dynamic help, the armoury, developer grants, starting kits, and “give all.” Individual content is not duplicated in this manual because it changes with the database.</p>
-<p>Inventory categories include Weapons, Ammo, Explosives, Healing, Armour, Armour Repair, Weapon Maintenance, Vehicle Supplies, Attachments, Holsters, Team, Tools, Electronics, Containers, and Equipment. A category participates in navigation only while it contains an item.</p>
-<p>Equipment has dedicated holster, utility, medical, bracelet, head, torso, arm, and leg slots. One armour piece occupies each applicable location. Only armour covering the body part actually struck mitigates that hit. Durability, weight, and movement penalties are authoritative. Compatible patches restore a limited amount without rebuilding destroyed armour.</p>
-<p>Equipment such as the Biomonitor Bracelet and WireNet exposes a quickbar ability instead of consuming a hardcoded key. The <kbd>Shift+I</kbd> manager shows the ability, source equipment, description, cooldown or charges, allows slot movement, can clear the current session's assignments, and can intelligently rank and bind the best available melee weapon, sidearm, primaries, explosives, recovery choices, and practical equipment with an explanation of every slot.</p>
-<p>The four energy drinks are not instant stamina buttons. Drinking takes 1.8 seconds and accumulates a colour- and dose-specific stimulant load. The load metabolizes with time; stacking strong servings schedules a delayed stamina and movement crash, while smaller servings spaced apart are substantially safer.</p>
-<p>Healing medications use measured liquid quantities or pill counts, recommended doses, duration, toxicity, and overdose rules. Explosives, deployables, electronics, containers, tools, maintenance supplies, armour patches, and vehicle supplies retain their own configurations, timers, requirements, and failure cases.</p>
-<p>Map fixtures are not inventory objects and cannot be granted or deployed. Productive fixtures use server-owned shared stock and personal cooldowns. Vending and medical purchases require credits and proximity to the originating machine; refrigerators and salvage sources replenish slowly; stabilization beds provide only bounded critical care; and sinks or streams provide measured stamina recovery. Nearby-item reporting includes fixture health and remaining stock.</p>
+<p>The inventory is a live categorized form. Up/Down browse, Page Up/Page Down move ten entries, Home/End jump to boundaries, and typing several letters performs prefix navigation. Left/Right or Tab/Shift+Tab move among categories that contain items. The Applications key opens a contextual action panel.</p>
+<p><kbd>Alt+Up</kbd>/<kbd>Alt+Down</kbd> reorder one position, <kbd>Alt+Home</kbd> moves first, <kbd>Alt+End</kbd> moves last, <kbd>Space</kbd> gives one item to a selected player within ten tiles, and <kbd>Backspace</kbd> drops one seven tiles ahead. Grenades retain their Enter-to-pull-pin and Enter-again-to-throw cooking workflow.</p>
+<p>Categories include weapons, ammo, explosives, healing, armour, armour repair, weapon maintenance, vehicle supplies, attachments, holsters, team items, tools, electronics, containers, and equipment. Partial magazines, cells, boxes, linked belts, belt boxes, bandoliers, quivers, shell cases, and crates preserve their remaining load.</p>
+<h3>Equipment and quickbar</h3>
+<p>Equipment has dedicated armour and utility locations. One compatible piece occupies each slot. Armour protects its actual body region, loses durability, contributes weight, and can be patched only within its material and repair limits.</p>
+<p><kbd>Shift+I</kbd> opens the quickbar and equipment-ability manager. It reports each ability's source, description, cooldown, and remaining time; can clear assignments for the current session; and can automatically bind a practical loadout while explaining every choice.</p>
+<h3>Consumables and fixtures</h3>
+<p>Liquid medicines show ounces remaining; pill bottles show pills remaining. Doses, duration, toxicity, interactions, and overdose are simulated. Retired energy potions and energy drinks are removed from saved inventories rather than lingering as unusable items.</p>
+<p>ATMs, vending machines, refrigerators, medical beds, salvage sources, sinks, streams, and workshops are map fixtures, not deployable inventory kits. They have server-owned stock, proximity checks, bounded output, and appropriate map locations.</p>
 </section>
 
 <section id="vehicles">
 <h2>6. Vehicles</h2>
-<p>Vehicles are full physical map objects with oriented dimensions, body and wheel hit volumes, acceleration, braking, momentum, fuel, health, armour, and type-specific interiors. Their floors replace underlying terrain, cabin walls and roofs move with the vehicle, and cabin footsteps and acoustics behave like a moving room.</p>
+<p>Vehicles are solid moving world objects with type-specific dimensions, health, armour, wheels, roof surfaces, acceleration, braking, speed, fuel, passenger capacity, and collision behavior. Players may walk around them, jump onto their roofs, be carried at safe speed, be thrown off by hard acceleration or aircraft launch, and be injured by an impact.</p>
+<div class="warning"><strong>Vehicles do not have walkable simulated interiors.</strong> Opening a door permits entry with the vehicle command; it does not replace map tiles with a cabin or let a player walk through the body. This deliberately replaces the older, unreliable interior experiment.</div>
 <div class="table"><table>
 <tr><th>Control</th><th>Action</th></tr>
-<tr><td><kbd>O</kbd></td><td>Open or close a nearby door.</td></tr>
-<tr><td><kbd>V</kbd></td><td>Automatic entry/exit, or sit/stand at the nearest physical interior seat.</td></tr>
-<tr><td><kbd>U</kbd></td><td>Open or close the window at your seat.</td></tr>
-<tr><td><kbd>Arrows</kbd></td><td>Accelerate, brake, and turn while driving; Shift provides fine turning.</td></tr>
-<tr><td><kbd>Alt+Left/Right</kbd></td><td>Change seats.</td></tr>
-<tr><td><kbd>Alt+Shift+V</kbd></td><td>Inspect, refuel, service, refit, or customize a nearby vehicle.</td></tr>
+<tr><td><kbd>O</kbd></td><td>Open or close a door while within five tiles.</td></tr>
+<tr><td><kbd>V</kbd></td><td>Enter the nearest open vehicle and take an available seat, or exit.</td></tr>
+<tr><td><kbd>U</kbd></td><td>Open or close the current seat window.</td></tr>
+<tr><td><kbd>Up/Down</kbd></td><td>Accelerate or brake through the continuous-speed model.</td></tr>
+<tr><td><kbd>Left/Right</kbd></td><td>Turn 90 degrees; add Shift for one-degree adjustments.</td></tr>
+<tr><td><kbd>Alt+Left/Right</kbd></td><td>Change seats. Only the driver controls movement.</td></tr>
+<tr><td><kbd>Alt+Shift+V</kbd></td><td>Open the nearby workshop for inspection, fuel, service, repair, refit, and customization.</td></tr>
 </table></div>
-<p>You may open a door and physically walk through the doorway, explore the cabin, approach a seat, and sit. Players can walk around or climb onto a vehicle, remain on the moving roof at safe speed, or be thrown off by excessive speed, acceleration, or aircraft launch. Vehicles collide with players and take projectile and collision damage, including damage from their owner.</p>
-<p>Fuel type matters. Fuel is consumed dynamically; it can be siphoned, replenished, contaminated, or used incorrectly. Vehicle statistics and performance reflect damage, fuel, service state, modifications, and refits.</p>
+<p>Windows must be open to fire from a seat, and melee attacks cannot be used from a vehicle. Fuel type and quantity matter. Fuel can be consumed, transferred, siphoned, contaminated, or misfuelled; service and refits affect live performance. Vehicles take projectile and collision damage, including damage caused by their owner.</p>
+</section>
+
+<section id="world">
+<h2>7. Maps and world systems</h2>
+<p>The current maps use connected buildings, distinct districts, multiple routes, ramps, elevation, authored zones, distributed safe spawns, useful fixtures, and destructible furniture. Spawn placement checks floor and headroom and relocates a player to the nearest safe tile if necessary.</p>
+<div class="table"><table>
+<tr><th>Map</th><th>Bounds</th><th>Character</th></tr>
+<tr><td>Shattersea</td><td>420 by 420</td><td>A tidal settlement with ferry facilities, Netmakers Row, shipwright floors, rope loft, salvage yard, connected islands, clinic, headland, and lighthouse works.</td></tr>
+<tr><td>Coruscant</td><td>420 by 380</td><td>A freight undercity connected by real stairs and ramps to an elevated civic concourse, bank, clinic, food hall, archive, workshops, and reservoir courts.</td></tr>
+<tr><td>Ghost Town</td><td>400 by 360</td><td>Mercy Street, saloon, assay bank, sheriff and cells, doctor, forge, railway depot, dry wash, orchard, cemetery knoll, and chapel.</td></tr>
+<tr><td>Freya's Ascent</td><td>360 by 460</td><td>A meltwater foreland, village, mill, rescue station, ravine and aqueduct, observatory shelf, weather station, and summit sanctuary.</td></tr>
+</table></div>
+<h3>Acoustics, terrain, and destruction</h3>
+<p>Environmental reverb has been removed. Occlusion remains: positional sound traces walls and authored portals, applies bounded attenuation and low-pass filtering, and can be disabled independently in Audio Options. Interface and notification sounds are not positional world sounds.</p>
+<p>Ramps and stairs create continuous three-dimensional terrain for movement and projectiles. Destructible furniture has material resistance, shape, floor surface, and health shared by client and server. Destroyed furniture stays removed until map reload or server restart and never creates unlimited loot.</p>
+<p>Bunkers use authored entrances, staged construction, capacity, structural condition, power, filtration, supply, access, and tactical interaction rather than acting as generic empty boxes.</p>
 </section>
 
 <section id="teams">
-<h2>7. Teams</h2>
-<p>The in-game Team form is dynamic: only actions allowed by membership, role, and delegated permissions are shown. Owners can invite or remove members, appoint managers, delegate invitation/removal/shop permissions, and manage the shared point pool. Kills add points to that pool.</p>
-<p>The Team Shop sells team supplies and vehicle kits. Duo Plane, Humvee, APC, and Tank kits each have an independent team-wide five-minute purchase timer. Team members have text chat, a live voice room, and optional team-point translocation to an online teammate.</p>
+<h2>8. Teams, shops, and credits</h2>
+<p>The Team form shows only actions allowed by membership, role, and delegated permission. Owners can invite and remove members, appoint managers, control shop authority, and manage a shared point pool. Team kills contribute points. Team text and voice rooms are available.</p>
+<p>The team shop sells supplies and Duo Plane, Humvee, APC, and Tank kits. Each vehicle type has its own team-wide five-minute purchase timer. Online teammates can appear as translocator destinations, using either a cell or team points where permitted.</p>
+<p>Credits are persistent account data. Use <code>/credits</code> to read your balance. Credit chips can be scanned anywhere and deposited at a working ATM within range. The server saves the wallet transaction before consuming a chip or delivering a purchase. The online shop is categorized and purchases from the saved balance.</p>
 </section>
 
 <section id="communication">
-<h2>8. Chat, buffers, and voice</h2>
-<ul>
-<li><kbd>/</kbd> opens global chat.</li>
-<li><kbd>\</kbd> opens current-map/mode chat.</li>
-<li><kbd>Shift+\</kbd> opens team chat; <code>/t</code> also sends team chat.</li>
-<li><kbd>Alt+\</kbd> opens recent private-message contacts and a message box.</li>
-<li><kbd>Alt+O</kbd> transmits voice using push-to-talk or toggled mode.</li>
-<li><kbd>Alt+Shift+O</kbd> toggles hearing your own transmitted voice.</li>
-<li><kbd>Alt+V</kbd> selects positional, channel, private-message, team, or current-map voice rooms.</li>
-<li><kbd>Shift+F7</kbd> opens voice settings directly.</li>
-</ul>
-<p>Voice settings provide enable/disable, push-to-talk versus toggle, self-monitoring, input and output device selection, isolated microphone testing, and low (16 kbps), standard (24 kbps), or high (48 kbps) quality.</p>
-<h3>Windows voice commands</h3>
-<p>Voice commands are separate from live voice chat and are opt-in under <strong>Options → Voice</strong>. Set a distinctive wake phrase; the default is <em>Infinite Warfare</em>. Say only the wake phrase first, or press the rebindable <kbd>Ctrl+Shift+F9</kbd> default to listen immediately. A rising cue and “Listening” confirm that the command window is open. Then say status, health, ammunition, inventory, nearby items, points of interest, next buffer, previous buffer, or repeat message. A closing tone marks the end of capture, and a separate notification tone means the command is being processed. If no command is heard within seven seconds, a closing cue and spoken timeout return the recognizer to wake-phrase mode. Commands cannot fire weapons, use items, transmit chat, or perform destructive actions.</p>
-</section>
-
-<section id="options">
-<h2>9. Options</h2>
-<p>Options is an NV_form property sheet. Focus starts on the category strip; use Left/Right to select a category and Tab to enter its controls.</p>
-<p>In any categorized NV_form, <kbd>Ctrl+Tab</kbd> moves to the next category and focuses its first available option. <kbd>Ctrl+Shift+Tab</kbd> moves to the previous category and likewise starts at its first option.</p>
+<h2>9. Chat, buffers, and voice</h2>
 <div class="table"><table>
-<tr><th>Category</th><th>Settings</th></tr>
-<tr><td>Gameplay</td><td>Target HP, damage readout, automatic starting quickbar binding, and automatic replacement of an occupied attachment slot.</td></tr>
-<tr><td>Interface and Account</td><td>Menu behavior, audio-form feedback, buffer export, first-boot setup, and saved-account behavior.</td></tr>
-<tr><td>Keyboard and Touch</td><td>Keymap editing, Right Control, gesture bindings and practice, touch keyboard mode, full-screen bands, explore by touch, and Android orientation.</td></tr>
-<tr><td>Mouse</td><td>Back/forward buffer navigation, pointer confinement, wheel inventory cycling, independent horizontal turn and vertical aim sensitivity, and vertical inversion.</td></tr>
-<tr><td>Display</td><td>Full-screen low-vision landscape presentation and large contextual icons and text.</td></tr>
-<tr><td>Notifications and Voice</td><td>Windows notifications and tray integration, notification testing, live voice-chat configuration, wake-phrase voice control, and its rebindable direct-listening shortcut.</td></tr>
-<tr><td>Network</td><td>Server address and port, plus a source/developer server manager with permanent localhost entry.</td></tr>
-<tr><td>Audio</td><td>Own projectile loops and flybys, reverb, occlusion, Windows application volume, and separate master, gameplay, world, interface, and notification mixers from −60 to 0 dB.</td></tr>
+<tr><th>Default</th><th>Destination</th></tr>
+<tr><td><kbd>/</kbd></td><td>Global chat in the selected language channel.</td></tr>
+<tr><td><kbd>\</kbd></td><td>Current map or mode chat.</td></tr>
+<tr><td><kbd>Shift+\</kbd></td><td>Team chat.</td></tr>
+<tr><td><kbd>Alt+/</kbd></td><td>Current session group chat.</td></tr>
+<tr><td><kbd>Alt+\</kbd></td><td>Recent private-message contacts and compose box.</td></tr>
 </table></div>
-<p>Environmental reverb uses room type, volume, and material. Occlusion traces walls and authored portals separately and can be disabled without disabling reverb.</p>
-<p>Room reverb follows the sound source rather than assigning every sound the listener's room. Local footsteps and weapon sounds retain environmental cues, while menus and notifications stay dry. Ranged ambient beds retain their authored mix. Wall traces are narrowed to intersecting geometry and acoustic setup is spread over frames to avoid delaying controls and network processing.</p>
-<p>The optional low-vision layer supplements the audio game. It uses a near-black background, oversized high-contrast control-type symbols, large focused labels, a stable layout, and compact map and coordinate context. Audio forms update it as focus moves. Enabling it also enables full-screen landscape presentation.</p>
+<p>Global chat offers forty language channels plus Unfiltered through <code>/channel</code>. Messages receive server timestamps; a Notifications option can hide them locally without removing the audit record. <code>/withdraw</code> retracts the latest message for ten seconds while immediately preserving a staff audit copy. <code>/block</code>, <code>/unblock</code>, and <code>/blocked</code> manage persistent blocks.</p>
+<p>Session groups use <code>/group create</code>, <code>/group add</code>, <code>/group chat</code>, and <code>/group leave</code>. They have a dedicated buffer. <kbd>Alt+Shift+B</kbd> opens the buffer manager, where buffers can be reordered without losing their state.</p>
+<p>Commands require complete names. Unknown commands are reported; ambiguous prefixes list their matches. <kbd>Alt+C</kbd> opens the command menu. Useful commands include <code>/changes</code>, <code>/bug</code>, <code>/bugs</code>, <code>/feedback</code>, <code>/report</code>, <code>/team info</code>, <code>/team shop</code>, and <code>/bunkers</code>.</p>
+<h3>Live voice chat</h3>
+<ul>
+<li><kbd>Alt+O</kbd> transmits according to push-to-talk or toggle mode.</li>
+<li><kbd>Shift+V</kbd> enters or leaves an exclusive non-positional voice room. Leave one room before joining another. Ordinary positional voice is not a room.</li>
+<li><kbd>Shift+F7</kbd> opens voice settings.</li>
+<li><kbd>Alt+Shift+O</kbd> toggles hearing your own transmitted voice.</li>
+</ul>
+<p>Voice settings include input/output devices, isolated microphone testing, self-monitoring, transmission mode, and quality. Selecting an input device does not permanently loop it to output.</p>
+<h3>Windows voice commands</h3>
+<p>Voice control is opt-in and separate from live voice chat. Configure a wake phrase or press the rebindable <kbd>Ctrl+Shift+F9</kbd> default to listen directly. Distinct cues indicate listening, capture completion, and processing. Commands are deliberately read-only, such as status, health, ammunition, inventory, nearby items, points of interest, buffer movement, and repeating a message.</p>
 </section>
 
 <section id="touch">
 <h2>10. Android and touch-screen play</h2>
-<p>The screen is divided into top, middle, and bottom bands. Gesture actions are rebindable and stored in a gesture JSON file. Gesture practice announces the detected band, gesture, and function when enabled.</p>
+<p>Touch input uses top, middle, and bottom bands in landscape. Portrait mode rotates them into left, centre, and right thirds while retaining logical bindings. Gestures are rebindable, resettable, and stored in a gesture configuration JSON.</p>
 <ul>
-<li><strong>Dynamic gesture help:</strong> bottom-band two-finger triple tap lists only gestures relevant to the current menu, audio form, map, vehicle, or touch keyboard.</li>
-<li><strong>Menu navigation:</strong> one-finger vertical swipes move; double tap activates; two-finger tap goes back; two-finger vertical swipes jump to first/last; two-finger right/left acts as Tab/Shift+Tab in audio forms.</li>
-<li><strong>Explore by touch:</strong> hold one finger nearly still for 450 ms, then drag to discover controls. Movement before the threshold cancels exploration, preventing accidental activation during swipes.</li>
-<li><strong>Gameplay arbitration:</strong> a middle-band drag claims the contact for continuous movement and suppresses the pending aim swipe, reducing unintended aim changes.</li>
-<li><strong>Touch keyboard:</strong> choose the system keyboard, QWERTY explore-by-touch (drag and lift to type), or analogue grid navigation with swipes and double tap.</li>
-<li><strong>Touch-screen laptops:</strong> full-screen bands can expand over the physical display and enable full screen so edge touches cannot activate another window.</li>
-<li><strong>Orientation:</strong> landscape is the default and keeps the top, middle, and bottom bands stacked vertically. Android portrait mode rotates the logical bands into left, centre, and right thirds while preserving every binding assigned to the corresponding band.</li>
+<li>One-finger menu swipes move; double tap activates; two-finger tap goes back; two-finger up/down jumps to the first/last option.</li>
+<li>In audio forms, two-finger right acts as Tab and two-finger left as Shift+Tab.</li>
+<li>Contextual gesture help lists only actions relevant to the current form, menu, map, vehicle, or keyboard.</li>
+<li>Gesture practice announces the band, gesture, and function. Its in-game gesture toggles practice on and off.</li>
+<li>Middle-band movement drags suppress a pending aim swipe, reducing accidental aim changes.</li>
+<li>Explore by touch waits for a nearly stationary 450-millisecond hold before announcing controls.</li>
+<li>Full-screen touch bands can cover a laptop display so edge taps cannot activate another window.</li>
 </ul>
-<p><kbd>Print Screen</kbd> captures the display to a PNG in the <code>screenshots</code> folder beside the running client. The binding can be changed through the key binding editor.</p>
+<p>The optional built-in keyboard supports QWERTY explore-by-touch (drag to hear, lift to type) and an analogue grid navigated by swipes and double tap. Both provide Shift, Caps Lock, Backspace, punctuation, Space, and Done.</p>
 </section>
 
 <section id="help">
-<h2>11. Dynamic help and armoury</h2>
-<p>The help browser uses audio forms for categories, topics, and read-only content. System documentation remains in text files, while weapons, ammunition, attachments, armour, vehicles, and items are rendered from the live database. Pressing <kbd>Alt+Enter</kbd> on inventory content opens the same dynamic read-only help.</p>
-<p>The lobby's Dynamic Armoury browses weapons, ammunition, attachments, holsters, suppressors, items, and vehicles; reports compatible content and live statistics; and previews authored sounds through nonblocking play/pause controls without closing or freezing the underlying form.</p>
+<h2>11. Dynamic help, armoury, and practice</h2>
+<p>The help browser presents categories, topics, and read-only content as nested audio forms. System concepts remain authored documentation; weapons, ammunition, attachments, armour, items, and vehicles are rendered from the live database. <kbd>Alt+Enter</kbd> opens the same documentation for the current inventory entry.</p>
+<p>The lobby Dynamic Armoury browses registered content, displays compatibility and live statistics, and previews authored sounds with nonblocking play/pause controls while retaining the underlying form.</p>
+<p>Key practice is available from Information or <kbd>Shift+F1</kbd>. Gesture practice is available from Information and through its in-game gesture. Learn Game Sounds focuses on important recognition cues rather than listing every sound learned naturally through play.</p>
 </section>
 
-<section id="server">
-<h2>12. Server, administration, and diagnostics</h2>
-<p>The dedicated server validates movement, projectiles, hit regions, damage, armour, inventory effects, teams, vehicles, moderation, and reboot/shutdown requests. Packet handling uses bounded draining and batched projectile-audio updates to avoid automatic-fire network floods.</p>
-<p>Administration includes account authorization, password-reset requests, player services, warnings and bans, support tickets, bug reports, feedback, server reboot reasons/timers, and confirmed shutdown. Developer-only tools include database grants, give all, POI teleport (<kbd>Alt+Shift+J</kbd>), packet reporting (<kbd>Shift+F10</kbd>), live packet viewer (<kbd>Shift+F11</kbd>), map tools, server manager, and source release packaging.</p>
-<p>The source-only release builder compiles the client, optionally creates <code>sounds.dat</code>, copies the executable, sound pack, libraries, changelog, and README into a release directory, then creates a ZIP while reporting step progress and errors.</p>
+<section id="staff">
+<h2>12. Staff and server operation</h2>
+<p>Authorized staff can open the categorized Administrator Panel from the game menu or with <kbd>Ctrl+Shift+F8</kbd>. The server checks every action. Roles are administrator, moderator, support, and builder; developers can assign or remove them in game.</p>
+<ul>
+<li><strong>Moderation:</strong> warnings, bans, kicks, account records, player reports, blocks, and combat-logout records.</li>
+<li><strong>Support:</strong> tickets, bug reports, feedback, account service, and player assistance.</li>
+<li><strong>Builders:</strong> validated current-map tools and world editing.</li>
+<li><strong>Administration:</strong> staff roster, authorization, communications, server controls, reboot timers, confirmed shutdown, permanent admin log, and garbage collection.</li>
+</ul>
+<p><code>/accounts</code> opens an account list and detailed record. Other gated commands include <code>/warn</code>, <code>/warnings</code>, <code>/ban</code>, <code>/unban</code>, <code>/bans</code>, <code>/reports</code>, <code>/adminlog</code>, <code>/gc</code>, <code>/staff</code>, <code>/staffrole</code>, and <code>/unstaff</code>.</p>
+<p>Logout is rejected for 30 seconds after taking damage and 20 seconds after dealing damage. A disconnected combatant remains as a temporary combat ghost. Packet queues, automatic-fire updates, chat history, stale state, and explicit staff garbage collection are bounded to control lag without changing mechanics.</p>
+</section>
+
+<section id="source">
+<h2>13. Source builds, sound packs, and releases</h2>
+<p>The project targets NVGT 0.90. The normal server is <code>iwserver.exe</code>; the ReactPhysics-enabled server is <code>iwserver_physics.exe</code>. The physics launcher initializes its native integration without a manual workaround.</p>
+<p>When running <code>Infinite Warfare.nvgt</code> from source, the Administrator Panel exposes <strong>Compress a release build</strong>. It asks before replacement, compiles the client, verifies or optionally builds <code>sounds.dat</code>, stages the executable, sound pack, recursive <code>lib</code> directory, changelog, and README, then creates <code>release.zip</code> with progress and a final result.</p>
+<p>The GitHub updater compares local <code>version.txt</code> with the repository, retrieves a newer open-source tree, and replaces client files. Keep client and server versions synchronized when protocols or persistent formats change.</p>
 </section>
 
 <section id="files">
-<h2>13. Local files and troubleshooting</h2>
+<h2>14. Files and troubleshooting</h2>
 <ul>
-<li>Preferences, keymaps, <code>keyconfig.json</code>, and gesture configuration are stored under the game's local application-data directory rather than beside the executable. Older files are migrated with a spoken notice.</li>
-<li>Unhandled exceptions are written to a shareable client error log where NVGT permits recovery. Include that log, the action being performed, map, and approximate time in a bug report.</li>
-<li>If connection fails, the client resets transient connection state before retrying so a later server recovery does not inherit a half-open session.</li>
-<li>If positional sound is unclear, check the gameplay/world mixers and independently test reverb and occlusion.</li>
-<li>If a control is unknown, use <kbd>Shift+F1</kbd>; if a touch gesture is unknown, use the context gesture-help gesture.</li>
+<li>Preferences, keymaps, <code>keyconfig.json</code>, and gesture bindings are stored in local application data. Legacy local files are migrated with a notice.</li>
+<li>Unhandled script exceptions create a shareable log under <code>iw/crash_logs</code> in local application data. <code>latest_client_session.log</code> provides startup breadcrumbs for native failures.</li>
+<li>Connection failures clear transient state before retrying, preventing a recovered server from inheriting a half-open session.</li>
+<li>In play, <kbd>Alt+Home</kbd>/<kbd>Alt+End</kbd> select a volume mixer and <kbd>Home</kbd>/<kbd>End</kbd> adjust it in five-percent steps.</li>
+<li>Own projectile loops and flybys and world occlusion have separate Audio options. Environmental reverb no longer exists.</li>
+<li>Use <code>/bug</code> to submit a reproducible issue and <code>/bugs</code> to review its status. Include the action, map, approximate time, and crash log when available.</li>
 </ul>
-<div class="warning">This README explains systems and default controls. For exact current content statistics, compatibility, cooldowns, doses, ammunition behavior, and vehicle values, use Dynamic Help or the Dynamic Armoury. They read the same database as gameplay.</div>
+<div class="warning">The live database is authoritative for content statistics and compatibility. Use Dynamic Help or the Dynamic Armoury instead of old external item lists.</div>
 </section>
 </main>
 
 <footer>
 <h2>Credits</h2>
-<p>Infinite Warfare was created by Firegaming and has been developed with contributions from its programmers, sound designers, testers, players, and the NVGT community. See the in-game Developers and Credits entries for the maintained attribution list.</p>
+<p>Infinite Warfare was created by Firegaming and developed with its programmers, sound designers, testers, players, and the NVGT community. See the maintained in-game Developers and Credits entries for complete attribution.</p>
+<p class="muted">Manual revised for version 0.5.1.2, build 85.</p>
 </footer>
 </body>
 </html>

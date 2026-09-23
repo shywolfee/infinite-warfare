@@ -275,11 +275,15 @@ play.hidden=true;
 nv_form_button@ back=f.add_button("Back","back",false,true);
 f.focus_control(list);
 int slot=-1;
+// Enter here plays a sound, so the button-press cue would play on top of
+// it; it is kept quiet while an entry is open.
+string[] quiet={"activate"};
+muted_ui_cues=quiet;
 while(true)
 {
 wait(5);
 f.monitor();
-if(f.is_pressed(back)){if(slot>=0)p.destroy_sound(slot);return;}
+if(f.is_pressed(back)){if(slot>=0)p.destroy_sound(slot);muted_ui_cues.resize(0);return;}
 if(f.is_pressed(play) and @list.focused_item!=null)
 {
 string item_id=list.focused_item.id;

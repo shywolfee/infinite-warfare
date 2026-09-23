@@ -136,7 +136,7 @@ if(handling_is_manual_bolt(w) or w=="ballista")
 {if(s.action_ready){speak(w=="ballista"?"The ballista is already cocked.":"The bolt is already in battery.");return;}s.action_ready=true;p.play_stationary(w+"reload_cycle.ogg",false);speak(w=="ballista"?"Ballista cocked.":"Bolt cycled; chamber ready.");return;}
 if(c=="explosive"){s.deployed=!s.deployed;p.play_stationary(s.deployed?"attachment_bipod_attach.ogg":"attachment_bipod_remove.ogg",false);set_weapon_vertical_aim(turn,false);speak(get_weapon_display_name(w)+(s.deployed?" deployed. Movement is restricted. Elevation range increased.":" packed for movement. Elevation range restricted."));return;}
 if(c=="incendiary" or c=="tool"){s.powered=!s.powered;p.play_stationary(s.powered?"modeenter.ogg":"modeleave.ogg",false);speak(get_weapon_display_name(w)+(s.powered?" started.":" stopped."));return;}
-if(c=="pistol"){s.safety_on=!s.safety_on;s.configuration=s.safety_on?1:0;p.play_stationary("menuclick.ogg",false);speak(s.safety_on?"Safety on.":"Safety off.");return;}
+if(c=="pistol"){s.safety_on=!s.safety_on;s.configuration=s.safety_on?1:0;p.play_stationary("weapon_safety.ogg",false);speak(s.safety_on?"Safety on.":"Safety off.");return;}
 if(c=="light_machine_gun")
 {
 if(s.wall_braced){release_wall_brace(s,true);set_weapon_vertical_aim(turn,false);return;}

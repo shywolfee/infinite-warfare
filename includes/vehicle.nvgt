@@ -799,7 +799,6 @@ vehicle@ v = map_vehicles[vi];
 dynamic_map_destroy(v.map_element_id);
 play_vehicle_audio(v, "destroy");
 speak(v.get_name() + " destroyed!");
-send_reliable(0, "veh_destroy " + vi, 0);
 // Kick all players.
 for (int i = 0; i < int(v.passengers.length()); i++)
 {
@@ -808,8 +807,7 @@ v.window_down[i] = false;
 }
 if (player_vehicle_index == vi)
 {
-// Player takes 1/4 health damage.
-send_reliable(0, "veh_explode_damage", 0);
+// The server hurts the occupants; the client only lets go of the seat.
 player_vehicle_index = -1;
 player_seat = -1;
 in_vehicle = false;
@@ -920,13 +918,13 @@ string tile = get_tile_at(inx, iny, v.z);
 bool flying=(v.get_name()=="Duo Plane" and v.z>0);
 if (!flying and !vehicle_footprint_clear(v,inx,iny,v.z))
 {
-// Hit a wall - take some damage.
-vehicle_take_damage(player_vehicle_index, 50);
+// Hit a wall. The server decides the damage and tells everyone, so the
+// vehicle does not have one health on this screen and another on theirs.
+send_reliable(0,"veh_crash "+player_vehicle_index,0);
 vehicle_current_velocity=0;
 vehicle_target_velocity=0;
 speak("Crashed into a wall! Stopped.");
 play_vehicle_audio(v, "crash");
-if (v.health <= 0) vehicle_on_destroy(player_vehicle_index);
 return;
 }
 // Move vehicle.
@@ -1007,32 +1005,10 @@ string info=get_nearby_vehicles_string(px, py, pz);
 if(info!="") speak(info);
 }
 
-void check_vehicle_damage_from_explosion(int ex, int ey, int ez, int blast_radius, int min_dmg, int max_dmg)
-{
-for (uint i = 0; i < map_vehicles.length(); i++)
-{
-if (map_vehicles[i].destroyed) continue;
-double dist = square_root(double((map_vehicles[i].x - ex) * (map_vehicles[i].x - ex) + (map_vehicles[i].y - ey) * (map_vehicles[i].y - ey) + (map_vehicles[i].z - ez) * (map_vehicles[i].z - ez)));
-if (dist <= blast_radius)
-{
-int dmg = random(min_dmg, max_dmg);
-if (vehicle_take_damage(int(i), dmg))
-vehicle_on_destroy(int(i));
-}
-}
-}
+// Vehicle damage from explosions and bullets is decided by the server and
+// arrives as veh_damage. Each client used to roll its own random damage for
+// every explosion it heard, so one vehicle had a different health on every
+// screen and could be destroyed on yours while intact on everyone else's.
+void check_vehicle_damage_from_explosion(int ex, int ey, int ez, int blast_radius, int min_dmg, int max_dmg){}
 
-void check_vehicle_damage_from_bullet(int bx, int by, int bz, int spread, int min_dmg, int max_dmg)
-{
-for (uint i = 0; i < map_vehicles.length(); i++)
-{
-if (map_vehicles[i].destroyed) continue;
-double dist = square_root(double((map_vehicles[i].x - bx) * (map_vehicles[i].x - bx) + (map_vehicles[i].y - by) * (map_vehicles[i].y - by) + (map_vehicles[i].z - bz) * (map_vehicles[i].z - bz)));
-if (dist <= spread + 2)
-{
-int dmg = random(min_dmg, max_dmg);
-if (vehicle_take_damage(int(i), dmg))
-vehicle_on_destroy(int(i));
-}
-}
-}
+void check_vehicle_damage_from_bullet(int bx, int by, int bz, int spread, int min_dmg, int max_dmg){}

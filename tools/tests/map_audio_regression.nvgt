@@ -1,0 +1,71 @@
+// Every sound the four maps ask for, checked inside the archive the game will
+// actually read rather than against the loose sounds folder.
+//
+// The two are not the same thing. sounds/ is the source tree; sounds.dat is
+// what ships, and a recording that exists in one and not the other is a
+// surface that plays nothing on a player's machine and works perfectly on the
+// machine it was authored on.
+void run_map_audio_regression()
+{
+string destination=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-map-audio-regression-"+random(100000,999999999);
+directory_create(destination);
+string result;int failures=0,checked=0;
+string[] files={"battlegrounds/main.map","freyas_ascent/freyas_ascent.map",
+"habitat_alpha/habitat_alpha.map","freeforall/freeforall.map"};
+pack_file archive;
+if(!archive.open(SCRIPT_MAIN_PATH+"/../../sounds.dat",sound_pack_key))
+{
+file failed;failed.open(destination+"/results.txt","wb");
+failed.write("FAIL could not open sounds.dat\n");failed.close();return;
+}
+result+="PASS sound archive opens\n";
+for(uint fi=0;fi<files.length();fi++)
+{
+file input;
+if(!input.open(SCRIPT_MAIN_PATH+"/../../iwserver/content/maps/"+files[fi],"rb"))
+{result+="FAIL missing "+files[fi]+"\n";failures++;continue;}
+string[] lines=string_split(input.read(),"\n",false);input.close();
+dictionary families;string[] beds;
+for(uint i=0;i<lines.length();i++)
+{
+string[] parts=string_split(lines[i].trim_whitespace(),":",true);
+if(parts.length()<3)continue;
+if(parts[0]=="surface")families.set(parts[2],true);
+else if(parts[0]=="src" and parts.length()>7)beds.insert_last(parts[7]);
+}
+string[] keys=families.get_keys();
+for(uint k=0;k<keys.length();k++)
+{
+string family=keys[k];
+checked++;
+// A wall is one impact; a floor is a family of footsteps plus a landing
+// and a fall. Both have to be there or the surface is silent.
+if(string_contains(family,"wall",1)==0)
+{
+if(!archive.file_exists(family+".ogg"))
+{result+="FAIL "+files[fi]+" wall impact "+family+".ogg\n";failures++;}
+continue;
+}
+if(!archive.file_exists(family+"step1.ogg"))
+{result+="FAIL "+files[fi]+" footsteps "+family+"step1.ogg\n";failures++;}
+if(!archive.file_exists(family+"land.ogg"))
+{result+="FAIL "+files[fi]+" landing "+family+"land.ogg\n";failures++;}
+}
+for(uint b=0;b<beds.length();b++)
+{
+checked++;
+if(!archive.file_exists(beds[b]))
+{result+="FAIL "+files[fi]+" ambience "+beds[b]+"\n";failures++;}
+}
+result+="PASS "+files[fi]+": "+keys.length()+" surfaces, "+beds.length()+" ambience beds\n";
+}
+// Menu cues and the awareness beacons are not named by any map, so they are
+// checked by name: a pack built before they existed plays silence for them.
+string[] client_sounds={"ui/move.ogg","ui/item.ogg","ui/edge.ogg","ui/wrap.ogg","ui/activate.ogg","ui/check.ogg","ui/uncheck.ogg","ui/slider.ogg","ui/switch.ogg","ui/tab.ogg","ui/open.ogg","ui/close.ogg","ui/apply.ogg","ui/error.ogg","ui/popup.ogg","ui/notify.ogg","ui/listen.ogg","ui/listen_end.ogg","ui/type.ogg","ui/delete.ogg","ui/cut.ogg","ui/copy.ogg","ui/paste.ogg","ui/select.ogg","ui/expand.ogg","ui/collapse.ogg","weapon_safety.ogg","trackingbeep.ogg","trackingabove.ogg","trackingbelow.ogg","executioners_rage/track.wav","executioners_rage/ui/beacon.wav","executioners_rage/ui/beacon_dest.wav"};
+int missing_client=0;
+for(uint i=0;i<client_sounds.length();i++){checked++;if(!archive.file_exists(client_sounds[i])){result+="FAIL interface or awareness sound "+client_sounds[i]+" is not in sounds.dat\n";failures++;missing_client++;}}
+if(missing_client==0)result+="PASS all "+client_sounds.length()+" interface and awareness sounds are in sounds.dat\n";
+archive.close();
+result+="Checked "+checked+" recordings.\nFailures: "+failures+"\n";
+file report;report.open(destination+"/results.txt","wb");report.write(result);report.close();
+}

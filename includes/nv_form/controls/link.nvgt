@@ -9,6 +9,7 @@ class nv_form_link: nv_form_control {
 	bool monitor() { return pressed; }
 	void fire() {
 		pressed = true;
+		nv_form_cue("activate");
 		urlopen(url);
 		nv_form_control::fire();
 	}

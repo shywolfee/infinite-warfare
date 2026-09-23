@@ -117,8 +117,10 @@ return;
 if(connected==false and connectiontimer.elapsed>=5000)
 {
 iw_form cf;
-cf.create_window("Connection Timeout", false, true);
-cf.create_input_box("Notice", "Unable to connect to the server. The server may be down or your connection may be slow.", "", 0, false, true, false);
+cf.create_window("No answer from the server", false, true);
+// Said aloud: this used to be a read-only box behind the focused button, so
+// the explanation was only heard by tabbing back to it.
+speak("The server has not answered for five seconds. It may be down, or your connection may be slow.");
 int cf_wait=cf.create_button("&Keep waiting", true);
 int cf_back=cf.create_button("&Back to main menu", false, true);
 cf.focus(cf_wait);

@@ -6,42 +6,37 @@ int x1,x2,y1,y2,z1,z2;string label,material,kind;bool encloses;
 bool contains(float x,float y,float z){return x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;}
 }
 acoustic_space@[] acoustic_spaces;
+// Spaces are indexed on the same grid the tiles and zones use. The vehicle
+// cabin preset is deliberately parked far off the map and is only ever reached
+// through the explicit cabin test below, so it never lands in a real cell.
+box_grid acoustic_space_grid;
 int acoustic_vehicle_preset=-1;
 bool acoustic_occlusion_enabled=true;
-void acoustics_reset(){acoustic_spaces.resize(0);acoustic_vehicle_preset=-1;}
+void acoustics_reset(){acoustic_spaces.resize(0);acoustic_space_grid.clear();acoustic_vehicle_preset=-1;}
 void spawn_acoustic_space(int x1,int x2,int y1,int y2,int z1,int z2,string label,string material,bool encloses,string kind)
-{acoustic_space@ s=acoustic_space();s.x1=x1;s.x2=x2;s.y1=y1;s.y2=y2;s.z1=z1;s.z2=z2;s.label=label;s.material=material;s.encloses=encloses;s.kind=kind;acoustic_spaces.insert_last(s);}
-int acoustic_space_at(float x,float y,float z){int found=-1;for(uint i=0;i<acoustic_spaces.length();i++)if(acoustic_spaces[i].contains(x,y,z))found=int(i);return found;}
+{acoustic_space@ s=acoustic_space();s.x1=x1;s.x2=x2;s.y1=y1;s.y2=y2;s.z1=z1;s.z2=z2;s.label=label;s.material=material;s.encloses=encloses;s.kind=kind;acoustic_spaces.insert_last(s);acoustic_space_grid.add(x1,x2,y1,y2,z1,z2);}
+int acoustic_space_at(float x,float y,float z){return acoustic_space_grid.topmost(int(x),int(y),int(z));}
 int acoustic_effective_space_at(float x,float y,float z)
 {for(uint i=0;i<map_vehicles.length();i++)if(!map_vehicles[i].destroyed and vehicle_cabin_contains_position(map_vehicles[i],x,y,z,.1)){if(acoustic_vehicle_preset<0){spawn_acoustic_space(-100000,-100000,-100000,-100000,-100000,-99998,"vehicle cabin","fabric",true,"vehicle");acoustic_vehicle_preset=int(acoustic_spaces.length())-1;}return acoustic_vehicle_preset;}return acoustic_space_at(x,y,z);}
-bool acoustic_in_portal(float x,float y,float z){for(uint i=0;i<portal_regions.length();i++)if(portal_regions[i].contains(int(round(x,0)),int(round(y,0)),int(round(z,0))))return true;return false;}
-bool acoustic_region_overlaps(map_region@ region,float ax,float bx,float ay,float by,float az,float bz)
-{return region.maxx>=ax and region.minx<=bx and region.maxy>=ay and region.miny<=by and region.maxz>=az and region.minz<=bz;}
-int acoustic_candidate_space(float x,float y,float z,const int[] &in candidates)
+bool acoustic_in_portal(float x,float y,float z){return portal_grid.any(int(round(x,0)),int(round(y,0)),int(round(z,0)));}
+int acoustic_candidate_space(float x,float y,float z)
 {
 for(uint i=0;i<map_vehicles.length();i++)if(!map_vehicles[i].destroyed and vehicle_cabin_contains_position(map_vehicles[i],x,y,z,.1))return acoustic_effective_space_at(x,y,z);
-for(int i=int(candidates.length())-1;i>=0;i--)if(acoustic_spaces[candidates[i]].contains(x,y,z))return candidates[i];
-return -1;
+return acoustic_space_grid.topmost(int(x),int(y),int(z));
 }
 int acoustic_walls_between(float lx,float ly,float lz,float sx,float sy,float sz)
 {
 float distance=get_3d_distance(lx,ly,lz,sx,sy,sz);if(distance<1)return 0;int steps=int(distance);if(steps>160)steps=160;
-// Broad phase once per ray, not an entire map scan at every sample. The one
-// tile margin preserves the old truncation/rounding behavior at tile borders.
-float ax=(lx<sx?lx:sx)-1,bx=(lx>sx?lx:sx)+1,ay=(ly<sy?ly:sy)-1,by=(ly>sy?ly:sy)+1,az=(lz<sz?lz:sz)-1,bz=(lz>sz?lz:sz)+1;
-int[] rooms,portals,tiles;
-for(uint i=0;i<acoustic_spaces.length();i++){acoustic_space@ s=acoustic_spaces[i];if(s.x2>=ax and s.x1<=bx and s.y2>=ay and s.y1<=by and s.z2>=az and s.z1<=bz)rooms.insert_last(i);}
-for(uint i=0;i<portal_regions.length();i++)if(acoustic_region_overlaps(portal_regions[i],ax,bx,ay,by,az,bz))portals.insert_last(i);
-for(uint i=0;i<tile_regions.length();i++)if(acoustic_region_overlaps(tile_regions[i],ax,bx,ay,by,az,bz))tiles.insert_last(i);
-int last=acoustic_candidate_space(lx,ly,lz,rooms),walls=0;bool last_encloses=last>=0 and acoustic_spaces[last].encloses,last_solid=false;
+// Every layer this ray consults is grid-indexed, so each sample is a handful
+// of box tests inside one cell. The previous version rebuilt a candidate list
+// by scanning every space, portal and tile rectangle on the map, once per ray.
+int last=acoustic_candidate_space(lx,ly,lz),walls=0;bool last_encloses=last>=0 and acoustic_spaces[last].encloses,last_solid=false;
 for(int i=1;i<=steps;i++)
 {
 float t=float(i)/steps,x=lx+(sx-lx)*t,y=ly+(sy-ly)*t,z=lz+(sz-lz)*t;
-int here=acoustic_candidate_space(x,y,z,rooms);bool here_encloses=here>=0 and acoustic_spaces[here].encloses,portal=false;
-int px=int(round(x,0)),py=int(round(y,0)),pz=int(round(z,0));
-for(uint pi=0;pi<portals.length();pi++)if(portal_regions[portals[pi]].contains(px,py,pz)){portal=true;break;}
-string tile="";
-for(int ti=int(tiles.length())-1;ti>=0;ti--)if(tile_regions[tiles[ti]].contains(int(x),int(y),int(z))){tile=tile_regions[tiles[ti]].value;break;}
+int here=acoustic_candidate_space(x,y,z);bool here_encloses=here>=0 and acoustic_spaces[here].encloses;
+bool portal=portal_grid.any(int(round(x,0)),int(round(y,0)),int(round(z,0)));
+string tile=tile_grid.value_at(int(x),int(y),int(z));
 bool solid=(string_contains(tile,"wall",1)>=0 or dynamic_map_solid_at(x,y,z)) and !portal;
 bool boundary=here!=last and (last_encloses or here_encloses) and !portal;
 if(boundary or (solid and !last_solid)){walls++;if(walls>=3)return walls;}

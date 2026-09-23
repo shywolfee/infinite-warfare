@@ -1,80 +1,61 @@
-//helper class for the notifications plugin
+// Windows toast notifications and a tray icon, over the NVGT Helpers
+// notifications plugin.
+//
+// The plugin's calls take strings, and a toast is only shown as coming from
+// an application whose ID matches a Start menu shortcut carrying that same ID:
+//   set_app_id(app_id)
+//   install_shortcut(app_id, display_name)
+// The upstream helper passed a number to the first and the two arguments of
+// the second the wrong way round, which produced a shortcut called by the
+// number and toasts sent under an ID nothing had registered.
 #pragma plugin notifications
 class notifications_helper
 {
 uint64 handle;
 toast_notifier n;
-int id;
 tray_icon t;
-string last_action;
+string app_id;
 string name;
-bool clicked = false;
+string last_action;
+bool clicked=false;
 int selected_item=-1;
-//constructer. This will allow you to set some of the properties of the class. You will have to call set_id to set the ID after creating the object.
-notifications_helper(int i, string n)
+bool registered=false;
+notifications_helper(const string &in app_id,const string &in name)
 {
-name = n;
-id = i;
-handle = get_window_os_handle();
+this.app_id=app_id;this.name=name;
+handle=get_window_os_handle();
 }
-//Call this every frame if you want it. It will allow you to get the last action, button, or menu item selected from the properties of the class.
-void update() 
+// Idempotent: reinstalling the shortcut also repairs one that was moved or
+// deleted, and costs nothing when it is already right.
+bool register()
 {
-last_action = n.get_action();
-clicked = t.is_clicked();
-selected_item = t.get_menu_click();
+n.set_app_id(app_id);
+registered=n.install_shortcut(app_id,name);
+return registered;
 }
-bool show(string title, string boddie)
+// Call every frame. The values are only good until the next call.
+void update()
 {
-return n.show(title,boddie);
+last_action=n.get_action();
+clicked=t.is_clicked();
+selected_item=t.get_menu_click();
 }
-bool show(string title, string boddie, string buttons, string actions)
+bool show(const string &in title,const string &in body)
 {
-return n.show(title,boddie,buttons,actions);
+if(!registered)register();
+return n.show(title,body);
 }
-bool create_shortcut()
+bool show(const string &in title,const string &in body,const string &in buttons,const string &in actions)
 {
-return n.install_shortcut(name,id);
+if(!registered)register();
+return n.show(title,body,buttons,actions);
 }
-//You can choose either for the class to use the name propertie, or to set the name. That is why there are 2 functions here.
-bool add_to_tray()
-{
-return t.add(name);
-}
-bool add_to_tray(string name)
-{
-return t.add(name);
-}
-void set_id()
-{
-n.set_app_id(id);
-}
-void remove_from_tray()
-{
-t.remove();
-}
-void set_tray_name(string name)
-{
-t.set_tooltip(name);
-}
-void set_tray_items(string items)
-{
-t.set_menu_items(items);
-}
-void hide_window()
-{
-t.hide_window(handle);
-}
-void show_window()
-{
-t.show_window(handle);
-}
-string get_selected_action()
-{
-return last_action;
-}
-int get_selected_item()
-{
-return selected_item;
-}
+bool add_to_tray(){return t.add(name);}
+void remove_from_tray(){t.remove();}
+void set_tray_name(const string &in tip){t.set_tooltip(tip);}
+void set_tray_items(const string &in items){t.set_menu_items(items);}
+void hide_window(){t.hide_window(handle);}
+void show_window(){t.show_window(handle);}
+string get_selected_action(){return last_action;}
+int get_selected_item(){return selected_item;}
 }

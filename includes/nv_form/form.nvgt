@@ -26,7 +26,21 @@ int nvform_keyboard_echo = textflag_entry_characters;
 nv_form_event_handler@ default_nv_form_event_handler = null;
 nv_form_network_pump@ default_nv_form_network_pump = null;
 nv_form_audio_feedback@ default_nv_form_audio_feedback = null;
-void nv_form_play_feedback(bool activation=false){if(@default_nv_form_audio_feedback!=null)default_nv_form_audio_feedback(activation);}
+nv_form_ui_cue_handler@ default_nv_form_ui_cue = null;
+// Every control used to have one of two sounds: a tick for moving and a
+// click for pressing. A checkbox ticked, a list that has run out, a slider
+// at its limit and a dialog closing were all the same tick or silence. Each
+// now has its own cue, and a program that installs no cue handler keeps the
+// old two-sound behaviour.
+// Set every frame: Page Up and Page Down belong to the focused control when
+// it is a slider or number field, and to the menu music otherwise.
+bool nv_form_focus_uses_paging = false;
+void nv_form_cue(const string &in cue)
+{
+if(@default_nv_form_ui_cue!=null){default_nv_form_ui_cue(cue);return;}
+if(@default_nv_form_audio_feedback!=null)default_nv_form_audio_feedback(cue=="activate");
+}
+void nv_form_play_feedback(bool activation=false){nv_form_cue(activation?"activate":"move");}
 class nv_form {
 	nv_form_control@[]controls;
 	int max_controls = 0;
@@ -37,6 +51,7 @@ class nv_form {
 	bool speak_control_attributes_separately = false;
 	private int __tap_timeout__ = 200;
 	bool active = false;
+	string pending_cue = "";
 	private nv_form_errorcode[] errors;
 	nv_form_control@primary_control = null, cancel_control = null;
 	nv_form_callback@background_callback = null;
@@ -117,8 +132,10 @@ class nv_form {
 		@shortcut = nv_shortcut_manager();
 		shortcut.tap_timeout = tap_timeout;
 		if (change_screen_title) show_window(window_title);
-		if (!silent)
+		if (!silent) {
+			nv_form_cue("open");
 			speak(window_title + (say_dialog ? "  dialog" : ""), false);
+		}
 		return true;
 	}
 	bool check_controls(nv_form_control@&out ctrl = void) {
@@ -136,7 +153,8 @@ class nv_form {
 	bool monitor() {
 		if (!active) return false;
 		if(@default_nv_form_network_pump!=null)default_nv_form_network_pump();
-		helper_visual_hud_loop();
+		nv_form_focus_uses_paging = @current_control != null && (cast<nv_form_slider@>(current_control) != null || cast<nv_form_spin@>(current_control) != null);
+		nvgt_helpers_service();
 		if (@nv_utility_form != null) {
 			nv_utility_form.monitor();
 			return true;
@@ -167,7 +185,7 @@ class nv_form {
 		if((command==8 or command==9) and @tabs!=null and tabs.current_page.control_index<0){int next=tabs.pos+(command==9?1:-1);if(next<0)next=tabs.page_count-1;if(next>=tabs.page_count)next=0;tabs.set_pos(next);nv_form_play_feedback();speak(tabs.speak_tab_item(tabs.current_page));return;}
 		nv_form_list_box@ list=cast<nv_form_list_box@>(ctrl);
 		if(@list!=null){if(command==1 or command==2){if(list.navigate(command==2) and @list.focused_item!=null)speak(list.speak_list_item(list.focused_item));return;}if(command==6 or command==7){if(list.set_pos(command==6?0:int(list.items.length())-1,true) and @list.focused_item!=null)speak(list.speak_list_item(list.focused_item));return;}}
-		nv_form_slider@ slider=cast<nv_form_slider@>(ctrl);if(@slider!=null){if(command==1 or command==8)slider.value-=slider.step;else if(command==2 or command==9)slider.value+=slider.step;else if(command==6)slider.value=slider.min_value;else if(command==7)slider.value=slider.max_value;else @slider=null;if(@slider!=null){slider.clamp_value();nv_form_play_feedback();speak(slider.text_value);return;}}
+		nv_form_slider@ slider=cast<nv_form_slider@>(ctrl);if(@slider!=null){if(command==1 or command==9)slider.value+=slider.step;else if(command==2 or command==8)slider.value-=slider.step;else if(command==6)slider.value=slider.min_value;else if(command==7)slider.value=slider.max_value;else @slider=null;if(@slider!=null){slider.clamp_value();nv_form_play_feedback();speak(slider.text_value);return;}}
 		nv_form_switch@ sw=cast<nv_form_switch@>(ctrl);if(@sw!=null and (command==3 or command==8 or command==9)){if(command==8)sw.set_pos(sw.index-1);else sw.next;nv_form_play_feedback();if(@sw.focused_item!=null)speak(sw.focused_item.text);return;}
 		nv_form_treeview@ tree=cast<nv_form_treeview@>(ctrl);if(@tree!=null and tree.visible_nodes.length()>0){if(command==1 and tree.pos>0)tree.pos--;else if(command==2 and tree.pos<int(tree.visible_nodes.length())-1)tree.pos++;else if(command==6)tree.pos=0;else if(command==7)tree.pos=int(tree.visible_nodes.length())-1;else @tree=null;if(@tree!=null){tree.speak_current_node();return;}}
 		nv_form_input@ input=cast<nv_form_input@>(ctrl);if(@input!=null){if(command==8){input.move_left();return;}if(command==9){input.move_right();return;}if(command==1 and input.multiline){input.previous_line();return;}if(command==2 and input.multiline){input.next_line();return;}}
@@ -188,7 +206,10 @@ class nv_form {
 		if (@cancel_control != null) {
 			if (key_pressed(KEY_ESCAPE)) {
 				nv_form_tab_control@ tab = cast<nv_form_tab_control@>(ctrl);
-				if (@tab == null || !tab.is_waiting_form) cancel_control.fire();
+				if (@tab == null || !tab.is_waiting_form) {
+					nv_form_cue("close");
+					cancel_control.fire();
+				}
 			}
 		}
 		if (!handled && key_repeating(KEY_TAB)) {
@@ -401,6 +422,9 @@ class nv_form {
 	}
 	bool navigate_form(bool next = true, bool quiet = false, bool interrupt_previous_speech = true) {
 		nv_form_control@ctrl = find_next_control(next);
+		int target = @ctrl == null ? -1 : controls.find_by_ref(ctrl);
+		if (target >= 0 && control_index >= 0 && target != control_index && (next ? target < control_index : target > control_index))
+			pending_cue = "wrap";
 		return focus_control(ctrl, quiet, interrupt_previous_speech);
 	}
 	bool focus_control(nv_form_control@ctrl, bool quiet = false, bool interrupt_previous_speech = true) {
@@ -416,7 +440,8 @@ class nv_form {
 			current.event.fire(nv_form_event(current, nv_form_event_focus_lost));
 		this.control_index = control_index;
 		low_vision_set_context(window_title, controls[control_index].caption, controls[control_index].type);
-		if(@current!=null and @current!=@current_control)nv_form_play_feedback();
+		if(@current!=null and @current!=@current_control)nv_form_cue(pending_cue!=""?pending_cue:"move");
+		pending_cue="";
 		current_control.event.fire(nv_form_event(this.current_control, nv_form_event_focus_gained));
 		current_control.on_focus_gained_immediate();
 		bool result;

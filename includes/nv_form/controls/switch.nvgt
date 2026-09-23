@@ -33,7 +33,7 @@ class nv_form_switch: nv_form_control {
 	bool handle_input() {
 		if (key_repeating(KEY_SPACE)) {
 			bool nav = next;
-			if(nav)nv_form_play_feedback();
+			nv_form_cue(nav?"switch":"edge");
 			if (nav) speak(focused_item.text);
 			return true;
 		}

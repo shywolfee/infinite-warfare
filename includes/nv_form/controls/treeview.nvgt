@@ -119,22 +119,25 @@ class nv_form_treeview : nv_form_control {
 		if (key_repeating(KEY_DOWN)) {
 			if (pos < visible_nodes.length() - 1) {
 				pos++;
+				nv_form_cue("item");
 				speak_current_node();
-				return true;
-			}
+			} else nv_form_cue("edge");
+			return true;
 		}
 		if (key_repeating(KEY_UP)) {
 			if (pos > 0) {
 				pos--;
+				nv_form_cue("item");
 				speak_current_node();
-				return true;
-			}
+			} else nv_form_cue("edge");
+			return true;
 		}
 		if (key_pressed(KEY_RIGHT) && @node != null) {
 			if (node.has_nodes) {
 				if (!node.expanded) {
 					node.expanded = true;
 					rebuild();
+					nv_form_cue("expand");
 					speak("expanded");
 					return true;
 				} else {
@@ -150,6 +153,7 @@ class nv_form_treeview : nv_form_control {
 			if (node.has_nodes && node.expanded) {
 				node.expanded = false;
 				rebuild();
+				nv_form_cue("collapse");
 				speak("collapsed");
 				return true;
 			} else if (@node.parent != null) {
@@ -164,11 +168,13 @@ class nv_form_treeview : nv_form_control {
 			}
 		}
 		if (key_repeating(KEY_HOME)) {
+			nv_form_cue(pos == 0 ? "edge" : "item");
 			pos = 0;
 			speak_current_node();
 			return true;
 		}
 		if (key_repeating(KEY_END)) {
+			nv_form_cue(pos == int(visible_nodes.length()) - 1 ? "edge" : "item");
 			pos = visible_nodes.length() - 1;
 			speak_current_node();
 			return true;

@@ -25,5 +25,3 @@ bool alt=key_down(KEY_LMENU) or key_down(KEY_RMENU);
 if(key_pressed(kb("volume_up"))){if(alt)cycle_volume_category(-1);else adjust_selected_volume(1);}
 if(key_pressed(kb("volume_down"))){if(alt)cycle_volume_category(1);else adjust_selected_volume(-1);}
 }
-double app_volume_percent(){return sys_audio_get_app_volume()*100.0;}
-void set_app_volume_percent(double percent){if(percent<0)percent=0;if(percent>100)percent=100;sys_audio_set_app_volume(percent/100.0);}

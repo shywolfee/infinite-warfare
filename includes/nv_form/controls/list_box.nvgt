@@ -43,7 +43,7 @@ class nv_form_list_box: nv_form_control {
 		if (index < 0 || index > items.length() - 1) return false;
 		int opos = list_position;
 		list_position = index;
-		if(fire_event and opos!=list_position)nv_form_play_feedback();
+		if(fire_event)nv_form_cue(opos!=list_position?"item":"edge");
 		if (fire_event) {
 			dictionary a;
 			a.set("old_pos", opos);
@@ -103,8 +103,10 @@ class nv_form_list_box: nv_form_control {
 					position = find_multinav_position(multichar);
 				}
 				if (position < 0) {
+					// Typing a letter nothing starts with used to be silent.
 					multichar = "";
-					return false;
+					nv_form_cue("edge");
+					return true;
 				}
 				if (position != list_position) set_pos(position, fire_event = true);
 				if (list_position >= 0 && list_position < items.length() && @items[list_position] != null) speak(speak_list_item(items[list_position]));
@@ -135,11 +137,13 @@ class nv_form_list_box: nv_form_control {
 			if ((key_down(KEY_LCTRL) || key_down(KEY_RCTRL)) && key_pressed(KEY_A)) {
 				for (uint i = 0; i < items.length(); i++)
 					items[i].selected = true;
+				nv_form_cue("select");
 				speak(items.length() + " items selected");
 				return true;
 			}
 			if (key_pressed(KEY_SPACE) && @focused_item != null) {
 				focused_item.selected = !focused_item.selected;
+				nv_form_cue(focused_item.selected ? "check" : "uncheck");
 				speak((focused_item.selected ? "Checked" : "Not checked"));
 				return true;
 			}
@@ -252,8 +256,10 @@ class nv_form_list_box: nv_form_control {
 				return true;
 			}
 		}
-		if (!silent)
+		if (!silent) {
+			nv_form_cue("error");
 			speak(already_on_result ? "nothing else found" : "nothing found");
+		}
 		return false;
 	}
 	string get_fixed_type_last() property {

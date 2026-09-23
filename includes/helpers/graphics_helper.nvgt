@@ -1,22 +1,96 @@
-// Adapted from the supplied NVGT Helpers graphics_helper. NVGT 0.90 exposes
-// the drawing surface through game_window, so this keeps the helper's stable
-// game-facing API without loading its obsolete pre-0.90 plugin ABI.
+// Drawing for the low-vision display, on NVGT's own window renderer.
+//
+// The helper this replaces kept the old plugin's API and drew text by calling
+// game_window.draw_text() with no font set. The window's font starts out null,
+// and without one draw_text() silently draws nothing, so the display showed a
+// blank blue screen with a couple of lines on it and nobody could tell why.
+// Fonts are now loaded explicitly, at sizes worked out from the window, and
+// every call checks it has one before trying to draw text.
+//
+// Two things about the renderer that are not documented anywhere and were
+// found by testing it:
+//   measure_text() returns one uint64: width in the high 32 bits, height in
+//   the low 32.
+//   draw_rect(x, y, w, h, r, g, b, filled) is width and height, not corners.
+
+class graphics_colour
+{
+int r,g,b;
+graphics_colour(int r=255,int g=255,int b=255){this.r=r;this.g=g;this.b=b;}
+}
+
 class graphics_helper
 {
 game_window@ renderer;
 bool active=false;
+private text_font@[] fonts;
+private int[] font_sizes;
+private string font_path="";
+private string bold_path="";
 
 graphics_helper()
 {
 @renderer=get_window();
 active=@renderer!=null;
+font_path=find_font(false);
+bold_path=find_font(true);
 }
 
 bool get_active(){return active and @renderer!=null;}
-void update(){if(get_active())renderer.present();}
+bool get_can_draw_text(){return font_path!="";}
+
+// The first font that exists on this machine. Segoe UI is what Windows itself
+// uses for large text; the rest cover systems without it.
+private string find_font(bool bold)
+{
+string[] candidates;
+if(bold)candidates={"C:/Windows/Fonts/segoeuib.ttf","C:/Windows/Fonts/arialbd.ttf","C:/Windows/Fonts/verdanab.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf","/System/Library/Fonts/Supplemental/Arial Bold.ttf"};
+else candidates={"C:/Windows/Fonts/segoeui.ttf","C:/Windows/Fonts/arial.ttf","C:/Windows/Fonts/verdana.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf","/System/Library/Fonts/Supplemental/Arial.ttf"};
+for(uint i=0;i<candidates.length();i++)if(file_exists(candidates[i]))return candidates[i];
+return "";
+}
+
+// Fonts are cached by size and weight; a HUD that asks for the same two or
+// three sizes every frame must not reload them every frame.
+private text_font@ font(int size,bool bold)
+{
+if(font_path=="")return null;
+int key=bold?-size:size;
+for(uint i=0;i<font_sizes.length();i++)if(font_sizes[i]==key)return fonts[i];
+text_font@ f=text_font(bold and bold_path!=""?bold_path:font_path,size);
+fonts.insert_last(f);font_sizes.insert_last(key);
+return f;
+}
+
+// The area you can actually draw in. The window reports its size in
+// unscaled units while drawing happens in scaled ones, so on a display at
+// 125 percent a 640-wide window has 512 units of room and anything laid out
+// against 640 runs off the right-hand edge.
+void get_drawable(int &out width,int &out height)
+{
+width=get_window_width();height=get_window_height();
+if(!get_active())return;
+float scale=renderer.display_scale;
+if(scale>0.5){width=int(width/scale);height=int(height/scale);}
+}
+
 void clear_screen(int r,int g,int b){if(get_active())renderer.clear(r,g,b);}
-void draw_text(string text,int x,int y,int r,int g,int b){if(get_active())renderer.draw_text(text,x,y,r,g,b);}
-void draw_text_wrapped(string text,int x,int y,int w,int r,int g,int b){if(get_active())renderer.draw_text_wrapped(text,x,y,w,r,g,b);}
+void clear_screen(graphics_colour@ c){clear_screen(c.r,c.g,c.b);}
+void update(){if(get_active())renderer.present();}
+
+void rect(int x,int y,int w,int h,graphics_colour@ c,bool filled=true)
+{
+if(!get_active() or w<=0 or h<=0)return;
+renderer.draw_rect(x,y,w,h,c.r,c.g,c.b,filled);
+}
+// A rectangle with a border of its own, which is what separates a panel from
+// the background for someone who can only see large contrast.
+void panel(int x,int y,int w,int h,graphics_colour@ fill,graphics_colour@ border,int thickness=4)
+{
+rect(x,y,w,h,border,true);
+rect(x+thickness,y+thickness,w-thickness*2,h-thickness*2,fill,true);
+}
+
 void draw_line(int x1,int y1,int x2,int y2,int r,int g,int b,int thickness)
 {
 if(!get_active())return;
@@ -24,4 +98,48 @@ int half=thickness/2;
 if(abs(x2-x1)>=abs(y2-y1))for(int offset=-half;offset<=half;offset++)renderer.draw_line(x1,y1+offset,x2,y2+offset,r,g,b);
 else for(int offset=-half;offset<=half;offset++)renderer.draw_line(x1+offset,y1,x2+offset,y2,r,g,b);
 }
+
+// Width and height of `text` at a size, without drawing it.
+void measure(const string &in text,int size,bool bold,int &out width,int &out height)
+{
+width=0;height=size;
+text_font@ f=font(size,bold);
+if(!get_active() or f is null or text=="")return;
+renderer.set_font(f);
+uint64 packed=renderer.measure_text(text);
+width=int(packed>>32);height=int(packed&0xFFFFFFFF);
+}
+
+int text(const string &in text,int x,int y,int size,graphics_colour@ c,bool bold=false)
+{
+text_font@ f=font(size,bold);
+if(!get_active() or f is null or text=="")return 0;
+renderer.set_font(f);
+renderer.draw_text(text,x,y,c.r,c.g,c.b);
+return f.height;
+}
+
+// Text that does not fit is shrunk until it does, down to a floor, rather than
+// running off the edge of the window where nobody will ever see the end of it.
+int text_fitted(const string &in value,int x,int y,int max_width,int size,int min_size,graphics_colour@ c,bool bold=false)
+{
+int s=size,w=0,h=0;
+while(s>min_size){measure(value,s,bold,w,h);if(w<=max_width)break;s-=2;}
+measure(value,s,bold,w,h);
+// Still too wide at the smallest size worth reading: wrap it instead.
+if(w>max_width){text_wrapped(value,x,y,max_width,s,c,bold);return h*2;}
+return text(value,x,y,s,c,bold);
+}
+
+void text_wrapped(const string &in text,int x,int y,int width,int size,graphics_colour@ c,bool bold=false)
+{
+text_font@ f=font(size,bold);
+if(!get_active() or f is null or text=="")return;
+renderer.set_font(f);
+renderer.draw_text_wrapped(text,x,y,width,c.r,c.g,c.b);
+}
+
+// Kept so older call sites keep working.
+void draw_text(string value,int x,int y,int r,int g,int b){text(value,x,y,28,graphics_colour(r,g,b));}
+void draw_text_wrapped(string value,int x,int y,int w,int r,int g,int b){text_wrapped(value,x,y,w,28,graphics_colour(r,g,b));}
 }

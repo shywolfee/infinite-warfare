@@ -40,28 +40,36 @@ class nv_form_tab_control: nv_form_control {
 	bool handle_input() {
 		if (@parent.current_control != @this) return false;
 		if (tab_page_index > -1 && tab_page_index < tab_pages.length() && tab_pages[tab_page_index].control_index == -1) {
-			if (key_repeating(KEY_RIGHT) && tab_page_index < tab_pages.length() - 1) {
+			// Each key is read once: key_repeating uses the press up, so the
+			// end-of-strip check that read Left and Right first left nothing
+			// for the lines below and the tabs could not be changed at all.
+			bool right = key_repeating(KEY_RIGHT), left = key_repeating(KEY_LEFT);
+			if ((right && tab_page_index >= tab_pages.length() - 1) || (left && tab_page_index == 0)) {
+				nv_form_cue("edge");
+				return true;
+			}
+			if (right && tab_page_index < tab_pages.length() - 1) {
 				tab_pages[tab_page_index].control_index = -1;
 				tab_page_index += 1;
-				nv_form_play_feedback();
+				nv_form_cue("tab");
 				speak(speak_tab_item(tab_pages[tab_page_index]));
 				return true;
-			} else if (key_repeating(KEY_LEFT) && tab_page_index > 0) {
+			} else if (left && tab_page_index > 0) {
 				tab_pages[tab_page_index].control_index = -1;
 				tab_page_index -= 1;
-				nv_form_play_feedback();
+				nv_form_cue("tab");
 				speak(speak_tab_item(tab_pages[tab_page_index]));
 				return true;
 			} else if (key_repeating(KEY_HOME) && tab_pages.length() > 0) {
 				tab_pages[tab_page_index].control_index = -1;
 				set_pos(0);
-				nv_form_play_feedback();
+				nv_form_cue("tab");
 				speak(speak_tab_item(tab_pages[tab_page_index]));
 				return true;
 			} else if (key_repeating(KEY_END) && tab_pages.length() > 0) {
 				tab_pages[tab_page_index].control_index = -1;
 				set_pos(tab_pages.length() - 1);
-				nv_form_play_feedback();
+				nv_form_cue("tab");
 				speak(speak_tab_item(tab_pages[tab_page_index]));
 				return true;
 			}
@@ -73,7 +81,7 @@ class nv_form_tab_control: nv_form_control {
 					if (key_down(KEY_LSHIFT) || key_down(KEY_RSHIFT))
 						next = false;
 					tab_pages[tab_page_index].control_index = -1;
-					nv_form_play_feedback();
+					nv_form_cue("tab");
 					tab_page_index += (next ? 1 : -1);
 					if (tab_page_index >= tab_pages.length())
 						tab_page_index = 0;

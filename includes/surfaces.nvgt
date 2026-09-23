@@ -1,0 +1,140 @@
+// What a surface is called and what it sounds like are two different things.
+//
+// Until now they were the same string: a tile said "concrete5" and the client
+// played concrete5step3.ogg, so every material name on every map was a sound
+// filename. That is why the maps read out as "concrete5" and "grass3", and why
+// they only ever used about ten of the hundred and ten recorded surfaces in
+// the pack. Nobody wants to write "wetconcrete" into a map and have a player
+// hear the word.
+//
+// A map now names its surfaces in English and says, once per material, which
+// recording family plays for it:
+//
+//   surface:cracked concrete:concrete7
+//   surface:steel grating:grate
+//   surface:brick wall:wallbrick
+//
+// Adding a surface is a change in one place. A material with no surface line
+// falls through the substring guesses below, and anything with no answer at
+// all becomes concrete rather than silence.
+dictionary surface_recordings;
+dictionary surface_family_cache;
+void surfaces_reset(){surface_recordings.delete_all();surface_family_cache.delete_all();}
+void register_surface(string material,string recording)
+{
+if(material=="" or recording=="")return;
+surface_recordings.set(string_to_lower_case(material),recording);
+surface_family_cache.delete_all();
+}
+
+bool surface_is_air(string material){return material=="" or material=="blank";}
+bool surface_is_wall(string material){return string_contains(material,"wall",1)>=0;}
+// Something you go up rather than over: a ladder, maintenance rungs, cargo
+// netting, a scaffold. You do not walk into these and you do not walk onto
+// them; you hold the climb key.
+bool surface_is_climbable(string material)
+{
+if(material=="")return false;
+string m=string_to_lower_case(material);
+return string_contains(m,"ladder",1)>=0 or string_contains(m,"rungs",1)>=0 or string_contains(m,"climb",1)>=0 or string_contains(m,"netting",1)>=0 or string_contains(m,"scaffold",1)>=0;
+}
+bool surface_is_walkable(string material){return !surface_is_air(material) and !surface_is_wall(material) and material!="tree" and material!="glass";}
+
+// Ordered substring guesses. First match wins, so the more specific words come
+// first: "steel stairs" has to resolve to the stair recordings rather than to
+// metal, and "concrete stairs" likewise.
+string surface_guess_family(string lower)
+{
+if(string_contains(lower,"stair",1)>=0 or string_contains(lower,"step",1)>=0)return "stairs";
+if(string_contains(lower,"ladder",1)>=0 or string_contains(lower,"rungs",1)>=0)return "ladder1";
+if(string_contains(lower,"grating",1)>=0 or string_contains(lower,"grate",1)>=0 or string_contains(lower,"catwalk",1)>=0)return "grate";
+if(string_contains(lower,"rope",1)>=0 or string_contains(lower,"netting",1)>=0)return "rope";
+if(string_contains(lower,"carpet",1)>=0 or string_contains(lower,"rug",1)>=0)return "carpet1";
+if(string_contains(lower,"linoleum",1)>=0 or string_contains(lower,"vinyl",1)>=0)return "linoleum";
+if(string_contains(lower,"marble",1)>=0)return "marble";
+if(string_contains(lower,"tile",1)>=0 or string_contains(lower,"ceramic",1)>=0)return "tile1";
+if(string_contains(lower,"deck",1)>=0 or string_contains(lower,"boardwalk",1)>=0 or string_contains(lower,"pontoon",1)>=0)return "deck";
+if(string_contains(lower,"plank",1)>=0 or string_contains(lower,"floorboard",1)>=0)return "plank";
+if(string_contains(lower,"hardwood",1)>=0 or string_contains(lower,"parquet",1)>=0)return "hardwood2";
+if(string_contains(lower,"plywood",1)>=0)return "plywood";
+if(string_contains(lower,"wood",1)>=0 or string_contains(lower,"timber",1)>=0)return "wood2";
+if(string_contains(lower,"glass",1)>=0)return "glass";
+if(string_contains(lower,"ice",1)>=0)return "ice";
+if(string_contains(lower,"snow",1)>=0)return "snow";
+if(string_contains(lower,"deep sand",1)>=0 or string_contains(lower,"dune",1)>=0)return "deepsand";
+if(string_contains(lower,"sand",1)>=0)return "sand";
+if(string_contains(lower,"shingle",1)>=0 or string_contains(lower,"gravel",1)>=0 or string_contains(lower,"ballast",1)>=0 or string_contains(lower,"scree",1)>=0)return "gravel1";
+if(string_contains(lower,"clay",1)>=0)return "clay";
+if(string_contains(lower,"mud",1)>=0)return "mud";
+if(string_contains(lower,"marsh",1)>=0 or string_contains(lower,"bog",1)>=0)return "marsh";
+if(string_contains(lower,"swamp",1)>=0)return "swamp";
+if(string_contains(lower,"shallow",1)>=0 or string_contains(lower,"wading",1)>=0)return "shallow";
+if(string_contains(lower,"deep water",1)>=0)return "deepwater";
+if(string_contains(lower,"water",1)>=0 or string_contains(lower,"surf",1)>=0 or string_contains(lower,"tide",1)>=0)return "water";
+if(string_contains(lower,"long grass",1)>=0 or string_contains(lower,"meadow",1)>=0)return "long_grass";
+if(string_contains(lower,"grass",1)>=0 or string_contains(lower,"lawn",1)>=0 or string_contains(lower,"turf",1)>=0)return "grass3";
+if(string_contains(lower,"weed",1)>=0)return "weed";
+if(string_contains(lower,"leaves",1)>=0 or string_contains(lower,"leaf",1)>=0)return "leaves";
+if(string_contains(lower,"brush",1)>=0 or string_contains(lower,"scrub",1)>=0)return "brush";
+if(string_contains(lower,"branch",1)>=0)return "branch";
+if(string_contains(lower,"dirt",1)>=0 or string_contains(lower,"earth",1)>=0 or string_contains(lower,"soil",1)>=0 or string_contains(lower,"track",1)>=0)return "dirt2";
+if(string_contains(lower,"flint",1)>=0)return "flint";
+if(string_contains(lower,"boulder",1)>=0 or string_contains(lower,"rubble",1)>=0)return "large_rock";
+if(string_contains(lower,"rock",1)>=0)return "rocks1";
+if(string_contains(lower,"stone",1)>=0 or string_contains(lower,"cobble",1)>=0 or string_contains(lower,"flag",1)>=0 or string_contains(lower,"granite",1)>=0 or string_contains(lower,"basalt",1)>=0)return "stone1";
+if(string_contains(lower,"wet concrete",1)>=0 or string_contains(lower,"puddled",1)>=0)return "wetconcrete";
+if(string_contains(lower,"cement",1)>=0 or string_contains(lower,"screed",1)>=0)return "cement1";
+if(string_contains(lower,"tunnel",1)>=0 or string_contains(lower,"culvert",1)>=0)return "tunnel";
+if(string_contains(lower,"warehouse",1)>=0 or string_contains(lower,"hangar",1)>=0)return "warehouse";
+if(string_contains(lower,"steel",1)>=0 or string_contains(lower,"metal",1)>=0 or string_contains(lower,"plate",1)>=0 or string_contains(lower,"alloy",1)>=0 or string_contains(lower,"duracrete",1)>=0)return "metal4";
+if(string_contains(lower,"fence",1)>=0)return "fence";
+if(string_contains(lower,"bleacher",1)>=0)return "bleacher";
+if(string_contains(lower,"beam",1)>=0 or string_contains(lower,"girder",1)>=0)return "beam";
+if(string_contains(lower,"asphalt",1)>=0 or string_contains(lower,"tarmac",1)>=0 or string_contains(lower,"road",1)>=0 or string_contains(lower,"pavement",1)>=0 or string_contains(lower,"concrete",1)>=0)return "concrete2";
+return "concrete";
+}
+
+// Recording family for a material, cached because it is asked once per step.
+string surface_family(string material)
+{
+if(surface_is_air(material))return "";
+string cached;
+if(surface_family_cache.get(material,cached))return cached;
+string lower=string_to_lower_case(material),found;
+if(!surface_recordings.get(lower,found))found=surface_guess_family(lower);
+surface_family_cache.set(material,found);
+return found;
+}
+
+// Impact sounds for the walls. A wall's surface line gives the whole filename
+// because a wall is one thump rather than a family of footsteps.
+string surface_wall_guess(string lower)
+{
+if(string_contains(lower,"brick",1)>=0 or string_contains(lower,"masonry",1)>=0)return "wallbrick";
+if(string_contains(lower,"glass",1)>=0 or string_contains(lower,"window",1)>=0 or string_contains(lower,"transparisteel",1)>=0)return "wallglass";
+if(string_contains(lower,"wood",1)>=0 or string_contains(lower,"timber",1)>=0 or string_contains(lower,"plank",1)>=0)return "wallwood";
+if(string_contains(lower,"fence",1)>=0 or string_contains(lower,"railing",1)>=0 or string_contains(lower,"chain",1)>=0)return "wallfence";
+if(string_contains(lower,"steel",1)>=0 or string_contains(lower,"metal",1)>=0 or string_contains(lower,"hull",1)>=0 or string_contains(lower,"shutter",1)>=0 or string_contains(lower,"alloy",1)>=0)return "wallmetal";
+if(string_contains(lower,"rock",1)>=0 or string_contains(lower,"cliff",1)>=0 or string_contains(lower,"crag",1)>=0)return "wallrock";
+if(string_contains(lower,"grass",1)>=0 or string_contains(lower,"hedge",1)>=0)return "wallgrass";
+if(string_contains(lower,"dirt",1)>=0 or string_contains(lower,"earth",1)>=0 or string_contains(lower,"bank",1)>=0)return "walldirt";
+if(string_contains(lower,"tree",1)>=0)return "walltree";
+if(string_contains(lower,"brush",1)>=0 or string_contains(lower,"scrub",1)>=0)return "wallbrush";
+if(string_contains(lower,"carpet",1)>=0 or string_contains(lower,"curtain",1)>=0 or string_contains(lower,"cloth",1)>=0)return "wallcarpet";
+if(string_contains(lower,"plastic",1)>=0 or string_contains(lower,"composite",1)>=0)return "wallplastic";
+if(string_contains(lower,"stone",1)>=0 or string_contains(lower,"concrete",1)>=0 or string_contains(lower,"duracrete",1)>=0)return "wallstone";
+return "wallgeneric";
+}
+string surface_wall_sound(string material)
+{
+if(material=="")return "wallgeneric.ogg";
+string lower=string_to_lower_case(material),found;
+if(surface_recordings.get(lower,found))return found+".ogg";
+// The old naming convention, kept working: "wallbrick" is still wallbrick.ogg.
+if(string_contains(lower,"wall",1)==0 and string_contains(lower," ",1)<0)return lower+".ogg";
+return surface_wall_guess(lower)+".ogg";
+}
+
+string surface_step_sound(string material,int variant){string f=surface_family(material);return f==""?"":f+"step"+variant+".ogg";}
+string surface_land_sound(string material){string f=surface_family(material);return f==""?"concreteland.ogg":f+"land.ogg";}
+string surface_fall_sound(string material){string f=surface_family(material);return f==""?"concretefall.ogg":f+"fall.ogg";}

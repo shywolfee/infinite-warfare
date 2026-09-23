@@ -1,0 +1,28 @@
+// Renders the low-vision display with sample content so its layout can be
+// checked without starting the game. Pass "match" to draw the in-match frame.
+#include "bgt_compat.nvgt"
+#include "../../includes/helpers/graphics_helper.nvgt"
+#include "../../includes/helpers/low_vision_display.nvgt"
+void main()
+{
+show_window("Low vision preview");
+graphics_helper g;
+low_vision_frame f;
+f.in_match=COMMAND_LINE.find("match")>=0;
+if(f.in_match)
+{
+f.title="Ghost Town";
+f.said="Meridian Avenue between Fourth Street and Market Street, west pavement";
+f.zone="Meridian Avenue between Fourth Street and Market Street, west pavement";
+f.status="115, 160, 0    facing 90 degrees";
+}
+else
+{
+f.title="Options";
+f.said="Play navigation and activation sounds in dialogs, checkbox, checked";
+f.focus="Play navigation and activation sounds in dialogs";
+f.focus_kind="Checkbox";
+}
+int dw,dh;
+for(int i=0;i<300;i++){g.get_drawable(dw,dh);low_vision_draw(g,f,dw,dh);wait(16);}
+}

@@ -609,16 +609,8 @@ running = false;
 return 0;
 }
 }
-if (key_down(volkeydown) and voltimer.elapsed >= voltime and menumusvolume > -70) {
-menumusvolume -= 2;
-music.set_volume(menumusvolume);
-voltimer.restart();
-}
-if (key_down(volkeyup) and voltimer.elapsed >= voltime and menumusvolume < 0) {
-menumusvolume += 2;
-music.set_volume(menumusvolume);
-voltimer.restart();
-}
+// Page Up and Page Down set the menu music volume in menu_music_keys(),
+// which is shared with every other menu and saves the setting.
 if(enable_up_and_down == true and key_repeating(KEY_UP) or enable_left_and_right == true and key_repeating(KEY_LEFT)) {
 initial = false;
 if(menu_position == 0) {
@@ -737,6 +729,8 @@ speak_item = true;
 continue;
 }
 }
+nv_form_focus_uses_paging=false;
+nvgt_helpers_service();
 wait(3);
 }
 running = false;

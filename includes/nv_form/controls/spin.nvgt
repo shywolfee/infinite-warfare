@@ -35,7 +35,18 @@ class nv_form_spin: nv_form_input {
 			set_chars();
 		}
 	}
+	// A step up or down sounds like a slider step, and a step past either
+	// limit like the end of a list. Number fields used to be silent.
 	bool handle_input() {
+		if (@parent.current_control != @this) return false;
+		string before = text;
+		if (handle_spin_keys()) {
+			nv_form_cue(text != before ? "slider" : "edge");
+			return true;
+		}
+		return nv_form_input::handle_input();
+	}
+	bool handle_spin_keys() {
 		if (!read_only) {
 			if (key_repeating(KEY_UP)) {
 				double t = parse_float(text) + this.step;
@@ -87,7 +98,7 @@ class nv_form_spin: nv_form_input {
 				return true;
 			}
 		}
-		return nv_form_input::handle_input();
+		return false;
 	}
 	double get_output() const property {
 		double d = parse_double(text);

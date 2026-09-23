@@ -23,7 +23,7 @@ if(online==true)
 {
 mainloop();
 netloop();
-p.update_listener_3d(me.x, me.y,me.z,calculate_theta(facing));
+update_all_listeners();
 }
 if(key_pressed(KEY_ESCAPE))
 {

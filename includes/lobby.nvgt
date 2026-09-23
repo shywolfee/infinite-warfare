@@ -134,7 +134,7 @@ speak("You have been disconnected from the server.");
 connected=false;
 prevconnected=false;
 pinging=false;
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -162,12 +162,14 @@ dlg("The server is restarting for an update. Please reconnect shortly.");
 connected=false;
 prevconnected=false;
 pinging=false;
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
 mainmenu();
 }
+else if (string_contains(msg, "lobby_credits ", 1)==0)
+lobby_credits_reply=msg.substr(14);
 else if (string_contains(msg, "server_status ", 1)==0)
 speak(string_replace(msg, "server_status ", "", false));
 else if(string_contains(msg,"player_profile_response ",1)==0)
@@ -211,7 +213,7 @@ speak("You have been disconnected from the server.");
 connected=false;
 prevconnected=false;
 pinging=false;
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -281,44 +283,42 @@ game(1);
 // Returns true if the player deployed (the caller should close), false if the
 // player backed out.
 // ---------------------------------------------------------------------------
+// The four maps, with what each one is, in one place so the lobby list and
+// the older picker say the same thing.
+class lobby_map
+{
+string id,title,summary,announce;
+lobby_map(const string &in i,const string &in t,const string &in s,const string &in a){id=i;title=t;summary=s;announce=a;}
+}
+lobby_map@[] lobby_maps()
+{
+lobby_map@[] m;
+m.insert_last(lobby_map("freeforall","Ghost Town","an abandoned modern city: six avenues by six streets, a river, a viaduct, a cathedral and a foundry","Deploying to Ghost Town."));
+m.insert_last(lobby_map("battlegrounds","Shattersea","nine islands in a tidal sea, joined by twelve bridges, with the old city under water","Deploying to Shattersea."));
+m.insert_last(lobby_map("freyas_ascent","Freya's Ascent","a city climbing a mountain on six terraces, with an orbital ring above it","Deploying to Freya's Ascent."));
+m.insert_last(lobby_map("habitat_alpha","Coruscant","six levels of the Galactic City, from Level 1313 up to the Senate and the Jedi Temple","Deploying to Coruscant."));
+return m;
+}
+
 bool freeforall_map_select()
 {
-iw_form f;
-f.create_window("Select a Free for All Map", false, true);
-int f_bg=f.create_button("&Shattersea - ferry quays, tidal crossings and a lighthouse headland", true);
-int f_ha=f.create_button("&Coruscant - freight streets beneath connected civic skywalks");
-int f_gt=f.create_button("&Ghost Town - saloon, railway depot, dry wash and cemetery");
-int f_fa=f.create_button("&Freya's Ascent - mill village, ravine trails, observatory and summit sanctuary");
-int f_back=f.create_button("Go &back", false, true);
-f.focus(f_bg);
+nv_form f;
+f.create_window("Choose a map",false,true);
+nv_form_list_box@ list=f.add_list("Maps","maps");
+lobby_map@[] maps=lobby_maps();
+for(uint i=0;i<maps.length();i++)list.add(maps[i].title+": "+maps[i].summary,maps[i].id);
+nv_form_button@ go=f.add_button("Deploy","deploy",true);
+nv_form_button@ back=f.add_button("Back","back",false,true);
+f.focus_control(list);
 while(true)
 {
 wait(5);
 f.monitor();
 lobby_form_netcheck();
-if (f.is_pressed(f_bg))
+if(f.is_pressed(back))return false;
+if(f.is_pressed(go) and @list.focused_item!=null)
 {
-deploy_to_mode("battlegrounds", "Deploying to Shattersea's coastal settlement.");
-return true;
-}
-else if (f.is_pressed(f_ha))
-{
-deploy_to_mode("habitat_alpha", "Deploying to Coruscant's freight and civic district.");
-return true;
-}
-else if (f.is_pressed(f_gt))
-{
-deploy_to_mode("freeforall", "Deploying to Ghost Town. Fight for yourself.");
-return true;
-}
-else if (f.is_pressed(f_fa))
-{
-deploy_to_mode("freyas_ascent", "Deploying to Freya's Ascent.");
-return true;
-}
-else if (f.is_pressed(f_back))
-{
-return false;
+for(uint i=0;i<maps.length();i++)if(maps[i].id==list.focused_item.id){deploy_to_mode(maps[i].id,maps[i].announce);return true;}
 }
 }
 return false;
@@ -352,82 +352,50 @@ return;
 }
 }
 
-// ---------------------------------------------------------------------------
-// Tab: Account Info
-// Shows local account data in a form with read-only fields.
-// ---------------------------------------------------------------------------
-void account_tab()
+// A screen of facts: one line per fact in a list, so arrows read them one at
+// a time and Escape or Enter closes. These screens used to be stacks of
+// read-only edit boxes, which a screen reader announces as editable, which
+// Tab had to be pressed through one at a time, and which cut long lines off.
+void show_info_list(const string &in title,string[]@ lines)
 {
-speak("Loading account info, please wait.");
-send_reliable(0, "lobby_credits", 0);
-string credits_str="0";
-timer ct;
-while(ct.elapsed<3000)
-{
-wait(5);
-e=n.request();
-if(e.type==event_disconnect)
-{
-speak("Disconnected from server.");
-connected=false;
-prevconnected=false;
-pinging=false;
-distpool.destroy_all();
-p.destroy_all();
-sources.resize(0);
-can_move=true;
-mainmenu();
-return;
-}
-if(e.type==event_receive)
-{
-string msg=get_event_message();
-if (e.channel==1)
-{
-p.play_stationary("chat.ogg", false);
-add_buffer_item("chats", msg);
-continue;
-}
-if (e.channel==2)
-{
-remember_pm_sender(msg);
-if(string_contains(msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);
-add_buffer_item("misc", msg);
-continue;
-}
-if(string_contains(msg, "lobby_credits ", 1)==0)
-{
-credits_str=string_replace(msg, "lobby_credits ", "", false);
-break;
-}
-}
-}
-iw_form f;
-f.create_window("Account Info", false, true);
-f.create_input_box("Username", name, "", 0, false, true, false);
-string status="no registered account";
-string em="";
-if (account_exists(name))
-{
-savedata acct(get_account_path(name), ACCOUNT_SECRET);
-acct.load();
-em=acct.read("email");
-status="registered account";
-}
-if (em!="")
-f.create_input_box("Email", em, "", 0, false, true, false);
-f.create_input_box("Status", status, "", 0, false, true, false);
-f.create_input_box("Credits", credits_str, "", 0, false, true, false);
-int f_close=f.create_button("&Close", true, true);
-f.focus(0);
+nv_form f;
+f.create_window(title,false,true);
+nv_form_list_box@ list=f.add_list(title,"info");
+for(uint i=0;i<lines.length();i++)list.add(lines[i],"line"+i);
+nv_form_button@ close=f.add_button("Close","close",true,true);
+f.focus_control(list);
 while(true)
 {
 wait(5);
 f.monitor();
-lobby_form_netcheck();
-if (f.is_pressed(f_close))
-return;
+if(mapname=="main")lobby_form_netcheck();else netloop(false);
+if(f.is_pressed(close))return;
 }
+}
+
+string lobby_credits_reply="";
+void account_tab()
+{
+lobby_credits_reply="";
+send_reliable(0,"lobby_credits",0);
+timer ct;
+while(lobby_credits_reply=="" and ct.elapsed<3000)
+{
+wait(5);
+lobby_form_netcheck();
+}
+string[] lines;
+lines.insert_last("Name: "+name);
+if(account_exists(name))
+{
+savedata acct(get_account_path(name),ACCOUNT_SECRET);
+acct.load();
+string em=acct.read("email");
+lines.insert_last("Registered account"+(em!=""?", email "+em:", no email on file"));
+}
+else lines.insert_last("No registered account. Create one from the main menu to keep your credits and items.");
+lines.insert_last(lobby_credits_reply==""?"Credits: the server did not answer in time.":"Credits: "+lobby_credits_reply);
+show_info_list("Your account",lines);
 }
 
 // ---------------------------------------------------------------------------
@@ -450,7 +418,7 @@ speak("Disconnected from server.");
 connected=false;
 prevconnected=false;
 pinging=false;
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -640,28 +608,16 @@ string[] plist=fetch_player_list();
 show_player_list_form("Players", plist);
 }
 
-// ---------------------------------------------------------------------------
-// Tab: Rewards
-// Shows the kill-reward milestones in a form.
-// ---------------------------------------------------------------------------
 void rewards_tab()
 {
-iw_form f;
-f.create_window("Killstreak Rewards", false, true);
-f.create_input_box("3 kills", "You receive 5 frag grenades", "", 0, false, true, false);
-f.create_input_box("5 kills", "You receive a Trauma Repair Serum bottle and 40 bonus credits", "", 0, false, true, false);
-f.create_input_box("10 kills", "You receive 75 bonus credits", "", 0, false, true, false);
-f.create_input_box("Note", "Rewards are granted automatically the first time you hit each milestone per session", "", 0, false, true, false);
-int f_close=f.create_button("&Close", true, true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-lobby_form_netcheck();
-if (f.is_pressed(f_close))
-return;
-}
+string[] lines={
+"3 kills in one life: 5 frag grenades.",
+"5 kills in one life: a bottle of Trauma Repair Serum and 40 credits.",
+"10 kills in one life: 75 credits.",
+"Every kill also earns 10 to 20 credits, which count towards your team's points.",
+"Each reward comes once per life. Dying and redeploying starts the count again; being revived does not."
+};
+show_info_list("Killstreak rewards",lines);
 }
 
 // ---------------------------------------------------------------------------
@@ -685,7 +641,7 @@ if (auto_log_buffers)
 auto_export_buffers();
 send_reliable(0, "leave_lobby", 0);
 pinging=false;
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -697,7 +653,34 @@ mainmenu();
 // ---------------------------------------------------------------------------
 // Main lobby entry point — called right after loggedin123 is received.
 // ---------------------------------------------------------------------------
+// The lobby, like the main menu, exists once. Dying, being kicked back from a
+// match and a match ending all return to the lobby by calling lobby() from
+// deep inside the match, and every one of those used to start a new lobby on
+// top of the match that had just ended -- which deployed a new match on top of
+// that, so each death added another match's worth of stack that never
+// unwound. Now the first lobby is the only one: a later call unwinds back to
+// it and it opens again.
+const string IW_RETURN_TO_LOBBY="iw:return-to-lobby";
+bool lobby_running=false;
 void lobby()
+{
+if(lobby_running)throw(IW_RETURN_TO_LOBBY);
+lobby_running=true;
+while(true)
+{
+try{lobby_once();}
+catch
+{
+string why=get_exception_info();
+if(why==IW_RETURN_TO_LOBBY){reset_service_guards();continue;}
+lobby_running=false;
+if(why==IW_RETURN_TO_MENU)throw(IW_RETURN_TO_MENU);
+write_client_exception_log();
+exit();
+}
+}
+}
+void lobby_once()
 {
 ping_samples.resize(0);
 send_reliable(0, "enter_lobby "+name+" "+comp, 0);
@@ -705,57 +688,38 @@ if(SCRIPT_COMPILED==false)
 send_reliable(0, "lobby_is_dev", 0);
 lobby_keepalive_timer.restart();
 last_server_msg.restart();
-speak("Welcome to the lobby, "+name
-+". Use Tab to navigate and Enter to select. Chat and message-buffer keys remain available throughout the lobby. Press F1 to view the player list.");
+play_ui_cue("open");
+speak("Lobby. Welcome, "+name+". Choose a map to deploy, or press F1 for who is online. Chat works from here.");
+string last="";
+// One list: the maps first, because deploying is what the lobby is for, and
+// then everything else. It used to be a Modes button that opened a screen
+// offering one mode, which opened a screen offering the maps.
 while(true)
 {
-iw_form f;
-f.create_window("Lobby", false, true);
-int f_modes=f.create_button("&Modes", true);
-int f_acct=f.create_button("&Account Info");
-int f_players=f.create_button("&Players");
-int f_rewards=f.create_button("Killstreak &Rewards");
-int f_armoury=f.create_button("Dynamic &Armoury");
-int f_leave=f.create_button("&Leave Lobby", false, true);
-f.focus(f_modes);
-bool selected=false;
-while(!selected)
+nv_form f;
+f.create_window("Lobby",false,false);
+nv_form_list_box@ list=f.add_list("Lobby","lobby");
+lobby_map@[] maps=lobby_maps();
+for(uint i=0;i<maps.length();i++)list.add("Deploy to "+maps[i].title+": "+maps[i].summary,"map:"+maps[i].id);
+list.add("Players online","players");
+list.add("Your account","account");
+list.add("Killstreak rewards","rewards");
+list.add("Armoury","armoury");
+list.add("Leave the lobby","leave");
+for(uint i=0;i<list.items.length();i++)if(list.items[i].id==last)list.set_pos(i);
+nv_form_button@ open=f.add_button("Open","open",true);
+open.hidden=true;
+f.focus_control(list);
+string chosen="";
+while(chosen=="")
 {
 wait(5);
 f.monitor();
 lobby_form_netcheck();
-if (key_pressed(kb("player_list")))
-{
-lobby_player_list();
-selected=true;
-}
-else if (f.is_pressed(f_modes))
-{
-modes_tab();
-selected=true;
-}
-else if (f.is_pressed(f_acct))
-{
-account_tab();
-selected=true;
-}
-else if (f.is_pressed(f_players))
-{
-players_tab();
-selected=true;
-}
-else if (f.is_pressed(f_rewards))
-{
-rewards_tab();
-selected=true;
-}
-else if (f.is_pressed(f_armoury))
-{
-armoury_database();
-selected=true;
-}
-else if(key_pressed(kb("motd"))) send_reliable(0,"motd",0);
-else if(key_pressed(kb("server_uptime"))) send_reliable(0,"uptime",0);
+if(key_pressed(KEY_ESCAPE)){list.set_pos(list.items.length()-1,true,true);speak("Leave the lobby");}
+else if(key_pressed(kb("player_list")))chosen="players";
+else if(key_pressed(kb("motd")))send_reliable(0,"motd",0);
+else if(key_pressed(kb("server_uptime")))send_reliable(0,"uptime",0);
 else if(key_pressed(kb("ping")) and !pinging)
 {
 pinging=true;
@@ -763,11 +727,18 @@ pingtimer.restart();
 p.play_stationary("pingstart.ogg", false);
 send_reliable(0, "ping", 0);
 }
-else if (f.is_pressed(f_leave))
+if(f.is_pressed(open) and @list.focused_item!=null)chosen=list.focused_item.id;
+}
+last=chosen;
+if(chosen.substr(0,4)=="map:")
 {
-leave_lobby();
-return;
+string id=chosen.substr(4);
+for(uint i=0;i<maps.length();i++)if(maps[i].id==id){deploy_to_mode(maps[i].id,maps[i].announce);return;}
 }
-}
+else if(chosen=="players")lobby_player_list();
+else if(chosen=="account")account_tab();
+else if(chosen=="rewards")rewards_tab();
+else if(chosen=="armoury")armoury_database();
+else if(chosen=="leave"){leave_lobby();return;}
 }
 }

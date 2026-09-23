@@ -3,10 +3,20 @@
 #endif
 
 const string IW_GITHUB_REPOSITORY="https://github.com/shywolfee/infinite-warfare.git";
+const string IW_GITHUB_ARCHIVE="https://github.com/shywolfee/infinite-warfare/archive/refs/heads/main.zip";
 const string IW_GITHUB_VERSION="https://raw.githubusercontent.com/shywolfee/infinite-warfare/main/version.txt";
 
 string updater_read_text(string path)
 {file f;if(!f.open(path,"rb"))return "";string result=f.read();f.close();return result.trim_whitespace();}
+
+// PowerShell only hands arguments to a script as $args when the script is a
+// file run with -File. With -Command it glues them onto the end of the
+// command text instead, which is why the old updater's replacement step --
+// written that way -- ran its own paths as commands and never copied a file.
+bool updater_write_script(const string &in path,const string &in text)
+{file f;if(!f.open(path,"wb"))return false;f.write(text);f.close();return true;}
+string[] updater_powershell_args(const string &in script)
+{string[] a={"powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",script};return a;}
 
 int updater_compare_versions(string left,string right)
 {
@@ -17,21 +27,32 @@ return 0;
 
 void cfu(string legacy_name,string legacy_archive)
 {
-string local_version=updater_read_text(SCRIPT_MAIN_PATH+"/version.txt");if(local_version=="")local_version="0.5.1.2";
+string local_version=updater_read_text(SCRIPT_MAIN_PATH+"/version.txt");if(local_version=="")local_version="0.5.2";
 speak("Checking GitHub for updates.");string latest=url_get(IW_GITHUB_VERSION).trim_whitespace();
 if(latest=="" or string_contains(latest,"html",1)>=0 or string_contains(latest," ",1)>=0 or latest.length()>32){dlg("Unable to read version.txt from the Infinite Warfare GitHub repository.");return;}
 int comparison=updater_compare_versions(local_version,latest);
 if(comparison>=0){speak(comparison==0?"Infinite Warfare is up to date.":"This client is newer than the public GitHub version.");return;}
-if(question("Update Infinite Warfare?","Version "+latest+" is available on GitHub. Your version is "+local_version+". Clone the current main branch and replace this installation?")!=1)return;
+if(question("Update Infinite Warfare?","Version "+latest+" is available. You have "+local_version+". Download it and replace this installation? The game will restart when it is done.")!=1)return;
+// The update is GitHub's zip of the main branch, fetched and unpacked by
+// PowerShell. It used to be a git clone, which meant nobody without Git for
+// Windows installed could update at all.
 string stage=SCRIPT_MAIN_PATH+".iw-update-"+ticks();
-speak("Cloning version "+latest+" from GitHub. This may take a moment.");string[] clone_args={"git","clone","--depth","1","--branch","main",IW_GITHUB_REPOSITORY,stage};process@ clone=run(clone_args,0,SCRIPT_MAIN_PATH);
-if(@clone==null or !clone.valid){dlg("The update could not start Git. Install Git for Windows and make sure git is available on PATH.");return;}
-int result=clone.wait();if(result!=0 or !file_exists(stage+"/version.txt")){dlg("GitHub update failed while cloning the repository. The current installation was not changed.");return;}
+speak("Downloading version "+latest+". This may take a moment.");
+string fetch="$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $zip=$args[1]+'.zip'; Invoke-WebRequest -UseBasicParsing -Uri $args[0] -OutFile $zip; Expand-Archive -LiteralPath $zip -DestinationPath $args[1] -Force; Remove-Item -LiteralPath $zip -Force";
+string fetch_script=stage+"-fetch.ps1";
+if(!updater_write_script(fetch_script,fetch)){dlg("The update could not write its download script next to the game. Check that the game folder is writable.");return;}
+string[] fetch_args=updater_powershell_args(fetch_script);fetch_args.insert_last(IW_GITHUB_ARCHIVE);fetch_args.insert_last(stage);process@ download=run(fetch_args,0,SCRIPT_MAIN_PATH);
+if(@download==null or !download.valid){dlg("The update could not start PowerShell, so nothing was downloaded. The current installation was not changed.");return;}
+int result=download.wait();file_delete(fetch_script);
+string unpacked=stage+"/infinite-warfare-main";
+if(result!=0 or !file_exists(unpacked+"/version.txt")){dlg("The update could not be downloaded or unpacked. Check your connection and try again. The current installation was not changed.");return;}
 // Replacement starts after this client exits, so Windows no longer has its
 // executable or source files locked. Paths are process arguments rather than
 // interpolated PowerShell text, preserving spaces safely.
-string command="Start-Sleep -Milliseconds 1500; $stage=$args[0]; $root=$args[1]; $restart=$args[2]; $source=$args[3]; Get-ChildItem -LiteralPath $stage -Force | Where-Object { $_.Name -ne '.git' } | Copy-Item -Destination $root -Recurse -Force; Remove-Item -LiteralPath $stage -Recurse -Force; if ($source -eq '1') { Start-Process -FilePath $restart -ArgumentList (Join-Path $root 'Infinite Warfare.nvgt') -WorkingDirectory $root } else { Start-Process -FilePath $restart -WorkingDirectory $root }";
-string[] replace_args={"powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command",command,stage,SCRIPT_MAIN_PATH,SCRIPT_EXECUTABLE,SCRIPT_COMPILED?"0":"1"};process@ replacement=run(replace_args,PROCESS_BACKGROUND,SCRIPT_MAIN_PATH);
-if(@replacement==null or !replacement.valid){dlg("The new source was cloned, but the replacement process could not be launched. Your current installation remains active. Staged files are at "+stage);return;}
+string command="Start-Sleep -Milliseconds 1500; $source=$args[0]; $root=$args[1]; $restart=$args[2]; $fromsource=$args[3]; $stage=$args[4]; Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $root -Recurse -Force; Remove-Item -LiteralPath $stage -Recurse -Force; Remove-Item -LiteralPath $PSCommandPath -Force; if ($fromsource -eq '1') { Start-Process -FilePath $restart -ArgumentList (Join-Path $root 'Infinite Warfare.nvgt') -WorkingDirectory $root } else { Start-Process -FilePath $restart -WorkingDirectory $root }";
+string replace_script=stage+"-replace.ps1";
+if(!updater_write_script(replace_script,command)){dlg("The update was downloaded, but its replacement script could not be written. Staged files are at "+stage);return;}
+string[] replace_args=updater_powershell_args(replace_script);replace_args.insert_last(unpacked);replace_args.insert_last(SCRIPT_MAIN_PATH);replace_args.insert_last(SCRIPT_EXECUTABLE);replace_args.insert_last(SCRIPT_COMPILED?"0":"1");replace_args.insert_last(stage);process@ replacement=run(replace_args,PROCESS_BACKGROUND,SCRIPT_MAIN_PATH);
+if(@replacement==null or !replacement.valid){dlg("The update was downloaded, but the replacement process could not be launched. Your current installation remains active. Staged files are at "+stage);return;}
 speak("Update downloaded. Infinite Warfare will close, replace its files, and restart.");wait(500);exit();
 }

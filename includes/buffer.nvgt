@@ -286,14 +286,16 @@ void review_buffer_item()
 if (buffers[bufferpos].items.length()==0) return;
 string item=buffers[bufferpos].items[buffers[bufferpos].pos];
 iw_form f;
-f.create_window("Review Buffer Item", false, true);
-f.create_input_box("Content", item, "", 0, false, true, true);
+f.create_window("Review message", false, true);
+f.create_input_box("Message", item, "", 0, false, true, true);
 int f_close=f.create_button("&Close", true, true);
 f.focus(0);
 while(true)
 {
 wait(5);
 f.monitor();
+// The match goes on while you read.
+if (connected) netloop();
 if (f.is_pressed(f_close))
 return;
 }

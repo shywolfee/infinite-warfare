@@ -1,0 +1,201 @@
+// What is around you, said the same way everywhere.
+//
+// The nearby-players key, the nearby-items key and the tracker each had their
+// own copy of the same sentence, and all three got it wrong in a different
+// place: the player report kept only the last name it found, distances were
+// the two sides of a right angle added together and called feet, height was
+// "above" whether it was one step or a whole terrace, and nothing was in any
+// order. Everything here is nearest first, straight-line in tiles, with a
+// clock-face bearing and the height difference in tiles.
+
+// Twelve o'clock is the way you are facing.
+string clock_direction(double deg)
+{
+while(deg<0)deg+=360;
+while(deg>=360)deg-=360;
+int hour=int(round(deg/30.0,0))%12;
+if(hour==0)return "straight ahead";
+if(hour==3)return "to your right";
+if(hour==6)return "behind you";
+if(hour==9)return "to your left";
+return "at "+hour+" o'clock";
+}
+
+double straight_distance(double x1,double y1,double z1,double x2,double y2,double z2)
+{
+return sqrt(power(x2-x1,2)+power(y2-y1,2)+power(z2-z1,2));
+}
+
+// "14 tiles at 2 o'clock, 6 above"; "right beside you" inside a tile.
+string relative_position(player@ from,double x,double y,double z)
+{
+double flat=sqrt(power(x-from.x,2)+power(y-from.y,2));
+int rise=int(round(z-from.z,0));
+string s;
+if(flat<1.0)s=(rise==0?"right beside you":"straight");
+else
+{
+int tiles=int(round(flat,0));
+s=tiles+(tiles==1?" tile ":" tiles ")+clock_direction(calculate_x_y_angle(from.x,from.y,x,y,from.facing));
+}
+if(rise>0)s+=(flat<1.0?" up, ":", ")+rise+" above";
+else if(rise<0)s+=(flat<1.0?" down, ":", ")+(-rise)+" below";
+return s;
+}
+
+// ammo_m4.a1_10_30 -> "m4 a1 ammunition"; frag_grenade -> "frag grenade".
+string readable_item_name(const string &in raw)
+{
+if(raw.substr(0,5)=="ammo_")
+{
+string[] parts=string_split(raw.substr(5),"_",false);
+if(parts.length()>0)return string_replace(parts[0],"."," ",true)+" ammunition";
+}
+return string_replace(raw,"_"," ",true);
+}
+
+class awareness_contact
+{
+double distance;
+string text;
+}
+void awareness_sort(awareness_contact@[]@ list)
+{
+for(uint i=1;i<list.length();i++)
+{
+awareness_contact@ c=list[i];
+int j=int(i)-1;
+while(j>=0 and list[j].distance>c.distance){@list[j+1]=list[j];j--;}
+@list[j+1]=c;
+}
+}
+string awareness_join(awareness_contact@[]@ list,uint limit,const string &in noun)
+{
+awareness_sort(list);
+string s;
+for(uint i=0;i<list.length() and i<limit;i++)s+=list[i].text+". ";
+if(list.length()>limit)s+=(list.length()-limit)+" more "+noun+" further out.";
+return s;
+}
+
+const double AWARENESS_RANGE=30;
+// The nearby-players key works like a motion tracker. Anyone within eight
+// tiles is picked up regardless. Beyond that, someone shows up only while
+// they give themselves away: moving in the last second and a half (out to
+// thirty tiles), or firing in the last three seconds (out to sixty, because
+// gunfire carries). Someone standing still and holding fire beyond eight
+// tiles does not show at all. Teammates always show, out to sixty. It used to
+// name everyone within thirty tiles whatever they were doing, which made
+// keeping still worthless.
+const double AWARENESS_CLOSE=8;
+const double AWARENESS_GUNFIRE_RANGE=60;
+const int AWARENESS_MOVE_WINDOW=1500;
+const int AWARENESS_FIRE_WINDOW=3000;
+
+bool player_weapon_suppressed(player@ o)
+{
+if(o.current_weapon=="")return false;
+return o.suppressed_weapons.find(o.current_weapon)>=0;
+}
+
+// How o shows up to me: "moving", "firing", "still" or "still, close by", or
+// "" if they do not show at all. Teammates show anywhere on the map when
+// asked for directly (tracking) and out to sixty tiles on the tracker.
+string contact_state(player@ me,player@ o,bool tracking)
+{
+if(o.death or o.map!=me.map or o.invisible or !me.see)return "";
+int my_team=get_team_index_for_member(me.name);
+bool ally=(my_team>=0 and get_team_index_for_member(o.name)==my_team);
+double d=straight_distance(me.x,me.y,me.z,o.x,o.y,o.z);
+bool moving=o.move_timer.elapsed<AWARENESS_MOVE_WINDOW;
+// Both timers start when the player spawns, so a fire timer no younger than
+// the spawn timer means they have not fired at all yet.
+bool firing=o.fire_timer.elapsed<AWARENESS_FIRE_WINDOW and o.fire_timer.elapsed+100<o.spawn_grace_timer.elapsed;
+// A suppressed weapon carries no further than footsteps do.
+double gunfire_range=player_weapon_suppressed(o)?AWARENESS_RANGE:AWARENESS_GUNFIRE_RANGE;
+if(ally)
+{
+if(!tracking and d>AWARENESS_GUNFIRE_RANGE)return "";
+return firing?"firing":(moving?"moving":"still");
+}
+if(d<=AWARENESS_CLOSE)return firing?"firing":(moving?"moving":"still, close by");
+if(firing and d<=gunfire_range)return "firing";
+if(moving and d<=AWARENESS_RANGE)return "moving";
+return "";
+}
+
+void report_nearby_players(int index)
+{
+player@ me=players[index];
+int my_team=get_team_index_for_member(me.name);
+awareness_contact@[] found;
+for(uint i=0;i<players.length();i++)
+{
+if(int(i)==index)continue;
+player@ o=players[i];
+string how=contact_state(me,o,false);
+if(how=="")continue;
+bool ally=(my_team>=0 and get_team_index_for_member(o.name)==my_team);
+awareness_contact c;
+c.distance=straight_distance(me.x,me.y,me.z,o.x,o.y,o.z);
+c.text=o.name+(ally?", your team,":"")+" "+relative_position(me,o.x,o.y,o.z)+", "+how;
+found.insert_last(c);
+}
+if(found.length()==0){send_reliable(me.peer_id,"Nothing moving within "+int(AWARENESS_RANGE)+" tiles, and no gunfire.",2);return;}
+send_reliable(me.peer_id,awareness_join(found,6,"contacts"),2);
+}
+
+string nearby_things(int index)
+{
+player@ me=players[index];
+awareness_contact@[] found;
+for(uint i=0;i<items.length();i++)
+{
+if(items[i].map!=me.map)continue;
+double d=straight_distance(me.x,me.y,me.z,items[i].x,items[i].y,items[i].z);
+if(d>AWARENESS_RANGE)continue;
+awareness_contact c;
+c.distance=d;
+c.text=readable_item_name(items[i].name)+", "+relative_position(me,items[i].x,items[i].y,items[i].z);
+found.insert_last(c);
+}
+for(uint i=0;i<chests.length();i++)
+{
+if(chests[i].map!=me.map)continue;
+double d=straight_distance(me.x,me.y,me.z,chests[i].x,chests[i].y,chests[i].z);
+if(d>AWARENESS_RANGE)continue;
+awareness_contact c;
+c.distance=d;
+c.text=(chests[i].type==""?"a chest":"a "+string_replace(chests[i].type,"_"," ",true))+", "+relative_position(me,chests[i].x,chests[i].y,chests[i].z);
+found.insert_last(c);
+}
+return awareness_join(found,8,"things");
+}
+
+void report_tracked_player(int index,int target)
+{
+player@ me=players[index];
+player@ o=players[target];
+if(o.map!=me.map){send_reliable(me.peer_id,o.name+" is not on this map.",2);return;}
+if(o.death){send_reliable(me.peer_id,o.name+" is dead.",2);return;}
+string how=contact_state(me,o,true);
+if(how==""){send_reliable(me.peer_id,o.name+" is not showing up: out of range, keeping still or hidden.",2);return;}
+send_reliable(me.peer_id,o.name+" is "+relative_position(me,o.x,o.y,o.z)+", "+how+", at "+int(o.x)+", "+int(o.y)+", "+int(o.z)+".",2);
+send_reliable(me.peer_id,"tracking "+o.x+" "+o.y+" "+o.z+" "+o.map,0);
+}
+
+// The tracker's heartbeat. An enemy only gives off a beacon while the
+// motion tracker would show them; a teammate does wherever they are. While you track someone the client asks every few
+// seconds, and gets back only a position to put a beacon on -- no speech, so
+// it can run all match without filling the buffer. Anyone the tracker would
+// refuse to describe gets no beacon either.
+void tracker_pulse(int index,int target)
+{
+player@ me=players[index];
+if(target<0){send_reliable(me.peer_id,"tracking_lost gone",0);return;}
+player@ o=players[target];
+if(o.map!=me.map)send_reliable(me.peer_id,"tracking_lost elsewhere",0);
+else if(o.death)send_reliable(me.peer_id,"tracking_lost dead",0);
+else if(contact_state(me,o,true)=="")send_reliable(me.peer_id,"tracking_lost hidden",0);
+else send_reliable(me.peer_id,"tracking "+o.x+" "+o.y+" "+o.z+" "+o.map,0);
+}

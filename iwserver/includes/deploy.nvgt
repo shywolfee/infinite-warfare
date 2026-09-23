@@ -1,0 +1,31 @@
+// What the server decided when a player deployed from the lobby, kept until
+// their client asks to spawn.
+class deploy_record
+{
+string name,map;
+int x,y,z;
+}
+dictionary pending_deploys;
+void remember_deploy(int peer,const string &in name,const string &in map,int[]@ at)
+{
+deploy_record d;
+d.name=name;d.map=map;d.x=at[0];d.y=at[1];d.z=at[2];
+pending_deploys.set(""+peer,@d);
+}
+bool take_deploy(int peer,deploy_record &out d)
+{
+deploy_record@ found;
+if(!pending_deploys.get(""+peer,@found) or found is null)return false;
+pending_deploys.delete(""+peer);
+d=found;
+return true;
+}
+void forget_deploy(int peer){pending_deploys.delete(""+peer);}
+string map_display_title(const string &in id)
+{
+if(id=="freeforall")return "Ghost Town";
+if(id=="habitat_alpha")return "Coruscant";
+if(id=="battlegrounds")return "Shattersea";
+if(id=="freyas_ascent")return "Freya's Ascent";
+return id;
+}

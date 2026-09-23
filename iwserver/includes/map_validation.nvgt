@@ -13,6 +13,11 @@ bool builder_line_valid(string line,string map_id,bool allow_mapname)
 line=line.trim_whitespace();if(line=="" or string_contains(line,"\r",1)>=0 or string_contains(line,"\n",1)>=0)return false;if(string_left(line,2)=="//")return true;string[] fields=string_split(line,":",false);if(fields.length()<2)return false;string kind=fields[0];
 if(kind=="mapname")return allow_mapname and line=="mapname:"+map_id;
 if(kind=="fixtures")return line=="fixtures:authored";
+// A player-facing map title, and the table that says what each named surface
+// sounds like. Both are header lines carrying free text, so they are checked
+// for shape rather than for numbers.
+if(kind=="title")return fields.length()==2 and fields[1].trim_whitespace()!="";
+if(kind=="surface")return fields.length()==3 and fields[1].trim_whitespace()!="" and fields[2].trim_whitespace()!="";
 if(kind=="spawn")return fields.length()==4 and builder_integer(fields[1]) and builder_integer(fields[2]) and builder_integer(fields[3]);
 if(kind=="fixture")return fields.length()==6 and fields[1]!="" and builder_integer(fields[2]) and builder_integer(fields[3]) and builder_integer(fields[4]) and fields[5]!="";
 if(kind=="object")

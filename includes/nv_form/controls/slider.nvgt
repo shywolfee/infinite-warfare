@@ -26,50 +26,25 @@ class nv_form_slider: nv_form_control {
 	string get_text_value() const property {
 		return get_text(value, value);
 	}
+	// Up and Right raise the value, Down and Left lower it, Page Up and Page
+	// Down move a page, Home and End go to the ends. The old binding had Down
+	// raising it, left over from sliders being used to pick maps from a list,
+	// which made every volume control in the game work upside down.
+	private bool nudge(double delta) {
+		double previous = value;
+		value += delta;
+		clamp_value();
+		nv_form_cue(value != previous ? "slider" : "edge");
+		speak(text_value);
+		return true;
+	}
 	bool handle_input() {
-		double previous=value;
-		// Form sliders use Down as the forward/list direction. This keeps the
-		// map and mode selectors aligned with ordinary audio-list navigation.
-		if (key_repeating(KEY_DOWN)) {
-			value += step;
-			clamp_value();
-			if(value!=previous)nv_form_play_feedback();
-			speak(text_value);
-			return true;
-		}
-		if (key_repeating(KEY_UP)) {
-			value -= step;
-			clamp_value();
-			if(value!=previous)nv_form_play_feedback();
-			speak(text_value);
-			return true;
-		}
-		if (key_repeating(KEY_PAGEDOWN)) {
-			value += page;
-			clamp_value();
-			if(value!=previous)nv_form_play_feedback();
-			speak(text_value);
-			return true;
-		}
-		if (key_repeating(KEY_PAGEUP)) {
-			value -= page;
-			clamp_value();
-			if(value!=previous)nv_form_play_feedback();
-			speak(text_value);
-			return true;
-		}
-		if (key_repeating(KEY_HOME)) {
-			value = min_value;
-			if(value!=previous)nv_form_play_feedback();
-			speak(text_value);
-			return true;
-		}
-		if (key_repeating(KEY_END)) {
-			value = max_value;
-			if(value!=previous)nv_form_play_feedback();
-			speak(text_value);
-			return true;
-		}
+		if (key_repeating(KEY_UP) || key_repeating(KEY_RIGHT)) return nudge(step);
+		if (key_repeating(KEY_DOWN) || key_repeating(KEY_LEFT)) return nudge(-step);
+		if (key_repeating(KEY_PAGEUP)) return nudge(page);
+		if (key_repeating(KEY_PAGEDOWN)) return nudge(-page);
+		if (key_repeating(KEY_HOME)) return nudge(min_value - value);
+		if (key_repeating(KEY_END)) return nudge(max_value - value);
 		return false;
 	}
 	string get_control_info() {

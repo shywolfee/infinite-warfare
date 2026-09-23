@@ -55,12 +55,27 @@ class nv_form_input: nv_form_control {
 		if (multiline) f.insert_last("multi line");
 		return join(f, " ");
 	}
+	// Every edit gets a sound: typing, deleting, the clipboard, selecting
+	// everything, and bumping into either end of the text. Text fields were
+	// the only controls with no sounds at all.
+	string input_cue = "";
 	bool handle_input() {
 		if (@parent.current_control != @this) return false;
+		string before = text;
+		int before_cursor = cursor, before_start = sel_start, before_end = sel_end;
+		input_cue = "";
+		if (!handle_input_keys()) return false;
+		if (input_cue == "none") return true;
+		if (input_cue != "") nv_form_cue(input_cue);
+		else if (text != before) nv_form_cue(text.length() > before.length() ? "type" : "delete");
+		else if (cursor == before_cursor && sel_start == before_start && sel_end == before_end) nv_form_cue("edge");
+		return true;
+	}
+	bool handle_input_keys() {
 		if(is_android() and touch_keyboard_enabled and !read_only and !touch_keyboard_visited){touch_keyboard_visited=true;stop_text_input();touch_keyboard_edit(this);return true;}
-		if(key_pressed(KEY_F1)){bool chars=echo_flag==textflag_entry_characters or echo_flag==textflag_entry_characters_words;bool words=echo_flag==textflag_entry_words or echo_flag==textflag_entry_characters_words;chars=!chars;echo_flag=chars?(words?textflag_entry_characters_words:textflag_entry_characters):(words?textflag_entry_words:textflag_entry_none);speak(chars?"Speak typed characters on.":"Speak typed characters off.");return true;}
-		if(key_pressed(KEY_F2)){bool chars=echo_flag==textflag_entry_characters or echo_flag==textflag_entry_characters_words;bool words=echo_flag==textflag_entry_words or echo_flag==textflag_entry_characters_words;words=!words;echo_flag=chars?(words?textflag_entry_characters_words:textflag_entry_characters):(words?textflag_entry_words:textflag_entry_none);speak(words?"Speak typed words on.":"Speak typed words off.");return true;}
-		if(key_pressed(KEY_F3)){beep_for_caps=!beep_for_caps;speak(beep_for_caps?"Caps Lock beep on.":"Caps Lock beep off.");return true;}
+		if(key_pressed(KEY_F1)){bool chars=echo_flag==textflag_entry_characters or echo_flag==textflag_entry_characters_words;bool words=echo_flag==textflag_entry_words or echo_flag==textflag_entry_characters_words;chars=!chars;echo_flag=chars?(words?textflag_entry_characters_words:textflag_entry_characters):(words?textflag_entry_words:textflag_entry_none);speak(chars?"Speak typed characters on.":"Speak typed characters off.");input_cue="switch";return true;}
+		if(key_pressed(KEY_F2)){bool chars=echo_flag==textflag_entry_characters or echo_flag==textflag_entry_characters_words;bool words=echo_flag==textflag_entry_words or echo_flag==textflag_entry_characters_words;words=!words;echo_flag=chars?(words?textflag_entry_characters_words:textflag_entry_characters):(words?textflag_entry_words:textflag_entry_none);speak(words?"Speak typed words on.":"Speak typed words off.");input_cue="switch";return true;}
+		if(key_pressed(KEY_F3)){beep_for_caps=!beep_for_caps;speak(beep_for_caps?"Caps Lock beep on.":"Caps Lock beep off.");input_cue="switch";return true;}
 		string char;
 		char = get_characters();
 		if (!read_only) {
@@ -68,6 +83,7 @@ class nv_form_input: nv_form_control {
 				if(beep_for_caps and (keyboard_modifiers&KEYMOD_CAPS)>0)nv_form_play_feedback();
 				if (disallowed_chars.length() > 0 && is_disallowed_char(char)) {
 					if (char_disallowed_description != "") speak(char_disallowed_description);
+					input_cue = "error";
 					return true;
 				}
 				if (overwrite)
@@ -81,16 +97,19 @@ class nv_form_input: nv_form_control {
 				return true;
 			}
 			if ((clipboard_flags & nv_clipboard_flag_cut > 0) && (keyboard_modifiers & KEYMOD_CTRL > 0) && (key_repeating(KEY_X)) && password_mask == "") {
+				input_cue = text.length() > 0 ? "cut" : "edge";
 				cut_highlighted();
 				return true;
 			}
 			if ((clipboard_flags & nv_clipboard_flag_paste > 0) && (keyboard_modifiers & KEYMOD_CTRL > 0) && (key_repeating(KEY_V) || key_pressed(KEY_PASTE))) {
+				input_cue = "paste";
 				paste_text();
 				return true;
 			}
 			if (key_repeating(KEY_BACK)) {
 				if (!enable_delete) {
 					speak(delete_disabled_message);
+					input_cue = "error";
 					return true;
 				}
 				if ((keyboard_modifiers & KEYMOD_CTRL > 0) && (sel_start < 0 || sel_end < 0 || sel_start > sel_end)) {
@@ -103,6 +122,7 @@ class nv_form_input: nv_form_control {
 			if (key_repeating(KEY_DELETE)) {
 				if (!enable_delete) {
 					speak(delete_disabled_message);
+					input_cue = "error";
 					return true;
 				}
 				if ((keyboard_modifiers & KEYMOD_CTRL > 0) && (sel_start < 0 || sel_end < 0 || sel_start > sel_end)) {
@@ -115,10 +135,12 @@ class nv_form_input: nv_form_control {
 		}
 		if (((key_down(KEY_LCTRL)) || (key_down(KEY_RCTRL))) && key_up(KEY_LSHIFT) && key_up(KEY_RSHIFT) && (key_repeating(KEY_A))) {
 			highlight_all();
+			input_cue = text.length() > 0 ? "select" : "edge";
 			return true;
 		}
 		if ((clipboard_flags & nv_clipboard_flag_copy > 0) && (keyboard_modifiers & KEYMOD_CTRL > 0) && (key_repeating(KEY_C)) && (password_mask == "")) {
 			copy_highlighted();
+			input_cue = text.length() > 0 ? "copy" : "edge";
 			return true;
 		}
 		if (key_repeating(KEY_LEFT)) {
@@ -205,10 +227,10 @@ class nv_form_input: nv_form_control {
 			}
 			return true;
 		}
-		if (handle_nv_utils(this)) return true;
+		if (handle_nv_utils(this)) { input_cue = "none"; return true; }
 		return false;
-	}
-	void on_focus_gained() {
+		}
+		void on_focus_gained() {
 		touch_keyboard_visited=false;
 		if(!is_android() or !touch_keyboard_enabled or read_only)start_text_input(); // Especially for Android keyboard.
 		get_characters(); // Clean up any characters that might have been accumulated.

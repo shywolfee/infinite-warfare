@@ -6,6 +6,7 @@ class nv_form_checkbox: nv_form_control {
 	}
 	void fire() {
 		toggle();
+		nv_form_cue(state ? "check" : "uncheck");
 		nv_form_control::fire();
 	}
 	string get_fixed_type_last() property {

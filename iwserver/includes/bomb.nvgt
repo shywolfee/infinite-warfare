@@ -108,7 +108,7 @@ planes[i2].health-=500;
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
-for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=mortarbombs[i].map or vehicle.health<=0)continue;double vd=get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vd>mortarbombs[i].blast_radius)continue;int vehicle_damage=int(double(mortarbombs[i].blast_damage)*(1.0-vd/double(mortarbombs[i].blast_radius)*.55));if(string_contains(mortarbombs[i].payload,"_ap",1)>=0)vehicle_damage=int(vehicle_damage*1.65);vehicle.armor-=vehicle_damage;if(vehicle.armor<0){vehicle.health+=vehicle.armor/2;vehicle.armor=0;}vehicle.health-=vehicle_damage/3;if(vehicle.health<0)vehicle.health=0;send_reliable(0,"veh_damage "+vehicle.id+" "+vehicle_damage+" "+vehicle.map+" "+vehicle.health+" "+vehicle.armor,0);}
+for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=mortarbombs[i].map or vehicle.health<=0)continue;double vd=get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vd>mortarbombs[i].blast_radius)continue;int vehicle_damage=int(double(mortarbombs[i].blast_damage)*(1.0-vd/double(mortarbombs[i].blast_radius)*.55));if(string_contains(mortarbombs[i].payload,"_ap",1)>=0)vehicle_damage=int(vehicle_damage*1.65);damage_authoritative_vehicle(vehicle,vehicle_damage,-1,"caught in a mortar blast");}
 
 }
 mortarbombs.remove_at(i);

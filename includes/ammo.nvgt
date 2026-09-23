@@ -210,16 +210,6 @@ status_effect ef(name, type, duration_ms, tick_ms, heal_amount);
 active_effects.insert_last(ef);
 }
 
-void apply_residual_healing()
-{
-apply_effect("Residual Healing", "buff", 120000, 15000, 500);
-}
-
-void apply_ultra_residual_healing()
-{
-apply_effect("Residual Healing", "buff", 300000, 25000, 1500);
-}
-
 void apply_blinded()
 {
 apply_effect("Blinded", "debuff", 15000, 0, 0);

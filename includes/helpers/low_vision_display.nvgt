@@ -1,0 +1,65 @@
+// The low-vision display's layout, separate from the game state it shows so
+// that it can be drawn and checked on its own.
+//
+//   header   where you are: the dialog you are in, or the map in a match
+//   panel    the last thing the game said, as large as the window allows
+//   below    in a dialog, the control that has focus and what kind it is;
+//            in a match, the zone you are standing in
+//   footer   in a match, coordinates and facing
+//
+// Everything is sized from the window, so it holds together from a small
+// window to full screen, and text that does not fit is shrunk until it does
+// rather than running off the edge.
+class low_vision_frame
+{
+string title;
+string said;
+string focus;
+string focus_kind;
+string zone;
+string status;
+bool in_match=false;
+}
+
+graphics_colour@ lv_background=graphics_colour(6,8,16);
+graphics_colour@ lv_header=graphics_colour(16,32,72);
+graphics_colour@ lv_title=graphics_colour(255,214,40);
+graphics_colour@ lv_panel=graphics_colour(0,0,0);
+graphics_colour@ lv_border=graphics_colour(255,214,40);
+graphics_colour@ lv_text=graphics_colour(255,255,255);
+graphics_colour@ lv_dim=graphics_colour(150,190,255);
+graphics_colour@ lv_status=graphics_colour(120,255,170);
+
+void low_vision_draw(graphics_helper@ g,low_vision_frame@ f,int width,int height)
+{
+if(g is null or !g.get_active() or width<200 or height<200)return;
+int margin=width/28;
+int header_h=height/7;
+g.clear_screen(lv_background);
+g.rect(0,0,width,header_h,lv_header);
+g.rect(0,header_h-6,width,6,lv_border);
+g.text_fitted(f.title,margin,header_h/5,width-margin*2,header_h/2,18,lv_title,true);
+
+int footer_h=f.in_match?height/9:0;
+int panel_y=header_h+margin;
+int panel_h=(height-footer_h-panel_y)*62/100;
+g.panel(margin,panel_y,width-margin*2,panel_h,lv_panel,lv_border,6);
+int big=f.said.length()<28?height/10:(f.said.length()<70?height/14:(f.said.length()<160?height/19:height/26));
+g.text_wrapped(f.said,margin*2,panel_y+margin,width-margin*4,big,lv_text,true);
+
+int y=panel_y+panel_h+margin;
+// In a match the zone is often exactly what was just said; saying it twice
+// on the same screen wastes the room.
+string line=f.in_match?(f.zone!=f.said?f.zone:""):f.focus;
+if(line!="")
+{
+g.text_fitted(line,margin,y,width-margin*2,height/16,16,lv_text);
+if(!f.in_match and f.focus_kind!="")g.text(f.focus_kind,margin,y+height/14,height/26,lv_dim);
+}
+if(f.in_match)
+{
+g.rect(0,height-footer_h,width,footer_h,lv_header);
+g.text_fitted(f.status,margin,height-footer_h+footer_h/4,width-margin*2,footer_h/2,14,lv_status);
+}
+g.update();
+}

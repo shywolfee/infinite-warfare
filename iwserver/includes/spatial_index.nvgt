@@ -1,0 +1,111 @@
+// A uniform grid over the map's X/Y plane, used to answer "what rectangle is
+// at this point" without walking every rectangle on the map.
+//
+// The map format's one hard rule is that later records win: a map lays a road
+// down and then paints a kerb over part of it, and the kerb is what you are
+// standing on. A lookup therefore has to find the *highest-indexed* box
+// containing the point, not the first one. The grid preserves that: each cell
+// lists the boxes overlapping it in ascending index order, so scanning a cell
+// front to back and keeping the last hit gives exactly the answer a full
+// linear scan would, for a fraction of the work.
+//
+// Storage is flat int arrays rather than an array of arrays. A map with twenty
+// thousand rectangles over a 500x500 grid would otherwise mean a thousand
+// separate heap allocations that all have to be reference-counted.
+const int REGION_GRID_CELL=16;
+
+class box_grid
+{
+private int[] bx1,bx2,by1,by2,bz1,bz2;
+private int ox=0,oy=0,cols=0,rows=0;
+private int[] starts;   // cols*rows+1 offsets into items
+private int[] items;    // box indices, ascending within each cell
+private bool built=false;
+
+uint length() const {return bx1.length();}
+bool is_built() const {return built;}
+
+void clear()
+{
+bx1.resize(0);bx2.resize(0);by1.resize(0);by2.resize(0);bz1.resize(0);bz2.resize(0);
+starts.resize(0);items.resize(0);cols=0;rows=0;built=false;
+}
+
+// Boxes accumulate cheaply; the grid itself is built on the first query after
+// the last insertion, so loading a map is one build rather than one per line.
+void add(int x1,int x2,int y1,int y2,int z1,int z2)
+{
+bx1.insert_last(x1);bx2.insert_last(x2);by1.insert_last(y1);by2.insert_last(y2);bz1.insert_last(z1);bz2.insert_last(z2);
+built=false;
+}
+
+void build()
+{
+built=true;
+starts.resize(0);items.resize(0);
+uint count=bx1.length();
+if(count==0){cols=0;rows=0;return;}
+int minx=bx1[0],maxx=bx2[0],miny=by1[0],maxy=by2[0];
+for(uint i=1;i<count;i++)
+{
+if(bx1[i]<minx)minx=bx1[i];
+if(bx2[i]>maxx)maxx=bx2[i];
+if(by1[i]<miny)miny=by1[i];
+if(by2[i]>maxy)maxy=by2[i];
+}
+ox=minx;oy=miny;
+cols=(maxx-minx)/REGION_GRID_CELL+1;
+rows=(maxy-miny)/REGION_GRID_CELL+1;
+if(cols<1)cols=1;
+if(rows<1)rows=1;
+// A pathological box spanning the whole map would otherwise be listed in
+// every cell. That is fine for the handful of map-edge walls a map has, but
+// the cell count itself has to stay sane on very large or very sparse maps.
+while(cols*rows>262144){cols=(cols+1)/2;rows=(rows+1)/2;}
+int cells=cols*rows;
+int span_x=(maxx-minx)/cols+1,span_y=(maxy-miny)/rows+1;
+cell_w=span_x<REGION_GRID_CELL?REGION_GRID_CELL:span_x;
+cell_h=span_y<REGION_GRID_CELL?REGION_GRID_CELL:span_y;
+starts.resize(cells+1);
+for(int i=0;i<=cells;i++)starts[i]=0;
+// Counting sort: tally, prefix-sum, then place.
+for(uint i=0;i<count;i++)
+{
+int cx1=clamp_x((bx1[i]-ox)/cell_w),cx2=clamp_x((bx2[i]-ox)/cell_w);
+int cy1=clamp_y((by1[i]-oy)/cell_h),cy2=clamp_y((by2[i]-oy)/cell_h);
+for(int cy=cy1;cy<=cy2;cy++)for(int cx=cx1;cx<=cx2;cx++)starts[cy*cols+cx+1]++;
+}
+for(int i=0;i<cells;i++)starts[i+1]+=starts[i];
+items.resize(starts[cells]);
+int[] cursor=starts;
+for(uint i=0;i<count;i++)
+{
+int cx1=clamp_x((bx1[i]-ox)/cell_w),cx2=clamp_x((bx2[i]-ox)/cell_w);
+int cy1=clamp_y((by1[i]-oy)/cell_h),cy2=clamp_y((by2[i]-oy)/cell_h);
+for(int cy=cy1;cy<=cy2;cy++)for(int cx=cx1;cx<=cx2;cx++){int c=cy*cols+cx;items[cursor[c]]=int(i);cursor[c]++;}
+}
+}
+
+private int cell_w=REGION_GRID_CELL,cell_h=REGION_GRID_CELL;
+private int clamp_x(int c) const {if(c<0)return 0;if(c>=cols)return cols-1;return c;}
+private int clamp_y(int c) const {if(c<0)return 0;if(c>=rows)return rows-1;return c;}
+
+// Index of the last box containing the point, or -1.
+int topmost(int x,int y,int z)
+{
+if(!built)build();
+if(cols==0)return -1;
+if(x<ox or y<oy)return -1;
+int cx=(x-ox)/cell_w,cy=(y-oy)/cell_h;
+if(cx<0 or cy<0 or cx>=cols or cy>=rows)return -1;
+int c=cy*cols+cx,a=starts[c],b=starts[c+1],found=-1;
+for(int i=a;i<b;i++)
+{
+int k=items[i];
+if(bx1[k]<=x and bx2[k]>=x and by1[k]<=y and by2[k]>=y and bz1[k]<=z and bz2[k]>=z)found=k;
+}
+return found;
+}
+
+bool any(int x,int y,int z){return topmost(x,y,z)>=0;}
+}

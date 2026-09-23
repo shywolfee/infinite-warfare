@@ -30,6 +30,17 @@ client_check(!acoustic_local_world_source("menumove.ogg") and !acoustic_local_wo
 register_gun("test_weapon","test","magazine",10,"test_standard","magazines",true,2,1000);
 string[] supported={"test_weapon"};register_ammunition_load("test_load","Test alternative","test_alt","Test","",supported,2);
 client_check(is_ammo_reserve_item("test_standard") and is_ammo_reserve_item("test_alt"),"base and alternative ammunition share classification");
+client_checkpoint("awareness and screens");
+client_check(clock_direction(0)=="straight ahead" and clock_direction(90)=="to your right" and clock_direction(180)=="behind you" and clock_direction(270)=="to your left" and clock_direction(60)=="at 2 o'clock" and clock_direction(-30)=="at 11 o'clock" and clock_direction(359)=="straight ahead","clock-face bearings");
+me.x=100;me.y=100;me.z=10;facing=0;
+client_check(describe_offset(100,110,10)=="10 tiles straight ahead","offset straight ahead");
+client_check(describe_offset(110,100,16)=="10 tiles to your right, 6 above","offset to the right and above");
+client_check(describe_offset(100,100,7)=="straight down, 3 below","offset directly below");
+changelog_release@[] rel=parse_changelog("New in 2.0, build 9 (x)\r\nFirst.\n\nSecond.\nNew in 1.0, build 1 (y)\nOld.");
+client_check(rel.length()==2 and rel[0].heading=="2.0, build 9 (x)" and rel[0].entries.length()==2 and rel[1].entries[0]=="Old.","changelog splits by release");
+client_check(html_to_text("<style>p{x:1}</style><h1>Title</h1><p>A &amp; B</p>")=="Title\n\nA & B","manual text skips styles and decodes entities");
+team_state_members="Ana (owner), Bo Ren (manager), Cy (member)";string[] tn,tr;team_member_list(tn,tr);
+client_check(tn.length()==3 and tn[1]=="Bo Ren" and tr[1]=="manager" and tr[0]=="owner","team members parse with spaces in names");
 client_test_results+="Failures: "+client_test_failures+"\n";
 client_checkpoint("finished");
 }

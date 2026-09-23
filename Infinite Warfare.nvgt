@@ -10,6 +10,7 @@
 #include "includes/helpers/mouse_helper.nvgt"
 #include "includes/helpers/notifications_helper.nvgt"
 #include "includes/helpers/graphics_helper.nvgt"
+#include "includes/helpers/low_vision_display.nvgt"
 #include "includes/helpers/voice_commands_helper.nvgt"
 #include "includes/helpers/volume_handaler.nvgt"
 #include "includes/nv_form/form.nvgt"
@@ -29,6 +30,9 @@
 #include "includes/dynamic_map.nvgt"
 #include "includes/world_objects.nvgt"
 #include "includes/map.nvgt"
+#include "includes/spatial_index.nvgt"
+#include "includes/waypoint.nvgt"
+#include "includes/surfaces.nvgt"
 #include "includes/net.nvgt"
 //#include "includes/rotation.nvgt"
 #include "sound_pool.nvgt"
@@ -139,7 +143,7 @@ if(online==true)
 {
 mainloop();
 netloop();
-p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
+update_all_listeners();
 }
 if(af.is_pressed(af_cancel))
 return "";
@@ -150,7 +154,7 @@ return "";
 }
 string webdir;
 string gamename="Infinite Warfare";
-string game_window_title(){return gamename+"!, version "+version+", build "+build_number+" ("+build_date+")";}
+string game_window_title(){return gamename+"!, version "+version_name+", build "+build_number+" ("+build_date+")";}
 bool set_fullscreen_mode(bool enabled,bool announce=true)
 {
 uint flags=enabled?WINDOW_FLAG_FULLSCREEN:0;
@@ -242,18 +246,89 @@ bool hear_own_projectile_audio=false;
 bool audio_form_sound_feedback=true;
 void play_nv_form_audio_feedback(bool activation)
 {
+play_ui_cue(activation?"activate":"move");
+}
+// Interface cues live in sounds/ui and play on the interface pool, so the
+// Interface volume actually governs them. They used to play on the gameplay
+// pool, which meant the Interface slider did nothing to the menus and a busy
+// firefight could steal a menu tick's slot.
+// Which file a menu cue plays. The cues live in sounds/ui/, but a sounds.dat
+// built before a cue existed does not contain it, and a missing file plays
+// nothing at all -- which is how every menu went silent after 0.5.2 moved to
+// the new set. Each cue therefore names an older menu sound that every pack
+// has, and uses it until the pack is rebuilt.
+dictionary ui_sound_cache;
+string ui_sound(const string &in cue)
+{
+string found;
+if(ui_sound_cache.get(cue,found))return found;
+string primary="ui/"+cue+".ogg";
+found=primary;
+if(!fire_archive_index.file_exists(primary))
+{
+string legacy="menuclick.ogg";
+if(cue=="move" or cue=="item" or cue=="slider" or cue=="tab" or cue=="type")legacy="menumove.ogg";
+else if(cue=="edge")legacy="menuedge.ogg";
+else if(cue=="wrap")legacy="menuwrap.ogg";
+else if(cue=="activate" or cue=="close" or cue=="apply" or cue=="collapse")legacy="menuenter.ogg";
+else if(cue=="open" or cue=="popup" or cue=="expand")legacy="menuopen.ogg";
+else if(cue=="error")legacy="menufail.ogg";
+else if(cue=="notify")legacy="notify.ogg";
+else if(cue=="listen")legacy="modeenter.ogg";
+else if(cue=="listen_end")legacy="modeleave.ogg";
+if(fire_archive_index.file_exists(legacy))found=legacy;
+}
+ui_sound_cache.set(cue,found);
+return found;
+}
+void play_ui_cue(const string &in cue)
+{
 if(!audio_form_sound_feedback)return;
-p.play_stationary(activation?"menuenter.ogg":"menumove.ogg",false);
+spool.play_stationary(ui_sound(cue),false);
+}
+
+// Menu music volume: Page Up and Page Down in any menu while the music is
+// playing, in steps of five percent, remembered between sessions. The old
+// list menus had this built in but forgot it on exit, and the main menu lost
+// it altogether when it became a form. On a slider or number field, Page Up
+// and Page Down still move that control by a large step instead.
+bool menu_music_dirty=false;
+timer menu_music_save_timer;
+void menu_music_keys()
+{
+if(menu_music_dirty and menu_music_save_timer.elapsed>1500){menu_music_dirty=false;writeprefs();}
+if(!m.music.playing or nv_form_focus_uses_paging)return;
+int direction=0;
+if(key_repeating(KEY_PAGEUP))direction=1;
+else if(key_repeating(KEY_PAGEDOWN))direction=-1;
+if(direction==0)return;
+int percent=volume_db_to_percent(menumusvolume);
+int next=percent+direction*5;
+if(next<0)next=0;
+if(next>100)next=100;
+if(next==percent){play_ui_cue("edge");speak("Menu music "+percent+" percent");return;}
+menumusvolume=next==0?-100:volume_percent_to_db(next);
+m.music.set_volume(menumusvolume);
+play_ui_cue("slider");
+speak(next==0?"Menu music off":"Menu music "+next+" percent");
+menu_music_dirty=true;
+menu_music_save_timer.restart();
 }
 dictionary weapon_durability;
 int multitool_uses=0;
-double version=0.512;
-int build_number=85;
-string build_date="2026-09-19";
+// `version` stays a bare number because it travels inside the space-delimited
+// connect_me handshake and the server parses it with string_to_number. Anything
+// a person actually reads uses version_name instead.
+double version=0.52;
+string version_name="0.5.2";
+int build_number=86;
+string build_date="2026-09-22";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
-sound_pool p,spool;
+// A map that carries real ambience needs slots for it. A hundred was the
+// default and it was shared with footsteps, weapon foley and every impact.
+sound_pool p(256),spool;
 timer rectimer,firetimer, walktimer;
 timer momentum_timer;
 double movement_momentum=0;
@@ -289,14 +364,61 @@ double jump_vertical_position=0;
 double jump_vertical_velocity=0;
 timer usetimer;
 string tracking="";
-int sph_tries=1;
-timer sph_timer;
 bool afk_mode=false;
 bool afk_transitioning=false;
 timer afk_cooldown_timer;
 bool afk_cooldown_active=false;
 timer anticheat_timer;
 sound_pool distpool;
+// The map's own ambience beds. Their own pool, on the world mixer, with an
+// earshot that suits a bed you walk through rather than a shot you hear
+// across the map.
+sound_pool ambpool(96);
+// Every positional pool follows the player together. Updating only one of
+// them, as the text prompts used to, left ambience and distant fire
+// frozen wherever you were when you started typing.
+// The tracker beacon. While you are tracking someone, a beep sounds from
+// where they are every couple of seconds: the high one when they are above
+// you, the low one below, the plain one on your level. Tracking used to be a
+// name and a key that read out coordinates; the server was already sending a
+// position for a beacon that the client never played.
+timer tracker_pulse_timer;
+string tracker_lost_reason="";
+timer tracker_quiet_timer;
+void tracker_tick()
+{
+if(tracking=="")return;
+if(tracker_pulse_timer.elapsed<2200)return;
+tracker_pulse_timer.restart();
+send_reliable(0,"trackping "+tracking,0);
+}
+void tracker_beacon(double x,double y,double z,const string &in map)
+{
+if(map!=mapname)return;
+// Someone who stops and starts would otherwise be announced every few
+// seconds; coming back from going quiet is heard as the beacon itself.
+if(tracker_lost_reason!="" and tracker_lost_reason!="hidden")speak("Tracking "+tracking+" again.");
+tracker_lost_reason="";
+double rise=z-me.z;
+string cue=rise>2?"trackingabove.ogg":(rise<-2?"trackingbelow.ogg":"trackingbeep.ogg");
+distpool.play_3d(cue,me.x,me.y,me.z,x,y,z,calculate_theta(facing),false);
+}
+void tracker_lost(const string &in reason)
+{
+if(reason==tracker_lost_reason)return;
+tracker_lost_reason=reason;
+if(reason=="gone"){speak(tracking+" has left the game. Stopped tracking.");tracking="";tracker_lost_reason="";}
+else if(reason=="dead")speak(tracking+" is down. The beacon will come back when they respawn.");
+else if(reason=="elsewhere")speak(tracking+" is on another map.");
+else if(tracker_quiet_timer.elapsed>20000){tracker_quiet_timer.restart();speak(tracking+" has gone quiet: out of range, keeping still or hidden.");}
+}
+void update_all_listeners()
+{
+double t=calculate_theta(facing);
+p.update_listener_3d(me.x,me.y,me.z,t);
+distpool.update_listener_3d(me.x,me.y,me.z,t);
+ambpool.update_listener_3d(me.x,me.y,me.z,t);
+}
 key_hold kleft(KEY_LEFT,300,cameraspeed);
 key_hold kright(KEY_RIGHT,300,cameraspeed);
 key_hold kup(KEY_UP,300,cameraspeed);
@@ -488,6 +610,7 @@ void application_main()
 {
 @default_nv_form_network_pump=@pump_network_for_form;
 @default_nv_form_audio_feedback=@play_nv_form_audio_feedback;
+@default_nv_form_ui_cue=@play_ui_cue;
 set_sound_global_hrtf(true);
 
 p.behind_pitch_decrease=6;
@@ -579,6 +702,7 @@ fire_archive_index.open("sounds.dat",sound_pack_key);
 @spool.mixer=@interface_mixer;
 @bufferpool.mixer=@notification_mixer;
 @distpool.mixer=@world_mixer;
+@ambpool.mixer=@world_mixer;
 gameplay_mixer.volume=gameplay_volume;
 interface_mixer.volume=interface_volume;
 notification_mixer.volume=notification_volume;
@@ -605,7 +729,7 @@ mainmenu();
 }
 void write_client_exception_log()
 {
-string folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(folder);string path=folder+"/client_exception_"+ticks()+".log";string report="Infinite Warfare client exception\nVersion: "+version+", build "+build_number+" ("+build_date+")\nCompiled: "+SCRIPT_COMPILED+"\nExecutable: "+SCRIPT_EXECUTABLE+"\nMain path: "+SCRIPT_MAIN_PATH+"\nException: "+get_exception_info()+"\nFunction: "+get_exception_function()+"\nFile: "+get_exception_file()+"\nLine: "+get_exception_line()+"\nLast engine error: "+get_last_error()+"\nCall stack:\n"+last_exception_call_stack+"\n";file_put_contents(path,report,false);alert("Infinite Warfare crashed","A diagnostic log was saved to "+path+". Please share that file with the developers.\n\n"+get_exception_info());
+string folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(folder);string path=folder+"/client_exception_"+ticks()+".log";string report="Infinite Warfare client exception\nVersion: "+version_name+", build "+build_number+" ("+build_date+")\nCompiled: "+SCRIPT_COMPILED+"\nExecutable: "+SCRIPT_EXECUTABLE+"\nMain path: "+SCRIPT_MAIN_PATH+"\nException: "+get_exception_info()+"\nFunction: "+get_exception_function()+"\nFile: "+get_exception_file()+"\nLine: "+get_exception_line()+"\nLast engine error: "+get_last_error()+"\nCall stack:\n"+last_exception_call_stack+"\n";file_put_contents(path,report,false);alert("Infinite Warfare crashed","A diagnostic log was saved to "+path+". Please share that file with the developers.\n\n"+get_exception_info());
 }
 void write_recoverable_network_error(string context,string detail)
 {
@@ -625,7 +749,17 @@ void main()
 run_client_regression();
 return;
 #endif
-string session_folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(session_folder);file_put_contents(session_folder+"/latest_client_session.log","Infinite Warfare session started. Version "+version+", build "+build_number+". Compiled: "+SCRIPT_COMPILED+". Executable: "+SCRIPT_EXECUTABLE+". Main path: "+SCRIPT_MAIN_PATH+".\nThis breadcrumb remains available if a native library or operating-system crash bypasses AngelScript exception handling.\n",false);
+string session_folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(session_folder);file_put_contents(session_folder+"/latest_client_session.log","Infinite Warfare session started. Version "+version_name+", build "+build_number+". Compiled: "+SCRIPT_COMPILED+". Executable: "+SCRIPT_EXECUTABLE+". Main path: "+SCRIPT_MAIN_PATH+".\nThis breadcrumb remains available if a native library or operating-system crash bypasses AngelScript exception handling.\n",false);
+// Looping ambience beds are what make a map sound like a place, and a map can
+// carry twenty of them. Without an earshot limit the pool keeps every one of
+// them decoding for the whole match, whether you are standing in it or four
+// hundred metres away, and a hundred slots do not go far. Both pools now drop
+// what is out of earshot and reload it when you come back; a ranged source
+// measures from the edge of its own rectangle, so standing inside a large one
+// is always distance nought.
+p.max_distance=260;
+distpool.max_distance=1600;
+ambpool.max_distance=140;
 try{application_main();}catch{write_client_exception_log();}
 }
 // ---------------------------------------------------------------------------
@@ -1601,50 +1735,7 @@ if(f.is_pressed(close))return;
 }
 }
 
-void show_help_list()
-{
-show_help_browser_form();
-return;
-build_help_data(SCRIPT_COMPILED==false);
-if (help_categories.length() == 0)
-{
-speak("No help entries found.");
-return;
-}
-iw_form f;
-f.create_window("Help Topics", false, true);
-int f_cats = f.create_list("Category", 0, false);
-for (uint i = 0; i < help_categories.length(); i++)
-f.add_list_item(f_cats, help_categories[i]);
-int f_topics = f.create_list("Topics", 0, false);
-int f_open = f.create_button("&Open", true);
-int f_close = f.create_button("&Close", false, true);
-int last_cat = -1;
-f.focus(f_cats);
-while(true)
-{
-wait(5);
-f.monitor();
-if (connected==true)
-netloop();
-int cur_cat = f.get_list_position(f_cats);
-if (cur_cat != last_cat and cur_cat >= 0 and cur_cat < int(help_categories.length()))
-{
-last_cat = cur_cat;
-f.clear_list(f_topics);
-for (uint i = 0; i < help_category_entries[cur_cat].length(); i++)
-f.add_list_item(f_topics, string_replace(help_category_entries[cur_cat][i], "_", " ", true));
-}
-if (f.is_pressed(f_open))
-{
-int sel = f.get_list_position(f_topics);
-if (cur_cat >= 0 and cur_cat < int(help_categories.length()) and sel >= 0 and sel < int(help_category_entries[cur_cat].length()))
-show_help_entry(help_category_entries[cur_cat][sel]);
-}
-else if (f.is_pressed(f_close))
-break;
-}
-}
+void show_help_list(){show_help_browser_form();}
 
 void show_item_help(string item)
 {
@@ -1940,7 +2031,7 @@ void inventory_menu()
 		wait(5);
 		if (connected == true) netloop();
 		bool grenade_was_cooking=cooked_grenade!="";grenade_cook_loop();if(grenade_was_cooking and cooked_grenade=="")return;
-		if(inventory_prefix_timer.elapsed>1000)inventory_prefix="";string typed=get_characters().lower();if(typed!="" and !string_is_digits(typed)){inventory_prefix_timer.restart();inventory_prefix+=typed;int match=-1;for(uint candidate=0;candidate<keys.length();candidate++){string candidate_name=string_replace(inv_menu_item_id(keys[candidate]),"_"," ",true).lower();if(candidate_name.length()>=inventory_prefix.length() and string_left(candidate_name,inventory_prefix.length())==inventory_prefix){match=int(candidate);break;}}if(match<0 and inventory_prefix!=typed){inventory_prefix=typed;for(uint candidate=0;candidate<keys.length();candidate++){string candidate_name=string_replace(inv_menu_item_id(keys[candidate]),"_"," ",true).lower();if(candidate_name.length()>=inventory_prefix.length() and string_left(candidate_name,inventory_prefix.length())==inventory_prefix){match=int(candidate);break;}}}if(match>=0){pos=match;p.play_stationary("invmove.ogg",false);speak(inv_menu_label(keys,pos));}else {p.play_stationary("menuwrap.ogg",false);inventory_prefix="";}continue;}
+		if(inventory_prefix_timer.elapsed>1000)inventory_prefix="";string typed=get_characters().lower();if(typed!="" and !string_is_digits(typed)){inventory_prefix_timer.restart();inventory_prefix+=typed;int match=-1;for(uint candidate=0;candidate<keys.length();candidate++){string candidate_name=string_replace(inv_menu_item_id(keys[candidate]),"_"," ",true).lower();if(candidate_name.length()>=inventory_prefix.length() and string_left(candidate_name,inventory_prefix.length())==inventory_prefix){match=int(candidate);break;}}if(match<0 and inventory_prefix!=typed){inventory_prefix=typed;for(uint candidate=0;candidate<keys.length();candidate++){string candidate_name=string_replace(inv_menu_item_id(keys[candidate]),"_"," ",true).lower();if(candidate_name.length()>=inventory_prefix.length() and string_left(candidate_name,inventory_prefix.length())==inventory_prefix){match=int(candidate);break;}}}if(match>=0){pos=match;p.play_stationary("invmove.ogg",false);speak(inv_menu_label(keys,pos));}else {p.play_stationary(ui_sound("wrap"),false);inventory_prefix="";}continue;}
 		if (key_pressed(KEY_ESCAPE))
 		{
 			speak("Closed inventory.");
@@ -2051,11 +2142,7 @@ void inventory_menu()
 // ---------------------------------------------------------------------------
 void on_item_used(string item)
 {
-if (item == "health_potion")
-apply_residual_healing();
-else if (item == "ultra_health_potion")
-apply_ultra_residual_healing();
-else if (item == "bomb_vest")
+if (item == "bomb_vest")
 {
 equip_item("bomb_vest", "body");
 speak("Bomb vest equipped.");
@@ -2248,30 +2335,8 @@ else if(equip_holster1=="")
 slot=1;
 else
 slot=2;
-if(equip_holster1!="" and equip_holster2=="")
-{
-iw_form sf;
-sf.create_window("Select Holster Slot", false, true);
-int sl=sf.create_list("Slot", 0, false);
-sf.add_list_item(sl, "Holster 1: "+get_holster_slot_label(1));
-sf.add_list_item(sl, "Holster 2: empty");
-int ok=sf.create_button("OK", true);
-int cancel=sf.create_button("Cancel", false, true);
-sf.focus(sl);
-while(true)
-{
-wait(5);
-sf.monitor();
-if(sf.is_pressed(cancel)) return;
-if(sf.is_pressed(ok))
-{
-int s=sf.get_list_position(sl);
-if(s==0){speak("Holster 1 is already occupied.");continue;}
-slot=2;
-break;
-}
-}
-}
+// The free slot is the only possible answer, so it is not asked for; this
+// used to open a list of both slots and refuse the full one.
 give(item, -1);
 if(slot==1) equip_holster1=item;
 else equip_holster2=item;
@@ -2431,122 +2496,7 @@ else{holster2_weapon="";holster2_weapon_ammo=0;}
 p.play_stationary("holster_"+hid+"_weapon_remove.ogg", false);
 draw_weapon(wname);
 }
-void show_weapon_info(string wname)
-{
-show_weapon_info_form(wname);
-return;
-// Android: build the same information as a native message, and offer
-// attachment removal through a touch-navigable list instead of a form.
-if(is_android())
-{
-show_weapon_info_android(wname);
-return;
-}
-iw_form f;
-f.create_window(get_weapon_display_name(wname), false, true);
-int gi=find_gun(wname);
-int base_range=0;
-int base_damage=0;
-int base_spread=0;
-int base_capacity=0;
-for(uint i=0; i<wpn_cache.length(); i++)
-{
-if(wpn_cache[i].id==wname)
-{
-base_range=wpn_cache[i].range;
-base_damage=wpn_cache[i].damage;
-base_spread=wpn_cache[i].spread;
-break;
-}
-}
-if(gi>=0) base_capacity=gun_ammos[gi].mag_capacity;
-string stats_text="";
-stats_text+="Range: "+base_range+" tiles\n";
-stats_text+="Damage: "+base_damage+"\n";
-stats_text+="Spread: "+base_spread+"\n";
-if(gi>=0)
-stats_text+="Max ammo: "+base_capacity;
-else
-stats_text+="Max ammo: N/A";
-if(is_energy_weapon(wname))
-{
-int dur=get_durability(wname);
-stats_text+="\nDurability: "+dur+"%";
-}
-stats_text+="\n\nBallistics:\n"+content_weapon_details(wname);
-string[] attached=get_weapon_attachments(wname);
-if(attached.length()>0)
-{
-stats_text+="\n\nAttachments:";
-for(uint i=0; i<attached.length(); i++)
-{
-int def_idx=find_attachment_def(attached[i]);
-if(def_idx>=0)
-{
-string label=attachment_defs[def_idx].display_name+" ("+attachment_defs[def_idx].slot+")";
-if(!attachment_defs[def_idx].removable) label+=" [permanent]";
-stats_text+="\n"+label;
-}
-}
-}
-f.create_input_box("Stats", stats_text, "", 0, false, true, true);
-if(attached.length()>0)
-{
-int att_list=f.create_list("Attachments", 0, false);
-for(uint i=0; i<attached.length(); i++)
-{
-int def_idx=find_attachment_def(attached[i]);
-if(def_idx>=0)
-{
-string label=attachment_defs[def_idx].display_name+" ("+attachment_defs[def_idx].slot+")";
-if(!attachment_defs[def_idx].removable) label+=" [permanent]";
-f.add_list_item(att_list, label);
-}
-}
-int remove_btn=f.create_button("Remove selected attachment", false, false);
-int close_btn=f.create_button("Close", false, true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-if(f.is_pressed(close_btn)) return;
-if(f.is_pressed(remove_btn))
-{
-int sel=f.get_list_position(att_list);
-if(sel>=0 and sel<int(attached.length()))
-{
-int def_idx=find_attachment_def(attached[sel]);
-if(def_idx>=0 and !attachment_defs[def_idx].removable)
-{
-speak("This attachment cannot be removed.");
-}
-else if(detach_from_weapon(attached[sel], wname))
-{
-string removed_attachment=attached[sel];
-give(attached[sel], 1);
-apply_weapon_stats(wname);
-p.play_stationary("attachment_" + removed_attachment + "_remove.ogg", false);
-send_reliable(0, "detach "+attached[sel]+" "+wname, 0);
-speak(attachment_defs[def_idx].display_name+" removed. Returned to inventory.");
-return;
-}
-}
-}
-}
-}
-else
-{
-int close_btn=f.create_button("Close", false, true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-if(f.is_pressed(close_btn)) return;
-}
-}
-}
+void show_weapon_info(string wname){show_weapon_info_form(wname);}
 string live_weapon_statistics(string wname)
 {
 wpn_stats@ base=null;
@@ -2909,6 +2859,7 @@ distances[j+1]=kd;
 return indices;
 }
 
+// Nearest first, each with where it is from you. Enter guides you there.
 void show_poi_list()
 {
 if (pois.length()==0)
@@ -2917,38 +2868,51 @@ speak("No points of interest on this map.");
 return;
 }
 int[] sorted=get_sorted_poi_indices();
+string[] labels;
+for (uint i=0; i<sorted.length(); i++)
+{
+poi@ o=pois[sorted[i]];
+labels.insert_last(string_replace(o.name, "_", " ", true)+", "+describe_offset(o.x,o.y,o.z));
+}
+bool guiding=(waypoint_name!="");
 if (is_android())
 {
-string[] poi_opts;
-for (uint i=0; i<sorted.length(); i++)
-{
-int idx=sorted[i];
-double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
-poi_opts.insert_last(string_replace(pois[idx].name, "_", " ", true)+" ("+int(dist)+" tiles)");
-}
-android_select("Points of Interest", poi_opts);
+string[] opts;
+if(guiding)opts.insert_last("Stop guiding me to "+waypoint_name);
+for(uint i=0;i<labels.length();i++)opts.insert_last(labels[i]);
+int sel=android_select("Points of Interest", opts);
+if(sel<0)return;
+if(guiding){if(sel==0){waypoint_clear();return;}sel--;}
+if(sel<int(sorted.length())){poi@ o=pois[sorted[sel]];waypoint_set(string_replace(o.name,"_"," ",true),o.x,o.y,o.z);}
 return;
 }
-iw_form f;
+nv_form f;
 f.create_window("Points of Interest", false, true);
-int f_list=f.create_list("Points of interest", 0, false);
-for (uint i=0; i<sorted.length(); i++)
-{
-int idx=sorted[i];
-double dist=get_poi_distance(pois[idx].x, pois[idx].y, pois[idx].z);
-string label=string_replace(pois[idx].name, "_", " ", true)+" ("+int(dist)+" tiles)";
-f.add_list_item(f_list, label);
-}
-int f_close=f.create_button("&Close", true, true);
-f.focus(f_list);
+nv_form_list_box@ list=f.add_list("Points of interest, nearest first. Enter guides you there.","pois");
+if(guiding)list.add("Stop guiding me to "+waypoint_name,"stop");
+for(uint i=0;i<labels.length();i++)list.add(labels[i],""+sorted[i]);
+nv_form_button@ go=f.add_button("Guide me there","go",true);
+nv_form_button@ close=f.add_button("Close","close",false,true);
+f.focus_control(list);
 while(true)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_close))
-break;
+if (f.is_pressed(close))
+return;
+if (f.is_pressed(go) and @list.focused_item!=null)
+{
+string id=list.focused_item.id;
+if(id=="stop")waypoint_clear();
+else
+{
+poi@ o=pois[int(string_to_number(id))];
+waypoint_set(string_replace(o.name,"_"," ",true),o.x,o.y,o.z);
+}
+return;
+}
 }
 }
 
@@ -3022,6 +2986,12 @@ return;
 }
 int n=int(t.level_names.length());
 bool up=dest>cur;
+// A lift that travels in total silence is a lift you cannot tell you are in.
+// Doors, a run, and doors again: the run is what tells you it is still moving
+// while the levels are being called, and the second door is what tells you to
+// walk out.
+p.play_stationary("executioners_rage/doors/vault/close.wav",false);
+int lift_run=p.play_stationary("executioners_rage/doors/vault/loop.wav",true);
 speak("Turbolift departing for "+t.level_names[target]+".");
 // Announce each served level strictly between the current and destination
 // levels, in the order the lift passes them.
@@ -3052,6 +3022,8 @@ wait(650);
 me.z=dest;
 mr.x=round(me.x, 0);
 mr.y=round(me.y, 0);
+p.destroy_sound(lift_run);
+p.play_stationary("executioners_rage/doors/vault/open.wav",false);
 send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
 checkzone();
 speak("Arrived at "+t.level_names[target]+".");
@@ -3548,7 +3520,7 @@ voice_room="";voice_room_pending="";voice_toggle_active=false;voice_was_transmit
 pinging=false;
 inv.delete_all();invalidate_inventory_keys();
 destroy_all_sources();
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -3982,6 +3954,8 @@ if(key_pressed(kb("motd")))
 send_reliable(0, "motd", 0);
 }
 // Grave accent removed; escape menu replaces it.
+tracker_tick();
+waypoint_tick();
 if(key_pressed(kb("track_info")) and tracking!="" and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 send_reliable(1, "trackinfo "+tracking, 0);
@@ -4185,7 +4159,24 @@ exitgame();
 }
 if(key_pressed(kb("coordinates")))
 {
-speak(mr.x+", "+mr.y+", "+me.z);
+// Three numbers on their own answer almost nothing. What a player actually
+// wants from this key is where they are and what they are standing on: the
+// surface name is how you tell a pavement from a road without stepping off
+// the kerb, and the drop below is how you tell a rooftop from a street.
+string underfoot=get_tile_at(mr.x,mr.y,me.z);
+string report=mr.x+", "+mr.y+", "+me.z;
+if(surface_is_air(underfoot))report+=", nothing underfoot";
+else report+=", "+underfoot;
+if(!surface_is_air(underfoot))
+{
+int drop=0;
+for(int dz=1;dz<=12;dz++){if(!surface_is_air(get_tile_at(mr.x,mr.y,me.z-dz)))break;drop=dz;}
+if(drop>=12)report+=", a long way above anything";
+else if(drop>0)report+=", "+drop+" above the surface below";
+}
+string here=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
+if(here!="")report+=", "+here;
+speak(report);
 }
 if (((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_W) or key_pressed(kb("vehicle_window"))) and in_vehicle and can_move==true)
 {
@@ -4554,6 +4545,8 @@ name = saved_name;
 }
 if (sd.d.exists("rctrl"))
 rctrl=sd.readn("rctrl");
+if (sd.d.exists("menu_music_volume"))
+menumusvolume=int(sd.readn("menu_music_volume"));
 if (sd.d.exists("cameraspeed"))
 cameraspeed=sd.readn("cameraspeed");
 if (sd.d.exists("mastervol"))
@@ -4627,6 +4620,7 @@ sd.add("name","");
 sd.add("rctrl",rctrl);
 sd.add("cameraspeed",cameraspeed);
 sd.add("mastervol",mastervol);
+sd.add("menu_music_volume",menumusvolume);
 sd.add("menu_wrap",menu_wrap_enabled ? 1 : 0);
 sd.add("show_target_hp",show_target_hp ? 1 : 0);
 sd.add("remember_me",remember_me ? 1 : 0);
@@ -4712,7 +4706,7 @@ staff_panel_available=false;
 pinging=false;
 inv.delete_all();invalidate_inventory_keys();
 destroy_all_sources();
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -4872,7 +4866,7 @@ int z=string_to_number(parsed[3]);
 string map=parsed[4];
 if(parsed[5]!=name and mapname==map)
 {
-string remote_terrain=get_tile_at(x,y,z);p.play_3d(remote_terrain+"step"+random(1,available_terrain_step_sound_count(remote_terrain))+".ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+string remote_terrain=surface_family(get_tile_at(x,y,z));p.play_3d(remote_terrain+"step"+random(1,available_terrain_step_sound_count(remote_terrain))+".ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
 else if(parsed[0]=="mapdata")
@@ -5019,6 +5013,18 @@ me.x=string_to_number(parsed[1]);
 me.y=string_to_number(parsed[2]);
 me.z=string_to_number(parsed[3]);
 }
+else if(parsed[0]=="tracking" and parsed.length()>4)
+{
+tracker_beacon(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),parsed[4]);
+}
+else if(parsed[0]=="tracking_lost" and parsed.length()>1)
+{
+tracker_lost(parsed[1]);
+}
+else if(parsed[0]=="residual_healing" and parsed.length()>1)
+{
+apply_effect("Residual Healing","buff",int(string_to_number(parsed[1])),0,0);
+}
 else if(parsed[0]=="playermenu")
 {
 string text=string_replace(get_event_message(), "playermenu ", "Stop Tracking\r\n", false);
@@ -5033,7 +5039,7 @@ int y=string_to_number(parsed[3]);
 int z=string_to_number(parsed[4]);
 string soundmap=parsed[5];
 if(soundmap==mapname)
-distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z,facing, false);
+distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 else if (parsed[0]=="play_s" and parsed.length()>=2)
 {
@@ -5065,7 +5071,7 @@ restore_stamina(string_to_number(parsed[1]));
 }
 else if(parsed[0]=="energy_crash" and parsed.length()>1)
 {
-int loss=string_to_number(parsed[1]);degrade_stamina(loss);apply_effect("Energy Crash","debuff",20000,0,0);p.play_stationary("notify.ogg",false);speak("Energy crash. Lost "+loss+" stamina. "+get_stamina_string());
+int loss=string_to_number(parsed[1]);degrade_stamina(loss);apply_effect("Energy Crash","debuff",20000,0,0);p.play_stationary(ui_sound("notify"),false);speak("Energy crash. Lost "+loss+" stamina. "+get_stamina_string());
 }
 else if(parsed[0]=="weapon_sway" and parsed.length()>1)
 {
@@ -5110,7 +5116,7 @@ int z=string_to_number(parsed[4]);
 string map=parsed[5];
 if(parsed[1]!=name and map==mapname)
 {
-p.play_3d("wall"+string_replace(get_tile_at(x, y, z), "wall", "", true)+".ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+p.play_3d(surface_wall_sound(get_tile_at(x, y, z)), me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
 else if(parsed[0]=="jump")
@@ -5143,7 +5149,7 @@ int z=string_to_number(parsed[4]);
 string map=parsed[5];
 if(parsed[1]!=name and map==mapname)
 {
-p.play_3d(get_tile_at(x, y, z)+"fall.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+p.play_3d(surface_fall_sound(get_tile_at(x, y, z)), me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
 else if(parsed[0]=="fall_damage" and parsed.length()>3)
@@ -5159,7 +5165,7 @@ int z=string_to_number(parsed[4]);
 string map=parsed[5];
 if(parsed[1]!=name and map==mapname)
 {
-p.play_3d(get_tile_at(x, y, z)+"land.ogg", me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
+p.play_3d(surface_land_sound(get_tile_at(x, y, z)), me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
 else if(parsed[0]=="fall")
@@ -5300,7 +5306,7 @@ int y=string_to_number(parsed[3]);
 int z=string_to_number(parsed[4]);
 string soundmap=parsed[5];
 if(soundmap==mapname)
-distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z, facing,false);
+distpool.play_3d(soundname, me.x, me.y, me.z, x, y, z, calculate_theta(facing), false);
 }
 }
 if (e.channel==1)
@@ -5316,22 +5322,7 @@ if(e.channel==4)
 string[] parsed=string_split(get_event_message(), " ", true);
 if(parsed[0]=="csh" and parsed.length()>1)
 {
-int client_side=n.get_peer_average_round_trip_time(1);
-int server_side=string_to_number(parsed[1]);
-if(gametracktimer.elapsed>10000)
-{
-if(sph_timer.elapsed>2400+server_side)
-{
-sph_tries++;
-if(sph_tries>4)
-kill_speedhack();
-}
-else
-{
-sph_tries=0;
-}
-sph_timer.restart();
-}
+if(gametracktimer.elapsed>10000)speed_check_packet();
 }
 }
 if (e.channel==2)
@@ -5371,7 +5362,7 @@ auto_export_buffers();
 plane.stop();
 pinging=false;
 destroy_all_sources();
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 inv.delete_all();invalidate_inventory_keys();
@@ -5411,7 +5402,7 @@ if(tile!="" and tile!="blank"){jump_vertical_position=me.z;jump_vertical_velocit
 if(changed)send_reliable(1,"move_to_a "+me.x+" "+me.y+" "+me.z,0);
 if(jumping and jump_vertical_velocity<0 and me.z<=jumplandz)
 {
-string tile=get_tile_at(mr.x,mr.y,me.z);if(tile=="" or tile=="blank"){falling=true;falldistance=0;falltimer.restart();jumping=false;}else{p.play_stationary(tile+"land.ogg",false);send_reliable(0,"land",0);jumping=false;}
+string tile=get_tile_at(mr.x,mr.y,me.z);if(tile=="" or tile=="blank"){falling=true;falldistance=0;falltimer.restart();jumping=false;}else{p.play_stationary(surface_land_sound(tile),false);send_reliable(0,"land",0);jumping=false;}
 }
 }
 }
@@ -5436,12 +5427,12 @@ if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
 falling=false;
 if(falldistance <= 3)
 {
-p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"land.ogg", false);
+p.play_stationary(surface_land_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 send_reliable(1, "land", 0);
 }
 else
 {
-p.play_stationary(get_tile_at(mr.x, mr.y, me.z)+"fall.ogg", false);
+p.play_stationary(surface_fall_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 p.play_stationary("playerhit"+random(1, 6)+".ogg", false);
 send_reliable(1, "hardland "+falldistance, 0);
 }
@@ -5464,11 +5455,8 @@ sourcecheckloop();
 stamina_loop();
 vehicle_loop();
 grenade_cook_loop();
-int heal_tick = effects_loop();
-if (heal_tick > 0)
-send_reliable(0, "heal " + heal_tick, 0);
-p.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
-distpool.update_listener_3d(me.x, me.y, me.z, calculate_theta(facing));
+effects_loop();
+update_all_listeners();
 acoustics_loop();
 executioners_ambience_loop();
 mr.x=round(me.x,0);
@@ -5534,9 +5522,41 @@ else
 string camera_terrain=gct();p.play_extended_3d(camera_terrain+"step"+random(1,available_terrain_step_sound_count(camera_terrain))+".ogg", me.x, me.y, me.z, camera.x, camera.y, camera.z, calculate_theta(facing), 0, 0, 0, 0, 0,0,false, 0.0, 0.0, 0.0, 200.0);
 }
 }
+// Speed-hack detection. The server sends a heartbeat every one and a half
+// seconds of its time; a client whose clock has been sped up sees them
+// arrive further apart than that. The old check fired after five late
+// heartbeats in a row, which a few seconds of bad Wi-Fi does just as well as
+// a cheat, and then closed the game without a word while the server told
+// everyone you had launched Cheat Engine. Network trouble delays heartbeats
+// but does not lose them -- the late ones arrive in a burst -- so this counts
+// thirty of them against the time they took. Only a clock running at least
+// half as fast again, for two windows in a row, is reported.
+timer speed_window_timer;
+int speed_window_packets=-1;
+int speed_fast_windows=0;
+timer speed_gap_timer;
+void speed_check_packet()
+{
+// Heartbeats only come during a match. A gap longer than any heartbeat
+// interval means time in the lobby or a menu, which must not count.
+bool gap=speed_gap_timer.elapsed>8000;
+speed_gap_timer.restart();
+if(gap)speed_window_packets=-1;
+if(speed_window_packets<0){speed_window_packets=0;speed_window_timer.restart();return;}
+speed_window_packets++;
+if(speed_window_packets<30)return;
+double expected=speed_window_packets*1500.0;
+double ratio=speed_window_timer.elapsed/expected;
+speed_window_packets=0;
+speed_window_timer.restart();
+if(ratio>1.5)speed_fast_windows++;
+else speed_fast_windows=0;
+if(speed_fast_windows>=2)kill_speedhack();
+}
 void kill_speedhack()
 {
 send_reliable(1, "speedhacked", 0);
+dlg("Your game's clock has been running much faster than the server's for over a minute, which is what a speed hack does, so you have been disconnected. If you are not running one, something on this computer is interfering with timing; please report it with the bug reporter.");
 exit();
 }
 void death()
@@ -5572,7 +5592,7 @@ send_reliable(0, "player_remove", 0);
 mapname="main";
 inv.delete_all();invalidate_inventory_keys();
 destroy_all_sources();
-distpool.destroy_all();
+distpool.destroy_all();ambpool.destroy_all();
 p.destroy_all();
 sources.resize(0);
 can_move=true;
@@ -5622,8 +5642,7 @@ return;
 }
 if (f.is_pressed(f_cancel))
 {
-speak("canceled");
-tracking="";
+speak(tracking==""?"Canceled.":"Canceled. Still tracking "+tracking+".");
 return;
 }
 }
@@ -5657,6 +5676,8 @@ if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
+tracker_tick();
+waypoint_tick();
 if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);
@@ -5792,6 +5813,8 @@ if(key_pressed(kb("motd")))
 {
 send_reliable(0, "motd", 0);
 }
+tracker_tick();
+waypoint_tick();
 if(key_pressed(kb("track_info")) and tracking!="")
 {
 send_reliable(1, "trackinfo "+tracking, 0);

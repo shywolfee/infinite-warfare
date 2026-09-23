@@ -7,6 +7,7 @@
 #include"includes/building.nvgt"
 #include"includes/torpedo.nvgt"
 #include "includes/bodyfall.nvgt"
+#include "includes/spatial_index.nvgt"
 #include "includes/map.nvgt"
 #include "includes/player.nvgt"
 #include "includes/shop.nvgt"
@@ -16,6 +17,8 @@
 #include "includes/moderation.nvgt"
 #include "includes/chat_system.nvgt"
 #include "includes/rotation.nvgt"
+#include "includes/awareness.nvgt"
+#include "includes/deploy.nvgt"
 #include "includes/weapon.nvgt"
 #include "includes/grenade.nvgt"
 #include "includes/corpse.nvgt"
@@ -28,7 +31,9 @@
 #endif
 string[] killmsgs;
 timer spawn_chesttimer;
-double minversion=0.12;
+// Clients older than this speak a protocol the server no longer agrees with
+// (vehicle damage, spawning and healing all moved to the server in 0.5.2).
+double minversion=0.52;
 const int port=1316;
 string adminlist="";
 string[] dev_list = {"velan"};
@@ -235,6 +240,7 @@ exit();
 }
 if(e.type==event_disconnect)
 {
+forget_deploy(e.peer_id);
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
@@ -729,20 +735,17 @@ else if(parsed[0]=="enter_mode" and parsed.length()>1)
 int li=get_lobby_client_index(e.peer_id);
 if(li>-1)
 {
-string mode_display=parsed[1];
-if(parsed[1]=="freeforall") mode_display="Ghost Town";
-else if(parsed[1]=="habitat_alpha") mode_display="Coruscant";
-else if(parsed[1]=="battlegrounds") mode_display="Shattersea";
-else if(parsed[1]=="freyas_ascent") mode_display="Freya's Ascent";
-send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
 string selected_map=parsed[1];
 if(selected_map!="battlegrounds" and selected_map!="habitat_alpha" and selected_map!="freeforall" and selected_map!="freyas_ascent"){send_reliable(e.peer_id,"That map is unavailable.",2);return;}
 int selected_index=get_map_index(selected_map);if(selected_index<0){send_reliable(e.peer_id,"That map is not loaded on the server.",2);return;}
+string mode_display=map_display_title(selected_map);
+send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
 int[] entry=choose_safe_player_spawn(selected_map,0,0,0);
 send_reliable(e.peer_id,"mapdata "+maps[selected_index].rawdata,0);
 send_reliable(e.peer_id,"x "+entry[0],0);
 send_reliable(e.peer_id,"y "+entry[1],0);
 send_reliable(e.peer_id,"z "+entry[2],0);
+remember_deploy(e.peer_id,lobby_clients[li].name,selected_map,entry);
 lobby_clients.remove_at(li);
 }
 }
@@ -1717,9 +1720,15 @@ send_reliable(players[index].peer_id, "play_s welcome.ogg", 0);
 send_reliable(players[index].peer_id, "Welcome to Infinite Warfare! There are currently "+players.length()+" players online.", 2);
 }
 }
-else if(parsed[0]=="spawn_player" and parsed.length() > 5)
+else if(parsed[0]=="spawn_player")
 {
-spawn_player(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]), parsed[4], parsed[5], e.peer_id);
+// The name, map and position are the ones this server chose when the player
+// deployed, not the ones in the message: a client could otherwise spawn
+// under someone else's name, or anywhere it liked.
+deploy_record d;
+if(get_player_index(e.peer_id)>-1){}
+else if(!take_deploy(e.peer_id,d))send_reliable(e.peer_id,"Deploy again from the lobby: the server has no record of this deployment.",2);
+else spawn_player(d.x,d.y,d.z,d.map,d.name,e.peer_id);
 }
 else if(parsed[0]=="land")
 {
@@ -1981,59 +1990,17 @@ send_reliable(players[index].peer_id,"fall_damage "+damage+" "+distance+" "+impa
 send_reliable(0,"hardland "+players[index].name+" "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map,0,index);
 }
 }
+else if(parsed[0]=="trackping" and parsed.length()>1)
+{
+int index=get_player_index(e.peer_id);
+if(index>-1)tracker_pulse(index,get_player_index_from(parsed[1]));
+}
 else if(parsed[0]=="trackinfo" and parsed.length()>1)
 {
 int i=get_player_index_from(parsed[1]);
 int index=get_player_index(e.peer_id);
-if(index>-1 and i>-1)
-{
-if(players[i].map==players[index].map)
-{
-if(players[i].death==true)
-{
-send_reliable(players[index].peer_id, "this player is dead and can't be tracked.", 2);
-}
-if(players[i].invisible==false and players[index].see==true)
-{
-string final;
-int level=1;
-if(players[i].z>players[index].z)
-{
-level=2;
-}
-else if(players[i].z<players[index].z)
-{
-level=0;
-}
-else
-{
-level=1;
-}
-if(level==2)
-{
-final+="above, ";
-}
-else if(level==0)
-{
-final+="below, ";
-}
-final+=calculate_x_y_string(calculate_x_y_angle(players[index].x, players[index].y, players[i].x, players[i].y, players[index].facing))+", "+get_2d_distance(players[index].x, players[index].y, players[i].x, players[i].y)+" feet away at "+players[i].x+", "+players[i].y+", "+players[i].z+". ";
-send_reliable(players[index].peer_id, final, 2);
-if(players[i].death==false)
-{
-send_reliable(players[index].peer_id, "tracking "+players[i].x+" "+players[i].y+" "+players[i].z+" "+players[i].map, 0);
-}
-}
-else
-{
-send_reliable(e.peer_id, "you can't see this player at the moment!", 0);
-}
-}
-}
-else
-{
-send_reliable(e.peer_id, "This player doesn't exist!", 0);
-}
+if(index>-1 and i>-1)report_tracked_player(index,i);
+else send_reliable(e.peer_id,"That player is not in the game.",2);
 }
 else if(parsed[0]=="speedhacked")
 {
@@ -2041,7 +2008,7 @@ int index=get_player_index(e.peer_id);
 if(index>-1)
 {
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-send_reliable(0, players[index].name+" just launched cheat engine and is going to speedhack! Not? I killed them!", 2);
+send_reliable(0, players[index].name+" was disconnected: their game clock was running too fast.", 2);
 players.remove_at(index);
 }
 }
@@ -2249,7 +2216,7 @@ else { string report="Team positions: "; for (uint tm=0; tm<teams[ti].members.le
 }
 else if(parsed[1]=="health_potion")
 {
-if(players[index].health>1001)
+if(players[index].health>=1000)
 send_reliable(players[index].peer_id, "Your health is already full.", 2);
 else if(players[index].health_potiontimer.elapsed<=20000)
 {
@@ -2263,6 +2230,7 @@ players[index].usehealth_potiontimer.restart();
 players[index].health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give health_potion -1", 0);
 players[index].health+=item_configuration==0?125:(item_configuration==2?325:200);
+start_residual_healing(players[index],100,20);
 play("health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
 }
@@ -2301,6 +2269,7 @@ players[index].ultra_health_potion=true;
 players[index].ultra_health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give ultra_health_potion -1", 0);
 int ultra_heal=random(500,600);if(item_configuration==0)ultra_heal=int(ultra_heal*.72);else if(item_configuration==2)ultra_heal=int(ultra_heal*1.28);players[index].health+=ultra_heal;
+start_residual_healing(players[index],300,60);
 play("ultra_health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
 }
@@ -2764,21 +2733,8 @@ send_reliable(players[index].peer_id, "Your report has been sent.", 2);
 }
 else if(parsed[0]=="nearplayers")
 {
-string p;
 int index=get_player_index(e.peer_id);
-if(index > -1)
-{
-for (uint i=0; i<players.length(); i++)
-{
-if (get_3d_distance(players[i].x,players[i].y,players[i].z,players[index].x,players[index].y,players[index].z)<=30 and players[index].map==players[i].map and players[i].death==false and players[index].name!=players[i].name)
-{
-p=players[i].name+" is "+calculate_x_y_string(calculate_x_y_angle(players[index].x, players[index].y, players[i].x, players[i].y, players[index].facing))+", "+get_2d_distance(players[index].x, players[index].y, players[i].x, players[i].y)+" feet away. ";
-}
-}
-if(p=="")
-p="no player around you.";
-send_reliable(players[index].peer_id, p, 2);
-}
+if(index>-1)report_nearby_players(index);
 }
 else if(parsed[0]=="inventory_transfer_targets")
 {
@@ -2798,82 +2754,7 @@ else if(index>=0 and item_id.length()>0 and item_id.length()<=80 and string_cont
 else if(parsed[0]=="whatnear")
 {
 int index=get_player_index(e.peer_id);
-if(index > -1)
-{
-string s;
-for (uint i=0; i<items.length(); i++)
-{
-if (get_3d_distance(items[i].x,items[i].y,items[i].z,players[index].x,players[index].y,players[index].z)<=30 and players[index].map==items[i].map)
-{
-int level=1;
-if(items[i].z>players[index].z)
-{
-level=2;
-}
-else if(items[i].z<players[index].z)
-{
-level=0;
-}
-else
-{
-level=1;
-}
-{
-if(string_contains(items[i].name, "ammo_", 1)>-1)
-{
-string work=string_replace(items[i].name, "ammo_", "", false);
-string[] worksplit=string_split(work, "_", false);
-string final_weapon=string_replace(worksplit[0], ".", "_", true);
-int final_amount=random(string_to_number(worksplit[1]), string_to_number(worksplit[2]));
-s+=final_weapon+" ammunition is ";
-}
-else
-s+=items[i].name+" is ";
-}
-if(level==2)
-{
-s+="above, ";
-}
-else if(level==0)
-{
-s+="below, ";
-}
-s+=calculate_x_y_string(calculate_x_y_angle(players[index].x, players[index].y, items[i].x, items[i].y, players[index].facing))+", "+get_2d_distance(players[index].x, players[index].y, items[i].x, items[i].y)+" feet away. ";
-}
-}
-for (uint i=0; i<chests.length(); i++)
-{
-if (get_3d_distance(chests[i].x,chests[i].y,chests[i].z,players[index].x,players[index].y,players[index].z)<=30 and players[index].map==chests[i].map)
-{
-int level=1;
-if(chests[i].z>players[index].z)
-{
-level=2;
-}
-else if(chests[i].z<players[index].z)
-{
-level=0;
-}
-else
-{
-level=1;
-}
-{
-s+="a chest is ";
-}
-if(level==2)
-{
-s+="above, ";
-}
-else if(level==0)
-{
-s+="below, ";
-}
-s+=calculate_x_y_string(calculate_x_y_angle(players[index].x, players[index].y, chests[i].x, chests[i].y, players[index].facing))+", "+get_2d_distance(players[index].x, players[index].y, chests[i].x, chests[i].y)+" feet away. ";
-}
-}
-send_reliable(players[index].peer_id, "whatnear_result "+s, 0);
-}
+if(index>-1)send_reliable(players[index].peer_id,"whatnear_result "+nearby_things(index),0);
 }
 else if(parsed[0]=="lobby_credits")
 {
@@ -3026,16 +2907,10 @@ string map=parsed[4];
 send_reliable(0, "ladder_spawned "+x+" "+y+" "+z+" "+map, 0);
 spawn_ladder(x,y,z,z+10,map,1000);
 }
-else if(parsed[0]=="heal" and parsed.length()>1)
-{
-int index=get_player_index(e.peer_id);
-if(index>-1)
-{
-int heal_amount=string_to_number(parsed[1]);
-if(heal_amount>0 and heal_amount<=2000)
-players[index].health+=heal_amount;
-}
-}
+// Clients used to heal themselves by sending "heal" with any amount up to
+// 2000, as often as they liked. Healing over time is the server's now; the
+// message is accepted and ignored so older clients do not trip anything.
+else if(parsed[0]=="heal"){}
 else if(parsed[0]=="attach" and parsed.length()>2)
 {
 int index=get_player_index(e.peer_id);
@@ -3106,6 +2981,10 @@ int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_veh
 else if(parsed[0]=="veh_move" and parsed.length()>6)
 {
 int index=get_player_index(e.peer_id);if(index>=0 and players[index].map==parsed[6])authoritative_vehicle_move(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),parsed[6],players[index].name);
+}
+else if(parsed[0]=="veh_crash" and parsed.length()>1)
+{
+authoritative_vehicle_crash(get_player_index(e.peer_id),string_to_number(parsed[1]));
 }
 else if(parsed[0]=="veh_altitude" and parsed.length()>3)
 {

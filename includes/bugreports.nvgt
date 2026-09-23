@@ -1,312 +1,128 @@
+// Bug reports. Built like support tickets and feedback: each screen returns
+// to the one it came from, and a report is a list you arrow through. Viewing
+// a report used to reopen the whole list from scratch on the way back, and
+// staff flagging reopened it again, stacking a screen per visit.
+
 void bug_submit()
 {
-iw_form f;
-f.create_window("Submit a Bug Report", false, true);
-int f_title=f.create_input_box("Title", "", "", 0, false, false, false);
-int f_body=f.create_input_box("Description", "", "", 0, false, false, true);
-int f_submit=f.create_button("&Submit", true);
-int f_cancel=f.create_button("&Cancel", false, true);
-f.focus(f_title);
+nv_form f;
+f.create_window("Report a bug",false,true);
+nv_form_input@ title=f.add_input("What went wrong, in a few words","title");
+nv_form_input@ body=f.add_input("What you did, what happened, and what you expected","body","","",0,false,true);
+nv_form_button@ submit=f.add_button("Send report","send",true);
+nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
+f.focus_control(title);
 while(true)
 {
 wait(5);
 f.monitor();
 if(connected==true) netloop();
-if(f.is_pressed(f_submit))
-{
-string title=f.get_text(f_title);
-string body=f.get_text(f_body);
-if(title=="")
-{
-dlg("Please enter a title for your bug report.");
-continue;
-}
-if(body=="")
-{
-dlg("Please enter a description of the bug.");
-continue;
-}
-title=string_replace(title, "|", "/", true);
-title=string_replace(title, "~", "-", true);
-title=string_replace(title, ",", ";", true);
-title=string_replace(title, "\n", " ", true);
-body=string_replace(body, "|", "/", true);
-body=string_replace(body, "~", "-", true);
-body=string_replace(body, "\n", "<<NL>>", true);
-send_reliable(0, "bug_create "+name+"|"+title+"|"+body, 0);
+if(f.is_pressed(cancel))return;
+if(!f.is_pressed(submit))continue;
+string t=title.text.trim_whitespace();
+string b=body.text.trim_whitespace();
+if(t==""){speak("The report needs a title.");f.focus_control(title);continue;}
+if(b==""){speak("Describe the bug first.");f.focus_control(body);continue;}
+t=string_replace(string_replace(support_encode(t),"<<NL>>"," ",true),",",";",true);
+send_reliable(0,"bug_create "+name+"|"+t+"|"+support_encode(b),0);
 string result="";
-wait_for_service_response("bug_created",result,3000);
-if(result!="")
-dlg("Your bug report has been submitted. The dev team has been notified.");
-else
-dlg("Failed to submit your bug report. The server may not have responded.");
-return;
-}
-else if(f.is_pressed(f_cancel))
+if(wait_for_service_response("bug_created",result,3000))dlg("Thank you. The report has been sent and the developers have been told.");
+else dlg("The server did not confirm the report, so it may not have been sent. Try again in a moment.");
 return;
 }
 }
+
+string bug_flag_label(const string &in flag){return (flag=="" or flag=="none")?"not yet looked at":string_to_lower_case(flag);}
 
 void bugs_menu()
 {
-send_reliable(0, "bug_check_role", 0);
+send_reliable(0,"bug_check_role",0);
 bool is_staff=false;
 string role_response;if(wait_for_service_response("bug_role_",role_response,2000))is_staff=role_response=="bug_role_staff";
+speak(is_staff?"Loading every bug report.":"Loading your bug reports.");
+send_reliable(0,is_staff?"bug_list_all":"bug_list_my "+name,0);
+string response;
+string prefix=is_staff?"bug_alllist ":"bug_mylist ";
+if(!wait_for_service_response(prefix,response,3000)){speak("The server did not send the reports.");return;}
+string data=string_replace(response,prefix,"",false);
+string[] labels,ids;
+if(data!="" and data!="none")
+{
+string[] entries=string_split(data,",",false);
+for(uint i=0;i<entries.length();i++)
+{
+string[] parts=string_split(entries[i],"~",false);
 if(is_staff)
-bugs_menu_staff();
-else
-bugs_menu_player();
-}
-
-void bugs_menu_player()
 {
-speak("Loading your bug reports, please wait.");
-send_reliable(0, "bug_list_my "+name, 0);
-string data="";
-string list_response;if(wait_for_service_response("bug_mylist ",list_response,3000))data=string_replace(list_response,"bug_mylist ","",false);
-iw_form f;
-f.create_window("My Bug Reports", false, true);
-int f_list=f.create_list("Bug reports", 0, false);
-string[] bug_ids;
-if(data=="" or data=="none")
-{
-f.add_list_item(f_list, "No bug reports found.");
+if(parts.length()<4)continue;
+labels.insert_last("Report "+parts[0]+" from "+parts[1]+": "+parts[2]+", "+bug_flag_label(parts[3]));
 }
 else
 {
-string[] entries=string_split(data, ",", false);
-for(uint i=0; i<entries.length(); i++)
-{
-string[] parts=string_split(entries[i], "~", false);
-if(parts.length()<3) continue;
-bug_ids.insert_last(parts[0]);
-string flag_display=(parts[2]=="" or parts[2]=="none") ? "unflagged" : parts[2];
-f.add_list_item(f_list, "#"+parts[0]+": "+parts[1]+" ["+flag_display+"]");
+if(parts.length()<3)continue;
+labels.insert_last("Report "+parts[0]+": "+parts[1]+", "+bug_flag_label(parts[2]));
+}
+ids.insert_last(parts[0]);
 }
 }
-int f_view=f.create_button("&View selected");
-int f_back=f.create_button("Go &back", false, true);
-f.focus(f_list);
+if(labels.length()==0){speak(is_staff?"There are no bug reports.":"You have not sent any bug reports.");return;}
 while(true)
 {
-wait(5);
-f.monitor();
-if(connected==true) netloop();
-if(f.is_pressed(f_view))
-{
-int sel=f.get_list_position(f_list);
-if(sel>=0 and sel<int(bug_ids.length()))
-{
-bug_view_player(bug_ids[sel]);
-return;
-}
-}
-else if(f.is_pressed(f_back))
-return;
+string id=pick_from_list((is_staff?"All bug reports, ":"Your bug reports, ")+labels.length(),labels,ids);
+if(id=="")return;
+bug_view(id,is_staff);
 }
 }
 
-void bug_view_player(string bug_id)
+void bug_view(string bug_id,bool is_staff)
 {
-speak("Loading bug report, please wait.");
-send_reliable(0, "bug_get "+bug_id, 0);
-string data="";
-string bug_response;if(wait_for_service_response("bug_data ",bug_response,3000))data=string_replace(bug_response,"bug_data ","",false);
-if(data=="" or data=="not_found")
-{
-dlg("Bug report not found.");
-bugs_menu_player();
-return;
-}
-string[] parts=string_split(data, "~", false);
-if(parts.length()<6)
-{
-dlg("Invalid bug report data.");
-bugs_menu_player();
-return;
-}
-string b_id=parts[0];
-string b_owner=parts[1];
-string b_title=parts[2];
-string b_flag=parts[3];
-string b_comment=string_replace(parts[4], "<<NL>>", "\n", true);
-string b_body=string_replace(parts[5], "<<NL>>", "\n", true);
-iw_form f;
-f.create_window("Bug Report #"+b_id+": "+b_title, false, true);
-f.create_input_box("Title", b_title, "", 0, false, true, false);
-f.create_input_box("Description", b_body, "", 0, false, true, true);
-string flag_display=(b_flag=="" or b_flag=="none") ? "Unflagged" : b_flag;
-f.create_input_box("Status", flag_display, "", 0, false, true, false);
-if(b_comment!="" and b_comment!="none")
-f.create_input_box("Staff comment", b_comment, "", 0, false, true, true);
-int f_back=f.create_button("Go &back", false, true);
-f.focus(0);
 while(true)
+{
+speak("Loading report "+bug_id+".");
+send_reliable(0,"bug_get "+bug_id,0);
+string response;
+if(!wait_for_service_response("bug_data ",response,3000)){speak("The server did not send the report.");return;}
+string data=string_replace(response,"bug_data ","",false);
+if(data=="" or data=="not_found"){dlg("That report no longer exists.");return;}
+// Format: id~owner~title~flag~comment~body
+string[] parts=string_split(data,"~",false);
+if(parts.length()<6){dlg("The server sent a report the game could not read.");return;}
+nv_form f;
+f.create_window("Bug report "+parts[0]+": "+parts[2],false,true);
+nv_form_list_box@ list=f.add_list("Bug report "+parts[0],"report");
+list.add("Title: "+parts[2],"title");
+if(is_staff)list.add("From "+parts[1],"owner");
+list.add("Status: "+bug_flag_label(parts[3]),"flag");
+list.add("Description: "+support_decode(parts[5]),"body");
+if(parts[4]!="" and parts[4]!="none")list.add("Developer's comment: "+support_decode(parts[4]),"comment");
+nv_form_button@ flag=null;
+if(is_staff)@flag=f.add_button("Set its status","flag");
+nv_form_button@ back=f.add_button("Back","back",false,true);
+f.focus_control(list);
+bool flagging=false;
+while(!flagging)
 {
 wait(5);
 f.monitor();
 if(connected==true) netloop();
-if(f.is_pressed(f_back))
-{
-bugs_menu_player();
-return;
+if(f.is_pressed(back))return;
+if(@flag!=null and f.is_pressed(flag))flagging=true;
 }
-}
-}
-
-void bugs_menu_staff()
-{
-speak("Loading all bug reports, please wait.");
-send_reliable(0, "bug_list_all", 0);
-string data="";
-string all_response;if(wait_for_service_response("bug_alllist ",all_response,3000))data=string_replace(all_response,"bug_alllist ","",false);
-iw_form f;
-f.create_window("All Bug Reports", false, true);
-int f_list=f.create_list("Bug reports", 0, false);
-string[] bug_ids;
-if(data=="" or data=="none")
-{
-f.add_list_item(f_list, "No bug reports found.");
-}
-else
-{
-string[] entries=string_split(data, ",", false);
-for(uint i=0; i<entries.length(); i++)
-{
-string[] parts=string_split(entries[i], "~", false);
-if(parts.length()<4) continue;
-bug_ids.insert_last(parts[0]);
-string flag_display=(parts[3]=="" or parts[3]=="none") ? "unflagged" : parts[3];
-f.add_list_item(f_list, "#"+parts[0]+" by "+parts[1]+": "+parts[2]+" ["+flag_display+"]");
-}
-}
-int f_view=f.create_button("&View selected");
-int f_back=f.create_button("Go &back", false, true);
-f.focus(f_list);
-while(true)
-{
-wait(5);
-f.monitor();
-if(connected==true) netloop();
-if(f.is_pressed(f_view))
-{
-int sel=f.get_list_position(f_list);
-if(sel>=0 and sel<int(bug_ids.length()))
-{
-bug_view_staff(bug_ids[sel]);
-return;
-}
-}
-else if(f.is_pressed(f_back))
-return;
-}
-}
-
-void bug_view_staff(string bug_id)
-{
-speak("Loading bug report, please wait.");
-send_reliable(0, "bug_get "+bug_id, 0);
-string data="";
-string bug_response;if(wait_for_service_response("bug_data ",bug_response,3000))data=string_replace(bug_response,"bug_data ","",false);
-if(data=="" or data=="not_found")
-{
-dlg("Bug report not found.");
-bugs_menu_staff();
-return;
-}
-string[] parts=string_split(data, "~", false);
-if(parts.length()<6)
-{
-dlg("Invalid bug report data.");
-bugs_menu_staff();
-return;
-}
-string b_id=parts[0];
-string b_owner=parts[1];
-string b_title=parts[2];
-string b_flag=parts[3];
-string b_comment=string_replace(parts[4], "<<NL>>", "\n", true);
-string b_body=string_replace(parts[5], "<<NL>>", "\n", true);
-iw_form f;
-f.create_window("Bug Report #"+b_id+": "+b_title, false, true);
-f.create_input_box("Submitted by", b_owner, "", 0, false, true, false);
-f.create_input_box("Title", b_title, "", 0, false, true, false);
-f.create_input_box("Description", b_body, "", 0, false, true, true);
-string flag_display=(b_flag=="" or b_flag=="none") ? "Unflagged" : b_flag;
-f.create_input_box("Current flag", flag_display, "", 0, false, true, false);
-if(b_comment!="" and b_comment!="none")
-f.create_input_box("Current comment", b_comment, "", 0, false, true, true);
-int f_flag=f.create_button("&Flag this report");
-int f_back=f.create_button("Go &back", false, true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-if(connected==true) netloop();
-if(f.is_pressed(f_flag))
-{
 bug_flag_menu(bug_id);
-return;
-}
-else if(f.is_pressed(f_back))
-{
-bugs_menu_staff();
-return;
-}
 }
 }
 
+// Staff: set a report's status, with a comment the reporter will see.
 void bug_flag_menu(string bug_id)
 {
-iw_form f;
-f.create_window("Flag Bug Report #"+bug_id, false, true);
-int f_list=f.create_list("Select a flag", 0, false);
-f.add_list_item(f_list, "Pending - Report has been seen and is being worked on");
-f.add_list_item(f_list, "Erroneous - Report is not legitimate or is spam");
-f.add_list_item(f_list, "Known - Dev team already knows about this bug");
-f.add_list_item(f_list, "Closed - Bug has been fixed or resolved");
-int f_comment=f.create_input_box("Comment (required)", "", "", 0, false, false, true);
-int f_apply=f.create_button("&Apply flag", true);
-int f_cancel=f.create_button("&Cancel", false, true);
-f.focus(f_list);
-while(true)
-{
-wait(5);
-f.monitor();
-if(connected==true) netloop();
-if(f.is_pressed(f_apply))
-{
-int sel=f.get_list_position(f_list);
-string comment=f.get_text(f_comment);
-if(comment=="")
-{
-dlg("You must attach a comment when flagging a report.");
-continue;
-}
-string flag_value="";
-if(sel==0) flag_value="Pending";
-else if(sel==1) flag_value="Erroneous";
-else if(sel==2) flag_value="Known";
-else if(sel==3) flag_value="Closed";
-else
-{
-dlg("Please select a flag.");
-continue;
-}
-comment=string_replace(comment, "|", "/", true);
-comment=string_replace(comment, "~", "-", true);
-comment=string_replace(comment, "\n", "<<NL>>", true);
-send_reliable(0, "bug_flag "+bug_id+"|"+flag_value+"|"+comment, 0);
-string flag_response;bool flagged=wait_for_service_response("bug_flagged",flag_response,3000);
-dlg(flagged?"Bug report flagged as "+flag_value+".":"The bug report flag was not accepted.");
-bugs_menu_staff();
-return;
-}
-else if(f.is_pressed(f_cancel))
-{
-bug_view_staff(bug_id);
-return;
-}
-}
+string[] labels={"Pending: seen, and being worked on","Erroneous: not a real bug, or spam","Known: already on the list","Closed: fixed or resolved"};
+string[] ids={"Pending","Erroneous","Known","Closed"};
+string flag_value=pick_from_list("Status for report "+bug_id,labels,ids);
+if(flag_value=="")return;
+string comment=af_input("Comment for the reporter","",true).trim_whitespace();
+if(comment==""){speak("A status needs a comment, so nothing was changed.");return;}
+send_reliable(0,"bug_flag "+bug_id+"|"+flag_value+"|"+support_encode(comment),0);
+string flag_response;
+if(wait_for_service_response("bug_flagged",flag_response,3000))speak("Report "+bug_id+" is now "+string_to_lower_case(flag_value)+".");
+else dlg("The server did not accept the new status.");
 }

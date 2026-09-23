@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Infinite Warfare 0.5.1.2 Manual</title>
+<title>Infinite Warfare 0.5.2 Manual</title>
 <style>
 :root{color-scheme:dark;--bg:#090f16;--panel:#111b26;--panel2:#172433;--line:#33465a;--text:#e7eef6;--muted:#aec0d1;--link:#7bc4ff;--heading:#b9ddff;--warn:#ffd479}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{max-width:1120px;margin:auto;padding:1.5rem;font:1rem/1.62 system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -20,7 +20,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <body>
 <header class="hero">
 <h1>Infinite Warfare</h1>
-<p><span class="version">Version 0.5.1.2 &middot; Build 85</span></p>
+<p><span class="version">Version 0.5.2 &middot; Build 86</span></p>
 <p class="lead">An open-source, audio-first online action game for Windows and Android, with a supplemental high-contrast visual layer for players with residual vision.</p>
 <p>This manual describes the current game rather than retired prototypes. Exact weapon, ammunition, attachment, armour, item, and vehicle statistics come from the live database and are available through Dynamic Help and the Dynamic Armoury.</p>
 </header>
@@ -52,7 +52,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <li>Run <code>Infinite Warfare.exe</code>. The first-boot wizard configures essential interface, audio, platform, keyboard, mouse, and touch choices.</li>
 <li>Create or select an account, configure the server address if necessary, and connect.</li>
 <li>Use the lobby to chat, browse players, inspect the armoury, read help, manage your account, or deploy into a map.</li>
-<li>Move with the arrow keys, fire with <kbd>Ctrl</kbd>, reload with <kbd>R</kbd>, open inventory with <kbd>I</kbd>, and open the game menu with <kbd>Escape</kbd>.</li>
+<li>Move with the arrow keys, fire with <kbd>Ctrl</kbd>, reload with <kbd>R</kbd>, open inventory with <kbd>I</kbd>, and open the game menu with <kbd>Escape</kbd>. In any menu, <kbd>Page Up</kbd> and <kbd>Page Down</kbd> set the menu music volume, which is remembered. The game menu has Options, so settings and volumes can be changed without leaving a match.</li>
 </ol>
 <p>Deployment provides a random melee weapon, sidearm, primary weapon, sensible ammunition, healing supplies, explosives, and maintenance supplies appropriate to the starting firearms. Automatic quickbar assignment is optional.</p>
 <div class="note">Unsure what a key does? Press <kbd>Shift+F1</kbd> for key practice. Press <kbd>Shift+H</kbd> for the in-game help browser.</div>
@@ -136,14 +136,19 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 
 <section id="world">
 <h2>7. Maps and world systems</h2>
-<p>The current maps use connected buildings, distinct districts, multiple routes, ramps, elevation, authored zones, distributed safe spawns, useful fixtures, and destructible furniture. Spawn placement checks floor and headroom and relocates a player to the nearest safe tile if necessary.</p>
+<p>Every place on every map has a name: streets are named by the stretch you are on and which pavement, rooms by what they are and which end of them, open ground by its bearing. The coordinates key tells you your position, the surface under your feet, how far it is down to the next thing below, and the zone. Stairs and ramps are walked; ladders and rungs are climbed with the up and down keys; lifts are ridden from their panel. Every map carries its own ambience, which you can hear change as you move from street to room to river.</p>
 <div class="table"><table>
 <tr><th>Map</th><th>Bounds</th><th>Character</th></tr>
-<tr><td>Shattersea</td><td>420 by 420</td><td>A tidal settlement with ferry facilities, Netmakers Row, shipwright floors, rope loft, salvage yard, connected islands, clinic, headland, and lighthouse works.</td></tr>
-<tr><td>Coruscant</td><td>420 by 380</td><td>A freight undercity connected by real stairs and ramps to an elevated civic concourse, bank, clinic, food hall, archive, workshops, and reservoir courts.</td></tr>
-<tr><td>Ghost Town</td><td>400 by 360</td><td>Mercy Street, saloon, assay bank, sheriff and cells, doctor, forge, railway depot, dry wash, orchard, cemetery knoll, and chapel.</td></tr>
-<tr><td>Freya's Ascent</td><td>360 by 460</td><td>A meltwater foreland, village, mill, rescue station, ravine and aqueduct, observatory shelf, weather station, and summit sanctuary.</td></tr>
+<tr><td>Ghost Town</td><td>480 by 480</td><td>An abandoned modern city: six avenues and six streets, every stretch and kerb named, a service alley through every block, the River Alder, the Fourth Street viaduct, and districts from the harbour to the terraces.</td></tr>
+<tr><td>Shattersea</td><td>560 by 560</td><td>Nine islands joined by twelve bridges in a sea six below every quay: a fishing harbour, a lighthouse, salt pans, a cargo wharf, a guildhall, a glassworks, a cliff with a funicular, cisterns and an aqueduct, and a drowned old city.</td></tr>
+<tr><td>Freya's Ascent</td><td>300 by 300, 156 high</td><td>A city on six terraces up a mountain, joined by switchback stairs, a goods lift, tunnels and maintenance rungs, with a waterfall down the eastern face and the Folkvangr Spindle ring in orbit above.</td></tr>
+<tr><td>Coruscant</td><td>400 by 400, 200 high</td><td>Six stacked levels of the Galactic City, from Level 1313 through the Works, CoCo Town and the Uscru District to the Senate District and the Jedi Temple, joined by turbolifts and vent shafts.</td></tr>
 </table></div>
+<h3>Finding people and places</h3>
+<p>Everything that tells you where something is uses the same words: the straight-line distance in tiles, a clock-face bearing where twelve o'clock is the way you are facing, and how far above or below you it is. <kbd>M</kbd> lists items and chests within thirty tiles, nearest first.</p>
+<p><kbd>P</kbd> works like a motion tracker. Anyone within eight tiles shows up whatever they are doing. Further out, a player shows up only while they give themselves away: moving in the last second and a half, out to thirty tiles, or firing in the last three seconds, out to sixty -- or thirty with a suppressor. Someone standing still and holding their fire beyond eight tiles does not show at all, and neither will you. Teammates always show, out to sixty tiles. Each contact says whether it is moving, firing or still.</p>
+<p><kbd>J</kbd> lists the map's points of interest, nearest first. Press <kbd>Enter</kbd> on one and a beacon sounds from that place, more often as you get closer, until you arrive. Open the list again to stop or to pick somewhere else.</p>
+<p><kbd>T</kbd> chooses a player to track. While you track someone a beep sounds from where they are every couple of seconds: a high tone when they are above you, a low one below, and a plain one on your level. <kbd>W</kbd> tells you exactly where they are. A teammate can be tracked anywhere. Anyone else gives off a beacon only while <kbd>P</kbd> would show them -- close by, moving or firing -- and goes quiet when they keep still out of range. Invisible players cannot be tracked, and you are told when your target goes down, changes map or leaves.</p>
 <h3>Acoustics, terrain, and destruction</h3>
 <p>Environmental reverb has been removed. Occlusion remains: positional sound traces walls and authored portals, applies bounded attenuation and low-pass filtering, and can be disabled independently in Audio Options. Interface and notification sounds are not positional world sounds.</p>
 <p>Ramps and stairs create continuous three-dimensional terrain for movement and projectiles. Destructible furniture has material resistance, shape, floor surface, and health shared by client and server. Destroyed furniture stays removed until map reload or server restart and never creates unlimited loot.</p>
@@ -221,7 +226,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <h2>13. Source builds, sound packs, and releases</h2>
 <p>The project targets NVGT 0.90. The normal server is <code>iwserver.exe</code>; the ReactPhysics-enabled server is <code>iwserver_physics.exe</code>. The physics launcher initializes its native integration without a manual workaround.</p>
 <p>When running <code>Infinite Warfare.nvgt</code> from source, the Administrator Panel exposes <strong>Compress a release build</strong>. It asks before replacement, compiles the client, verifies or optionally builds <code>sounds.dat</code>, stages the executable, sound pack, recursive <code>lib</code> directory, changelog, and README, then creates <code>release.zip</code> with progress and a final result.</p>
-<p>The GitHub updater compares local <code>version.txt</code> with the repository, retrieves a newer open-source tree, and replaces client files. Keep client and server versions synchronized when protocols or persistent formats change.</p>
+<p>Check for updates compares your <code>version.txt</code> with the one on GitHub. If a newer version is published it downloads the release as a zip with PowerShell (Git is not needed), replaces the game files after the game closes, and starts the game again. Keep client and server versions synchronized when protocols or persistent formats change.</p>
 </section>
 
 <section id="files">
@@ -243,7 +248,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <p>Infinite Warfare is developed agentically by <strong>Equinox_Equine</strong>, using <strong>GPT-5.6 Sol</strong>, <strong>Claude 4.8 Opus</strong>, and <strong>Claude 5 Opus</strong>.</p>
 <p>This project was forked from a leaked copy of <strong>Infinite Warfair 0.14</strong>, originally produced by <strong>Firegaming</strong>, with <strong>Max Vrenken</strong> as developer and <strong>Djonan Smid</strong> as sound designer. Those are historical credits for the source project, not the current development team.</p>
 <p><strong>Blindpro</strong> is credited for NVGT Helpers, and <strong>Ivan Soto</strong> is credited for NV_form. Sound-resource acknowledgements include <strong>Executioner's Rage</strong>, <strong>Firefight</strong>, <strong>Call of Duty: Modern Warfare</strong>, <strong>Insurgency: Sandstorm</strong>, and <strong>Fortnite</strong>. Product names, trademarks, and sound resources remain associated with their respective creators and rights holders; acknowledgement does not imply endorsement.</p>
-<p class="muted">Manual revised for version 0.5.1.2, build 85.</p>
+<p class="muted">Manual revised for version 0.5.2, build 86.</p>
 </footer>
 </body>
 </html>

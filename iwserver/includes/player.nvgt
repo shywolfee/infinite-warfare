@@ -175,6 +175,18 @@ int scaled_fall_damage(int distance)
 if(distance<=3)return 0;int excess=distance-3;int damage=12*excess*excess;if(damage>900)damage=900;return damage;
 }
 
+// Healing that keeps going after a potion: total health over that many
+// seconds, on the same timer as medication, and told to the client so it can
+// show the effect.
+void start_residual_healing(player@ p,int total,int seconds)
+{
+p.medication_heal_remaining+=total;
+p.medication_tick_amount=p.medication_heal_remaining/seconds;
+if(p.medication_tick_amount<1)p.medication_tick_amount=1;
+p.medication_tick_interval=1000;
+p.medication_tick_timer.restart();
+send_reliable(p.peer_id,"residual_healing "+(seconds*1000),0);
+}
 bool server_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
 bool server_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}
 bool server_loose_pill(string i){return string_contains(i,"loose_",1)==0;}

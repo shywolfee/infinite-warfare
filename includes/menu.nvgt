@@ -1,149 +1,136 @@
 dynamic_menu_pro m;
-void classic_mainmenu()
-{
-setupmenu(true,true);
-iw_form f; f.create_window("Main Menu",false,true);
-int connect_btn=f.create_button("Connect to the server and enter the lobby",true);
-int register_btn=-1;
-if(name=="" or !account_exists(name)) register_btn=f.create_button("Register a new account");
-int account_btn=f.create_button("Account management");
-int options_btn=f.create_button("Options");
-int update_btn=f.create_button("Check for updates");
-int changes_btn=f.create_button("Changelog");
-int sounds_btn=f.create_button("Learn game sounds");
-int gestures_btn=f.create_button("Android touch gestures");
-int practice_btn=f.create_button("Practice Android touch gestures");
-int key_practice_btn=f.create_button("Practice keyboard controls");
-int readme_btn=f.create_button("Readme");
-int admin_btn=-1;
-if(SCRIPT_COMPILED==false or dev_unlocked) admin_btn=f.create_button("Administrator panel");
-int release_btn=-1;if(!SCRIPT_COMPILED)release_btn=f.create_button("Compress a release build");
-int exit_btn=f.create_button("Exit the game",false,true); f.focus(connect_btn);
-while(true)
-{
-wait(5); f.monitor();
-if(f.is_pressed(connect_btn)) { m.fade_music(20); connect(); return; }
-if(register_btn>=0 and f.is_pressed(register_btn)) { m.fade_music(20); registermenu(); return; }
-if(f.is_pressed(account_btn)) { m.fade_music(20); accountmenu(); return; }
-if(f.is_pressed(options_btn)) { optionsmenu(); mainmenu(); return; }
-if(f.is_pressed(update_btn)) { cfu("iw","iw.zip"); mainmenu(); return; }
-if(f.is_pressed(changes_btn)) { changelogmenu(); return; }
-if(f.is_pressed(sounds_btn)) { learn_game_sounds(); mainmenu(); return; }
-if(f.is_pressed(gestures_btn)) { show_android_gestures(); mainmenu(); return; }
-if(f.is_pressed(practice_btn)) { practice_android_gestures(); mainmenu(); return; }
-if(f.is_pressed(key_practice_btn)) { key_practice_mode(); mainmenu(); return; }
-if(f.is_pressed(readme_btn)) { show_readme(); mainmenu(); return; }
-if(admin_btn>=0 and f.is_pressed(admin_btn)) { adminpanel(); return; }
-if(release_btn>=0 and f.is_pressed(release_btn)){compress_release_build();mainmenu();return;}
-if(f.is_pressed(exit_btn)) { exit(); return; }
-}
-}
+void classic_mainmenu(){mainmenu();}
+
+// The main menu.
+//
+// There is exactly one of it. Everything that finishes -- options, the
+// changelog, a failed connection, leaving the lobby, a dropped match -- asks
+// for the main menu by calling mainmenu(), and used to get a brand new one
+// stacked on top of everything that led there; a long session piled up one
+// abandoned menu per visit. Now the first call runs the menu, and any later
+// call unwinds straight back to it, dropping whatever was in between.
+const string IW_RETURN_TO_MENU="iw:return-to-main-menu";
+bool main_menu_running=false;
 
 void mainmenu()
 {
-if(classic_main_menu) { classic_mainmenu(); return; }
-setupmenu(true, true);
-nv_form f;
-f.create_window("Main Menu", false, true);
-nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Sections", "main_sections", true);
-f.add_control(tabs);
-nv_form_tab_page@ play=tabs.add_tab_page("Play");
-nv_form_tab_page@ account_page=tabs.add_tab_page("Account");
-nv_form_tab_page@ settings=tabs.add_tab_page("Settings");
-nv_form_tab_page@ information=tabs.add_tab_page("Information");
-nv_form_tab_page@ admin_page=null;
-bool show_admin=(SCRIPT_COMPILED==false or dev_unlocked);
-if (show_admin) @admin_page=tabs.add_tab_page("Administrator");
-nv_form_button@[] buttons;
-string[] ids;
-buttons.insert_last(play.add_button("Connect to the server and enter the lobby", "connect", true)); ids.insert_last("connect");
-if (name=="" or !account_exists(name)) { buttons.insert_last(account_page.add_button("Register a new account", "register")); ids.insert_last("register"); }
-buttons.insert_last(account_page.add_button("Account management", "account")); ids.insert_last("account");
-buttons.insert_last(settings.add_button("Options", "options")); ids.insert_last("options");
-buttons.insert_last(settings.add_button("Check for updates", "cfu")); ids.insert_last("cfu");
-buttons.insert_last(information.add_button("Changelog", "changelog")); ids.insert_last("changelog");
-buttons.insert_last(information.add_button("Learn game sounds", "learnsounds")); ids.insert_last("learnsounds");
-buttons.insert_last(information.add_button("Android touch gestures", "gestures")); ids.insert_last("gestures");
-buttons.insert_last(information.add_button("Practice Android touch gestures", "gesturepractice")); ids.insert_last("gesturepractice");
-buttons.insert_last(information.add_button("Practice keyboard controls", "keypractice")); ids.insert_last("keypractice");
-buttons.insert_last(information.add_button("Readme", "readme")); ids.insert_last("readme");
-if (show_admin) { buttons.insert_last(admin_page.add_button("Administrator panel", "adminpanel")); ids.insert_last("adminpanel");if(!SCRIPT_COMPILED){buttons.insert_last(admin_page.add_button("Compress a release build", "releasebuild"));ids.insert_last("releasebuild");} }
-buttons.insert_last(settings.add_button("Exit the game", "exit")); ids.insert_last("exit");
-tabs.focus();
-string selected="";
-while (selected=="")
+if(main_menu_running)throw(IW_RETURN_TO_MENU);
+main_menu_running=true;
+while(true)
 {
-wait(5);
-nv_form_tab_page@ page=tabs.current_page;
-bool section_left=key_pressed(KEY_LEFT);
-bool section_right=key_pressed(KEY_RIGHT);
-if (section_left or section_right)
+try{main_menu_once();}
+catch
 {
-if (@page!=null) page.control_index=-1;
-int next=tabs.pos+(section_right ? 1 : -1);
-if (next<0) next=tabs.page_count-1;
-if (next>=tabs.page_count) next=0;
-tabs.set_pos(next);
-@page=tabs.current_page;
-speak(tabs.speak_tab_item(page));
-}
-if (@page!=null and key_pressed(KEY_DOWN)) page.navigate_form(true);
-else if (@page!=null and key_pressed(KEY_UP)) page.navigate_form(false);
-f.monitor();
-for (uint i=0; i<buttons.length(); i++)
-if (buttons[i].pressed) { buttons[i].pressed=false; selected=ids[i]; break; }
-}
-m.fade_music(20);
-if (selected=="connect")
-connect();
-else if (selected=="register")
-registermenu();
-else if (selected=="account")
-accountmenu();
-else if (selected=="changelog")
-changelogmenu();
-else if (selected=="cfu")
-{
-cfu("iw","iw.zip");
-mainmenu();
-}
-else if (selected=="options")
-{
-optionsmenu();
-mainmenu();
-}
-else if (selected=="adminpanel")
-adminpanel();
-else if(selected=="releasebuild")
-{compress_release_build();mainmenu();}
-else if (selected=="learnsounds")
-{
-learn_game_sounds();
-mainmenu();
-}
-else if (selected=="gestures")
-{
-show_android_gestures();
-mainmenu();
-}
-else if (selected=="gesturepractice")
-{
-practice_android_gestures();
-mainmenu();
-}
-else if(selected=="keypractice")
-{
-key_practice_mode();
-mainmenu();
-}
-else if (selected=="readme")
-{
-show_readme();
-mainmenu();
-}
-else
+if(get_exception_info()==IW_RETURN_TO_MENU){reset_service_guards();continue;}
+// A real failure: log it as the top level would, then stop.
+write_client_exception_log();
 exit();
 }
+}
+}
+
+class main_menu_entry
+{
+string id,label;
+main_menu_entry(const string &in i,const string &in l){id=i;label=l;}
+}
+main_menu_entry@[] main_menu_entries()
+{
+main_menu_entry@[] e;
+bool no_account=(name=="" or !account_exists(name));
+e.insert_last(main_menu_entry("connect","Play online"));
+if(no_account)e.insert_last(main_menu_entry("register","Create an account"));
+e.insert_last(main_menu_entry("account","Your account"));
+e.insert_last(main_menu_entry("options","Options"));
+e.insert_last(main_menu_entry("keypractice","Practise the controls"));
+e.insert_last(main_menu_entry("learnsounds","Learn the game's sounds"));
+e.insert_last(main_menu_entry("gestures","Touch gestures"));
+e.insert_last(main_menu_entry("gesturepractice","Practise touch gestures"));
+e.insert_last(main_menu_entry("changelog","What's new"));
+e.insert_last(main_menu_entry("readme","Manual"));
+e.insert_last(main_menu_entry("cfu","Check for updates"));
+if(SCRIPT_COMPILED==false or dev_unlocked)e.insert_last(main_menu_entry("adminpanel","Staff panel"));
+if(!SCRIPT_COMPILED)e.insert_last(main_menu_entry("releasebuild","Build a release"));
+e.insert_last(main_menu_entry("exit","Exit"));
+return e;
+}
+
+// One list, not tabs of buttons: arrows move, Home and End go to the ends,
+// typing a letter jumps to it, Enter opens, Escape goes to Exit. The old
+// version was five tabs with the exit under Settings, and handled the arrow
+// keys itself on top of the form handling them too.
+string main_menu_last="connect";
+void main_menu_once()
+{
+setupmenu(true,true);
+m.play_music();
+main_menu_entry@[] entries=main_menu_entries();
+string selected="";
+if(classic_main_menu)selected=main_menu_buttons(entries);
+else
+{
+nv_form f;
+f.create_window("Main menu",false,false);
+nv_form_list_box@ list=f.add_list("Main menu","entries");
+list.multinav=true;
+for(uint i=0;i<entries.length();i++)
+{
+list.add(entries[i].label,entries[i].id);
+if(entries[i].id==main_menu_last)list.set_pos(i);
+}
+nv_form_button@ open=f.add_button("Open","open",true);
+open.hidden=true;
+f.focus_control(list);
+while(selected=="")
+{
+wait(5);
+f.monitor();
+if(key_pressed(KEY_ESCAPE))
+{
+for(uint i=0;i<entries.length();i++)if(entries[i].id=="exit"){list.set_pos(i,true,true);speak(entries[i].label);}
+}
+if(f.is_pressed(open) and @list.focused_item!=null)selected=list.focused_item.id;
+}
+}
+main_menu_last=selected;
+main_menu_run(selected);
+}
+
+// The column-of-buttons layout, for anyone who prefers Tab to arrows.
+string main_menu_buttons(main_menu_entry@[]@ entries)
+{
+nv_form f;
+f.create_window("Main menu",false,false);
+nv_form_button@[] buttons;
+for(uint i=0;i<entries.length();i++)buttons.insert_last(f.add_button(entries[i].label,entries[i].id,i==0,entries[i].id=="exit"));
+f.focus_control(buttons[0]);
+while(true)
+{
+wait(5);
+f.monitor();
+for(uint i=0;i<buttons.length();i++)if(f.is_pressed(buttons[i]))return entries[i].id;
+}
+return "exit";
+}
+
+void main_menu_run(const string &in selected)
+{
+if(selected=="connect"){m.fade_music(20);connect();}
+else if(selected=="register")registermenu();
+else if(selected=="account")accountmenu();
+else if(selected=="options")optionsmenu();
+else if(selected=="keypractice")key_practice_mode();
+else if(selected=="learnsounds")learn_game_sounds();
+else if(selected=="gestures")show_android_gestures();
+else if(selected=="gesturepractice")practice_android_gestures();
+else if(selected=="changelog")changelogmenu();
+else if(selected=="readme")show_readme();
+else if(selected=="cfu")cfu("iw","iw.zip");
+else if(selected=="adminpanel")adminpanel();
+else if(selected=="releasebuild")compress_release_build();
+else if(selected=="exit"){m.fade_music(10);exit();}
+}
+
 // Check authorization mode from the server.
 bool check_auth_mode_from_server()
 {
@@ -318,35 +305,60 @@ break;
 }
 mainmenu();
 }
-// ---------------------------------------------------------------------------
-// Changelog viewer — standard audio form with read-only text field.
-// ---------------------------------------------------------------------------
-void show_changelog_form_text(string cl)
+// The changelog, one release at a time: a list of releases, newest first, and
+// Enter opens that release as a list with one change per item. It was the
+// whole file -- more than a thousand lines -- in a single text box.
+class changelog_release
 {
-iw_form f;
-f.create_window("Changelog", false, true);
-f.create_input_box("Changes", cl, "", 0, true, true, false);
-int f_close=f.create_button("&Close", true, true);
-f.focus(0);
-while(true)
-{
-wait(5);
-f.monitor();
-if(connected)netloop();
-if (f.is_pressed(f_close))
-break;
+string heading;
+string[] entries;
 }
+changelog_release@[] parse_changelog(const string &in text)
+{
+changelog_release@[] releases;
+string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);
+changelog_release@ current=null;
+for(uint i=0;i<lines.length();i++)
+{
+string l=lines[i].trim_whitespace();
+if(l=="")continue;
+if(l.substr(0,7)=="New in "){changelog_release r;r.heading=l.substr(7);releases.insert_last(r);@current=r;continue;}
+if(current is null){changelog_release r;r.heading="Earlier changes";releases.insert_last(r);@current=r;}
+current.entries.insert_last(l);
+}
+return releases;
 }
 void show_changelog_form()
 {
 file cf;
-string cl="Changelog not found.";
+string cl="";
 if (cf.open("changes.txt","rb"))
 {
 cl=cf.read();
 cf.close();
 }
-show_changelog_form_text(cl);
+changelog_release@[] releases=parse_changelog(cl);
+if(releases.length()==0){dlg("The changelog, changes.txt, is missing from the game folder.");return;}
+nv_form f;
+f.create_window("What's new", false, true);
+nv_form_list_box@ list=f.add_list("Releases, newest first","releases");
+for(uint i=0;i<releases.length();i++)list.add(releases[i].heading+", "+releases[i].entries.length()+(releases[i].entries.length()==1?" change":" changes"),""+i);
+nv_form_button@ open=f.add_button("Read","read",true);
+nv_form_button@ close=f.add_button("Close","close",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected)netloop();
+if(f.is_pressed(close))return;
+if(f.is_pressed(open) and list.list_position>=0)
+{
+changelog_release@ r=releases[list.list_position];
+show_info_list("Version "+r.heading,r.entries);
+f.focus_control(list);
+}
+}
 }
 void changelogmenu()
 {
@@ -837,115 +849,190 @@ if(!team_state_received) speak("Team information could not be refreshed.");
 return team_state_received;
 }
 
+// Each item says whether the pool can pay for it, and buying asks first:
+// team points are everyone's.
 void team_shop_menu()
 {
-iw_form shop;
-shop.create_window("Team Shop", false, true);
-int items=shop.create_list("Items", 0, false);
-shop.add_list_item(items, "Duo Plane Kit - 500 team points");
-shop.add_list_item(items, "Humvee Kit - 450 team points; independent 5 minute timer");
-shop.add_list_item(items, "APC Kit - 700 team points; independent 5 minute timer");
-shop.add_list_item(items, "Tank Kit - 900 team points; independent 5 minute timer");
-shop.add_list_item(items, "Team Supply Beacon - 150 team points");
-shop.add_list_item(items, "Team Armor Crate - 250 team points");
-shop.add_list_item(items, "Team Revive Kit - 300 team points");
-shop.add_list_item(items, "Team Recon Scanner - 200 team points");
-int buy=shop.create_button("Purchase", true);
-int close=shop.create_button("Close", false, true);
-shop.focus(items);
-while (true)
+string[] keys={"plane","humvee","apc","tank","supply","armor","revive","recon"};
+string[] names={"Duo Plane Kit","Humvee Kit","APC Kit","Tank Kit","Team Supply Beacon","Team Armour Crate","Team Revive Kit","Team Recon Scanner"};
+int[] costs={500,450,700,900,150,250,300,200};
+string[] notes={"","; the kit has its own five-minute timer","; the kit has its own five-minute timer","; the kit has its own five-minute timer","","","",""};
+string[] labels;
+for(uint i=0;i<keys.length();i++)
 {
-wait(5); shop.monitor(); if (connected) netloop();
-if (shop.is_pressed(close)) return;
-if (shop.is_pressed(buy))
-{
-string[] keys={"plane", "humvee", "apc", "tank", "supply", "armor", "revive", "recon"};
-int selected=shop.get_list_position(items);
-if (selected>=0 and selected<int(keys.length())) send_team_command("buy "+keys[selected]);
-return;
+int shortfall=costs[i]-team_state_points;
+labels.insert_last(names[i]+", "+costs[i]+" points"+notes[i]+(shortfall>0?". The pool is "+shortfall+" short.":"."));
 }
+string key=pick_from_list("Team shop: "+team_state_points+" points in the pool",labels,keys);
+if(key=="")return;
+int i=keys.find(key);
+if(costs[i]>team_state_points){speak("The pool has "+team_state_points+" points; "+names[i]+" costs "+costs[i]+".");return;}
+if(yesno("Spend "+costs[i]+" of the team's "+team_state_points+" points on a "+names[i]+"?")==1)send_team_command("buy "+key);
+}
+
+// Choose one thing from a list. Returns its id, or "" if cancelled.
+string pick_from_list(const string &in title,string[]@ labels,string[]@ ids)
+{
+if(labels.length()==0)return "";
+if(is_android())
+{
+int sel=android_select(title,labels);
+return (sel>=0 and sel<int(ids.length()))?ids[sel]:"";
+}
+nv_form f;
+f.create_window(title,false,true);
+nv_form_list_box@ list=f.add_list(title,"choices");
+for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
+nv_form_button@ ok=f.add_button("Choose","choose",true);
+ok.hidden=true;
+nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected)netloop();
+if(f.is_pressed(cancel))return "";
+if(f.is_pressed(ok) and @list.focused_item!=null)return list.focused_item.id;
+}
+return "";
+}
+
+// Team members as the server lists them: "name (role), name (role)".
+void team_member_list(string[]@ names,string[]@ roles)
+{
+names.resize(0);roles.resize(0);
+if(team_state_members=="")return;
+string[] parts=string_split(team_state_members,", ",true);
+for(uint i=0;i<parts.length();i++)
+{
+string entry=parts[i];
+int open=string_contains(entry," (",1);
+if(open>0 and entry.substr(entry.length()-1)==")")
+{
+names.insert_last(entry.substr(0,open));
+roles.insert_last(entry.substr(open+2,entry.length()-open-3));
+}
+else{names.insert_last(entry);roles.insert_last("member");}
 }
 }
 
+// The team screen: one list of what you can do. Members are listed by name,
+// and Enter on one offers what you are allowed to do to them. Invitations
+// choose from the players online. It was four tabs holding a button or two
+// each, and every action asked you to type a player's name -- and for
+// permissions, to type the permission's name too.
 void team_menu()
 {
 if(!refresh_team_state()) return;
-nv_form f; f.create_window("Team",false,true);
-nv_form_tab_control@ tabs=nv_form_tab_control(@f,"Categories","team_categories",true); f.add_control(tabs);
-nv_form_tab_page@ overview=tabs.add_tab_page("Overview");
-nv_form_tab_page@ membership=null;
-nv_form_tab_page@ management=null;
-nv_form_tab_page@ resources=null;
-nv_form_button@ info=null, chat=null, create=null, accept=null, invite=null, remove=null, manager=null, permission=null, shop=null, leave=null;
+string[] labels,ids;
+string[] names,roles;
+team_member_list(names,roles);
 if(team_state_member)
 {
-@info=overview.add_button("Team information: "+team_state_name+", "+team_state_points+" points, role "+team_state_role,"info",true);
-@chat=overview.add_button("Send team chat message, or use slash T from chat","chat");
-@membership=tabs.add_tab_page("Membership");
-if(!(team_state_role=="owner" and team_state_member_count>1)) @leave=membership.add_button("Leave team","leave");
-if(team_state_can_invite or team_state_can_remove or team_state_role=="owner")
+labels.insert_last("Team "+team_state_name+", "+team_state_points+" points. You are the "+team_state_role+". Enter for the full report.");ids.insert_last("info");
+for(uint i=0;i<names.length();i++)
 {
-@management=tabs.add_tab_page("Management");
-if(team_state_can_invite) @invite=management.add_button("Invite a player","invite");
-if(team_state_can_remove and team_state_member_count>1) @remove=management.add_button("Remove a member","remove");
-if(team_state_role=="owner" and team_state_member_count>1)
-{
-@manager=management.add_button("Appoint or demote a manager","manager");
-@permission=management.add_button("Assign a member permission","permission");
+bool self=string_to_lower_case(names[i])==string_to_lower_case(name);
+labels.insert_last(names[i]+(self?" (you)":"")+", "+roles[i]);ids.insert_last("member:"+i);
 }
-}
-if(team_state_can_shop) { @resources=tabs.add_tab_page("Resources"); @shop=resources.add_button("Open team shop; pool "+team_state_points+" points","shop"); }
+labels.insert_last("Send a message to the team");ids.insert_last("chat");
+if(team_state_can_invite){labels.insert_last("Invite a player");ids.insert_last("invite");}
+if(team_state_can_shop){labels.insert_last("Team shop, "+team_state_points+" points to spend");ids.insert_last("shop");}
+if(!(team_state_role=="owner" and team_state_member_count>1)){labels.insert_last("Leave the team");ids.insert_last("leave");}
 }
 else
 {
-@create=overview.add_button("Create a team","create",true);
-if(team_state_invite) @accept=overview.add_button("Accept pending team invitation","accept");
+if(team_state_invite){labels.insert_last("Accept your team invitation");ids.insert_last("accept");}
+labels.insert_last("Create a team");ids.insert_last("create");
 }
-nv_form_button@ close=f.add_button("Close","close",false,true); tabs.focus();
-while (true)
-{
-wait(5); f.monitor(); if (connected) netloop();
-if (f.is_pressed(close)) return;
-if (@info!=null and overview.is_pressed(info)) { send_team_command("info"); return; }
-if (@chat!=null and overview.is_pressed(chat))
+string chosen=pick_from_list("Team",labels,ids);
+if(chosen=="")return;
+if(chosen=="info")send_team_command("info");
+else if(chosen=="chat")
 {
 string message=af_input("Team message", "", true).trim_whitespace();
-if (message!="") send_team_command("chat "+message);
-return;
+if(message!="")send_team_command("chat "+message);
 }
-if (@create!=null and overview.is_pressed(create))
+else if(chosen=="create")
 {
 string value=af_input("Team name", "", true).trim_whitespace();
-if (value!="") send_team_command("create "+value);
-return;
+if(value!="")send_team_command("create "+value);
 }
-if (@accept!=null and overview.is_pressed(accept)) { send_team_command("accept"); return; }
-bool invite_pressed=@invite!=null and management.is_pressed(invite);
-bool remove_pressed=@remove!=null and management.is_pressed(remove);
-bool manager_pressed=@manager!=null and management.is_pressed(manager);
-if (invite_pressed or remove_pressed or manager_pressed)
+else if(chosen=="accept")send_team_command("accept");
+else if(chosen=="shop")team_shop_menu();
+else if(chosen=="leave")
 {
-string value=af_input("Player name", "", true).trim_whitespace();
-if (value!="")
+if(yesno("Leave "+team_state_name+"?")==1)send_team_command("leave");
+}
+else if(chosen=="invite")
 {
-if (invite_pressed) send_team_command("invite "+value);
-else if (remove_pressed) send_team_command("remove "+value);
-else send_team_command("manager "+value);
-}
-return;
-}
-if (@permission!=null and management.is_pressed(permission))
+speak("Fetching the players online.");
+string[] online=fetch_player_list();
+string[] pl,pi;
+for(uint i=0;i<online.length();i++)
 {
-string player_name=af_input("Player name", "", true).trim_whitespace();
-string permission_name=af_input("Permission: invite, remove, or shop", "", true).trim_whitespace();
-if (player_name!="" and permission_name!="") send_team_command("permission "+player_name+" "+permission_name);
-return;
+string who=player_name_from_list_label(online[i]);
+if(who=="" or string_to_lower_case(who)==string_to_lower_case(name))continue;
+bool already=false;
+for(uint m=0;m<names.length();m++)if(string_to_lower_case(names[m])==string_to_lower_case(who))already=true;
+if(already)continue;
+pl.insert_last(online[i]);pi.insert_last(who);
 }
-if (@shop!=null and resources.is_pressed(shop)) { team_shop_menu(); return; }
-if (@leave!=null and membership.is_pressed(leave)) { send_team_command("leave"); return; }
+if(pl.length()==0){speak("Nobody online who is not already on your team.");return;}
+string who=pick_from_list("Invite a player",pl,pi);
+if(who!="")send_team_command("invite "+who);
+}
+else if(chosen.substr(0,7)=="member:")
+{
+int m=int(string_to_number(chosen.substr(7)));
+if(m<0 or m>=int(names.length()))return;
+string who=names[m];
+string[] al,ai;
+bool self=string_to_lower_case(who)==string_to_lower_case(name);
+if(!self and team_state_can_remove){al.insert_last("Remove "+who+" from the team");ai.insert_last("remove");}
+if(!self and team_state_role=="owner")
+{
+al.insert_last(roles[m]=="manager"?"Demote "+who+" from manager":"Make "+who+" a manager");ai.insert_last("manager");
+al.insert_last("Give or take away "+who+"'s permission to invite players");ai.insert_last("permission invite");
+al.insert_last("Give or take away "+who+"'s permission to remove members");ai.insert_last("permission remove");
+al.insert_last("Give or take away "+who+"'s permission to spend team points");ai.insert_last("permission shop");
+}
+if(al.length()==0){speak(self?"That is you.":"You are not able to change "+who+"'s place on the team.");return;}
+string act=pick_from_list(who,al,ai);
+if(act=="")return;
+if(act=="remove"){if(yesno("Remove "+who+" from the team?")==1)send_team_command("remove "+who);}
+else if(act=="manager")send_team_command("manager "+who);
+else send_team_command("permission "+who+" "+act.substr(11));
 }
 }
 
+// The game menu: one list, like the main menu and the lobby. Escape closes it
+// and puts you back in the match. It was a column of ten buttons, and three of
+// them -- equipment, team and the staff panel -- opened a new game menu on
+// top of the old one when they finished.
+string[] ingame_stats_lines()
+{
+string[] l;
+l.insert_last("Weapon: "+string_replace(weapons[w], "_", " ", true));
+l.insert_last("Location: "+get_location());
+l.insert_last("Stamina: "+get_stamina_string());
+l.insert_last("Effects: "+get_effects_string());
+l.insert_last("Items: "+count_total_items()+" in inventory");
+l.insert_last("Map: "+map_display_name(mapname));
+l.insert_last("Player: "+name);
+l.insert_last("Version: "+version_name+", build "+build_number+" ("+build_date+")");
+return l;
+}
+string read_text_file_or(const string &in path,const string &in missing)
+{
+file tf;
+if(!tf.open(path,"rb"))return missing;
+string t=tf.read();
+tf.close();
+return t;
+}
+string escape_menu_last="resume";
 void escape_menu()
 {
 // Android keeps its purpose-built touch menu; desktop uses NV_form.
@@ -954,131 +1041,72 @@ if(is_android())
 android_escape_menu();
 return;
 }
-iw_form f;
-f.create_window("Game Menu", false, true);
-int f_stats = f.create_button("&Stats");
-int f_equip = f.create_button("&Equipment");
-int f_team = f.create_button("&Team");
-int f_changes = f.create_button("View &changes");
-int f_rules = f.create_button("View &rules");
-int f_account = f.create_button("&Account info");
-int f_devs = f.create_button("View &developers");
-int f_admin=f.create_button("Staff and administrator panel");
-int f_exit = f.create_button("E&xit game");
-int f_close = f.create_button("Cl&ose", true, true);
-f.focus(f_stats);
+play_ui_cue("open");
 while(true)
+{
+nv_form f;
+f.create_window("Game menu", false, false);
+nv_form_list_box@ list=f.add_list("Game menu","entries");
+list.add("Back to the match","resume");
+list.add("Status","stats");
+list.add("Equipment","equipment");
+list.add("Team","team");
+list.add("Options","options");
+list.add("Help topics","help");
+list.add("What's new","changes");
+list.add("Rules","rules");
+list.add("Your account","account");
+list.add("Developers","developers");
+if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)list.add("Staff panel","staff");
+list.add("Leave the match","leave");
+for(uint i=0;i<list.items.length();i++)if(list.items[i].id==escape_menu_last)list.set_pos(i);
+nv_form_button@ open=f.add_button("Open","open",true);
+open.hidden=true;
+f.focus_control(list);
+string chosen="";
+while(chosen=="")
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f.is_pressed(f_stats))
-{
-string stats_text="Weapon: "+string_replace(weapons[w], "_", " ", true)+"\n";
-stats_text+="Location: "+get_location()+"\n";
-stats_text+="Stamina: "+get_stamina_string()+"\n";
-stats_text+="Effects: "+get_effects_string()+"\n";
-stats_text+="Items: "+count_total_items()+" in inventory\n";
-stats_text+="Map: "+map_display_name(mapname)+"\n";
-stats_text+="Player: "+name+"\n";
-stats_text+="Version: "+version+", build "+build_number+" ("+build_date+")";
-iw_form sf;
-sf.create_window("Stats", false, true);
-sf.create_input_box("Stats", stats_text, "", 0, false, true, true);
-int sf_close=sf.create_button("&Close", true, true);
-sf.focus(0);
-while(true)
-{
-wait(5);
-sf.monitor();
-if (connected==true) netloop();
-if (sf.is_pressed(sf_close)) break;
+if(key_pressed(KEY_ESCAPE))chosen="resume";
+else if(f.is_pressed(open) and @list.focused_item!=null)chosen=list.focused_item.id;
 }
-}
-else if (f.is_pressed(f_equip))
+escape_menu_last=chosen;
+if(chosen=="resume"){play_ui_cue("close");escape_menu_last="resume";return;}
+else if(chosen=="stats")show_info_list("Status",ingame_stats_lines());
+else if(chosen=="equipment")equipment_menu();
+else if(chosen=="team")team_menu();
+else if(chosen=="options")optionsmenu();
+else if(chosen=="help")show_help_list();
+else if(chosen=="changes")show_changelog_form();
+else if(chosen=="rules")dlg(read_text_file_or("rules.txt","The rules file is missing."));
+else if(chosen=="developers")dlg(read_text_file_or("developers.txt","The developers file is missing."));
+else if(chosen=="staff")ingame_adminpanel();
+else if(chosen=="account")
 {
-equipment_menu();
-escape_menu();
-return;
-}
-else if (f.is_pressed(f_team))
-{
-team_menu();
-escape_menu();
-return;
-}
-else if (f.is_pressed(f_changes))
-{
-show_changelog_form();
-}
-else if (f.is_pressed(f_rules))
-{
-file rf;
-string rl="Rules file not found.";
-if (rf.open("rules.txt","rb"))
-{
-rl=rf.read();
-rf.close();
-}
-dlg(rl);
-}
-else if (f.is_pressed(f_account))
-{
-iw_form ai;
-ai.create_window("Account Info", false, true);
-ai.create_input_box("Username", name, "", 0, false, true, false);
+string[] lines;
+lines.insert_last("Name: "+name);
 if (account_exists(name))
 {
 savedata acct(get_account_path(name), ACCOUNT_SECRET);
 acct.load();
 string em=acct.read("email");
-if (em!="")
-ai.create_input_box("Email", em, "", 0, false, true, false);
+lines.insert_last("Registered account"+(em!=""?", email "+em:", no email on file"));
 }
-else
-ai.create_input_box("Account", "No registered account found for this username.", "", 0, false, true, false);
-int ai_close = ai.create_button("&Close", true, true);
-ai.focus(0);
-while(true)
-{
-wait(5);
-ai.monitor();
-if (connected==true) netloop();
-if (ai.is_pressed(ai_close)) break;
+else lines.insert_last("No registered account for this name.");
+show_info_list("Your account",lines);
 }
-}
-else if (f.is_pressed(f_devs))
+else if(chosen=="leave")
 {
-file df;
-string dv="Developers file not found.";
-if (df.open("developers.txt","rb"))
+if(yesno("Leave the match and return to the lobby?")==1)
 {
-dv=df.read();
-df.close();
-}
-dlg(dv);
-}
-else if (f.is_pressed(f_admin))
-{
-ingame_adminpanel();
-escape_menu();
-return;
-}
-else if (f.is_pressed(f_exit))
-{
-int q = yesno("Are you sure you wish to exit the game?");
-if (q == 1)
-{
-speak("Exiting the game");
+escape_menu_last="resume";
+speak("Leaving the match.");
 send_reliable(0, "close", 0);
-speak("Logout requested.");
 return;
 }
-}
-else if (f.is_pressed(f_close))
-{
-return;
 }
 }
 }
@@ -1086,198 +1114,242 @@ return;
 // ---------------------------------------------------------------------------
 // Equipment menu — view and manage equipped items.
 // ---------------------------------------------------------------------------
+// What you are wearing and carrying, slot by slot. Enter on a filled slot
+// offers to take it off; the list then shows the change and stays where it
+// was. It used to open a whole new Equipment screen on top of itself after
+// every removal, and armour removal closed it altogether.
+string equipment_slot_label(const string &in slot,const string &in item,const string &in detail)
+{
+if(item=="")return slot+": empty";
+return slot+": "+string_replace(item,"_"," ",true)+(detail==""?"":", "+detail);
+}
 void equipment_menu()
 {
-iw_form f;
-f.create_window("Equipment", false, true);
-int f_list = f.create_list("Equipment slots", 0, false);
-f.add_list_item(f_list,"Armour, head: "+(equipped_armor_head==""?"empty":string_replace(equipped_armor_head,"_"," ",true)+", "+equipped_armor_head_durability+" durability"));
-f.add_list_item(f_list,"Armour, torso: "+(equipped_armor_torso==""?"empty":string_replace(equipped_armor_torso,"_"," ",true)+", "+equipped_armor_torso_durability+" durability"));
-f.add_list_item(f_list,"Armour, arms: "+(equipped_armor_arms==""?"empty":string_replace(equipped_armor_arms,"_"," ",true)+", "+equipped_armor_arms_durability+" durability"));
-f.add_list_item(f_list,"Armour, legs: "+(equipped_armor_legs==""?"empty":string_replace(equipped_armor_legs,"_"," ",true)+", "+equipped_armor_legs_durability+" durability"));
-string body_label = "Body: ";
-if (equip_body != "")
-body_label += string_replace(equip_body, "_", " ", true)+", "+round(equipped_item_weight(equip_body),1)+" weight";
-else
-body_label += "empty";
-f.add_list_item(f_list, body_label);
-f.add_list_item(f_list, "Holster 1: "+get_holster_slot_label(1)+(equip_holster1==""?"":", "+round(equipped_item_weight(equip_holster1),1)+" weight"));
-f.add_list_item(f_list, "Holster 2: "+get_holster_slot_label(2)+(equip_holster2==""?"":", "+round(equipped_item_weight(equip_holster2),1)+" weight"));
-string bracelet_label = "Bracelet: ";
-if (equip_bracelet != "")
-bracelet_label += string_replace(equip_bracelet, "_", " ", true)+", "+round(equipped_item_weight(equip_bracelet),1)+" weight";
-else
-bracelet_label += "empty";
-f.add_list_item(f_list, bracelet_label);
-string medical_label = "Medical: ";
-if (equip_medical != "")
-{
-medical_label += string_replace(equip_medical, "_", " ", true);
-if (equip_medical == "wirenet")
-medical_label += " (" + wirenet_charges + " charges, " + (wirenet_active ? "active" : "inactive") + ")";
-medical_label += ", "+round(equipped_item_weight(equip_medical),1)+" weight";
-}
-else
-medical_label += "empty";
-f.add_list_item(f_list, medical_label);
-f.add_list_item(f_list,"Total equipped weight: "+total_equipment_weight());
-bool has_equipment=(equipped_armor_head!="" or equipped_armor_torso!="" or equipped_armor_arms!="" or equipped_armor_legs!="" or equip_body!="" or equip_holster1!="" or equip_holster2!="" or equip_bracelet!="" or equip_medical!="");
-int f_remove=-1;
-if(has_equipment)
-f_remove=f.create_button("&Remove selected");
-int f_close = f.create_button("&Close", true, true);
-f.focus(f_list);
+int keep=0;
 while(true)
+{
+string[] items={equipped_armor_head,equipped_armor_torso,equipped_armor_arms,equipped_armor_legs,equip_body,equip_holster1,equip_holster2,equip_bracelet,equip_medical};
+nv_form f;
+f.create_window("Equipment", false, true);
+nv_form_list_box@ list=f.add_list("Equipment. Enter on a slot takes it off.","slots");
+list.add(equipment_slot_label("Armour, head",equipped_armor_head,equipped_armor_head_durability+" durability"),"0");
+list.add(equipment_slot_label("Armour, torso",equipped_armor_torso,equipped_armor_torso_durability+" durability"),"1");
+list.add(equipment_slot_label("Armour, arms",equipped_armor_arms,equipped_armor_arms_durability+" durability"),"2");
+list.add(equipment_slot_label("Armour, legs",equipped_armor_legs,equipped_armor_legs_durability+" durability"),"3");
+list.add(equipment_slot_label("Body",equip_body,equip_body==""?"":round(equipped_item_weight(equip_body),1)+" weight"),"4");
+list.add("Holster 1: "+get_holster_slot_label(1)+(equip_holster1==""?"":", "+round(equipped_item_weight(equip_holster1),1)+" weight"),"5");
+list.add("Holster 2: "+get_holster_slot_label(2)+(equip_holster2==""?"":", "+round(equipped_item_weight(equip_holster2),1)+" weight"),"6");
+list.add(equipment_slot_label("Bracelet",equip_bracelet,equip_bracelet==""?"":round(equipped_item_weight(equip_bracelet),1)+" weight"),"7");
+string medical_detail="";
+if(equip_medical!="")
+{
+if(equip_medical=="wirenet")medical_detail=wirenet_charges+" charges, "+(wirenet_active?"active":"inactive")+", ";
+medical_detail+=round(equipped_item_weight(equip_medical),1)+" weight";
+}
+list.add(equipment_slot_label("Medical",equip_medical,medical_detail),"8");
+list.add("Total equipped weight: "+total_equipment_weight(),"total");
+list.set_pos(keep);
+nv_form_button@ remove=f.add_button("Take off","remove",true);
+remove.hidden=true;
+nv_form_button@ close=f.add_button("Close","close",false,true);
+f.focus_control(list);
+int sel=-1;
+while(sel<0)
 {
 wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (f_remove>-1 and f.is_pressed(f_remove))
+if(f.is_pressed(close))return;
+if(f.is_pressed(remove) and list.list_position>=0)
 {
-int sel = f.get_list_position(f_list);
-if(sel>=0 and sel<=3)
+if(list.list_position>=9)continue;
+sel=list.list_position;
+}
+}
+keep=sel;
+if(items[sel]==""){speak("Nothing in this slot.");continue;}
+string what=string_replace(items[sel],"_"," ",true);
+if(sel>=5 and sel<=6)what=get_holster_slot_label(sel-4);
+if(yesno("Take off "+what+"?")!=1)continue;
+if(sel<=3)
 {
-string[] regions={"head","torso","arm","leg"};string[] equipped={equipped_armor_head,equipped_armor_torso,equipped_armor_arms,equipped_armor_legs};
-if(equipped[sel]=="")speak("Nothing equipped in this armour slot.");else{send_reliable(0,"armor_unequip "+regions[sel],0);speak("Removing "+string_replace(equipped[sel],"_"," ",true)+".");return;}
+string[] regions={"head","torso","arm","leg"};
+send_reliable(0,"armor_unequip "+regions[sel],0);
+speak("Taking off "+what+".");
+timer settle;
+while(settle.elapsed<400){wait(5);if(connected)netloop();}
 }
-else if (sel == 4 and equip_body != "")
+else if(sel==4)unequip_item("body");
+else if(sel==5)unequip_holster(1);
+else if(sel==6)unequip_holster(2);
+else if(sel==7)unequip_item("bracelet");
+else if(sel==8)unequip_item("medical");
+}
+}
+// The manual is readme.html. This looked for readme.txt and readme.md, which
+// the game does not ship, so it only ever said the file was missing. On
+// Windows the manual opens in your web browser, where its headings and tables
+// work with a screen reader; elsewhere it is shown here as plain text.
+string html_to_text(const string &in html)
 {
-unequip_item("body");
-equipment_menu();
-return;
-}
-else if (sel == 5 and equip_holster1 != "")
+string res;
+bool in_tag=false;
+string tag;
+for(uint i=0;i<html.length();i++)
 {
-unequip_holster(1);
-equipment_menu();
-return;
-}
-else if (sel == 6 and equip_holster2 != "")
+string c=html.substr(i,1);
+if(in_tag)
 {
-unequip_holster(2);
-equipment_menu();
-return;
-}
-else if (sel == 7 and equip_bracelet != "")
+if(c==">")
 {
-unequip_item("bracelet");
-equipment_menu();
-return;
+in_tag=false;
+string t=tag.lower();
+if(t=="p" or t.substr(0,2)=="p " or t=="br" or t=="li" or t=="tr" or t=="/table" or t=="/h1" or t=="/h2" or t=="/h3" or t=="h1" or t=="h2" or t=="h3")res+="\n";
+else if(t=="td" or t=="th")res+="  ";
+tag="";
 }
-else if (sel == 8 and equip_medical != "")
+else tag+=c;
+continue;
+}
+if(c=="<")
 {
-unequip_item("medical");
-equipment_menu();
-return;
-}
-else
+// A stylesheet or script is not part of the text.
+string rest=html.substr(i,8).lower();
+if(rest.substr(0,6)=="<style" or rest.substr(0,7)=="<script")
 {
-speak("Nothing equipped in this slot.");
+string closer=rest.substr(0,6)=="<style"?"</style>":"</script>";
+int end=html.lower().find(closer,i);
+if(end>=0){i=end+closer.length()-1;continue;}
 }
+in_tag=true;tag="";continue;
 }
-else if (f.is_pressed(f_close))
-{
-return;
+if(c=="\r")continue;
+res+=c;
 }
-}
+res=string_replace(res,"&amp;","&",true);
+res=string_replace(res,"&lt;","<",true);
+res=string_replace(res,"&gt;",">",true);
+res=string_replace(res,"&nbsp;"," ",true);
+res=string_replace(res,"&middot;",",",true);
+res=string_replace(res,"&mdash;"," -- ",true);
+res=string_replace(res,"&ndash;","-",true);
+res=string_replace(res,"&#39;","'",true);
+res=string_replace(res,"&quot;","\"",true);
+while(string_contains(res,"\n\n\n",1)>=0)res=string_replace(res,"\n\n\n","\n\n",true);
+return res.trim_whitespace();
 }
 void show_readme()
 {
+string path=SCRIPT_MAIN_PATH+"/readme.html";
+if(!file_exists(path)){dlg("The manual, readme.html, is missing from the game folder.");return;}
+if(system_is_windows)
+{
+string[] args={"explorer.exe",string_replace(path,"/","\\",true)};
+process@ viewer=run(args,PROCESS_BACKGROUND,SCRIPT_MAIN_PATH);
+if(@viewer!=null and viewer.valid){speak("The manual is opening in your web browser.");return;}
+}
 file rf;
-string readme_text="";
-if (rf.open("readme.txt", "rb"))
-{
-readme_text=rf.read();
-rf.close();
-}
-else if (rf.open("readme.md", "rb"))
-{
-readme_text=rf.read();
-rf.close();
-}
-else
-readme_text="Readme file not found. Please check the game folder.";
-iw_form f;
-f.create_window("Readme", false, true);
-f.create_input_box("Readme", readme_text, "", 0, false, true, true);
-int f_close=f.create_button("&Close", false, true);
-f.focus(0);
+string text="";
+if(rf.open(path,"rb")){text=html_to_text(rf.read());rf.close();}
+nv_form f;
+f.create_window("Manual", false, true);
+nv_form_input@ body=f.add_input("Manual","manual",text,"",0,true,true);
+nv_form_button@ close=f.add_button("Close","close",true,true);
+f.focus_control(body);
 while(true)
 {
 wait(5);
 f.monitor();
-if (f.is_pressed(f_close)) return;
+if(connected)netloop();
+if(f.is_pressed(close))return;
 }
 }
+// Every sound worth knowing before it matters, one list with the category in
+// each name. Moving onto a sound plays it; Enter plays it again. It used to
+// be two lists and a Play button that had to be tabbed to for every sound.
 void learn_game_sounds()
 {
-string[] cat_names = {"Navigation", "Combat warnings", "Important alerts", "Vehicle awareness"};
-string[][] sound_names;
-string[][] sound_files;
-// Only sounds a player benefits from identifying before play are included.
-// Ordinary footsteps, menu navigation, weapon handling, and routine ambience
-// are learned naturally and no longer bury safety-critical cues.
-string[] mv_names = {"Falling", "Ladder", "Map edge or blocked movement", "Camera hazard"};
-string[] mv_files = {"fall.ogg", "ladderstep1.ogg", "menuedge.ogg", "camerahazard.ogg"};
-sound_names.insert_last(mv_names);
-sound_files.insert_last(mv_files);
-string[] cb_names = {"You took damage", "Confirmed weapon hit", "Confirmed headshot", "Kill confirmed", "Bunker bomb warning", "Incoming plane bomb", "Torpedo launch"};
-string[] cb_files = {"playerhit1.ogg", "weaponping.ogg", "headshot_indicator.ogg", "killachievement.ogg", "bunkerbombwarndist.ogg", "planebomblounchdist.ogg", "torpedolounchdist.ogg"};
-sound_names.insert_last(cb_names);
-sound_files.insert_last(cb_files);
-string[] ui_names = {"Chat message", "Private message", "System notification", "Disconnected", "Player online", "Player offline", "Ping started", "Ping lost"};
-string[] ui_files = {"chat.ogg", "pm.ogg", "notify.ogg", "dc.ogg", "online.ogg", "offline.ogg", "pingstart.ogg", "pingstop.ogg"};
-sound_names.insert_last(ui_names);
-sound_files.insert_last(ui_files);
-string[] vh_names = {"Nearby aircraft", "Aircraft crash", "Vehicle collision", "Tracking acquired"};
-string[] vh_files = {"duoplanedist.ogg", "duoplanecrashdist.ogg", "vehicle_jeep_crash.ogg", "trackingnew.ogg"};
-sound_names.insert_last(vh_names);
-sound_files.insert_last(vh_files);
-iw_form f;
-f.create_window("Learn Game Sounds", false, true);
-int f_cats=f.create_list("Category", 0, false);
-for (uint i=0; i<cat_names.length(); i++)
-f.add_list_item(f_cats, cat_names[i]);
-int f_sounds=f.create_list("Sounds", 0, false);
-int f_play=f.create_button("&Play", true);
-int f_close=f.create_button("&Close", false, true);
-int last_cat=-1;
-f.focus(f_cats);
-sound@ preview;
+string[] labels,files;
+labels.insert_last("Movement: Falling");files.insert_last("fall.ogg");
+labels.insert_last("Movement: Climbing a ladder");files.insert_last("ladderstep1.ogg");
+labels.insert_last("Movement: Blocked, or the edge of the map");files.insert_last(ui_sound("edge"));
+labels.insert_last("Movement: Camera hazard");files.insert_last("camerahazard.ogg");
+labels.insert_last("Finding your way: Tracked player, on your level");files.insert_last("trackingbeep.ogg");
+labels.insert_last("Finding your way: Tracked player, above you");files.insert_last("trackingabove.ogg");
+labels.insert_last("Finding your way: Tracked player, below you");files.insert_last("trackingbelow.ogg");
+labels.insert_last("Finding your way: Started tracking");files.insert_last("executioners_rage/track.wav");
+labels.insert_last("Finding your way: Guidance beacon on a place");files.insert_last("executioners_rage/ui/beacon.wav");
+labels.insert_last("Finding your way: Arrived at a place");files.insert_last("executioners_rage/ui/beacon_dest.wav");
+labels.insert_last("Combat: You took damage");files.insert_last("playerhit1.ogg");
+labels.insert_last("Combat: Your shot hit");files.insert_last("weaponping.ogg");
+labels.insert_last("Combat: Headshot");files.insert_last("headshot_indicator.ogg");
+labels.insert_last("Combat: Kill confirmed");files.insert_last("killachievement.ogg");
+labels.insert_last("Combat: Killstreak reward");files.insert_last("executioners_rage/ui/achievement.wav");
+labels.insert_last("Combat: Bunker bomb warning");files.insert_last("bunkerbombwarndist.ogg");
+labels.insert_last("Combat: Incoming plane bomb");files.insert_last("planebomblounchdist.ogg");
+labels.insert_last("Combat: Torpedo launch");files.insert_last("torpedolounchdist.ogg");
+labels.insert_last("Vehicles: Aircraft nearby");files.insert_last("duoplanedist.ogg");
+labels.insert_last("Vehicles: Aircraft crash");files.insert_last("duoplanecrashdist.ogg");
+labels.insert_last("Vehicles: Vehicle collision");files.insert_last("vehicle_jeep_crash.ogg");
+labels.insert_last("Messages: Chat message");files.insert_last("chat.ogg");
+labels.insert_last("Messages: Private message");files.insert_last("pm.ogg");
+labels.insert_last("Messages: Team chat");files.insert_last("teamchat.ogg");
+labels.insert_last("Messages: Notification");files.insert_last(ui_sound("notify"));
+labels.insert_last("Messages: Player came online");files.insert_last("online.ogg");
+labels.insert_last("Messages: Player went offline");files.insert_last("offline.ogg");
+labels.insert_last("Messages: Disconnected");files.insert_last("dc.ogg");
+labels.insert_last("Messages: Ping sent");files.insert_last("pingstart.ogg");
+labels.insert_last("Messages: Ping returned");files.insert_last("pingstop.ogg");
+labels.insert_last("Menus: Moving between controls");files.insert_last(ui_sound("move"));
+labels.insert_last("Menus: Moving through a list");files.insert_last(ui_sound("item"));
+labels.insert_last("Menus: End of a list");files.insert_last(ui_sound("edge"));
+labels.insert_last("Menus: Wrapped round to the start");files.insert_last(ui_sound("wrap"));
+labels.insert_last("Menus: Button pressed");files.insert_last(ui_sound("activate"));
+labels.insert_last("Menus: Box ticked");files.insert_last(ui_sound("check"));
+labels.insert_last("Menus: Box cleared");files.insert_last(ui_sound("uncheck"));
+labels.insert_last("Menus: Slider step");files.insert_last(ui_sound("slider"));
+labels.insert_last("Menus: Switch changed");files.insert_last(ui_sound("switch"));
+labels.insert_last("Menus: Tab changed");files.insert_last(ui_sound("tab"));
+labels.insert_last("Menus: Dialog opened");files.insert_last(ui_sound("open"));
+labels.insert_last("Menus: Dialog closed");files.insert_last(ui_sound("close"));
+labels.insert_last("Menus: Settings saved");files.insert_last(ui_sound("apply"));
+labels.insert_last("Menus: Typing a character");files.insert_last(ui_sound("type"));
+labels.insert_last("Menus: Deleting text");files.insert_last(ui_sound("delete"));
+labels.insert_last("Menus: Cut");files.insert_last(ui_sound("cut"));
+labels.insert_last("Menus: Copied");files.insert_last(ui_sound("copy"));
+labels.insert_last("Menus: Pasted");files.insert_last(ui_sound("paste"));
+labels.insert_last("Menus: Selected everything");files.insert_last(ui_sound("select"));
+labels.insert_last("Menus: Tree branch opened");files.insert_last(ui_sound("expand"));
+labels.insert_last("Menus: Tree branch closed");files.insert_last(ui_sound("collapse"));
+labels.insert_last("Menus: Error");files.insert_last(ui_sound("error"));
+labels.insert_last("Menus: Voice command listening");files.insert_last(ui_sound("listen"));
+labels.insert_last("Menus: Voice command heard");files.insert_last(ui_sound("listen_end"));
+nv_form f;
+f.create_window("Learn the game's sounds", false, true);
+nv_form_list_box@ list=f.add_list("Sounds. Moving onto one plays it.","sounds");
+for(uint i=0;i<labels.length();i++)list.add(labels[i],""+i);
+nv_form_button@ again=f.add_button("Play again","play",true);
+again.hidden=true;
+nv_form_button@ close=f.add_button("Close","close",false,true);
+f.focus_control(list);
+sound preview;
+int last=-2;
 while(true)
 {
 wait(5);
 f.monitor();
-int cur_cat=f.get_list_position(f_cats);
-if (cur_cat!=last_cat and cur_cat>=0 and cur_cat<int(cat_names.length()))
+if(connected)netloop();
+int now=list.list_position;
+bool replay=f.is_pressed(again);
+if((now!=last or replay) and now>=0 and now<int(files.length()))
 {
-last_cat=cur_cat;
-f.clear_list(f_sounds);
-for (uint j=0; j<sound_names[cur_cat].length(); j++)
-f.add_list_item(f_sounds, sound_names[cur_cat][j]);
-}
-if (f.is_pressed(f_play))
-{
-int sel=f.get_list_position(f_sounds);
-if (cur_cat>=0 and cur_cat<int(cat_names.length()) and sel>=0 and sel<int(sound_files[cur_cat].length()))
-{
-if (@preview!=null)
-{
+last=now;
 preview.close();
-@preview=null;
+preview.load(files[now]);
+preview.play();
 }
-sound s;
-s.load(sound_files[cur_cat][sel]);
-s.play();
-@preview=s;
-}
-}
-else if (f.is_pressed(f_close))
-{
-if (@preview!=null) preview.close();
-break;
-}
+if(f.is_pressed(close)){preview.close();return;}
 }
 }
 void setupmenu(bool music=false, bool main=false)
@@ -1289,15 +1361,17 @@ if(main==true)
 m.set_callback(main_events, "");
 else
 m.set_callback(cme, "");
-m.click_sound="menumove.ogg";
-m.enter_sound="menuenter.ogg";
+// The list menus use the same cue set as the forms, so a menu and a dialog
+// sound like parts of one game.
+m.click_sound=ui_sound("item");
+m.enter_sound=ui_sound("activate");
 m.wrap=menu_wrap_enabled;
 m.enable_home_and_end=true;
 m.enable_up_and_down=true;
 m.enable_first_letter_navigation=true;
-m.open_sound="menuopen.ogg";
-m.wrap_sound="menuwrap.ogg";
-m.edge_sound="menuedge.ogg";
+m.open_sound=ui_sound("open");
+m.wrap_sound=ui_sound("wrap");
+m.edge_sound=ui_sound("edge");
 m.enable_side_scrolling=false;
 m.enable_left_and_right=false;
 }
@@ -1305,72 +1379,127 @@ m.enable_left_and_right=false;
 // Options use NV_form property pages. The focused tab strip is deliberately
 // first: Left and Right select a category, then Tab enters that page.
 // ---------------------------------------------------------------------------
+// Options.
+//
+// Six categories, each named for what a player is looking for when they open
+// it: how the game plays, how it sounds, how you control it, touch, things
+// that make it usable, and being online. It used to be eleven tabs, several
+// of them holding a single checkbox, with voice commands and voice chat on
+// the same page because both had "voice" in the name. Nothing has been taken
+// away; everything has been put where you would look for it.
+//
+// Volumes and sensitivities are sliders rather than boxes you type a number
+// into, and the volume sliders take effect while you move them, with a sound
+// on the channel you are adjusting, so you set a level by hearing it. Cancel
+// puts them back.
+void options_label_percent(nv_form_slider@ s,int low,int high,int step)
+{
+for(int v=low;v<=high;v+=step)s.set_text(v,v+" percent");
+}
+nv_form_slider@ options_volume_slider(nv_form_tab_page@ page,const string &in caption,const string &in id,int db)
+{
+nv_form_slider@ s=page.add_slider(caption,id,0,100,5,volume_db_to_percent(db),20);
+options_label_percent(s,0,100,5);
+return s;
+}
+// A short sound on the mixer being adjusted, so the level can be judged.
+void options_preview_channel(int channel)
+{
+if(channel==0 or channel==3)spool.play_stationary(ui_sound("item"),false);
+else if(channel==1)p.play_stationary("ak47fire1.ogg",false);
+else if(channel==2)ambpool.play_stationary("executioners_rage/environment/ambiance/fountain.wav",false);
+else if(channel==4)bufferpool.play_stationary(ui_sound("notify"),false);
+}
+void options_apply_volume(int channel,int percent)
+{
+int db=volume_percent_to_db(percent);
+if(channel==0)set_sound_master_volume(db);
+else if(channel==1)gameplay_mixer.volume=db;
+else if(channel==2)world_mixer.volume=db;
+else if(channel==3)interface_mixer.volume=db;
+else if(channel==4)notification_mixer.volume=db;
+}
+
 void optionsmenu()
 {
 nv_form f;
 f.create_window("Options", false, true);
-nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Categories", "categories", true);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f, "Category", "categories", true);
 f.add_control(tabs);
 nv_form_tab_page@ gameplay=tabs.add_tab_page("Gameplay");
-nv_form_tab_page@ interface_page=tabs.add_tab_page("Interface");
-nv_form_tab_page@ account_page=tabs.add_tab_page("Account");
-nv_form_tab_page@ keyboard_page=tabs.add_tab_page("Keyboard");
-nv_form_tab_page@ touch_page=tabs.add_tab_page("Touch");
-nv_form_tab_page@ mouse_page=tabs.add_tab_page("Mouse");
-nv_form_tab_page@ display_page=tabs.add_tab_page("Display");
-nv_form_tab_page@ notifications_page=tabs.add_tab_page("Notifications");
-nv_form_tab_page@ voice_page=tabs.add_tab_page("Voice");
-nv_form_tab_page@ network_page=tabs.add_tab_page("Network");
-nv_form_tab_page@ audio_page=tabs.add_tab_page("Audio");
+nv_form_tab_page@ sound_page=tabs.add_tab_page("Sound");
+nv_form_tab_page@ controls=tabs.add_tab_page("Controls");
+nv_form_tab_page@ touch=tabs.add_tab_page("Touch");
+nv_form_tab_page@ access=tabs.add_tab_page("Accessibility");
+nv_form_tab_page@ online=tabs.add_tab_page("Online");
 
-nv_form_checkbox@ f_target_hp=gameplay.add_checkbox("Show target HP on hit", "target_hp", show_target_hp);
-nv_form_checkbox@ f_damage_readout=gameplay.add_checkbox("Show damage readout on hit", "damage", show_damage_readout);
-nv_form_checkbox@ f_auto_quickbar=gameplay.add_checkbox("Automatically bind starting weapons and items to the quickbar", "auto_quickbar", auto_bind_starting_loadout);
-nv_form_checkbox@ f_replace_attachments=gameplay.add_checkbox("Replace an attachment when its slot is already occupied", "replace_attachments", replace_occupied_attachments);
-nv_form_checkbox@ f_remember=account_page.add_checkbox("Remember me; save account on exit", "remember", remember_me);
-nv_form_checkbox@ f_wrap=interface_page.add_checkbox("Wrap around at menu edges", "wrap", menu_wrap_enabled);
-nv_form_checkbox@ f_autolog=interface_page.add_checkbox("Automatically export message buffers on exit", "autolog", auto_log_buffers);
-nv_form_checkbox@ f_classic_menu=interface_page.add_checkbox("Use classic single-list main menu", "classic_menu", classic_main_menu);
-nv_form_checkbox@ f_form_sounds=interface_page.add_checkbox("Play menu navigation and activation sounds in audio forms", "form_sounds", audio_form_sound_feedback);
-nv_form_checkbox@ f_rctrl=keyboard_page.add_checkbox("Right Control detection", "rctrl", rctrl==1);
-nv_form_button@ f_keybinds=keyboard_page.add_button("Open key binding editor", "keybinds");
-nv_form_checkbox@ f_touch=touch_page.add_checkbox("Simulate Android touch mode for gesture testing", "touch", touch_force_enabled);
-nv_form_checkbox@ f_practice_band=touch_page.add_checkbox("Announce screen band in gesture practice mode", "practice_band", gesture_practice_speak_band);
-nv_form_checkbox@ f_touch_keyboard=touch_page.add_checkbox("Use the Infinite Warfare touch keyboard instead of the system keyboard", "touch_keyboard", touch_keyboard_enabled);
-nv_form_checkbox@ f_analogue_keyboard=touch_page.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue_keyboard", touch_keyboard_analogue);
-nv_form_checkbox@ f_pc_touch_bands=touch_page.add_checkbox("Expand all touch bands across the full laptop screen; enables touch mode and full screen", "pc_touch_bands", touch_pc_fullscreen_bands);
-nv_form_checkbox@ f_touch_explore=touch_page.add_checkbox("Explore menu and audio-form controls by holding, then dragging", "touch_explore", touch_menu_explore_enabled);
-nv_form_checkbox@ f_touch_portrait=touch_page.add_checkbox("Android portrait orientation; gesture bands run left to right", "touch_portrait", touch_portrait_mode);
-nv_form_button@ f_gestures=touch_page.add_button("View Android touch gestures", "gestures");
-nv_form_button@ f_gesture_bindings=touch_page.add_button("Configure and reset Android gesture bindings", "gesture_bindings");
-nv_form_checkbox@ f_helper_mouse=mouse_page.add_checkbox("Use mouse back and forward buttons to change message buffers", "helper_mouse", helper_mouse_shortcuts);
-nv_form_checkbox@ f_helper_confine=mouse_page.add_checkbox("Confine the mouse pointer while the game is focused", "helper_confine", helper_mouse_confined);
-nv_form_checkbox@ f_mouse_wheel=mouse_page.add_checkbox("Use the mouse wheel to cycle inventory items", "mouse_wheel", helper_mouse_wheel_inventory);
-nv_form_checkbox@ f_mouse_invert=mouse_page.add_checkbox("Invert vertical mouse aiming", "mouse_invert", helper_mouse_invert_vertical);
-nv_form_input@ f_mouse_turn=mouse_page.add_input("Horizontal turn sensitivity, 10 to 300 percent", "mouse_turn", ""+helper_mouse_turn_sensitivity);
-nv_form_input@ f_mouse_aim=mouse_page.add_input("Vertical aim sensitivity, 10 to 300 percent", "mouse_aim", ""+helper_mouse_aim_sensitivity);
-nv_form_checkbox@ f_fullscreen=display_page.add_checkbox("Full-screen low-vision landscape presentation; occupies the focused display", "fullscreen", fullscreen_enabled);
-nv_form_checkbox@ f_helper_hud=display_page.add_checkbox("Enable large, high-contrast contextual icons and text", "helper_hud", helper_visual_hud);
-nv_form_checkbox@ f_helper_notifications=notifications_page.add_checkbox("Show Windows notifications for private messages, tickets, and server events", "helper_notifications", helper_desktop_notifications);
-nv_form_checkbox@ f_chat_timestamps=notifications_page.add_checkbox("Show server timestamps at the end of chat messages", "chat_timestamps", show_chat_timestamps);
-nv_form_checkbox@ f_helper_tray=notifications_page.add_checkbox("Add Windows tray controls for show, hide, and mute", "helper_tray", helper_tray_controls);
-nv_form_button@ f_test_notification=notifications_page.add_button("Test Windows desktop notifications", "test_notification");
-nv_form_checkbox@ f_helper_voice=voice_page.add_checkbox("Enable Windows voice commands", "helper_voice", helper_voice_commands);
-nv_form_input@ f_voice_wake=voice_page.add_input("Voice-command wake phrase", "voice_wake", helper_voice_wake_phrase);
-nv_form_button@ f_voice=voice_page.add_button("Live voice chat settings and microphone test", "voice_settings");
-nv_form_input@ f_server_address=network_page.add_input("Server address", "server_address", netaddress);
-nv_form_input@ f_server_port=network_page.add_input("Server port", "server_port", ""+netport);
-nv_form_button@ f_server_manager=null;if(!SCRIPT_COMPILED or dev_unlocked)@f_server_manager=network_page.add_button("Developer server list and manager", "server_manager");
-nv_form_checkbox@ f_own_projectiles=audio_page.add_checkbox("Hear your own projectile flight loops and near-miss sounds", "own_projectiles", hear_own_projectile_audio);
-nv_form_checkbox@ f_occlusion=audio_page.add_checkbox("Enable wall and doorway sound occlusion", "occlusion", acoustic_occlusion_enabled);
-nv_form_input@ f_vol=audio_page.add_input("Master volume, 0 to 100 percent", "volume", ""+volume_db_to_percent(mastervol));
-nv_form_input@ f_gameplay_vol=audio_page.add_input("Weapons, items, and player effects volume, 0 to 100 percent", "gameplay_volume", ""+volume_db_to_percent(gameplay_volume));
-nv_form_input@ f_world_vol=audio_page.add_input("World and positional ambience volume, 0 to 100 percent", "world_volume", ""+volume_db_to_percent(world_volume));
-nv_form_input@ f_interface_vol=audio_page.add_input("Menus and interface volume, 0 to 100 percent", "interface_volume", ""+volume_db_to_percent(interface_volume));
-nv_form_input@ f_notification_vol=audio_page.add_input("Messages and notifications volume, 0 to 100 percent", "notification_volume", ""+volume_db_to_percent(notification_volume));
-nv_form_input@ f_system_volume=audio_page.add_input("Windows application volume, 0 to 100", "system_volume", ""+round(app_volume_percent(),0));
-nv_form_button@ f_toggle_system_mute=audio_page.add_button("Mute or restore game audio at the Windows level", "system_mute");
-nv_form_button@ f_rerun_setup=interface_page.add_button("Run the first-boot setup wizard again", "rerun_setup");
+// Gameplay: what you are told during a fight, and how equipment behaves.
+nv_form_checkbox@ f_target_hp=gameplay.add_checkbox("Say the target's remaining health when you hit them", "target_hp", show_target_hp);
+nv_form_checkbox@ f_damage_readout=gameplay.add_checkbox("Say how much damage each hit did", "damage", show_damage_readout);
+nv_form_checkbox@ f_own_projectiles=gameplay.add_checkbox("Hear your own bullets and projectiles in flight", "own_projectiles", hear_own_projectile_audio);
+nv_form_checkbox@ f_auto_quickbar=gameplay.add_checkbox("Put your starting weapons and items on the quickbar automatically", "auto_quickbar", auto_bind_starting_loadout);
+nv_form_checkbox@ f_replace_attachments=gameplay.add_checkbox("Swap out an attachment when its slot is already taken", "replace_attachments", replace_occupied_attachments);
+
+// Sound: every level in one place, heard while you set it.
+nv_form_slider@[] volume;
+volume.insert_last(options_volume_slider(sound_page,"Master volume","volume",mastervol));
+volume.insert_last(options_volume_slider(sound_page,"Weapons, players and effects","gameplay_volume",gameplay_volume));
+volume.insert_last(options_volume_slider(sound_page,"Map ambience and distant combat","world_volume",world_volume));
+volume.insert_last(options_volume_slider(sound_page,"Menus and interface","interface_volume",interface_volume));
+volume.insert_last(options_volume_slider(sound_page,"Messages and notifications","notification_volume",notification_volume));
+int[] volume_before;for(uint i=0;i<volume.length();i++)volume_before.insert_last(int(volume[i].value));
+int[] volume_last=volume_before;
+nv_form_checkbox@ f_occlusion=sound_page.add_checkbox("Muffle sounds heard through walls and closed doors", "occlusion", acoustic_occlusion_enabled);
+nv_form_checkbox@ f_form_sounds=sound_page.add_checkbox("Play sounds when moving through menus and dialogs", "form_sounds", audio_form_sound_feedback);
+nv_form_slider@ f_system_volume=sound_page.add_slider("Game volume in the Windows mixer","system_volume",0,100,5,round(app_volume_percent()/5,0)*5,20);
+options_label_percent(f_system_volume,0,100,5);
+nv_form_button@ f_toggle_system_mute=sound_page.add_button("Mute or unmute the game in the Windows mixer", "system_mute");
+
+// Controls: keyboard and mouse.
+nv_form_button@ f_keybinds=controls.add_button("Edit key bindings", "keybinds");
+nv_form_checkbox@ f_rctrl=controls.add_checkbox("Treat Right Control as a separate key", "rctrl", rctrl==1);
+nv_form_slider@ f_mouse_turn=controls.add_slider("Mouse turning sensitivity","mouse_turn",10,300,10,helper_mouse_turn_sensitivity,50);
+options_label_percent(f_mouse_turn,10,300,10);
+nv_form_slider@ f_mouse_aim=controls.add_slider("Mouse aiming sensitivity","mouse_aim",10,300,10,helper_mouse_aim_sensitivity,50);
+options_label_percent(f_mouse_aim,10,300,10);
+nv_form_checkbox@ f_mouse_invert=controls.add_checkbox("Invert vertical mouse aiming", "mouse_invert", helper_mouse_invert_vertical);
+nv_form_checkbox@ f_mouse_wheel=controls.add_checkbox("Mouse wheel cycles through your inventory", "mouse_wheel", helper_mouse_wheel_inventory);
+nv_form_checkbox@ f_helper_mouse=controls.add_checkbox("Mouse back and forward buttons change message buffer", "helper_mouse", helper_mouse_shortcuts);
+nv_form_checkbox@ f_helper_confine=controls.add_checkbox("Keep the mouse pointer inside the game window", "helper_confine", helper_mouse_confined);
+
+// Touch: Android, and Windows touchscreens.
+nv_form_checkbox@ f_touch_keyboard=touch.add_checkbox("Use the game's own touch keyboard instead of the system one", "touch_keyboard", touch_keyboard_enabled);
+nv_form_checkbox@ f_analogue_keyboard=touch.add_checkbox("Type on a grid by position instead of by exploring", "analogue_keyboard", touch_keyboard_analogue);
+nv_form_checkbox@ f_touch_explore=touch.add_checkbox("Explore menus by holding and dragging a finger over them", "touch_explore", touch_menu_explore_enabled);
+nv_form_checkbox@ f_touch_portrait=touch.add_checkbox("Portrait orientation: gesture bands run left to right", "touch_portrait", touch_portrait_mode);
+nv_form_checkbox@ f_pc_touch_bands=touch.add_checkbox("Spread the gesture bands across a whole laptop touchscreen; turns on touch mode and full screen", "pc_touch_bands", touch_pc_fullscreen_bands);
+nv_form_checkbox@ f_touch=touch.add_checkbox("Simulate Android touch mode, for testing gestures on a computer", "touch", touch_force_enabled);
+nv_form_checkbox@ f_practice_band=touch.add_checkbox("Say which screen band you are in during gesture practice", "practice_band", gesture_practice_speak_band);
+nv_form_button@ f_gestures=touch.add_button("List the touch gestures", "gestures");
+nv_form_button@ f_gesture_bindings=touch.add_button("Change or reset gesture bindings", "gesture_bindings");
+
+// Accessibility: seeing it, finding your way round it, and talking to it.
+nv_form_checkbox@ f_helper_hud=access.add_checkbox("Low-vision display: show what the game says in large, high-contrast text", "helper_hud", helper_visual_hud);
+nv_form_checkbox@ f_fullscreen=access.add_checkbox("Full screen", "fullscreen", fullscreen_enabled);
+nv_form_checkbox@ f_wrap=access.add_checkbox("Menus wrap from the last item back to the first", "wrap", menu_wrap_enabled);
+nv_form_checkbox@ f_classic_menu=access.add_checkbox("Show the main menu as a column of buttons instead of a list", "classic_menu", classic_main_menu);
+nv_form_checkbox@ f_helper_voice=access.add_checkbox("Windows voice commands", "helper_voice", helper_voice_commands);
+nv_form_input@ f_voice_wake=access.add_input("Phrase that starts a voice command", "voice_wake", helper_voice_wake_phrase);
+nv_form_button@ f_rerun_setup=access.add_button("Run the first-time setup again", "rerun_setup");
+
+// Online: your account, the server, chat, and hearing about things while the
+// game is in the background.
+nv_form_checkbox@ f_remember=online.add_checkbox("Remember my account on this computer", "remember", remember_me);
+nv_form_input@ f_server_address=online.add_input("Server address", "server_address", netaddress);
+nv_form_input@ f_server_port=online.add_input("Server port", "server_port", ""+netport);
+nv_form_button@ f_server_manager=null;if(!SCRIPT_COMPILED or dev_unlocked)@f_server_manager=online.add_button("Saved servers", "server_manager");
+nv_form_button@ f_voice=online.add_button("Voice chat and microphone", "voice_settings");
+nv_form_checkbox@ f_chat_timestamps=online.add_checkbox("Say the time at the end of each chat message", "chat_timestamps", show_chat_timestamps);
+nv_form_checkbox@ f_autolog=online.add_checkbox("Save message buffers to a file when you quit", "autolog", auto_log_buffers);
+nv_form_checkbox@ f_helper_notifications=online.add_checkbox("Windows notifications for private messages, ticket replies, your name in chat and server problems, while the game is in the background", "helper_notifications", helper_desktop_notifications);
+nv_form_checkbox@ f_helper_tray=online.add_checkbox("Tray icon with show, hide and mute", "helper_tray", helper_tray_controls);
+nv_form_button@ f_test_notification=online.add_button("Send a test notification", "test_notification");
+
 nv_form_button@ f_save=f.add_button("Save", "save", true);
 nv_form_button@ f_close=f.add_button("Cancel", "cancel", false, true);
 tabs.focus();
@@ -1380,31 +1509,28 @@ wait(5);
 f.monitor();
 if (connected==true)
 netloop();
-if (keyboard_page.is_pressed(f_keybinds))
+// Volume sliders take effect as they move.
+for(uint i=0;i<volume.length();i++)
 {
-options_keybinds();
-optionsmenu();
-return;
+int now=int(volume[i].value);
+if(now==volume_last[i])continue;
+volume_last[i]=now;
+options_apply_volume(i,now);
+options_preview_channel(i);
 }
-if (touch_page.is_pressed(f_gestures))
-{
-show_android_gestures();
-continue;
-}
-if (touch_page.is_pressed(f_gesture_bindings))
-{
-gesture_bindings_menu();
-continue;
-}
-if (voice_page.is_pressed(f_voice))
-{
-voice_settings_menu();
-continue;
-}
-if(@f_server_manager!=null and network_page.is_pressed(f_server_manager)){server_manager();continue;}
-if(notifications_page.is_pressed(f_test_notification)){helper_test_notification();continue;}
-if(audio_page.is_pressed(f_toggle_system_mute)){helper_toggle_app_mute();continue;}
-if(interface_page.is_pressed(f_rerun_setup)){first_boot_setup_wizard();reconfigure_nvgt_helpers();optionsmenu();return;}
+// The linked screens return here with everything on this one as it was.
+// Rebuilding the whole form after them, as this used to, silently threw
+// away every change not yet saved.
+if (controls.is_pressed(f_keybinds)){options_keybinds();speak("Options.");continue;}
+if (touch.is_pressed(f_gestures)){show_android_gestures();continue;}
+if (touch.is_pressed(f_gesture_bindings)){gesture_bindings_menu();continue;}
+if (online.is_pressed(f_voice)){voice_settings_menu();continue;}
+if(@f_server_manager!=null and online.is_pressed(f_server_manager)){server_manager();f_server_address.text=netaddress;f_server_port.text=""+netport;continue;}
+if(online.is_pressed(f_test_notification)){bool was=helper_desktop_notifications;helper_desktop_notifications=true;helper_test_notification();helper_desktop_notifications=was;continue;}
+if(sound_page.is_pressed(f_toggle_system_mute)){helper_toggle_app_mute();continue;}
+// Setup replaces these settings wholesale, so this screen reopens with its
+// answers rather than saving stale values over them.
+if(access.is_pressed(f_rerun_setup)){first_boot_setup_wizard();reconfigure_nvgt_helpers();optionsmenu();return;}
 if (f.is_pressed(f_save))
 {
 remember_me=f_remember.state;
@@ -1428,30 +1554,46 @@ touch_keyboard_analogue=f_analogue_keyboard.state;
 touch_pc_fullscreen_bands=f_pc_touch_bands.state;
 touch_menu_explore_enabled=f_touch_explore.state;
 if(touch_portrait_mode!=f_touch_portrait.state){touch_portrait_mode=f_touch_portrait.state;apply_touch_orientation();}
-helper_visual_hud=f_helper_hud.state;helper_desktop_notifications=f_helper_notifications.state;helper_tray_controls=f_helper_tray.state;helper_voice_commands=f_helper_voice.state;helper_voice_wake_phrase=f_voice_wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=f_helper_mouse.state;helper_mouse_confined=f_helper_confine.state;helper_mouse_wheel_inventory=f_mouse_wheel.state;helper_mouse_invert_vertical=f_mouse_invert.state;helper_mouse_turn_sensitivity=string_to_number(f_mouse_turn.text);helper_mouse_aim_sensitivity=string_to_number(f_mouse_aim.text);if(helper_mouse_turn_sensitivity<10)helper_mouse_turn_sensitivity=10;if(helper_mouse_turn_sensitivity>300)helper_mouse_turn_sensitivity=300;if(helper_mouse_aim_sensitivity<10)helper_mouse_aim_sensitivity=10;if(helper_mouse_aim_sensitivity>300)helper_mouse_aim_sensitivity=300;set_app_volume_percent(string_to_number(f_system_volume.text));
+bool hud_was=helper_visual_hud;
+helper_visual_hud=f_helper_hud.state;
+helper_desktop_notifications=f_helper_notifications.state;
+helper_tray_controls=f_helper_tray.state;
+helper_voice_commands=f_helper_voice.state;
+helper_voice_wake_phrase=f_voice_wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";
+helper_mouse_shortcuts=f_helper_mouse.state;
+helper_mouse_confined=f_helper_confine.state;
+helper_mouse_wheel_inventory=f_mouse_wheel.state;
+helper_mouse_invert_vertical=f_mouse_invert.state;
+helper_mouse_turn_sensitivity=int(f_mouse_turn.value);
+helper_mouse_aim_sensitivity=int(f_mouse_aim.value);
+set_app_volume_percent(f_system_volume.value);
 show_chat_timestamps=f_chat_timestamps.state;
-if(helper_visual_hud and !fullscreen_enabled)set_fullscreen_mode(true,true);
+// Turning the display on offers full screen the once; it no longer forces
+// it back on every time options are saved.
+if(helper_visual_hud and !hud_was and !fullscreen_enabled)set_fullscreen_mode(true,true);
 if(touch_pc_fullscreen_bands and !system_is_mobile){touch_force_enabled=true;if(!fullscreen_enabled)set_fullscreen_mode(true,true);}
-string requested_address=f_server_address.text.trim_whitespace();int requested_port=string_to_number(f_server_port.text);if(requested_address!="")netaddress=requested_address;if(requested_port>0 and requested_port<=65535)netport=requested_port;else speak("Invalid server port; keeping port "+netport+".");
-int newpercent=string_to_number(f_vol.text);if(newpercent<0)newpercent=0;if(newpercent>100)newpercent=100;
-mastervol=volume_percent_to_db(newpercent);
+string requested_address=f_server_address.text.trim_whitespace();int requested_port=string_to_number(f_server_port.text);if(requested_address!="")netaddress=requested_address;if(requested_port>0 and requested_port<=65535)netport=requested_port;else speak("That port is not valid, so the port stays "+netport+".");
+mastervol=volume_percent_to_db(int(volume[0].value));
+gameplay_volume=volume_percent_to_db(int(volume[1].value));
+world_volume=volume_percent_to_db(int(volume[2].value));
+interface_volume=volume_percent_to_db(int(volume[3].value));
+notification_volume=volume_percent_to_db(int(volume[4].value));
 set_sound_master_volume(mastervol);
-int gp=string_to_number(f_gameplay_vol.text);if(gp<0)gp=0;if(gp>100)gp=100;gameplay_volume=volume_percent_to_db(gp);
-int wp=string_to_number(f_world_vol.text);if(wp<0)wp=0;if(wp>100)wp=100;world_volume=volume_percent_to_db(wp);
-int ip=string_to_number(f_interface_vol.text);if(ip<0)ip=0;if(ip>100)ip=100;interface_volume=volume_percent_to_db(ip);
-int np=string_to_number(f_notification_vol.text);if(np<0)np=0;if(np>100)np=100;notification_volume=volume_percent_to_db(np);
 gameplay_mixer.volume=gameplay_volume;
 world_mixer.volume=world_volume;
 interface_mixer.volume=interface_volume;
 notification_mixer.volume=notification_volume;
 reconfigure_nvgt_helpers();
 writeprefs();
-p.play_stationary("savedoptions.ogg",false);
+play_ui_cue("apply");
 speak("Options saved.");
 break;
 }
 else if (f.is_pressed(f_close))
+{
+for(uint i=0;i<volume.length();i++)options_apply_volume(i,volume_before[i]);
 break;
+}
 }
 }
 // ---------------------------------------------------------------------------
@@ -2016,7 +2158,7 @@ if (connected==true)
 netloop();
 return 0;
 }
-int main_events(dynamic_menu_pro@fuck, string fucking)
-{//if(key_pressed(KEY_V)) speak("version "+version);
+int main_events(dynamic_menu_pro@ menu, string data)
+{
 return 0;
 }

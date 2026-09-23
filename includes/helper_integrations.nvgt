@@ -1,84 +1,356 @@
-// Game-facing integration for the GPL-3.0 NVGT Helpers bundle. The audio
-// recorder is intentionally excluded. Native plugin binaries and the upstream
-// license are staged in lib so source and release builds use the same versions.
+// Game-facing integration for the NVGT Helpers bundle (GPL-3.0, by Blindpro):
+// desktop notifications and tray controls, Windows voice commands, mouse
+// shortcuts, the application volume, and the low-vision display.
+//
+// Every one of these was reported as not working, and every one had a
+// specific reason:
+//
+//   Nothing but the gameplay loop ever serviced them. In menus, the lobby and
+//   every dialog -- which is most of the time anybody spends with the game
+//   open -- the tray was never polled, voice commands were never heard and
+//   the display never redrew. They are now serviced from the form layer, which
+//   every screen goes through, as well as from the match.
+//
+//   Notifications were sent under the application ID "170505" while the Start
+//   menu shortcut that makes an ID legitimate declared "Infinite Warfare", and
+//   the shortcut itself was named "170505". The plugin takes strings; the
+//   helper passed an integer to one call and its two arguments the wrong way
+//   round to the other. Windows stored the toasts, attributed to a stranger.
+//
+//   The display drew its text with no font loaded, which draws nothing.
+//
+//   The application volume reads -1 until the process has played a sound, and
+//   the mute toggle would then "restore" to -1.
 mouse@ iw_mouse;
 notifications_helper@ iw_notifications;
 voice_command_helper@ iw_voice_commands;
 graphics_helper@ iw_graphics;
 bool iw_helpers_initialized=false,iw_tray_added=false,iw_app_muted=false;
 double iw_pre_mute_volume=1.0;
-timer iw_hud_timer;
 timer iw_voice_stage_timer;
 int iw_voice_stage=0;
-string low_vision_title="Infinite Warfare",low_vision_item="Ready";
-int low_vision_control_type=0;
-bool low_vision_dirty=true;
-timer low_vision_refresh;
+// Restarted by the match loop every frame, so anything that needs to know
+// whether a match is running can ask without another global flag to keep in
+// step.
+timer helper_match_frame;
+bool helper_match_seen=false;
+bool helpers_in_match(){return helper_match_seen and helper_match_frame.elapsed<300 and connected;}
+
+const string IW_APP_ID="Equinox.InfiniteWarfare";
+const string IW_APP_NAME="Infinite Warfare";
 
 bool helper_windows_features_available(){return system_is_windows and !system_is_mobile;}
 
+// ---------------------------------------------------------------------------
+// Notifications and the tray
+void helper_remove_stale_shortcut()
+{
+// Earlier builds left a Start menu entry literally named "170505". It is ours
+// and it is wrong, so it goes; nothing else in the Start menu is touched.
+string stale=DIRECTORY_APPDATA+"Microsoft/Windows/Start Menu/Programs/170505.lnk";
+if(file_exists(stale))file_delete(stale);
+}
 void helper_prepare_notifications()
 {
 if(!helper_windows_features_available())return;
-if(@iw_notifications==null)@iw_notifications=notifications_helper(170505,"Infinite Warfare");
-iw_notifications.set_id();
-// Windows toast delivery requires a Start-menu shortcut carrying the same
-// application ID. Reinstalling it is safe and also repairs stale shortcuts.
-iw_notifications.create_shortcut();
+if(@iw_notifications==null)@iw_notifications=notifications_helper(IW_APP_ID,IW_APP_NAME);
+helper_remove_stale_shortcut();
+iw_notifications.register();
 }
 
-void initialize_nvgt_helpers()
+// A toast is for when you are not looking at the game. While it has focus,
+// the buffer sound and the spoken line already did the job, and a toast on top
+// is just a second copy of the same interruption from the corner of the screen.
+void helper_show_notification(string title,string body,bool even_when_focused=false)
 {
-if(iw_helpers_initialized)return;iw_helpers_initialized=true;@iw_mouse=mouse(fullscreen_enabled or helper_mouse_confined);if(helper_visual_hud and helper_windows_features_available())@iw_graphics=graphics_helper();
-if(!helper_windows_features_available())return;
-if(helper_desktop_notifications or helper_tray_controls){helper_prepare_notifications();if(helper_tray_controls){iw_tray_added=iw_notifications.add_to_tray();if(iw_tray_added){iw_notifications.set_tray_name("Infinite Warfare");iw_notifications.set_tray_items("Show game|Hide game|Mute or restore game audio");}}}
-if(helper_voice_commands){@iw_voice_commands=voice_command_helper(false);if(iw_voice_commands.get_active()){helper_voice_load_wake_grammar();iw_voice_commands.start();}else speak("Windows voice commands could not be initialized and were left disabled.");}
+if(!helper_desktop_notifications or !helper_windows_features_available())return;
+if(!even_when_focused and is_window_active())return;
+if(@iw_notifications==null)helper_prepare_notifications();
+if(@iw_notifications!=null)iw_notifications.show(title,body);
 }
-
-void shutdown_nvgt_helpers(){if(@iw_voice_commands!=null)iw_voice_commands.stop();if(@iw_notifications!=null and iw_tray_added)iw_notifications.remove_from_tray();@iw_graphics=null;}
-void reconfigure_nvgt_helpers(){shutdown_nvgt_helpers();@iw_notifications=null;@iw_voice_commands=null;@iw_mouse=null;iw_tray_added=false;iw_helpers_initialized=false;initialize_nvgt_helpers();}
-
-void helper_toggle_app_mute()
+void helper_test_notification()
 {
-if(!helper_windows_features_available())return;if(!iw_app_muted){iw_pre_mute_volume=sys_audio_get_app_volume();sys_audio_set_app_volume(0);iw_app_muted=true;speak("Infinite Warfare system audio muted.");}else{sys_audio_set_app_volume(iw_pre_mute_volume);iw_app_muted=false;speak("Infinite Warfare system audio restored to "+round(iw_pre_mute_volume*100,0)+" percent.");}
+if(!helper_windows_features_available()){speak("Desktop notifications are only available on Windows.");return;}
+helper_prepare_notifications();
+bool shown=iw_notifications.show("Infinite Warfare","Notifications are working. You will get these for private messages, ticket replies, your name in chat and server problems while the game is in the background.");
+play_ui_cue(shown?"notify":"error");
+speak(shown?"Test notification sent. It should appear in the corner of the screen and in the notification centre.":"Windows refused the notification. Check that notifications are allowed for Infinite Warfare in Windows Settings, and that Do Not Disturb is off.");
 }
-
-void helper_show_notification(string title,string body)
-{
-if(!helper_desktop_notifications or @iw_notifications==null)return;iw_notifications.show(title,body);
-}
-void helper_test_notification(){if(!helper_windows_features_available()){speak("Desktop notifications are only available on Windows.");return;}helper_prepare_notifications();bool shown=iw_notifications.show("Infinite Warfare test","Desktop notification delivery is working.");speak(shown?"The test notification was sent.":"Windows rejected the test notification. Check notification permissions for Infinite Warfare.");}
 
 void helper_notify_buffer_item(string buffer_name,string item)
 {
-if(!helper_desktop_notifications or !helper_windows_features_available())return;string lower=string_to_lower_case(item);if(string_contains(lower,"pm from ",1)==0)helper_show_notification("Private message",item);else if(buffer_name=="tickets")helper_show_notification("Ticket update",item);else if(string_contains(lower,"server",1)>=0 and (string_contains(lower,"restart",1)>=0 or string_contains(lower,"reboot",1)>=0 or string_contains(lower,"disconnect",1)>=0))helper_show_notification("Server status",item);
+if(!helper_desktop_notifications or !helper_windows_features_available())return;
+string lower=string_to_lower_case(item);
+if(string_contains(lower,"pm from ",1)==0)helper_show_notification("Private message",item);
+else if(buffer_name=="tickets")helper_show_notification("Ticket update",item);
+else if(string_contains(lower,"server",1)>=0 and (string_contains(lower,"restart",1)>=0 or string_contains(lower,"reboot",1)>=0 or string_contains(lower,"shut",1)>=0))helper_show_notification("Server",item);
+// Somebody said your name. That is the one chat line worth pulling you back
+// to the window for.
+else if(name!="" and (buffer_name=="chat" or buffer_name=="map chat" or buffer_name=="team chat" or string_contains(buffer_name,"chat",1)>=0) and string_contains(lower,string_to_lower_case(name),1)>=0 and string_contains(lower,string_to_lower_case(name)+":",1)!=0)helper_show_notification("Mentioned in chat",item);
 }
 
-string[] helper_voice_phrases(){string[] p={"status","health","ammunition","inventory","nearby items","points of interest","next buffer","previous buffer","repeat message"};return p;}
-void helper_voice_load_wake_grammar(){if(@iw_voice_commands==null)return;iw_voice_commands.stop();iw_voice_commands.clear_all();string wake=helper_voice_wake_phrase.trim_whitespace();if(wake=="")wake="infinite warfare";iw_voice_commands.add_phrays(wake);iw_voice_commands.clear_waiting_commands();iw_voice_stage=0;iw_voice_commands.start();}
-void helper_voice_load_command_grammar(){iw_voice_commands.stop();iw_voice_commands.clear_all();string[] phrases=helper_voice_phrases();for(uint i=0;i<phrases.length();i++)iw_voice_commands.add_phrays(phrases[i]);iw_voice_commands.clear_waiting_commands();iw_voice_stage=1;iw_voice_stage_timer.restart();iw_voice_commands.start();}
+void helper_tray_service()
+{
+if(@iw_notifications==null)return;
+iw_notifications.update();
+if(iw_notifications.clicked)iw_notifications.show_window();
+int selected=iw_notifications.get_selected_item();
+if(selected==0)iw_notifications.show_window();
+else if(selected==1)iw_notifications.hide_window();
+else if(selected==2)helper_toggle_app_mute();
+}
+
+// ---------------------------------------------------------------------------
+// Application volume
+double helper_app_volume()
+{
+// -1 means Windows has no audio session for us yet, which is the case until
+// the first sound plays. Report it as full rather than as a broken number.
+double v=sys_audio_get_app_volume();
+return v<0?1.0:v;
+}
+void set_app_volume_percent(double percent)
+{
+if(percent<0)percent=0;if(percent>100)percent=100;
+sys_audio_set_app_volume(percent/100.0);
+}
+double app_volume_percent(){return helper_app_volume()*100.0;}
+void helper_toggle_app_mute()
+{
+if(!helper_windows_features_available())return;
+if(!iw_app_muted)
+{
+iw_pre_mute_volume=helper_app_volume();
+if(iw_pre_mute_volume<=0.01)iw_pre_mute_volume=1.0;
+sys_audio_set_app_volume(0);iw_app_muted=true;
+speak("Infinite Warfare muted in the Windows mixer.");
+}
+else
+{
+sys_audio_set_app_volume(iw_pre_mute_volume);iw_app_muted=false;
+speak("Infinite Warfare restored to "+int(round(iw_pre_mute_volume*100,0))+" percent.");
+}
+}
+
+// ---------------------------------------------------------------------------
+// Voice commands
+string[] helper_voice_phrases()
+{
+string[] p={"status","health","ammunition","inventory","nearby items","points of interest","where am I","next buffer","previous buffer","repeat message","cancel"};
+return p;
+}
+string helper_wake_phrase(){string wake=helper_voice_wake_phrase.trim_whitespace();return wake==""?"infinite warfare":string_to_lower_case(wake);}
+void helper_voice_load_wake_grammar()
+{
+if(@iw_voice_commands==null)return;
+iw_voice_commands.stop();iw_voice_commands.clear_all();
+iw_voice_commands.add_phrays(helper_wake_phrase());
+iw_voice_commands.clear_waiting_commands();iw_voice_stage=0;iw_voice_commands.start();
+}
+void helper_voice_load_command_grammar()
+{
+iw_voice_commands.stop();iw_voice_commands.clear_all();
+string[] phrases=helper_voice_phrases();
+for(uint i=0;i<phrases.length();i++)iw_voice_commands.add_phrays(phrases[i]);
+iw_voice_commands.clear_waiting_commands();iw_voice_stage=1;iw_voice_stage_timer.restart();iw_voice_commands.start();
+}
+void helper_voice_begin_listening()
+{
+play_ui_cue("listen");
+speak("Listening.");
+helper_voice_load_command_grammar();
+}
+// Commands that only make sense in a match say so outside one instead of
+// running against a player who is not there.
 void helper_execute_voice_command(string command)
 {
-if(command=="status")speak(get_stamina_string()+" "+get_effects_string());else if(command=="health"){send_reliable(0,"health",0);pending_health_report=true;}else if(command=="ammunition" and w>=0 and w<int(weapons.length()))announce_ammo(weapons[w]);else if(command=="inventory")inventory_menu();else if(command=="nearby items"){pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x),int(mr.y),int(me.z));send_reliable(0,"whatnear",0);}else if(command=="points of interest")show_poi_list();else if(command=="next buffer")bufferright();else if(command=="previous buffer")bufferleft();else if(command=="repeat message" and buffers.length()>0 and buffers[bufferpos].items.length()>0)speak(buffers[bufferpos].items[buffers[bufferpos].pos]);
+if(command=="cancel"){speak("Cancelled.");return;}
+if(command=="next buffer"){bufferright();return;}
+if(command=="previous buffer"){bufferleft();return;}
+if(command=="repeat message"){if(buffers.length()>0 and buffers[bufferpos].items.length()>0)speak(buffers[bufferpos].items[buffers[bufferpos].pos]);else speak("No messages yet.");return;}
+if(!helpers_in_match()){play_ui_cue("error");speak("\""+command+"\" works during a match.");return;}
+if(command=="status")speak(get_stamina_string()+" "+get_effects_string());
+else if(command=="health"){send_reliable(0,"health",0);pending_health_report=true;}
+else if(command=="ammunition"){if(w>=0 and w<int(weapons.length()))announce_ammo(weapons[w]);else speak("No weapon drawn.");}
+else if(command=="inventory")inventory_menu();
+else if(command=="nearby items"){pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x),int(mr.y),int(me.z));send_reliable(0,"whatnear",0);}
+else if(command=="points of interest")show_poi_list();
+else if(command=="where am i"){string z=get_dynamic_or_static_zone_at(me.x,me.y,me.z);speak((z!=""?z+". ":"")+mr.x+", "+mr.y+", "+me.z+".");}
 }
-void helper_voice_command_loop(){bool hotkey=kb_action_pressed("voice_control");if(hotkey){if(!helper_voice_commands){speak("Windows voice commands are disabled. Enable them in the Voice Control options category.");return;}if(@iw_voice_commands==null){reconfigure_nvgt_helpers();if(@iw_voice_commands==null){speak("Windows voice control is unavailable.");return;}}p.play_stationary("modeenter.ogg",false);speak("Listening.");helper_voice_load_command_grammar();}if(!helper_voice_commands or @iw_voice_commands==null or !iw_voice_commands.get_started())return;iw_voice_commands.update();string command=string_to_lower_case(iw_voice_commands.last_cmd.trim_whitespace());iw_voice_commands.last_cmd="";if(iw_voice_stage==1 and iw_voice_stage_timer.elapsed>7000){p.play_stationary("modeleave.ogg",false);speak("Voice command timed out.");helper_voice_load_wake_grammar();return;}if(command=="")return;if(iw_voice_stage==0){string wake=string_to_lower_case(helper_voice_wake_phrase.trim_whitespace());if(wake=="")wake="infinite warfare";if(command!=wake)return;p.play_stationary("modeenter.ogg",false);speak("Listening.");helper_voice_load_command_grammar();return;}p.play_stationary("modeleave.ogg",false);iw_voice_commands.stop();iw_voice_stage=2;p.play_stationary("notify.ogg",false);helper_execute_voice_command(command);helper_voice_load_wake_grammar();}
-
-void helper_mouse_loop()
+void helper_voice_service()
 {
-if(@iw_mouse==null)return;iw_mouse.sync();if(!helper_mouse_shortcuts)return;if(iw_mouse.pressed(MOUSE_BACK))bufferleft();if(iw_mouse.pressed(MOUSE_FORWARD))bufferright();
-}
-
-void helper_notification_tray_loop()
+bool hotkey=kb_action_pressed("voice_control");
+if(hotkey)
 {
-if(@iw_notifications==null)return;iw_notifications.update();if(iw_notifications.clicked)iw_notifications.show_window();int selected=iw_notifications.get_selected_item();if(selected==0)iw_notifications.show_window();else if(selected==1)iw_notifications.hide_window();else if(selected==2)helper_toggle_app_mute();
+if(!helper_voice_commands){play_ui_cue("error");speak("Voice commands are off. Turn them on under Options, Accessibility.");return;}
+if(@iw_voice_commands==null){reconfigure_nvgt_helpers();if(@iw_voice_commands==null){play_ui_cue("error");speak("Windows speech recognition is not available.");return;}}
+helper_voice_begin_listening();
+return;
+}
+if(!helper_voice_commands or @iw_voice_commands==null or !iw_voice_commands.get_started())return;
+iw_voice_commands.update();
+string command=string_to_lower_case(iw_voice_commands.last_cmd.trim_whitespace());
+iw_voice_commands.last_cmd="";
+if(iw_voice_stage==1 and iw_voice_stage_timer.elapsed>7000){play_ui_cue("listen_end");speak("Stopped listening.");helper_voice_load_wake_grammar();return;}
+if(command=="")return;
+if(iw_voice_stage==0){if(command==helper_wake_phrase())helper_voice_begin_listening();return;}
+play_ui_cue("listen_end");
+iw_voice_commands.stop();
+iw_voice_stage=2;
+helper_execute_voice_command(command);
+helper_voice_load_wake_grammar();
 }
 
-void low_vision_set_context(string title,string item,int control_type){low_vision_title=title;low_vision_item=item;low_vision_control_type=control_type;low_vision_dirty=true;}
-void low_vision_draw_icon(graphics_helper@ graphics,int cx,int cy,int size,int kind){int r=255,g=205,b=40;if(kind==3){r=80;g=220;b=255;}else if(kind==4){r=130;g=255;b=130;}else if(kind==5){r=255;g=120;b=160;}int left=cx-size/2,right=cx+size/2,top=cy-size/2,bottom=cy+size/2;graphics.draw_line(left,top,right,top,r,g,b,5);graphics.draw_line(right,top,right,bottom,r,g,b,5);graphics.draw_line(right,bottom,left,bottom,r,g,b,5);graphics.draw_line(left,bottom,left,top,r,g,b,5);if(kind==3){graphics.draw_line(cx-size/4,cy,cx+size/4,cy,r,g,b,7);graphics.draw_line(cx,cy-size/4,cx,cy+size/4,r,g,b,7);}else if(kind==5){graphics.draw_line(cx-size/4,cy-size/4,cx+size/4,cy+size/4,r,g,b,7);graphics.draw_line(cx+size/4,cy-size/4,cx-size/4,cy+size/4,r,g,b,7);}else{graphics.draw_line(cx-size/4,cy,cx+size/4,cy,r,g,b,7);graphics.draw_line(cx+size/10,cy-size/6,cx+size/4,cy,r,g,b,7);graphics.draw_line(cx+size/10,cy+size/6,cx+size/4,cy,r,g,b,7);}}
-void helper_visual_hud_loop(){if(!helper_visual_hud)return;if(@iw_graphics==null){if(!helper_windows_features_available())return;@iw_graphics=graphics_helper();}if(!iw_graphics.get_active())return;if(!low_vision_dirty and low_vision_refresh.elapsed<250)return;low_vision_refresh.restart();low_vision_dirty=false;int width=get_window_width(),height=get_window_height();if(width<1 or height<1)return;iw_graphics.clear_screen(4,7,15);int icon_size=int(float(height)*.38);low_vision_draw_icon(iw_graphics,int(float(width)*.18),int(float(height)*.47),icon_size,low_vision_control_type);iw_graphics.draw_text(low_vision_title,int(float(width)*.35),int(float(height)*.18),120,190,255);iw_graphics.draw_text_wrapped(low_vision_item,int(float(width)*.35),int(float(height)*.38),int(float(width)*.58),255,255,255);if(connected){string status=(mapname==""?"Lobby":mapname)+"  |  "+int(mr.x)+", "+int(mr.y)+", "+int(me.z);iw_graphics.draw_text(status,int(float(width)*.04),int(float(height)*.88),120,255,170);}iw_graphics.update();}
-void helper_visual_status_panel(){nv_form f;f.create_window("Visual game status",false,true);string weapon=(w>=0 and w<int(weapons.length()))?get_weapon_display_name(weapons[w]):"No weapon";string text="Connection: "+(connected?"connected":"offline")+"\nMap: "+(mapname==""?"none":mapname)+"\nCoordinates: "+mr.x+", "+mr.y+", "+me.z+"\nWeapon: "+weapon+"\nStamina: "+stamina+"\nFacing: "+int(facing)+" degrees\nVertical aim: "+turn+" degrees";nv_form_input@ status=f.add_input("Current visual and textual game status","status",text,"",0,true,true);nv_form_button@ copy=f.add_button("Copy status to clipboard","copy");nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(status);while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(copy)){clipboard_set_text(text);speak("Game status copied to clipboard.");continue;}if(f.is_pressed(close))return;}}
+// ---------------------------------------------------------------------------
+// Mouse
+void helper_mouse_service()
+{
+if(@iw_mouse==null)return;
+iw_mouse.sync();
+if(!helper_mouse_shortcuts)return;
+if(iw_mouse.pressed(MOUSE_BACK))bufferleft();
+if(iw_mouse.pressed(MOUSE_FORWARD))bufferright();
+}
 
-void nvgt_helpers_loop(){helper_mouse_loop();helper_notification_tray_loop();helper_voice_command_loop();helper_visual_hud_loop();}
+// ---------------------------------------------------------------------------
+// The low-vision display.
+//
+// It shows what the game is saying, not a summary of it. Everything a player
+// hears is spoken through one function, and the last line spoken is the
+// thing on screen in the largest text the window can hold. Above it is where
+// you are -- the dialog or the map -- and below it, when a form is open, the
+// control that has focus and what sort of control it is. During a match a
+// status line gives the map, the zone and the coordinates.
+string low_vision_title="Infinite Warfare",low_vision_item="";
+int low_vision_control_type=-1;
+bool low_vision_dirty=true;
+string low_vision_last_spoken="";
+timer low_vision_refresh;
+
+void low_vision_set_context(string title,string item,int control_type)
+{
+low_vision_title=title;low_vision_item=item;low_vision_control_type=control_type;low_vision_dirty=true;
+}
+string low_vision_type_label()
+{
+if(low_vision_control_type<0 or low_vision_item=="")return "";
+string t=get_nv_form_control_type_string(low_vision_control_type);
+return t==""?"":t.substr(0,1).upper()+t.substr(1);
+}
+void helper_visual_hud_service()
+{
+if(!helper_visual_hud)return;
+if(@iw_graphics==null){if(!helper_windows_features_available())return;@iw_graphics=graphics_helper();}
+if(!iw_graphics.get_active())return;
+if(speechbuff!=low_vision_last_spoken){low_vision_last_spoken=speechbuff;low_vision_dirty=true;}
+// In a match the zone and coordinates change without anything being said,
+// so the display keeps refreshing; in a dialog it only redraws on change.
+bool match=helpers_in_match();
+if(!low_vision_dirty and low_vision_refresh.elapsed<(match?250:1000))return;
+low_vision_refresh.restart();low_vision_dirty=false;
+low_vision_frame f;
+f.in_match=match;
+f.title=match?map_display_name(mapname):low_vision_title;
+f.said=low_vision_last_spoken!=""?low_vision_last_spoken:low_vision_item;
+f.focus=low_vision_item;
+f.focus_kind=low_vision_type_label();
+if(match)
+{
+f.zone=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
+f.status=int(mr.x)+", "+int(mr.y)+", "+int(me.z)+"    facing "+int(facing)+" degrees";
+}
+int dw,dh;iw_graphics.get_drawable(dw,dh);
+low_vision_draw(iw_graphics,f,dw,dh);
+}
+void helper_visual_status_panel()
+{
+nv_form f;f.create_window("Game status",false,true);
+string weapon=(w>=0 and w<int(weapons.length()))?get_weapon_display_name(weapons[w]):"No weapon";
+string zone=connected?get_dynamic_or_static_zone_at(me.x,me.y,me.z):"";
+string text="Connection: "+(connected?"connected":"offline")+"\nMap: "+(mapname==""?"none":map_display_name(mapname))+(zone!=""?"\nZone: "+zone:"")+"\nCoordinates: "+mr.x+", "+mr.y+", "+me.z+"\nWeapon: "+weapon+"\nStamina: "+stamina+"\nFacing: "+int(facing)+" degrees\nVertical aim: "+turn+" degrees";
+nv_form_input@ status=f.add_input("Game status","status",text,"",0,true,true);
+nv_form_button@ copy=f.add_button("Copy to clipboard","copy");
+nv_form_button@ close=f.add_button("Close","close",true,true);
+f.focus_control(status);
+while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(copy)){clipboard_set_text(text);play_ui_cue("apply");speak("Copied.");continue;}if(f.is_pressed(close))return;}
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle
+void initialize_nvgt_helpers()
+{
+if(iw_helpers_initialized)return;
+iw_helpers_initialized=true;
+@iw_mouse=mouse(fullscreen_enabled or helper_mouse_confined);
+if(helper_visual_hud and helper_windows_features_available())@iw_graphics=graphics_helper();
+if(!helper_windows_features_available())return;
+helper_remove_stale_shortcut();
+if(helper_desktop_notifications or helper_tray_controls)
+{
+helper_prepare_notifications();
+if(helper_tray_controls)
+{
+iw_tray_added=iw_notifications.add_to_tray();
+if(iw_tray_added){iw_notifications.set_tray_name(IW_APP_NAME);iw_notifications.set_tray_items("Show the game window|Hide the game window|Mute or unmute the game");}
+}
+}
+if(helper_voice_commands)
+{
+@iw_voice_commands=voice_command_helper(false);
+if(iw_voice_commands.get_active())helper_voice_load_wake_grammar();
+else{@iw_voice_commands=null;speak("Windows speech recognition could not be started, so voice commands are off for this session.");}
+}
+}
+void shutdown_nvgt_helpers(){if(@iw_voice_commands!=null)iw_voice_commands.stop();if(@iw_notifications!=null and iw_tray_added)iw_notifications.remove_from_tray();@iw_graphics=null;}
+void reconfigure_nvgt_helpers(){shutdown_nvgt_helpers();@iw_notifications=null;@iw_voice_commands=null;@iw_mouse=null;iw_tray_added=false;iw_helpers_initialized=false;initialize_nvgt_helpers();}
+
+// Everything every screen needs, called from the form layer on every frame of
+// every dialog and menu. The recursion guard is because a voice command can
+// open a form, and that form's own frames call back in here.
+bool helpers_servicing=false;
+// Every dialog runs this each frame. During a match it also keeps the
+// connection serviced, so opening a holster list, a weapon's details, the
+// buffer manager or any other screen that forgot to do it no longer freezes
+// the match behind it -- other players stopped moving, shots went unheard,
+// and the server's messages piled up until the screen closed. Screens that
+// already service the network just get it twice a frame. The depth guard
+// keeps a screen opened by a network message from servicing it again
+// underneath itself.
+int form_net_depth=0;
+void form_network_keepalive()
+{
+if(!connected or mapname=="" or mapname=="main" or form_net_depth>0)return;
+form_net_depth++;
+netloop(false);
+form_net_depth--;
+}
+// Returning to the main menu or lobby unwinds straight through whatever was
+// running, including a guarded call above; this puts the guards back.
+void reset_service_guards(){form_net_depth=0;helpers_servicing=false;}
+void nvgt_helpers_service()
+{
+form_network_keepalive();
+menu_music_keys();
+if(helpers_servicing)return;
+helpers_servicing=true;
+helper_tray_service();
+helper_voice_service();
+helper_visual_hud_service();
+helpers_servicing=false;
+}
+// The match loop adds the mouse shortcuts, which move through message buffers
+// and would be surprising inside a dialog.
+void nvgt_helpers_loop()
+{
+helper_match_frame.restart();helper_match_seen=true;
+nvgt_helpers_service();
+helper_mouse_service();
+}
+// Kept for anything still calling it by the old name.
+void helper_visual_hud_loop(){nvgt_helpers_service();}
+void helper_mouse_loop(){helper_mouse_service();}
+void helper_notification_tray_loop(){helper_tray_service();}
+void helper_voice_command_loop(){helper_voice_service();}
 
 string setup_choose_operating_system()
 {

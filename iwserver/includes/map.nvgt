@@ -29,6 +29,12 @@ class mapdata
 {
 string name;
 maptile@[] maptiles;
+// Tile rectangles indexed on the same grid the client uses. The server asks
+// "what is the tile here" tens of thousands of times a tick once projectiles
+// are in flight: surface sampling alone is four bilinear corners times eleven
+// candidate heights, and the gradient does that four more times. Against a
+// linear scan of a city-sized map that was millions of comparisons per shot.
+box_grid tile_grid;
 mapispawn@[] mapispawns;
 bunkerdef@[] bunkerdefs;
 poidef@[] poidefs;
@@ -41,24 +47,12 @@ internal_load(loadname);
 }
 bool tile_exists(double x, double y, double z)
 {
-for(uint i=0; i<maptiles.length(); i++)
-{
-if(maptiles[i].is_on_tile(x, y, z))
-return true;
-}
-return false;
+return tile_grid.topmost(int(x),int(y),int(z))>=0;
 }
 string return_tile(double x, double y, double z)
 {
-string outval;
-for(uint i=0; i<maptiles.length(); i++)
-{
-if(maptiles[i].is_on_tile(x, y, z))
-{
-outval=maptiles[i].type;
-}
-}
-return outval;
+int i=tile_grid.topmost(int(x),int(y),int(z));
+return i<0?"":maptiles[i].type;
 }
 void internal_load(string loadname)
 {
@@ -98,6 +92,7 @@ temp.minz=minz;
 temp.maxz=maxz;
 temp.type=type;
 maptiles.insert_last(temp);
+tile_grid.add(minx,maxx,miny,maxy,minz,maxz);
 }
 if(parsed[0]=="wall"){
 int minx=string_to_number(parsed[1]);

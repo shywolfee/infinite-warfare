@@ -46,8 +46,19 @@ map_region@[] zone_regions;
 map_region@[] acoustic_regions;
 map_region@[] portal_regions;
 map_region@[] landmark_regions;
-dictionary tile_lookup_cache;
-dictionary zone_lookup_cache;
+// One grid per rectangle layer. These replace a linear scan over every
+// rectangle on the map plus a coordinate-keyed dictionary that was never
+// pruned: on a city-sized map the scan was tens of thousands of comparisons
+// per footstep and the cache grew until it held an entry for every cubic
+// metre the player had ever occupied.
+region_grid tile_grid,zone_grid,acoustic_grid,portal_grid;
+void rebuild_map_indexes()
+{
+tile_grid.build(@tile_regions);
+zone_grid.build(@zone_regions);
+acoustic_grid.build(@acoustic_regions);
+portal_grid.build(@portal_regions);
+}
 // Point of Interest (POI) system.
 class poi
 {
@@ -121,15 +132,7 @@ return get_static_tile_at(x,y,z);
 }
 string get_static_tile_at(double x,double y,double z)
 {
-int ix=int(x), iy=int(y), iz=int(z);
-string key=ix+":"+iy+":"+iz;
-string cached;
-if(tile_lookup_cache.get(key, cached)) return cached;
-string final="";
-for(uint i=0; i<tile_regions.length(); i++)
-if(tile_regions[i].contains(ix, iy, iz)) final=tile_regions[i].value;
-tile_lookup_cache.set(key, final);
-return final;
+return tile_grid.value_at(int(x),int(y),int(z));
 }
 string linear(string[] a)
 {
@@ -147,17 +150,10 @@ return string_split(a, "\n", false);
 }
 string get_zone_at(int x, int y, int z)
 {
-string key=x+":"+y+":"+z;
-string cached;
-if(zone_lookup_cache.get(key, cached)) return cached;
-string final="";
-for(uint i=0; i<zone_regions.length(); i++)
-if(zone_regions[i].contains(x, y, z)) final=zone_regions[i].value;
-zone_lookup_cache.set(key, final);
-return final;
+return zone_grid.value_at(x,y,z);
 }
 string get_acoustic_space_at(int x,int y,int z)
-{string final="";for(uint i=0;i<acoustic_regions.length();i++)if(acoustic_regions[i].contains(x,y,z))final=acoustic_regions[i].value;return final;}
+{return acoustic_grid.value_at(x,y,z);}
 string get_dynamic_or_static_zone_at(double x,double y,double z)
 {for(int i=int(dynamic_map_elements.length())-1;i>=0;i--){dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active)continue;double lx,ly,lz;e.world_to_local(x,y,z,lx,ly,lz);string n=e.zone_at_local(lx,ly,lz);if(n!="")return n;}return get_zone_at(int(x),int(y),int(z));}
 void load_map(string mdata)
@@ -175,11 +171,10 @@ zone_regions.resize(0);
 acoustic_regions.resize(0);
 portal_regions.resize(0);
 landmark_regions.resize(0);
-tile_lookup_cache.delete_all();
-zone_lookup_cache.delete_all();
 pois.resize(0);
 turbolifts.resize(0);
 transitions.resize(0);
+surfaces_reset();
 string[] ldata=delinear(mdata);
 for(uint i=0; i<ldata.length(); i++)
 {
@@ -190,6 +185,10 @@ if(parsed[0]=="mapname")
 // Among other things, it would shift the final words into the username field
 // of spawn_player. Presentation code expands this stable identifier again.
 mapname=map_protocol_id(string_replace(ldata[i], "mapname:", "", false));
+}
+else if(parsed[0]=="surface" and parsed.length()>2)
+{
+register_surface(parsed[1],parsed[2]);
 }
 else if(parsed[0]=="tile")
 {
@@ -251,7 +250,7 @@ int maxy=string_to_number(parsed[4]);
 int minz=string_to_number(parsed[5]);
 int maxz=string_to_number(parsed[6]);
 int id=string_to_number(parsed[8]);
-spawn_source(lx, rx, miny, maxy, minz, maxz, parsed[7],1, false, id);
+spawn_source(lx, rx, miny, maxy, minz, maxz, parsed[7],3, false, id);
 }
 else if(parsed[0]=="poi" and parsed.length()>3)
 {
@@ -305,6 +304,8 @@ t.label=lbl;
 transitions.insert_last(t);
 }
 }
+// Indexes are built once, after every rectangle on the map is known.
+rebuild_map_indexes();
 }
 dictionary terrain_step_sound_count_cache;
 int available_terrain_step_sound_count(string terrain)
@@ -315,7 +316,7 @@ void playstep()
 {
 if(in_plane==false)
 {
-string terrain=get_tile_at(mr.x,mr.y,me.z);p.play_stationary(terrain+"step"+random(1,available_terrain_step_sound_count(terrain))+".ogg", false);
+string terrain=surface_family(get_tile_at(mr.x,mr.y,me.z));if(terrain!="")p.play_stationary(terrain+"step"+random(1,available_terrain_step_sound_count(terrain))+".ogg", false);
 for(int i=0; i<ladders.length(); i++)
 {
 if(me.x==ladders[i].x and me.y==ladders[i].y and me.z>=ladders[i].miniz and me.z<=ladders[i].maxz)
@@ -325,31 +326,71 @@ p.play_stationary("ladderstep"+random(1,5)+".ogg",false);
 }
 }
 }
+// The kerb rule. A rise or a drop of exactly one unit is taken in stride,
+// which is what makes an authored stair or ramp -- a stack of one-unit
+// surfaces -- something you walk up rather than something you operate. A
+// bigger rise is a wall and a bigger drop is a fall, and both stay that way.
+//
+// Climbable surfaces are deliberately excluded here. A ladder is not a kerb;
+// you do not wander up one sideways, you take the climb keys to it.
 void follow_walkable_ramp(double ox,double oy)
 {
-int nx=int(round(me.x,0)),ny=int(round(me.y,0)),z=int(round(me.z,0));string here=get_tile_at(nx,ny,z),above=get_tile_at(nx,ny,z+1),below=get_tile_at(nx,ny,z-1);
-bool blocked_here=here=="" or here=="blank" or string_contains(here,"wall",1)>=0;
-if(blocked_here and above!="" and above!="blank" and string_contains(above,"wall",1)<0){me.z=z+1;return;}
-if((here=="" or here=="blank") and below!="" and below!="blank" and string_contains(below,"wall",1)<0)me.z=z-1;
+int nx=int(round(me.x,0)),ny=int(round(me.y,0)),z=int(round(me.z,0));
+string here=get_tile_at(nx,ny,z),above=get_tile_at(nx,ny,z+1),below=get_tile_at(nx,ny,z-1);
+if(surface_is_climbable(here))return;
+bool blocked_here=!surface_is_walkable(here);
+if(blocked_here and surface_is_walkable(above) and !surface_is_climbable(above)){me.z=z+1;return;}
+if(surface_is_air(here) and surface_is_walkable(below) and !surface_is_climbable(below))me.z=z-1;
+}
+// Announced once on arrival rather than on every step, so a long climb is not
+// a sentence per rung.
+string last_climb_surface="";
+timer climb_refusal_timer;
+void climb_refuse(string reason)
+{
+if(climb_refusal_timer.elapsed<700)return;
+climb_refusal_timer.restart();
+speak(reason);
 }
 void move(string dir)
 {
 if(dir==Up)
 {
-if(get_tile_at(mr.x, mr.y, me.z+1)!="" and get_tile_at(mr.x, mr.y, me.z+1)!="blank")
+string above=get_tile_at(mr.x, mr.y, me.z+1),here=get_tile_at(mr.x, mr.y, me.z);
+if(surface_is_wall(above))
 {
-me.z++;
-checkup();
+p.play_stationary(surface_wall_sound(above),false);
+climb_refuse("There is no way up from here.");
+return;
 }
+if(surface_is_air(above))
+{
+climb_refuse(surface_is_climbable(here)?"The top of the climb. Step off to one side.":"Nothing here to climb.");
+return;
+}
+me.z++;
+if(surface_is_climbable(above) and last_climb_surface!=above){last_climb_surface=above;speak(above+".");}
+checkup();
 }
 if(dir==Down)
 {
-if(get_tile_at(mr.x, mr.y, me.z-1)!="" and get_tile_at(mr.x, mr.y, me.z-1)!="blank")
+string below=get_tile_at(mr.x, mr.y, me.z-1),here=get_tile_at(mr.x, mr.y, me.z);
+if(surface_is_wall(below))
 {
+p.play_stationary(surface_wall_sound(below),false);
+climb_refuse("Solid below you.");
+return;
+}
+if(surface_is_air(below))
+{
+climb_refuse(surface_is_climbable(here)?"The bottom of the climb.":"Nothing below to climb down. Walk off the edge if you mean to drop.");
+return;
+}
 me.z--;
+if(surface_is_climbable(below) and last_climb_surface!=below){last_climb_surface=below;speak(below+".");}
 checkdown();
 }
-}
+if(dir!=Up and dir!=Down)last_climb_surface="";
 
 if(dir==Forward)
 {
@@ -449,7 +490,7 @@ me.y=oy;
 }
 if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)  
 {
-if(!executioners_fixture_collision_sound(me.x,me.y,me.z))p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+if(!executioners_fixture_collision_sound(me.x,me.y,me.z))p.play_stationary(surface_wall_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 send_reliable(0, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
 me.x=ox;
 me.y=oy;
@@ -459,13 +500,19 @@ else
 playstep();
 send_reliable(1, "move_to "+mr.x+" "+mr.y+" "+me.z, 0);
 checkzone();
+string standing=get_tile_at(mr.x,mr.y,me.z);
+if(surface_is_climbable(standing))
+{
+if(last_climb_surface!=standing){last_climb_surface=standing;speak(standing+". Press up to climb.");}
+}
+else last_climb_surface="";
 }
 }
 void checkup()
 {
 if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)
 {
-p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+p.play_stationary(surface_wall_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 send_reliable(0, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
 bounceback(Up);
 }
@@ -480,7 +527,7 @@ void checkdown()
 {
 if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)
 {
-p.play_stationary("wall"+string_replace(get_tile_at(mr.x, mr.y, me.z), "wall", "", true)+".ogg", false);
+p.play_stationary(surface_wall_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 send_reliable(1, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
 bounceback(Down);
 }
@@ -506,25 +553,25 @@ void spawn_platform(int leftx, int rightx, int miny, int maxy, int z, string pla
 {
 map.insert_last("tile:"+leftx+":"+rightx+":"+miny+":"+maxy+":"+z+":"+z+":"+plattype);
 tile_regions.insert_last(map_region(leftx,rightx,miny,maxy,z,z,plattype));
-tile_lookup_cache.delete_all();
+tile_grid.build(@tile_regions);
 }
 void spawn_tiles(int leftx, int rightx, int miny, int maxy, int minz, int maxz, string plattype)
 {
 map.insert_last("tile:"+leftx+":"+rightx+":"+miny+":"+maxy+":"+minz+":"+maxz+":"+plattype);
 tile_regions.insert_last(map_region(leftx,rightx,miny,maxy,minz,maxz,plattype));
-tile_lookup_cache.delete_all();
+tile_grid.build(@tile_regions);
 }
 void spawn_zone(int leftx, int rightx, int miny, int maxy, int minz, int maxz, string zonetype)
 {
 zones.insert_last(leftx+":"+rightx+":"+miny+":"+maxy+":"+minz+":"+maxz+":"+zonetype);
 zone_regions.insert_last(map_region(leftx,rightx,miny,maxy,minz,maxz,zonetype));
-zone_lookup_cache.delete_all();
+zone_grid.build(@zone_regions);
 }
 void spawn_tile(int x, int y, int z, string type)
 {
 map.insert_last("tile:"+x+":"+x+":"+y+":"+y+":"+z+":"+z+":"+type);
 tile_regions.insert_last(map_region(x,x,y,y,z,z,type));
-tile_lookup_cache.delete_all();
+tile_grid.build(@tile_regions);
 }
 void spawn_tree(int x, int y)
 {

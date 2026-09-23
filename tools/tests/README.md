@@ -1,4 +1,4 @@
-# Version 0.5.1.1 regression checks
+# Regression checks
 
 Run these from source using the same NVGT installation used to build the game:
 
@@ -7,7 +7,8 @@ Run these from source using the same NVGT installation used to build the game:
 & C:/nvgt/nvgt.exe tools/tests/client_regression_runner.nvgt
 & C:/nvgt/nvgt.exe tools/tests/acoustic_regression_runner.nvgt
 & C:/nvgt/nvgt.exe tools/tests/world_objects_regression.nvgt
-python tools/validate_exploration_maps.py
+python tools/build_maps.py
+python tools/validate_maps.py
 ```
 
 Reports and synthetic wallet records go in uniquely named `IW-*-regression-*`

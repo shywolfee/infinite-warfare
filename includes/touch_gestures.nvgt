@@ -255,11 +255,11 @@ int android_select(string title, string[] options) {
 	sel.enable_home_and_end = true;
 	sel.wrap = menu_wrap_enabled;
 	sel.allow_escape = true;
-	sel.click_sound = "menumove.ogg";
-	sel.enter_sound = "menuenter.ogg";
-	sel.open_sound = "menuopen.ogg";
-	sel.wrap_sound = "menuwrap.ogg";
-	sel.edge_sound = "menuedge.ogg";
+	sel.click_sound = ui_sound("item");
+	sel.enter_sound = ui_sound("activate");
+	sel.open_sound = ui_sound("open");
+	sel.wrap_sound = ui_sound("wrap");
+	sel.edge_sound = ui_sound("edge");
 	sel.set_callback(cme, ""); // keep the network alive while the menu is open
 	for (uint i = 0; i < options.length(); i++)
 		sel.add_item_tts(options[i], "opt_" + i);
@@ -373,7 +373,7 @@ string[] gesture_help_lines(string context){
 	lines.insert_last("Close");return lines;
 }
 void show_context_gesture_help(string context){
-	if(gesture_help_open)return;gesture_help_open=true;gengine.clear_events();dynamic_menu_pro help;help.reset(true);help.enable_up_and_down=true;help.enable_home_and_end=true;help.wrap=false;help.allow_escape=true;help.click_sound="menumove.ogg";help.enter_sound="menuenter.ogg";help.open_sound="menuopen.ogg";help.edge_sound="menuedge.ogg";help.set_callback(cme,"");string[] lines=gesture_help_lines(context);for(uint i=0;i<lines.length();i++)help.add_item_tts(lines[i],"gesture_"+i);help.run("Gestures for "+context,true);gengine.clear_events();gesture_help_open=false;
+	if(gesture_help_open)return;gesture_help_open=true;gengine.clear_events();dynamic_menu_pro help;help.reset(true);help.enable_up_and_down=true;help.enable_home_and_end=true;help.wrap=false;help.allow_escape=true;help.click_sound=ui_sound("item");help.enter_sound=ui_sound("activate");help.open_sound=ui_sound("open");help.edge_sound=ui_sound("edge");help.set_callback(cme,"");string[] lines=gesture_help_lines(context);for(uint i=0;i<lines.length();i++)help.add_item_tts(lines[i],"gesture_"+i);help.run("Gestures for "+context,true);gengine.clear_events();gesture_help_open=false;
 }
 
 string[][] touch_keyboard_layout={{"1","2","3","4","5","6","7","8","9","0","backspace"},{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l","apostrophe"},{"shift","z","x","c","v","b","n","m","comma","period"},{"caps lock","space","question mark","done"}};
@@ -491,10 +491,10 @@ void show_android_gestures() {
 	g.enable_home_and_end = true;
 	g.wrap = false;
 	g.allow_escape = true;
-	g.click_sound = "menumove.ogg";
-	g.enter_sound = "menuenter.ogg";
-	g.open_sound = "menuopen.ogg";
-	g.edge_sound = "menuedge.ogg";
+	g.click_sound = ui_sound("item");
+	g.enter_sound = ui_sound("activate");
+	g.open_sound = ui_sound("open");
+	g.edge_sound = ui_sound("edge");
 	g.set_callback(cme, ""); // keep the network alive while the reference is open
 	string[] lines = {
 		"Android touch gestures. Swipe up or down to read, two finger tap or escape to go back.",
@@ -855,7 +855,7 @@ void android_escape_menu() {
 			stats_text += "Items: " + count_total_items() + " in inventory\n";
 			stats_text += "Map: " + map_display_name(mapname) + "\n";
 			stats_text += "Player: " + name + "\n";
-			stats_text += "Version: " + version + ", build " + build_number + " (" + build_date + ")";
+			stats_text += "Version: " + version_name + ", build " + build_number + " (" + build_date + ")";
 			android_message("Stats", stats_text);
 		} else if (sel == 1) {
 			android_equipment_menu();

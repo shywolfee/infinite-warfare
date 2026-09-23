@@ -4,7 +4,12 @@
 
 const string source_directory="sounds";
 const string output_file="sounds.dat";
-const string temporary_file="sounds.dat.new";
+// Staged somewhere with room, then moved into place. Building beside the
+// finished archive needs twice its size free on the same volume, which on a
+// nearly full system drive it simply is not: the build fails at the point
+// where it reopens what it wrote, which looks like an encryption failure and
+// is actually a truncated file.
+string temporary_file="sounds.dat.new";
 const string test_sound_file="sound_pack_test.ogg";
 const string test_er_sound_file="sound_pack_test.wav";
 const string pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
@@ -17,6 +22,10 @@ void fail(const string&in message)
 file_delete(temporary_file);
 file_delete(test_sound_file);
 file_delete(test_er_sound_file);
+// Silent builds used to fail with nothing but an exit code. The reason is now
+// always written down beside the builder.
+file log;if(log.open("pack_build.log","wb")){log.write("FAILED: "+message+"
+");log.close();}
 if (!silent) alert("Sound pack build failed", message);
 exit(1);
 }
@@ -40,9 +49,27 @@ return disk_path.substr(prefix.length());
 return disk_path;
 }
 
+string[] command_arguments()
+{
+string[] parts=COMMAND_LINE.split(" ");string[] result;
+for(uint i=0;i<parts.length();i++){string a=parts[i].trim_whitespace();if(a!="")result.insert_last(a);}
+return result;
+}
+
 void main()
 {
-silent=(COMMAND_LINE=="/s");
+string[] arguments=command_arguments();
+string staging="";
+for(uint i=0;i<arguments.length();i++)
+{
+if(arguments[i]=="/s")silent=true;
+else if(arguments[i].length()>3 and arguments[i].substr(0,3)=="/t:")staging=arguments[i].substr(3);
+}
+if(staging!="")
+{
+if(!directory_exists(staging))fail("The staging directory "+staging+" does not exist.");
+temporary_file=staging+"/sounds.dat.new";
+}
 if (!directory_exists(source_directory))
 fail("The sounds directory does not exist beside the builder.");
 
@@ -97,10 +124,15 @@ if(!decode_test.load(test_er_sound_file))fail("NVGT 0.90 could not decode the re
 decode_test.close();file_delete(test_er_sound_file);
 verifier.close();
 
+// The finished archive replaces the old one directly. Overwriting reuses the
+// space the old one occupied, which is the only reason this fits at all when
+// the staging copy lives on another volume.
 if (!file_copy(temporary_file, output_file, true))
-fail("The verified archive could not replace sounds.dat.");
+fail("The verified archive could not replace sounds.dat. Check free space on the game volume.");
 file_delete(temporary_file);
 
+file done_log;if(done_log.open("pack_build.log","wb")){done_log.write("OK: "+files_to_pack.length()+" sounds
+");done_log.close();}
 if (!silent)
 alert("Sound pack complete", "Built and verified "+files_to_pack.length()+" sounds in "+output_file+".");
 }

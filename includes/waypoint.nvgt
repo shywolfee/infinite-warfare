@@ -1,0 +1,81 @@
+// Directions to a place, and a beacon on it.
+//
+// Choose a point of interest and the game guides you there: a beacon sounds
+// from the place itself, more often the closer you get, and you are told when
+// you have arrived. The points of interest list used to be names and
+// distances with nothing to do with them.
+
+// Twelve o'clock is the way you are facing.
+string clock_direction(double deg)
+{
+while(deg<0)deg+=360;
+while(deg>=360)deg-=360;
+int hour=int(round(deg/30.0,0))%12;
+if(hour==0)return "straight ahead";
+if(hour==3)return "to your right";
+if(hour==6)return "behind you";
+if(hour==9)return "to your left";
+return "at "+hour+" o'clock";
+}
+
+// "40 tiles at 2 o'clock, 12 above", measured from where you stand.
+string describe_offset(double x,double y,double z)
+{
+double flat=sqrt(power(x-me.x,2)+power(y-me.y,2));
+int rise=int(round(z-me.z,0));
+string s;
+if(flat<1.0)s=(rise==0?"here":"straight");
+else
+{
+int tiles=int(round(flat,0));
+s=tiles+(tiles==1?" tile ":" tiles ")+clock_direction(calculate_x_y_angle(me.x,me.y,x,y,facing));
+}
+if(rise>0)s+=(flat<1.0?" up, ":", ")+rise+" above";
+else if(rise<0)s+=(flat<1.0?" down, ":", ")+(-rise)+" below";
+return s;
+}
+
+string waypoint_name="";
+string waypoint_map="";
+int waypoint_x,waypoint_y,waypoint_z;
+timer waypoint_timer;
+
+void waypoint_set(const string &in label,int x,int y,int z)
+{
+waypoint_name=label;waypoint_map=mapname;
+waypoint_x=x;waypoint_y=y;waypoint_z=z;
+speak("Guiding you to "+label+", "+describe_offset(x,y,z)+". Open points of interest again to stop.");
+waypoint_timer.restart();
+waypoint_pulse();
+}
+void waypoint_clear(bool announce=true)
+{
+if(waypoint_name=="")return;
+if(announce)speak("Stopped guiding you to "+waypoint_name+".");
+waypoint_name="";
+}
+void waypoint_pulse()
+{
+distpool.play_3d("executioners_rage/ui/beacon.wav",me.x,me.y,me.z,waypoint_x,waypoint_y,waypoint_z,calculate_theta(facing),false);
+}
+// Called from every match loop.
+void waypoint_tick()
+{
+if(waypoint_name=="")return;
+if(waypoint_map!=mapname){waypoint_name="";return;}
+double flat=sqrt(power(waypoint_x-me.x,2)+power(waypoint_y-me.y,2));
+double rise=absolute(waypoint_z-me.z);
+if(flat<=3 and rise<=2)
+{
+p.play_stationary("executioners_rage/ui/beacon_dest.wav",false);
+speak("You have reached "+waypoint_name+".");
+waypoint_name="";
+return;
+}
+// Every two and a half seconds far away, down to under a second close by.
+double interval=700+flat*20;
+if(interval>2500)interval=2500;
+if(waypoint_timer.elapsed<interval)return;
+waypoint_timer.restart();
+waypoint_pulse();
+}

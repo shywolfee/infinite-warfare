@@ -317,12 +317,13 @@ bool helpers_servicing=false;
 // keeps a screen opened by a network message from servicing it again
 // underneath itself.
 int form_net_depth=0;
+// The forms' own network pump (pump_network_for_form) now does this for the
+// lobby and the match alike; this stays for the older list menus, which do
+// not have that hook.
 void form_network_keepalive()
 {
-if(!connected or mapname=="" or mapname=="main" or form_net_depth>0)return;
-form_net_depth++;
-netloop(false);
-form_net_depth--;
+if(!connected or form_net_depth>0)return;
+if(@default_nv_form_network_pump!=null)default_nv_form_network_pump();
 }
 // Returning to the main menu or lobby unwinds straight through whatever was
 // running, including a guarded call above; this puts the guards back.

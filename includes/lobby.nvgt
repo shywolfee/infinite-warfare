@@ -92,12 +92,12 @@ void lobby_buffer_controls()
 {
 if(kb_action_pressed("chat")) lobby_chat_prompt();
 chat_channel_shortcuts();
-if (key_pressed(kb("buffer_left")))
+if (action_pressed("buffer_left"))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) firstbuffer();
 else bufferleft();
 }
-if (key_pressed(kb("buffer_right")))
+if (action_pressed("buffer_right"))
 {
 if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) lastbuffer();
 else bufferright();
@@ -128,7 +128,10 @@ lobby_keepalive_timer.restart();
 send_reliable(0, "transport_ping", 19);
 }
 e=n.request();
-if (e.type==event_disconnect or (connected and last_server_msg.elapsed>8000))
+// Silence only counts when nothing is waiting to be read. A screen that held
+// up the game for a few seconds came back to a queue of messages from the
+// server and was declared disconnected before reading any of them.
+if (server_event_disconnect(e) or (connected and e.type==event_none and last_server_msg.elapsed>12000))
 {
 speak("You have been disconnected from the server.");
 connected=false;
@@ -156,6 +159,11 @@ add_buffer_item("chats", msg);
 }
 else if (e.channel==2)
 {remember_pm_sender(msg);if(string_contains(msg,"Team: ",1)==0)p.play_stationary("teamchat.ogg",false);add_buffer_item("misc", msg);}
+// Chat and group traffic arrives here too while you are in the lobby. It
+// used to be dropped, so messages to your language channel, private
+// messages and group chat sent while you were in the lobby never arrived.
+else if (e.channel==0 and handle_chat_protocol(msg)) {}
+else if (e.channel==0 and handle_group_packet(msg)) {}
 else if (msg=="updating")
 {
 dlg("The server is restarting for an update. Please reconnect shortly.");
@@ -207,7 +215,7 @@ while(mwait.elapsed < 3000)
 {
 wait(5);
 e=n.request();
-if(e.type==event_disconnect)
+if(server_event_disconnect(e))
 {
 speak("You have been disconnected from the server.");
 connected=false;
@@ -412,7 +420,7 @@ while (pt.elapsed<3000)
 {
 wait(5);
 e=n.request();
-if (e.type==event_disconnect)
+if (server_event_disconnect(e))
 {
 speak("Disconnected from server.");
 connected=false;
@@ -717,10 +725,10 @@ wait(5);
 f.monitor();
 lobby_form_netcheck();
 if(key_pressed(KEY_ESCAPE)){list.set_pos(list.items.length()-1,true,true);speak("Leave the lobby");}
-else if(key_pressed(kb("player_list")))chosen="players";
-else if(key_pressed(kb("motd")))send_reliable(0,"motd",0);
-else if(key_pressed(kb("server_uptime")))send_reliable(0,"uptime",0);
-else if(key_pressed(kb("ping")) and !pinging)
+else if(action_pressed("player_list"))chosen="players";
+else if(action_pressed("motd"))send_reliable(0,"motd",0);
+else if(action_pressed("server_uptime"))send_reliable(0,"uptime",0);
+else if(action_pressed("ping") and !pinging)
 {
 pinging=true;
 pingtimer.restart();

@@ -1,0 +1,243 @@
+// Groups: the client side of the group chat system (the server's is
+// iwserver/includes/groups.nvgt).
+//
+// The group chat key speaks in your quick-chat group; the groups key opens a
+// list of your groups and invitations. Each group opens to its members, who
+// is online and what you can do there. Every change -- someone joining,
+// leaving, being invited, removed or promoted, a group being created or
+// disbanded -- has its own sound and goes into the groups buffer.
+
+class client_group_member
+{
+string name,role;
+bool online;
+}
+class client_group
+{
+string name,role;
+client_group_member@[] members;
+}
+class client_group_invite
+{
+string group,from;
+}
+client_group@[] my_groups;
+client_group_invite@[] my_group_invites;
+bool group_state_received=false;
+string quick_group="";
+
+string group_unescape(string value)
+{
+value=string_replace(value,"%7E","~",true);
+value=string_replace(value,"%2C",",",true);
+value=string_replace(value,"%3B",";",true);
+value=string_replace(value,"%7C","|",true);
+return string_replace(value,"%25","%",true);
+}
+void group_request(const string &in action,const string &in group="",const string &in arg="")
+{
+send_reliable(0,"/group :"+action+"|"+group+"|"+arg,1);
+}
+
+// group_state|group;group|invite;invite, where a group is
+// name,myrole,member~role~online,... and an invite is group~from.
+void receive_group_state(const string &in message)
+{
+string[] parts=string_split(message,"|",false);
+my_groups.resize(0);
+my_group_invites.resize(0);
+if(parts.length()>1 and parts[1]!="")
+{
+string[] groups=string_split(parts[1],";",false);
+for(uint i=0;i<groups.length();i++)
+{
+string[] fields=string_split(groups[i],",",false);
+if(fields.length()<2)continue;
+client_group g;
+g.name=group_unescape(fields[0]);
+g.role=fields[1];
+for(uint k=2;k<fields.length();k++)
+{
+string[] m=string_split(fields[k],"~",false);
+if(m.length()<3)continue;
+client_group_member member;
+member.name=group_unescape(m[0]);member.role=m[1];member.online=m[2]=="1";
+g.members.insert_last(member);
+}
+my_groups.insert_last(g);
+}
+}
+if(parts.length()>2 and parts[2]!="")
+{
+string[] invites=string_split(parts[2],";",false);
+for(uint i=0;i<invites.length();i++)
+{
+string[] f=string_split(invites[i],"~",false);
+if(f.length()<2)continue;
+client_group_invite inv;inv.group=group_unescape(f[0]);inv.from=group_unescape(f[1]);
+my_group_invites.insert_last(inv);
+}
+}
+if(quick_group!="" and group_named(quick_group) is null)quick_group="";
+group_state_received=true;
+}
+
+// group_event|kind|group|text
+void receive_group_event(const string &in message)
+{
+string[] parts=string_split(message,"|",false);
+if(parts.length()<4)return;
+string kind=parts[1],text=chat_unescape(parts[3]);
+if(!buffer_exist("groups"))create_buffer("groups","group/message.ogg");
+string cue=kind=="info"?ui_sound("notify"):"group/"+kind+".ogg";
+add_buffer_item("groups",text,cue);
+}
+
+bool handle_group_packet(const string &in message)
+{
+if(string_contains(message,"group_state|",1)==0){receive_group_state(message);return true;}
+if(string_contains(message,"group_event|",1)==0){receive_group_event(message);return true;}
+return false;
+}
+
+client_group@ group_named(const string &in name)
+{
+for(uint i=0;i<my_groups.length();i++)if(string_to_lower_case(my_groups[i].name)==string_to_lower_case(name))return my_groups[i];
+return null;
+}
+int group_online_count(client_group@ g){int n=0;for(uint i=0;i<g.members.length();i++)if(g.members[i].online)n++;return n;}
+
+void group_pump(){if(mapname=="" or mapname=="main")lobby_form_netcheck();else netloop(false);}
+bool refresh_groups()
+{
+group_state_received=false;
+group_request("state");
+timer t;
+while(!group_state_received and t.elapsed<2500){wait(5);group_pump();}
+if(!group_state_received)speak("The server did not send your groups.");
+return group_state_received;
+}
+
+void group_say(const string &in group)
+{
+string text=af_input("Message to "+group,"",true).trim_whitespace();
+if(text=="")return;
+group_request("say",group,text);
+p.play_stationary("group/send.ogg",false);
+}
+
+// The group chat key: straight to a message when there is an obvious group
+// to send it to, otherwise to the groups list.
+void group_chat_key()
+{
+if(!refresh_groups())return;
+if(my_groups.length()==0){speak("You are not in a group.");groups_menu();return;}
+if(quick_group!=""){group_say(quick_group);return;}
+if(my_groups.length()==1){group_say(my_groups[0].name);return;}
+string[] labels,ids;
+for(uint i=0;i<my_groups.length();i++){labels.insert_last(my_groups[i].name);ids.insert_last(my_groups[i].name);}
+string chosen=pick_from_list("Send to which group?",labels,ids);
+if(chosen!="")group_say(chosen);
+}
+
+string group_role_words(const string &in role){return role=="owner"?"owner":(role=="moderator"?"moderator":"member");}
+
+void groups_menu()
+{
+while(true)
+{
+if(!refresh_groups())return;
+string[] labels,ids;
+for(uint i=0;i<my_group_invites.length();i++){labels.insert_last("Invitation to "+my_group_invites[i].group+" from "+my_group_invites[i].from);ids.insert_last("invite:"+i);}
+for(uint i=0;i<my_groups.length();i++)
+{
+client_group@ g=my_groups[i];
+labels.insert_last(g.name+", "+group_role_words(g.role)+", "+group_online_count(g)+" of "+g.members.length()+" online"+(string_to_lower_case(quick_group)==string_to_lower_case(g.name)?", quick chat":""));
+ids.insert_last("group:"+g.name);
+}
+labels.insert_last("Create a group");ids.insert_last("create");
+string chosen=pick_from_list("Groups",labels,ids);
+if(chosen=="")return;
+if(chosen=="create")
+{
+string name=af_input("Name for the new group","",true).trim_whitespace();
+if(name!="")group_request("create",name);
+wait_group_update();
+}
+else if(chosen.substr(0,7)=="invite:")
+{
+client_group_invite@ inv=my_group_invites[int(string_to_number(chosen.substr(7)))];
+string[] al={"Join "+inv.group,"Decline"};string[] ai={"accept","decline"};
+string act=pick_from_list("Invitation from "+inv.from,al,ai);
+if(act!=""){group_request(act,inv.group);wait_group_update();}
+}
+else group_screen(chosen.substr(6));
+}
+}
+// Gives a request a moment to come back before the list is rebuilt.
+void wait_group_update(){timer t;while(t.elapsed<400){wait(5);group_pump();}}
+
+void group_screen(const string &in name)
+{
+while(true)
+{
+if(!refresh_groups())return;
+client_group@ g=group_named(name);
+if(g is null){speak("You are no longer in "+name+".");return;}
+bool owner=g.role=="owner",manager=g.role!="member";
+string[] labels,ids;
+labels.insert_last("Send a message to "+g.name);ids.insert_last("say");
+for(uint i=0;i<g.members.length();i++)
+{
+client_group_member@ m=g.members[i];
+bool self=string_to_lower_case(m.name)==string_to_lower_case(name_of_player());
+labels.insert_last(m.name+(self?" (you)":"")+", "+group_role_words(m.role)+", "+(m.online?"online":"offline"));
+ids.insert_last("member:"+i);
+}
+if(manager){labels.insert_last("Invite someone");ids.insert_last("invite");}
+if(my_groups.length()>1 and string_to_lower_case(quick_group)!=string_to_lower_case(g.name)){labels.insert_last("Make this your quick-chat group");ids.insert_last("quick");}
+if(owner){labels.insert_last("Rename the group");ids.insert_last("rename");}
+labels.insert_last("Leave the group");ids.insert_last("leave");
+if(owner){labels.insert_last("Disband the group");ids.insert_last("disband");}
+string chosen=pick_from_list(g.name,labels,ids);
+if(chosen=="")return;
+if(chosen=="say")group_say(g.name);
+else if(chosen=="quick"){quick_group=g.name;speak("The group chat key now speaks in "+g.name+".");}
+else if(chosen=="rename"){string n=af_input("New name for "+g.name,g.name,true).trim_whitespace();if(n!="" and n!=g.name){group_request("rename",g.name,n);wait_group_update();return;}}
+else if(chosen=="leave"){if(yesno("Leave "+g.name+"?")==1){group_request("leave",g.name);wait_group_update();return;}}
+else if(chosen=="disband"){if(yesno("Disband "+g.name+" for everyone in it?")==1){group_request("disband",g.name);wait_group_update();return;}}
+else if(chosen=="invite")
+{
+speak("Fetching the players online.");
+string[] online=fetch_player_list();
+string[] pl,pi;
+for(uint i=0;i<online.length();i++)
+{
+string who=player_name_from_list_label(online[i]);
+if(who=="" or string_to_lower_case(who)==string_to_lower_case(name_of_player()))continue;
+bool member=false;for(uint k=0;k<g.members.length();k++)if(string_to_lower_case(g.members[k].name)==string_to_lower_case(who))member=true;
+if(member)continue;
+pl.insert_last(online[i]);pi.insert_last(who);
+}
+if(pl.length()==0){speak("Everyone online is already in "+g.name+".");continue;}
+string who=pick_from_list("Invite to "+g.name,pl,pi);
+if(who!=""){group_request("invite",g.name,who);wait_group_update();}
+}
+else if(chosen.substr(0,7)=="member:")
+{
+client_group_member@ m=g.members[int(string_to_number(chosen.substr(7)))];
+if(string_to_lower_case(m.name)==string_to_lower_case(name_of_player())){speak("That is you.");continue;}
+string[] al,ai;
+if(owner or (manager and m.role=="member")){al.insert_last("Remove "+m.name+" from the group");ai.insert_last("kick");}
+if(owner){al.insert_last(m.role=="moderator"?"Stop "+m.name+" being a moderator":"Make "+m.name+" a moderator");ai.insert_last("promote");}
+if(owner){al.insert_last("Hand the group to "+m.name);ai.insert_last("transfer");}
+if(al.length()==0){speak(m.name+", "+group_role_words(m.role)+", "+(m.online?"online":"offline")+".");continue;}
+string act=pick_from_list(m.name,al,ai);
+if(act=="")continue;
+if(act=="kick" and yesno("Remove "+m.name+" from "+g.name+"?")!=1)continue;
+if(act=="transfer" and yesno("Hand "+g.name+" to "+m.name+"? You will become a moderator.")!=1)continue;
+group_request(act,g.name,m.name);wait_group_update();
+}
+}
+}
+string name_of_player(){return name;}

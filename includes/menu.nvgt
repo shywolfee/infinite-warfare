@@ -313,6 +313,16 @@ class changelog_release
 string heading;
 string[] entries;
 }
+// "0.5.2, 45 changes, build 86 (2026-09-22)": the version and how much is in
+// it come first, and the build number, which few players need, comes last
+// where it can be skipped.
+string changelog_release_label(changelog_release@ r)
+{
+string count=r.entries.length()+(r.entries.length()==1?" change":" changes");
+int b=r.heading.find(", build ");
+if(b<0)return r.heading+", "+count;
+return r.heading.substr(0,b)+", "+count+", "+r.heading.substr(b+2);
+}
 changelog_release@[] parse_changelog(const string &in text)
 {
 changelog_release@[] releases;
@@ -342,7 +352,7 @@ if(releases.length()==0){dlg("The changelog, changes.txt, is missing from the ga
 nv_form f;
 f.create_window("What's new", false, true);
 nv_form_list_box@ list=f.add_list("Releases, newest first","releases");
-for(uint i=0;i<releases.length();i++)list.add(releases[i].heading+", "+releases[i].entries.length()+(releases[i].entries.length()==1?" change":" changes"),""+i);
+for(uint i=0;i<releases.length();i++)list.add(changelog_release_label(releases[i]),""+i);
 nv_form_button@ open=f.add_button("Read","read",true);
 nv_form_button@ close=f.add_button("Close","close",false,true);
 f.focus_control(list);
@@ -1266,8 +1276,9 @@ if(f.is_pressed(close))return;
 }
 }
 // Every sound worth knowing before it matters, one list with the category in
-// each name. Moving onto a sound plays it; Enter plays it again. It used to
-// be two lists and a Play button that had to be tabbed to for every sound.
+// each name. Enter plays the sound you are on; moving through the list is
+// quiet, so you can hunt for a particular sound without hearing every one on
+// the way.
 void learn_game_sounds()
 {
 string[] labels,files;
@@ -1322,29 +1333,36 @@ labels.insert_last("Menus: Pasted");files.insert_last(ui_sound("paste"));
 labels.insert_last("Menus: Selected everything");files.insert_last(ui_sound("select"));
 labels.insert_last("Menus: Tree branch opened");files.insert_last(ui_sound("expand"));
 labels.insert_last("Menus: Tree branch closed");files.insert_last(ui_sound("collapse"));
+labels.insert_last("Groups: A message from one of your groups");files.insert_last("group/message.ogg");
+labels.insert_last("Groups: Your message was sent");files.insert_last("group/send.ogg");
+labels.insert_last("Groups: Someone joined a group");files.insert_last("group/join.ogg");
+labels.insert_last("Groups: Someone left a group");files.insert_last("group/leave.ogg");
+labels.insert_last("Groups: You were invited to a group");files.insert_last("group/invite.ogg");
+labels.insert_last("Groups: Your invitation was declined");files.insert_last("group/declined.ogg");
+labels.insert_last("Groups: You were removed from a group");files.insert_last("group/kicked.ogg");
+labels.insert_last("Groups: A group was disbanded");files.insert_last("group/disband.ogg");
+labels.insert_last("Groups: You created a group");files.insert_last("group/create.ogg");
+labels.insert_last("Groups: Someone was promoted, or a group was renamed");files.insert_last("group/promote.ogg");
 labels.insert_last("Menus: Error");files.insert_last(ui_sound("error"));
 labels.insert_last("Menus: Voice command listening");files.insert_last(ui_sound("listen"));
 labels.insert_last("Menus: Voice command heard");files.insert_last(ui_sound("listen_end"));
 nv_form f;
 f.create_window("Learn the game's sounds", false, true);
-nv_form_list_box@ list=f.add_list("Sounds. Moving onto one plays it.","sounds");
+nv_form_list_box@ list=f.add_list("Sounds. Enter plays the one you are on.","sounds");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],""+i);
-nv_form_button@ again=f.add_button("Play again","play",true);
+nv_form_button@ again=f.add_button("Play","play",true);
 again.hidden=true;
 nv_form_button@ close=f.add_button("Close","close",false,true);
 f.focus_control(list);
 sound preview;
-int last=-2;
 while(true)
 {
 wait(5);
 f.monitor();
 if(connected)netloop();
 int now=list.list_position;
-bool replay=f.is_pressed(again);
-if((now!=last or replay) and now>=0 and now<int(files.length()))
+if(f.is_pressed(again) and now>=0 and now<int(files.length()))
 {
-last=now;
 preview.close();
 preview.load(files[now]);
 preview.play();
@@ -1891,7 +1909,7 @@ dlg("Access denied. You are not an administrator.");
 return;
 }
 }
-if(e.type==event_disconnect)
+if(server_event_disconnect(e))
 {
 speak("Disconnected from server.");
 return;

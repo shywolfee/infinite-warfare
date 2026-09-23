@@ -41,6 +41,16 @@ client_check(rel.length()==2 and rel[0].heading=="2.0, build 9 (x)" and rel[0].e
 client_check(html_to_text("<style>p{x:1}</style><h1>Title</h1><p>A &amp; B</p>")=="Title\n\nA & B","manual text skips styles and decodes entities");
 team_state_members="Ana (owner), Bo Ren (manager), Cy (member)";string[] tn,tr;team_member_list(tn,tr);
 client_check(tn.length()==3 and tn[1]=="Bo Ren" and tr[1]=="manager" and tr[0]=="owner","team members parse with spaces in names");
+client_checkpoint("item data");
+int loaded=load_item_catalogue(SCRIPT_MAIN_PATH+"/../../iwserver/content/items");
+client_check(loaded>=200,"item files load ("+loaded+")");
+client_check(armour_slot("carrier_missile")=="" and item_is_launched_explosive("carrier_missile"),"carrier missile is a launched explosive and not armour");
+client_check(armour_slot("plate_carrier")=="torso" and armour_rating("plate_carrier")==40 and armour_durability("plate_carrier")==1250,"plate carrier stats come from its file");
+client_check(armour_slot("bomb_vest")=="","bomb vest is body equipment, not torso armour");
+client_check(patch_repairs("aramid_repair_tape","tactical_greaves") and !patch_repairs("aramid_repair_tape","heavy_plate_carrier"),"patches repair what they list");
+string[] visible={"Ammo","Armour","Armour Repair","Containers","Electronics","Equipment","Explosives","Healing","Team","Tools","Utility","Vehicle Supplies","Weapon Maintenance"};bool categories_ok=true;
+for(uint i=0;i<item_catalogue.length();i++)if(visible.find(item_catalogue[i].category)<0){categories_ok=false;client_test_results+="  unknown category "+item_catalogue[i].category+" for "+item_catalogue[i].id+"\n";}
+client_check(categories_ok,"every item file names a known category");
 client_test_results+="Failures: "+client_test_failures+"\n";
 client_checkpoint("finished");
 }

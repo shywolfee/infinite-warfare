@@ -1,0 +1,131 @@
+// The item catalogue, read from data files the way weapons are.
+//
+// Every item that is not a weapon lives in its own file under content/items,
+// in a folder for its category, as plain key=value lines:
+//
+//   name=Plate Carrier
+//   category=Armour
+//   summary=Medium torso protection using ballistic plates.
+//   give_amount=1
+//   armour_slot=torso
+//   armour_rating=40
+//   armour_durability=1250
+//   armour_weight=7
+//
+// Any other key is kept and can be read with item_prop(). Adding an item, or
+// changing what one does, is a matter of editing a file: nothing about an item
+// is worked out from the words in its name any more. That guessing is how a
+// Carrier-Breaker missile came to be equipped as a plate carrier -- its id
+// contained "carrier" -- and it decided every armour piece's slot, protection,
+// durability and weight, and which patches fitted it.
+//
+// Both the client and the server include this file, so they read the same
+// data and cannot disagree about an item.
+
+class item_data
+{
+string id,name,category,summary;
+int give_amount=1;
+dictionary props;
+}
+item_data@[] item_catalogue;
+dictionary item_catalogue_index;
+
+string item_data_directory()
+{
+if(directory_exists("iwserver/content/items"))return "iwserver/content/items";
+if(directory_exists("content/items"))return "content/items";
+return "";
+}
+
+item_data@ parse_item_file(const string &in id,const string &in text)
+{
+item_data d;
+d.id=id;
+string[] lines=string_split(text,"\n",false);
+for(uint i=0;i<lines.length();i++)
+{
+string line=lines[i];
+if(line.length()>0 and line.substr(line.length()-1)=="\r")line=line.substr(0,line.length()-1);
+if(line=="" or line.substr(0,1)=="#")continue;
+int eq=line.find("=");
+if(eq<=0)continue;
+string key=line.substr(0,eq).trim_whitespace(),value=line.substr(eq+1).trim_whitespace();
+if(key=="name")d.name=value;
+else if(key=="category")d.category=value;
+else if(key=="summary")d.summary=value;
+else if(key=="give_amount")d.give_amount=int(string_to_number(value));
+else d.props.set(key,value);
+}
+if(d.name=="")d.name=string_replace(id,"_"," ",true);
+return d;
+}
+
+// Returns how many items were loaded.
+int load_item_catalogue(const string &in from="")
+{
+item_catalogue.resize(0);
+item_catalogue_index.delete_all();
+string root=from!=""?from:item_data_directory();
+if(root=="")return 0;
+string[] folders=find_directories(root+"/*");
+folders.insert_at(0,"");
+for(uint f=0;f<folders.length();f++)
+{
+string dir=folders[f]==""?root:root+"/"+folders[f];
+string[] files=find_files(dir+"/*.item");
+for(uint i=0;i<files.length();i++)
+{
+file fh;
+if(!fh.open(dir+"/"+files[i],"rb"))continue;
+string text=fh.read();
+fh.close();
+string id=files[i].substr(0,files[i].length()-5);
+if(item_catalogue_index.exists(id))continue;
+item_catalogue_index.set(id,int(item_catalogue.length()));
+item_catalogue.insert_last(parse_item_file(id,text));
+}
+}
+return item_catalogue.length();
+}
+
+item_data@ item_info(const string &in id)
+{
+int index=-1;
+if(!item_catalogue_index.get(id,index) or index<0 or index>=int(item_catalogue.length()))return null;
+return item_catalogue[index];
+}
+string item_prop(const string &in id,const string &in key,const string &in fallback="")
+{
+item_data@ d=item_info(id);
+if(d is null)return fallback;
+string value;
+if(!d.props.get(key,value))return fallback;
+return value;
+}
+int item_prop_int(const string &in id,const string &in key,int fallback=0)
+{
+string value=item_prop(id,key);
+return value==""?fallback:int(string_to_number(value));
+}
+bool item_flag(const string &in id,const string &in key){return item_prop(id,key)=="true";}
+string[] item_prop_list(const string &in id,const string &in key)
+{
+string[] result;
+string value=item_prop(id,key);
+if(value=="")return result;
+string[] parts=string_split(value,",",false);
+for(uint i=0;i<parts.length();i++){string p=parts[i].trim_whitespace();if(p!="")result.insert_last(p);}
+return result;
+}
+
+// Armour. An item is armour when its file names the body slot it covers.
+string armour_slot(const string &in id){return item_prop(id,"armour_slot");}
+int armour_rating(const string &in id){return item_prop_int(id,"armour_rating");}
+int armour_durability(const string &in id){return item_prop_int(id,"armour_durability");}
+int armour_weight(const string &in id){return item_prop_int(id,"armour_weight");}
+// A patch lists the armour it repairs.
+bool is_armour_patch(const string &in id){return item_prop(id,"repairs")!="";}
+bool patch_repairs(const string &in patch,const string &in armour){return armour!="" and item_prop_list(patch,"repairs").find(armour)>=0;}
+// Guided missiles and cannon balls are fired rather than thrown.
+bool item_is_launched_explosive(const string &in id){return item_flag(id,"launched");}

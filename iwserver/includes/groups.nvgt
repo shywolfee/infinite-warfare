@@ -1,0 +1,332 @@
+// Group chat.
+//
+// A group is a named chat room with an owner, moderators and members, kept
+// on the server between restarts. You can belong to up to five. Joining one
+// takes an invitation you accept, not someone adding you without asking;
+// owners and moderators invite and remove people, the owner promotes
+// moderators, hands the group on, renames or disbands it, and everyone can
+// leave. Every change is announced to the group with its own sound.
+//
+// The client drives this with structured requests, "/group :action|group|arg",
+// and receives the state of all your groups as group_state and changes as
+// group_event (see includes/groups.nvgt on the client). The typed commands
+// /group create, /group chat, /group leave and /group info still work.
+
+class chat_group
+{
+string name,owner;
+string[] members;
+string[] moderators;
+}
+chat_group@[] chat_groups;
+class group_invite
+{
+string group,from,to;
+timer age;
+}
+group_invite@[] group_invites;
+const int GROUP_LIMIT_PER_PLAYER=5;
+const int GROUP_MEMBER_LIMIT=32;
+const int GROUP_INVITE_LIFETIME=600000;
+const string GROUPS_FILE="groups.svr";
+
+string group_escape(string value)
+{
+value=string_replace(value,"%","%25",true);
+value=string_replace(value,"|","%7C",true);
+value=string_replace(value,";","%3B",true);
+value=string_replace(value,",","%2C",true);
+return string_replace(value,"~","%7E",true);
+}
+string group_unescape(string value)
+{
+value=string_replace(value,"%7E","~",true);
+value=string_replace(value,"%2C",",",true);
+value=string_replace(value,"%3B",";",true);
+value=string_replace(value,"%7C","|",true);
+return string_replace(value,"%25","%",true);
+}
+bool same_name(const string &in a,const string &in b){return string_to_lower_case(a)==string_to_lower_case(b);}
+int name_index(const string[] &in list,const string &in who){for(uint i=0;i<list.length();i++)if(same_name(list[i],who))return i;return -1;}
+
+int group_find(const string &in name){for(uint i=0;i<chat_groups.length();i++)if(same_name(chat_groups[i].name,name))return i;return -1;}
+bool group_member(chat_group@ g,const string &in who){return name_index(g.members,who)>=0;}
+bool group_is_owner(chat_group@ g,const string &in who){return same_name(g.owner,who);}
+bool group_can_manage(chat_group@ g,const string &in who){return group_is_owner(g,who) or name_index(g.moderators,who)>=0;}
+string group_role(chat_group@ g,const string &in who){if(group_is_owner(g,who))return "owner";if(name_index(g.moderators,who)>=0)return "moderator";return "member";}
+int groups_of(const string &in who){int n=0;for(uint i=0;i<chat_groups.length();i++)if(group_member(chat_groups[i],who))n++;return n;}
+// Kept for anything still asking for "the" group of a player: the first one.
+int chat_group_index_for(string member){for(uint i=0;i<chat_groups.length();i++)if(group_member(chat_groups[i],member))return i;return -1;}
+
+// Every connection this account currently has, in a match or in the lobby.
+uint[] peers_for(const string &in who)
+{
+uint[] result;
+int pi=get_player_index_from(who);
+if(pi>=0)result.insert_last(players[pi].peer_id);
+for(uint li=0;li<lobby_clients.length();li++)if(same_name(lobby_clients[li].name,who))result.insert_last(lobby_clients[li].peer_id);
+return result;
+}
+bool account_online(const string &in who){return peers_for(who).length()>0;}
+void send_to_account(const string &in who,const string &in message,int channel)
+{
+uint[] peers=peers_for(who);
+for(uint i=0;i<peers.length();i++)send_reliable(peers[i],message,channel);
+}
+
+void save_groups()
+{
+string data;
+for(uint i=0;i<chat_groups.length();i++)
+{
+chat_group@ g=chat_groups[i];
+string[] m,o;
+for(uint k=0;k<g.members.length();k++)m.insert_last(group_escape(g.members[k]));
+for(uint k=0;k<g.moderators.length();k++)o.insert_last(group_escape(g.moderators[k]));
+data+=group_escape(g.name)+"|"+group_escape(g.owner)+"|"+chat_join(m,",")+"|"+chat_join(o,",")+"\n";
+}
+file f;
+if(f.open(GROUPS_FILE,"wb")){f.write(data);f.close();}
+}
+void load_groups()
+{
+chat_groups.resize(0);
+if(!file_exists(GROUPS_FILE))return;
+file f;
+if(!f.open(GROUPS_FILE,"rb"))return;
+string[] lines=string_split(string_replace(f.read(),"\r","",true),"\n",false);
+f.close();
+for(uint i=0;i<lines.length();i++)
+{
+string[] fields=string_split(lines[i],"|",false);
+if(fields.length()<3)continue;
+chat_group g;
+g.name=group_unescape(fields[0]);
+g.owner=group_unescape(fields[1]);
+string[] m=string_split(fields[2],",",false);
+for(uint k=0;k<m.length();k++)if(m[k]!="")g.members.insert_last(group_unescape(m[k]));
+if(fields.length()>3){string[] o=string_split(fields[3],",",false);for(uint k=0;k<o.length();k++)if(o[k]!="")g.moderators.insert_last(group_unescape(o[k]));}
+if(g.name!="" and g.members.length()>0)chat_groups.insert_last(g);
+}
+}
+
+// What one account sees: every group it is in, with members, their roles and
+// who is online, and the invitations waiting for it.
+void send_group_state(const string &in who)
+{
+string groups;
+for(uint i=0;i<chat_groups.length();i++)
+{
+chat_group@ g=chat_groups[i];
+if(!group_member(g,who))continue;
+if(groups!="")groups+=";";
+groups+=group_escape(g.name)+","+group_role(g,who);
+for(uint k=0;k<g.members.length();k++)groups+=","+group_escape(g.members[k])+"~"+group_role(g,g.members[k])+"~"+(account_online(g.members[k])?"1":"0");
+}
+string invites;
+for(uint i=0;i<group_invites.length();i++)
+{
+if(!same_name(group_invites[i].to,who))continue;
+if(invites!="")invites+=";";
+invites+=group_escape(group_invites[i].group)+"~"+group_escape(group_invites[i].from);
+}
+send_to_account(who,"group_state|"+groups+"|"+invites,0);
+}
+void refresh_group(chat_group@ g){for(uint k=0;k<g.members.length();k++)send_group_state(g.members[k]);}
+
+// A change in a group: every member hears its sound and reads its line.
+void group_event(chat_group@ g,const string &in kind,const string &in text,const string &in except="")
+{
+for(uint k=0;k<g.members.length();k++)if(!same_name(g.members[k],except))send_to_account(g.members[k],"group_event|"+kind+"|"+chat_escape(g.name)+"|"+chat_escape(text),0);
+}
+void group_notice(const string &in who,const string &in kind,const string &in group,const string &in text){send_to_account(who,"group_event|"+kind+"|"+chat_escape(group)+"|"+chat_escape(text),0);}
+void group_reply(uint peer,const string &in text){send_reliable(peer,"group_event|info||"+chat_escape(text),0);}
+
+void send_group_message(int group_index,string sender,string body)
+{
+chat_group@ g=chat_groups[group_index];
+recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=body;record.scope="group:"+g.name;record.timestamp=chat_timestamp(false);
+for(uint m=0;m<g.members.length();m++)
+{
+string member=g.members[m];
+if(chat_is_blocked(member,sender))continue;
+uint[] peers=peers_for(member);
+for(uint p=0;p<peers.length();p++)send_chat_event(peers[p],record.scope,sender,body,record);
+}
+recent_chat_messages.insert_last(record);
+}
+
+void expire_group_invites()
+{
+for(int i=int(group_invites.length())-1;i>=0;i--)if(group_invites[i].age.elapsed>GROUP_INVITE_LIFETIME or group_find(group_invites[i].group)<0)group_invites.remove_at(i);
+}
+int invite_index(const string &in group,const string &in to){for(uint i=0;i<group_invites.length();i++)if(same_name(group_invites[i].group,group) and same_name(group_invites[i].to,to))return i;return -1;}
+
+bool valid_group_name(const string &in name){return name.length()>=1 and name.length()<=32 and name.find("|")<0;}
+
+void remove_member(chat_group@ g,const string &in who)
+{
+int m=name_index(g.members,who);if(m>=0)g.members.remove_at(m);
+int o=name_index(g.moderators,who);if(o>=0)g.moderators.remove_at(o);
+}
+// A group with nobody left in it is gone; one whose owner left passes to its
+// longest-standing moderator, or its longest-standing member.
+void settle_group(int gi)
+{
+chat_group@ g=chat_groups[gi];
+if(g.members.length()==0){chat_groups.remove_at(gi);return;}
+if(group_member(g,g.owner))return;
+g.owner=g.moderators.length()>0?g.moderators[0]:g.members[0];
+int o=name_index(g.moderators,g.owner);if(o>=0)g.moderators.remove_at(o);
+group_event(g,"promote",g.owner+" now owns "+g.name+".");
+}
+
+// action|group|argument from the client's group screens.
+void handle_group_request(uint peer,const string &in actor,const string &in request)
+{
+expire_group_invites();
+string[] f=string_split(request,"|",false);
+string action=f.length()>0?string_to_lower_case(f[0].trim_whitespace()):"";
+string group=f.length()>1?f[1].trim_whitespace():"";
+// Everything after the second bar is the argument, so a message may contain bars.
+string arg="";
+if(f.length()>2){int first=request.find("|");int second=request.find("|",first+1);arg=request.substr(second+1).trim_whitespace();}
+if(action=="state"){send_group_state(actor);return;}
+if(action=="create")
+{
+if(!valid_group_name(group)){group_reply(peer,"A group name is one to thirty-two characters.");return;}
+if(group_find(group)>=0){group_reply(peer,"There is already a group called "+group+".");return;}
+if(groups_of(actor)>=GROUP_LIMIT_PER_PLAYER){group_reply(peer,"You are in "+GROUP_LIMIT_PER_PLAYER+" groups already; leave one first.");return;}
+chat_group g;g.name=group;g.owner=actor;g.members.insert_last(actor);chat_groups.insert_last(g);save_groups();
+group_notice(actor,"create",group,"You created "+group+". Invite people from its screen.");
+send_group_state(actor);return;
+}
+if(action=="accept" or action=="decline")
+{
+int ii=invite_index(group,actor);
+if(ii<0){group_reply(peer,"That invitation has expired or was withdrawn.");send_group_state(actor);return;}
+string from=group_invites[ii].from;group_invites.remove_at(ii);
+int gi=group_find(group);
+if(action=="decline"){group_notice(from,"declined",group,actor+" declined your invitation to "+group+".");send_group_state(actor);return;}
+if(gi<0){group_reply(peer,"That group no longer exists.");send_group_state(actor);return;}
+chat_group@ g=chat_groups[gi];
+if(groups_of(actor)>=GROUP_LIMIT_PER_PLAYER){group_reply(peer,"You are in "+GROUP_LIMIT_PER_PLAYER+" groups already; leave one first.");return;}
+if(g.members.length()>=uint(GROUP_MEMBER_LIMIT)){group_reply(peer,g.name+" is full.");return;}
+if(!group_member(g,actor))g.members.insert_last(actor);
+save_groups();group_event(g,"join",actor+" joined "+g.name+".");refresh_group(g);return;
+}
+int gi=group_find(group);
+if(gi<0){group_reply(peer,"There is no group called "+group+".");send_group_state(actor);return;}
+chat_group@ g=chat_groups[gi];
+if(!group_member(g,actor)){group_reply(peer,"You are not in "+g.name+".");return;}
+if(action=="say")
+{
+if(arg==""){return;}
+send_group_message(gi,actor,arg);return;
+}
+if(action=="leave")
+{
+remove_member(g,actor);
+group_notice(actor,"leave",g.name,"You left "+g.name+".");
+group_event(g,"leave",actor+" left "+g.name+".");
+settle_group(gi);save_groups();
+if(group_find(group)>=0)refresh_group(g);send_group_state(actor);return;
+}
+if(action=="invite")
+{
+if(!group_can_manage(g,actor)){group_reply(peer,"Only the owner and moderators of "+g.name+" can invite people.");return;}
+if(arg=="" or same_name(arg,actor)){group_reply(peer,"Choose someone to invite.");return;}
+if(group_member(g,arg)){group_reply(peer,arg+" is already in "+g.name+".");return;}
+if(!account_online(arg)){group_reply(peer,arg+" is not online.");return;}
+if(invite_index(g.name,arg)>=0){group_reply(peer,arg+" already has an invitation to "+g.name+".");return;}
+group_invite inv;inv.group=g.name;inv.from=actor;inv.to=arg;group_invites.insert_last(inv);
+group_notice(arg,"invite",g.name,actor+" invited you to "+g.name+". Open your groups to accept or decline.");
+group_reply(peer,"Invited "+arg+" to "+g.name+".");send_group_state(arg);return;
+}
+if(action=="kick")
+{
+if(!group_member(g,arg)){group_reply(peer,arg+" is not in "+g.name+".");return;}
+if(group_is_owner(g,arg) or (!group_is_owner(g,actor) and (!group_can_manage(g,actor) or group_can_manage(g,arg)))){group_reply(peer,"You cannot remove "+arg+" from "+g.name+".");return;}
+remove_member(g,arg);save_groups();
+group_notice(arg,"kicked",g.name,actor+" removed you from "+g.name+".");
+group_event(g,"leave",actor+" removed "+arg+" from "+g.name+".");
+refresh_group(g);send_group_state(arg);return;
+}
+if(action=="promote")
+{
+if(!group_is_owner(g,actor)){group_reply(peer,"Only the owner of "+g.name+" can appoint moderators.");return;}
+if(!group_member(g,arg) or group_is_owner(g,arg)){group_reply(peer,"Choose another member of "+g.name+".");return;}
+int o=name_index(g.moderators,arg);
+if(o>=0){g.moderators.remove_at(o);group_event(g,"leave",arg+" is no longer a moderator of "+g.name+".");}
+else{g.moderators.insert_last(arg);group_event(g,"promote",arg+" is now a moderator of "+g.name+".");}
+save_groups();refresh_group(g);return;
+}
+if(action=="transfer")
+{
+if(!group_is_owner(g,actor)){group_reply(peer,"Only the owner can hand "+g.name+" on.");return;}
+if(!group_member(g,arg) or same_name(arg,actor)){group_reply(peer,"Choose another member of "+g.name+".");return;}
+int o=name_index(g.moderators,arg);if(o>=0)g.moderators.remove_at(o);
+g.moderators.insert_last(actor);g.owner=arg;save_groups();
+group_event(g,"promote",arg+" now owns "+g.name+".");refresh_group(g);return;
+}
+if(action=="rename")
+{
+if(!group_is_owner(g,actor)){group_reply(peer,"Only the owner can rename "+g.name+".");return;}
+if(!valid_group_name(arg)){group_reply(peer,"A group name is one to thirty-two characters.");return;}
+int other=group_find(arg);if(other>=0 and other!=gi){group_reply(peer,"There is already a group called "+arg+".");return;}
+string old=g.name;g.name=arg;
+for(uint i=0;i<group_invites.length();i++)if(same_name(group_invites[i].group,old))group_invites[i].group=arg;
+save_groups();group_event(g,"promote",actor+" renamed "+old+" to "+arg+".");refresh_group(g);return;
+}
+if(action=="disband")
+{
+if(!group_is_owner(g,actor)){group_reply(peer,"Only the owner can disband "+g.name+".");return;}
+string[] members=g.members;string name=g.name;
+group_event(g,"disband",actor+" disbanded "+name+".");
+chat_groups.remove_at(gi);save_groups();
+for(uint k=0;k<members.length();k++)send_group_state(members[k]);
+return;
+}
+group_reply(peer,"Unknown group request.");
+}
+
+// The typed commands, for anyone who prefers them.
+bool handle_group_command(uint peer,string actor,string raw)
+{
+string rest=raw.length()>6?raw.substr(6).trim_whitespace():"";
+if(rest.substr(0,1)==":"){handle_group_request(peer,actor,rest.substr(1));return true;}
+string[] p=string_split(rest," ",true);
+string action=p.length()>0?string_to_lower_case(p[0]):"info";
+string tail=p.length()>0?rest.substr(p[0].length()).trim_whitespace():"";
+if(action=="create"){handle_group_request(peer,actor,"create|"+tail);return true;}
+int gi=chat_group_index_for(actor);
+if(action=="accept"){expire_group_invites();for(uint i=0;i<group_invites.length();i++)if(same_name(group_invites[i].to,actor)){handle_group_request(peer,actor,"accept|"+group_invites[i].group);return true;}group_reply(peer,"You have no group invitations.");return true;}
+if(gi<0){group_reply(peer,"You are not in a group. Create one with /group create name, or accept an invitation.");return true;}
+string gname=chat_groups[gi].name;
+if(action=="chat" or action=="say"){handle_group_request(peer,actor,"say|"+gname+"|"+tail);return true;}
+if(action=="leave"){handle_group_request(peer,actor,"leave|"+gname);return true;}
+if(action=="invite" or action=="add"){handle_group_request(peer,actor,"invite|"+gname+"|"+tail);return true;}
+string[] names;
+for(uint i=0;i<chat_groups.length();i++)if(group_member(chat_groups[i],actor))names.insert_last(chat_groups[i].name+" ("+group_role(chat_groups[i],actor)+")");
+group_reply(peer,"Your groups: "+chat_join(names,", ")+". Alt+Shift+Slash opens them; /group chat message speaks in the first.");
+return true;
+}
+
+// Let people in a group see a member arrive or go without asking.
+void group_presence_changed(const string &in who)
+{
+for(uint i=0;i<chat_groups.length();i++)if(group_member(chat_groups[i],who))refresh_group(chat_groups[i]);
+}
+
+// Logins and disconnects are noted here and applied a moment later, once the
+// connection has actually been added to or removed from the server's lists.
+string[] group_presence_queue;
+timer group_presence_timer;
+void group_presence_tick()
+{
+if(group_presence_queue.length()==0 or group_presence_timer.elapsed<250)return;
+group_presence_timer.restart();
+string[] names=group_presence_queue;
+group_presence_queue.resize(0);
+for(uint i=0;i<names.length();i++){group_presence_changed(names[i]);send_group_state(names[i]);}
+}

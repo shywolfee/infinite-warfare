@@ -222,10 +222,16 @@ bool server_weapon_has_attachment(player@ p,string weapon_name,string attachment
 void server_attach_weapon(player@ p,string weapon_name,string attachment){if(server_weapon_has_attachment(p,weapon_name,attachment))return;string data;p.weapon_attachment_state.get(weapon_name,data);if(data!="")data+="|";data+=attachment;p.weapon_attachment_state.set(weapon_name,data);}
 void server_detach_weapon(player@ p,string weapon_name,string attachment){string[] items=server_weapon_attachments(p,weapon_name);string data="";for(uint i=0;i<items.length();i++)if(items[i]!=attachment){if(data!="")data+="|";data+=items[i];}p.weapon_attachment_state.set(weapon_name,data);}
 
-string armor_region_for(string item){if(string_contains(item,"patch",1)>=0 or item=="aramid_repair_tape" or item=="ceramic_plate_epoxy" or item=="armor_rivet_pack")return "";if(string_contains(item,"helmet",1)>=0)return "head";if(string_contains(item,"vest",1)>=0 or string_contains(item,"carrier",1)>=0)return "torso";if(string_contains(item,"sleeves",1)>=0 or string_contains(item,"arm_guards",1)>=0)return "arm";if(string_contains(item,"greaves",1)>=0 or string_contains(item,"leg_",1)>=0)return "leg";return "";}
-int armor_rating_for(string item){if(string_contains(item,"heavy",1)>=0)return 55;if(string_contains(item,"plate",1)>=0 or string_contains(item,"ballistic",1)>=0)return 40;return 25;}
-int armor_durability_for(string item){if(string_contains(item,"heavy",1)>=0)return 1800;if(string_contains(item,"plate",1)>=0 or string_contains(item,"ballistic",1)>=0)return 1250;return 800;}
-int armor_weight_for(string item){if(item=="")return 0;if(string_contains(item,"heavy",1)>=0)return 12;if(string_contains(item,"plate",1)>=0 or string_contains(item,"ballistic",1)>=0)return 7;return 3;}
+// Armour comes from the item files (includes/item_data.nvgt): the slot it
+// covers, how much of a hit it stops, how much punishment it takes and what
+// it weighs. These used to be guessed from words in the item's name, which
+// made anything containing "carrier" or "vest" torso armour -- a guided
+// missile and a bomb vest included -- and anything containing "heavy" the
+// heaviest armour in the game.
+string armor_region_for(string item){return armour_slot(item);}
+int armor_rating_for(string item){return armour_rating(item);}
+int armor_durability_for(string item){return armour_durability(item);}
+int armor_weight_for(string item){return armour_weight(item);}
 void send_player_armor_state(player@ p){send_reliable(p.peer_id,"armor_state "+(p.armor_head==""?"none":p.armor_head)+" "+p.armor_head_durability+" "+(p.armor_torso==""?"none":p.armor_torso)+" "+p.armor_torso_durability+" "+(p.armor_arms==""?"none":p.armor_arms)+" "+p.armor_arms_durability+" "+(p.armor_legs==""?"none":p.armor_legs)+" "+p.armor_legs_durability+" "+p.equipped_armor_weight,0);}
 void update_player_armor_weight(player@ p){p.equipped_armor_weight=armor_weight_for(p.armor_head)+armor_weight_for(p.armor_torso)+armor_weight_for(p.armor_arms)+armor_weight_for(p.armor_legs);send_player_armor_state(p);}
 void equip_player_armor(player@ p,string item){string region=armor_region_for(item);if(region=="")return;string old="";if(region=="head")old=p.armor_head;else if(region=="torso")old=p.armor_torso;else if(region=="arm")old=p.armor_arms;else old=p.armor_legs;if(old==item){send_reliable(p.peer_id,"That armour is already equipped in the "+region+" slot.",2);return;}if(old!="")send_reliable(p.peer_id,"give "+old+" 1",0);int durability=armor_durability_for(item);if(region=="head"){p.armor_head=item;p.armor_head_durability=durability;}else if(region=="torso"){p.armor_torso=item;p.armor_torso_durability=durability;}else if(region=="arm"){p.armor_arms=item;p.armor_arms_durability=durability;}else{p.armor_legs=item;p.armor_legs_durability=durability;}send_reliable(p.peer_id,"give "+item+" -1",0);update_player_armor_weight(p);er_play("character/armor/equip",p);send_reliable(p.peer_id,"Armour equipped in the "+region+" slot. Durability "+durability+". Total armour weight "+p.equipped_armor_weight+".",2);}
@@ -233,9 +239,26 @@ void unequip_player_armor(player@ p,string region){string item="";if(region=="he
 int mitigate_player_armor(player@ p,string region,int damage){string item="";int durability=0;if(region=="head"){item=p.armor_head;durability=p.armor_head_durability;}else if(region=="torso"){item=p.armor_torso;durability=p.armor_torso_durability;}else if(region=="arm"){item=p.armor_arms;durability=p.armor_arms_durability;}else if(region=="leg"){item=p.armor_legs;durability=p.armor_legs_durability;}if(item=="" or durability<=0)return damage;int absorbed=int(double(damage)*double(armor_rating_for(item))/100.0);if(absorbed>durability)absorbed=durability;durability-=absorbed;if(region=="head")p.armor_head_durability=durability;else if(region=="torso")p.armor_torso_durability=durability;else if(region=="arm")p.armor_arms_durability=durability;else p.armor_legs_durability=durability;er_play("character/armor/"+(durability<=0?"impact_broken":"impact"+random(1,3)),p);if(durability<=0){if(region=="head")p.armor_head="";else if(region=="torso")p.armor_torso="";else if(region=="arm")p.armor_arms="";else p.armor_legs="";send_reliable(p.peer_id,"Your "+item+" broke.",2);update_player_armor_weight(p);}else send_player_armor_state(p);return damage-absorbed;}
 bool apply_armor_patch(player@ p,string patch)
 {
-string region="",required="";if(string_contains(patch,"helmet",1)>=0)region="head";else if(string_contains(patch,"arm_",1)>=0 or string_contains(patch,"sleeve",1)>=0)region="arm";else if(string_contains(patch,"leg_",1)>=0 or patch=="greave_patch")region="leg";else region="torso";
-string item="";int durability=0;if(region=="head"){item=p.armor_head;durability=p.armor_head_durability;}else if(region=="torso"){item=p.armor_torso;durability=p.armor_torso_durability;}else if(region=="arm"){item=p.armor_arms;durability=p.armor_arms_durability;}else{item=p.armor_legs;durability=p.armor_legs_durability;}if(item==""){send_reliable(p.peer_id,"No armour is equipped in the compatible "+region+" slot.",2);return false;}
-bool compatible=patch=="aramid_repair_tape"?(string_contains(item,"light",1)>=0 or string_contains(item,"soft",1)>=0 or string_contains(item,"kevlar",1)>=0):patch=="ceramic_plate_epoxy"?(string_contains(item,"ballistic",1)>=0 or string_contains(item,"plate",1)>=0):patch=="armor_rivet_pack"?string_contains(item,"heavy",1)>=0:string_contains(patch,string_contains(item,"heavy",1)>=0?"heavy":(string_contains(item,"ballistic",1)>=0?"ballistic":"light"),1)>=0 or string_contains(patch,string_contains(item,"plate_carrier",1)>=0?"plate_carrier":(string_contains(item,"soft_armor",1)>=0?"soft_armor":(string_contains(item,"kevlar",1)>=0?"kevlar":(string_contains(item,"greaves",1)>=0?"greave":"none"))),1)>=0;
+// A patch lists the armour it repairs. Of the pieces you are wearing that it
+// fits, it goes on the most worn one.
+string[] slots={"head","torso","arm","leg"};
+string[] worn={p.armor_head,p.armor_torso,p.armor_arms,p.armor_legs};
+int[] left={p.armor_head_durability,p.armor_torso_durability,p.armor_arms_durability,p.armor_legs_durability};
+int best=-1;double best_share=2;
+for(uint s=0;s<slots.length();s++)
+{
+if(!patch_repairs(patch,worn[s]))continue;
+double share=double(left[s])/double(armour_durability(worn[s])>0?armour_durability(worn[s]):1);
+if(share<best_share){best_share=share;best=s;}
+}
+if(best<0)
+{
+bool wearing=false;for(uint s=0;s<worn.length();s++)if(worn[s]!="")wearing=true;
+send_reliable(p.peer_id,wearing?"That patch does not fit any armour you are wearing.":"You are not wearing any armour to patch.",2);
+return false;
+}
+string region=slots[best],item=worn[best];int durability=left[best];
+bool compatible=true;
 if(!compatible){send_reliable(p.peer_id,"That patch is not compatible with "+string_replace(item,"_"," ",true)+".",2);return false;}int maximum=armor_durability_for(item);int ceiling=int(maximum*.60);if(durability>=ceiling){send_reliable(p.peer_id,"Field patches cannot improve this armour beyond sixty percent durability.",2);return false;}int restored=int(maximum*.07);if(durability+restored>ceiling)restored=ceiling-durability;durability+=restored;if(region=="head")p.armor_head_durability=durability;else if(region=="torso")p.armor_torso_durability=durability;else if(region=="arm")p.armor_arms_durability=durability;else p.armor_legs_durability=durability;send_reliable(p.peer_id,"give "+patch+" -1",0);send_player_armor_state(p);er_play("character/armor/patch",p);send_reliable(p.peer_id,"Patched "+string_replace(item,"_"," ",true)+" for "+restored+" durability. Current durability "+durability+" of "+maximum+"; field patches cannot exceed sixty percent.",2);return true;
 }
 void set_player_model_target(player@ p,int nx,int ny,int nz)

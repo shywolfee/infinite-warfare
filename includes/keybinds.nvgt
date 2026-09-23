@@ -64,8 +64,41 @@ if(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL))modifiers|=KEYMOD_CTRL;
 return modifiers;
 }
 
+// A keyboard action happens when its key is pressed or when a gesture
+// presses it (see gesture_press in touch_gestures.nvgt), so keyboard and
+// touch run the same code.
+// Plain action checks look only at the base key, which lets handlers add
+// their own Shift or Alt variants. But it also let an unmodified action take
+// a chord that belongs to a different action: with the buffer manager on
+// Alt+Shift+B, the zone key (B) was checked first, saw B pressed and used it
+// up, and the buffer manager never opened -- whatever it was bound to, some
+// earlier action on the same base key got there first. An action now leaves
+// the key alone when the modifiers held match another action's binding on
+// that key exactly.
+bool kb_chord_belongs_elsewhere(const string &in action,int key)
+{
+int mods=kb_current_modifiers();
+int own=-1;
+for(uint i=0;i<_kb_act_names.length();i++)if(_kb_act_names[i]==action){own=i;break;}
+if(own>=0 and _kb_act_modifiers[own]==mods)return false;
+for(uint i=0;i<_kb_act_names.length();i++)if(int(i)!=own and _kb_act_binds[i]==key and _kb_act_modifiers[i]==mods and mods!=0)return true;
+return false;
+}
+bool action_pressed(const string &in action)
+{
+if(gesture_take_press(action))return true;
+int key=kb(action);
+if(kb_chord_belongs_elsewhere(action,key))return false;
+return key_pressed(key);
+}
+bool action_down(const string &in action)
+{
+if(gesture_holding(action))return true;
+return key_down(kb(action));
+}
 bool kb_action_pressed(string action)
 {
+if(gesture_take_press(action))return true;
 // Test the modifier mask before reading the edge-triggered base key. Calling
 // key_pressed first consumes a shared key even when this is the wrong chord
 // (for example Alt+Backslash would consume Shift+Backslash/map chat).
@@ -204,6 +237,7 @@ _kb_reg_action("map_chat", "Current map chat", KEY_BACKSLASH);
 _kb_reg_action("team_chat", "Team chat", KEY_BACKSLASH, KEYMOD_SHIFT);
 _kb_reg_action("recent_private_messages", "Recent private-message contacts", KEY_BACKSLASH, KEYMOD_ALT);
 _kb_reg_action("group_chat", "Group chat", KEY_SLASH, KEYMOD_ALT);
+_kb_reg_action("group_menu", "Your groups and invitations", KEY_SLASH, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("health", "Health", KEY_H);
 _kb_reg_action("help", "Open help", KEY_H, KEYMOD_SHIFT);
 _kb_reg_action("facing", "Facing direction", KEY_F);

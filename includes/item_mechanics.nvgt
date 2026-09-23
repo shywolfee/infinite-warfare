@@ -6,7 +6,13 @@ string cooked_grenade="";timer cooked_grenade_timer;int cooked_grenade_warning_s
 int item_configuration(string item){int value=1;if(item_configurations.exists(item))item_configurations.get(item,value);return value;}
 void set_item_configuration(string item,int value){if(value<0)value=0;if(value>2)value=2;item_configurations.set(item,value);}
 bool item_is_thrown_explosive(string i){return i=="frag_grenade" or i=="impact_grenade" or i=="flashbang" or i=="concussion_grenade" or i=="incendiary_grenade" or i=="gas_grenade" or i=="er_frag_grenade" or i=="er_molotov" or i=="er_bowling_bomb";}
-bool item_is_launched_explosive(string i){return i=="carrier_missile" or i=="conventional_guided_missile" or i=="cannon_ball";}
+string armour_names_list(string[]@ ids)
+{
+string[] names;
+for(uint k=0;k<ids.length();k++){item_data@ d=item_info(ids[k]);names.insert_last(d is null?string_replace(ids[k],"_"," ",true):d.name);}
+return content_join(names);
+}
+// item_is_launched_explosive() now reads the item's "launched" flag (item_data.nvgt).
 int grenade_fuse_ms(string i){if(i=="frag_grenade")return 2200;if(i=="er_frag_grenade")return 2400;if(i=="er_molotov")return 1500;if(i=="er_bowling_bomb")return 3500;if(i=="impact_grenade")return 5000;if(i=="flashbang")return 1800;if(i=="concussion_grenade")return 2000;if(i=="incendiary_grenade")return 1500;if(i=="gas_grenade")return 1800;return 2000;}
 bool grenade_pin_or_throw(string item)
 {
@@ -61,8 +67,8 @@ else if(i=="bunker_bomb")detail="A restricted demolition payload whose use is ti
 else if(i=="rock")detail="A reusable low-mass thrown distraction with controlled, standard and forceful delivery profiles.";
 else if(i=="bomb_vest")detail="Occupies the body slot, contributes twelve units of equipment weight and mitigates explosive damage while equipped.";
 else if(item_is_vehicle_supply(i))detail="Belongs to the physical vehicle workshop system. Fuels retain their type and volume; service tools are reusable; fluids, filters, repair parts and flushes are consumed by their matching timed operation; refit packages alter the installed vehicle's live condition, capacity, protection, mass, traction or performance.";
-else if(string_contains(i,"patch",1)>=0 or i=="aramid_repair_tape" or i=="ceramic_plate_epoxy" or i=="armor_rivet_pack")detail="A consumable field patch for a compatible equipped armour construction. It restores only a small amount and cannot raise damaged armour above sixty percent durability; proper replacement remains necessary.";
-else if(string_contains(i,"helmet",1)>=0 or string_contains(i,"armor",1)>=0 or string_contains(i,"armour",1)>=0 or string_contains(i,"plate",1)>=0 or string_contains(i,"sleeves",1)>=0 or string_contains(i,"guards",1)>=0 or string_contains(i,"greaves",1)>=0)detail="Occupies its anatomical armour slot. Only hits to that body region consume its durability and receive protection; mass affects movement and jumping.";
+else if(is_armour_patch(i))detail="Repairs "+armour_names_list(item_prop_list(i,"repairs"))+". A consumable field patch for a compatible equipped armour construction. It restores only a small amount and cannot raise damaged armour above sixty percent durability; proper replacement remains necessary.";
+else if(armour_slot(i)!="")detail="Covers the "+(armour_slot(i)=="arm"?"arms":(armour_slot(i)=="leg"?"legs":armour_slot(i)))+": stops "+armour_rating(i)+" percent of each hit there, with "+armour_durability(i)+" durability and "+armour_weight(i)+" units of weight. Occupies its anatomical armour slot. Only hits to that body region consume its durability and receive protection; mass affects movement and jumping.";
 else if(item_is_medication(i))detail=(item_is_liquid_medication(i)?"A measured multi-dose medication bottle. Alt Shift M selects an exact fluid-ounce dose; the bottle remains until empty.":(item_is_pill_bottle(i)?"A multi-dose pill bottle. Alt Shift M selects the number swallowed; use "+kb_binding_label("extract_pill")+" to remove one transferable loose pill.":"One individually transferable pill removed from a medication bottle."))+" "+medication_recommended_dose(i)+". Effects and duration depend on the drug. Doses accumulate toxicity; exceeding the recommendation increases adverse effects and a severe overdose can be fatal.";
 else if(i=="life_injection")detail="Requires a downed teammate within four tiles, locks the administration sequence, and restores the selected target with dose-dependent initial health.";
 else if(i=="adrenaline_syringe")detail="Starts a short emergency movement and stamina state rather than applying ordinary healing.";

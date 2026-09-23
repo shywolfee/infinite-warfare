@@ -113,16 +113,16 @@ sks_carbinereloadend.ogg	copy	sandstorm:Weapon_FnFal/handling/fal_foley_charging
 spas_12_shotgunhit1.ogg	copy	sandstorm_raw:Physics/flesh_bullet_impact_05.ogg	round into a body	
 sword_throwerreloadend.ogg	copy	sandstorm:Weapon_M24/handling/m24_foley_bolt_latch.wav	last motion of a archery reload	
 target_pistol_22reloadend.ogg	copy	sandstorm:Weapon_M1911/handling/m1911_foley_slide_release.wav	last motion of a pistol reload	
-ui/activate.ogg	cue	game:menuenter.ogg	a button or link was pressed	length=0.2
+ui/activate.ogg	cue	cod4ui:ui_select_v1.wav	a button or link was pressed	length=0.3;fade=0.06
 ui/apply.ogg	cue	bf4ui:FrontEnd/Navigate_Apply_01_Wave 0 0 0.wav	settings saved or a change confirmed	length=0.6;fade=0.1
 ui/check.ogg	cue	sandstorm_menu:ui_loadout_accessory_accept_01.ogg	a checkbox was ticked	length=0.35;fade=0.08
 ui/close.ogg	cue	bf4ui:FrontEnd/UI_Battledash_Close_Wave 0 0 0.wav	a dialog was closed or cancelled	level=-22;length=0.5;fade=0.1
-ui/edge.ogg	cue	game:menuedge.ogg	there is nothing further in that direction	level=-21;length=0.4
-ui/error.ogg	cue	game:menufail.ogg	that did not work, or is not allowed	length=0.6;fade=0.1
+ui/edge.ogg	cue	i2:Other/Meter_No_Meter.wav	there is nothing further in that direction	level=-22;length=0.35;fade=0.08
+ui/error.ogg	cue	i2:Other/Invalid_Selection.wav	that did not work, or is not allowed	length=0.6;fade=0.1
 ui/item.ogg	cue	sandstorm_menu:ui_navigate.ogg	focus moves to another item in a list, menu or tree	level=-23;length=0.18
-ui/listen.ogg	cue	game:modeenter.ogg	voice control is listening for a command	length=0.5;fade=0.1
-ui/listen_end.ogg	cue	game:modeleave.ogg	voice control stopped listening	length=0.5;fade=0.1
-ui/move.ogg	cue	game:menumove.ogg	focus moves to another control on a form	length=0.15
+ui/listen.ogg	cue	cod4ui:ui_screen_in1.wav	voice control is listening for a command	length=0.5;fade=0.1
+ui/listen_end.ogg	cue	cod4ui:ui_screen_out1.wav	voice control stopped listening	length=0.5;fade=0.1
+ui/move.ogg	cue	cod4ui:ui_over_v1.wav	focus moves to another control on a form	level=-23;length=0.2;fade=0.04
 ui/notify.ogg	cue	bf4ui:FrontEnd/UI_Battledash_Notification_Wave 0 0 0.wav	something happened that you should know about	length=0.9;fade=0.15
 ui/open.ogg	cue	bf4ui:FrontEnd/UI_Battledash_Open_Wave 0 0 0.wav	a dialog or menu opened	level=-22;length=0.5;fade=0.1
 ui/popup.ogg	cue	bf4ui:FrontEnd/Popup_Wave 0 0 0.wav	a message box needs an answer	length=0.7;fade=0.1
@@ -130,14 +130,24 @@ ui/slider.ogg	cue	bf4ui:FrontEnd/Navigate_Slider_Wave 0 0 0.wav	a slider or numb
 ui/switch.ogg	cue	sandstorm_menu:ui_hover.ogg	a switch moved to its next setting	length=0.25
 ui/tab.ogg	cue	sandstorm_menu:ui_loadout_generic_select_01.ogg	a different tab or options section was selected	length=0.3;fade=0.06
 ui/uncheck.ogg	cue	sandstorm_menu:ui_loadout_remove_item_01.ogg	a checkbox was cleared	length=0.35;fade=0.08
-ui/wrap.ogg	cue	game:menuwrap.ogg	focus went past the last control and came back round to the first	length=0.4
+ui/wrap.ogg	cue	i2:Other/Character_Wipe_Off.wav	focus went past the last control and came back round to the first	length=0.45;fade=0.1
 uzihit1.ogg	copy	sandstorm_raw:Physics/flesh_bullet_impact_05.ogg	round into a body	
 weapon_safety.ogg	cue	sandstorm:Weapon_M9/handling/m9_foley_safety.wav	a pistol safety catch; it played a menu click	level=-20;length=0.4;fade=0.05
-ui/type.ogg	cue	bf2042ui:Navigation/BF01_UI_Navigation_Highlight_Markers_01 0.wav	a character was typed into a text field	level=-26;length=0.1
-ui/delete.ogg	cue	bf2042ui:Navigation/BF01_UI_Navigation_Highlight_Markers_03 2.wav	a character or word was deleted from a text field	level=-25;length=0.12
+ui/type.ogg	cue	cod4ui:ui_computer_text_blip1x.wav	a character was typed into a text field	level=-26;length=0.12
+ui/delete.ogg	cue	cod4ui:ui_computer_text_delete1.wav	a character or word was deleted from a text field	level=-25;length=0.2;fade=0.04
 ui/cut.ogg	cue	halo5ui:Menus/H5_UI_Forge_Delete_Object.wav	selected text was cut to the clipboard	length=0.45;fade=0.1
 ui/copy.ogg	cue	halo5ui:Menus/H5_UI_Forge_Duplicate_Object.wav	text was copied to the clipboard	length=0.45;fade=0.1
 ui/paste.ogg	cue	bf2042ui:Collection/BF01_UI_Collection_Button-Equip_Markers_02 0.wav	text was pasted from the clipboard	length=0.4;fade=0.08
 ui/select.ogg	cue	bf2042ui:Selection/BF01_UI_Selection_LightSelect_Markers_03 0.wav	everything in a field or list was selected	length=0.25;fade=0.05
 ui/expand.ogg	cue	halo5ui:Menus/H5_UI_Select.wav	a tree branch opened	length=0.3;fade=0.08
 ui/collapse.ogg	cue	halo5ui:Menus/H5_UI_Forge_De_Select.wav	a tree branch closed	length=0.3;fade=0.08
+group/message.ogg	cue	cod4ui:ui_text_beep1.wav	a message arrived in one of your groups	length=0.4;fade=0.08
+group/send.ogg	cue	mw3ui:menu_slide.wav	your message went to the group	level=-24;length=0.35;fade=0.08
+group/join.ogg	cue	i2:Other/Online_Build_On.wav	someone joined one of your groups	length=0.8;fade=0.15
+group/leave.ogg	cue	i2:Other/Main_Menu_Triangle_Close.wav	someone left one of your groups	length=0.7;fade=0.15
+group/invite.ogg	cue	i2:UI & Menus/Shell_Pop_Up_Menu_Open.wav	you were invited to a group	length=0.9;fade=0.15
+group/declined.ogg	cue	i2:Other/Online_Opponent_Declined.wav	an invitation you sent was declined	level=-29;length=1.0;fade=0.2
+group/kicked.ogg	cue	cod4ui:ui_arcade_streak_lost1.wav	you were removed from a group	level=-24;length=1.0;fade=0.2
+group/disband.ogg	cue	bf2042ui:AttachmentCustomization/BF01_UI_AttachmentCustomization_Stop_Wave_01 0.wav	a group was disbanded	length=0.9;fade=0.2
+group/create.ogg	cue	i2:Other/Rematch_Buildon.wav	you created a group	length=1.0;fade=0.2
+group/promote.ogg	cue	i2:Other/Accept.wav	someone was made a group moderator or owner	length=0.8;fade=0.15

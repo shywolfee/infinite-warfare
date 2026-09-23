@@ -28,8 +28,10 @@ AIR, FLOOR, SOLID, CLIMB = 0, 1, 2, 3
 
 
 def _registered_items():
-    names = set(re.findall(r'content_register\("([^"\n]+)"',
-                           (ROOT / "includes/content_database.nvgt").read_text(encoding="utf-8")))
+    # Items are data files, one per item, named by id (see content/items).
+    names = {path.stem for path in (ROOT / "iwserver/content/items").rglob("*.item")}
+    names.update(re.findall(r'content_register\("([^"\n]+)"',
+                            (ROOT / "includes/content_database.nvgt").read_text(encoding="utf-8")))
     for weapon in (ROOT / "iwserver/content/weapons").rglob("*.wpn"):
         names.update(re.findall(r"^reserve_item=(.+)$",
                                 weapon.read_text(encoding="utf-8"), re.M))

@@ -7,6 +7,14 @@ void save_server_list(){string data="{\n  \"servers\": [\n";for(uint i=0;i<saved
 void init_server_list(){saved_servers.resize(0);saved_servers.insert_last(saved_server("Localhost","localhost",1316));if(file_exists(SERVER_LIST_PATH)){string[] lines=string_split(file_get_contents(SERVER_LIST_PATH),"\n",false);for(uint i=0;i<lines.length();i++){string[] q=string_split(lines[i],"\"",false);if(q.length()<2 or string_contains(q[1],"|",1)<0)continue;string[] p=string_split(q[1],"|",false);if(p.length()!=3 or string_to_lower_case(p[1])=="localhost")continue;int port=string_to_number(p[2]);if(port>0 and port<=65535)saved_servers.insert_last(saved_server(p[0],p[1],port));}}save_server_list();}
 void server_manager(){if(SCRIPT_COMPILED and !dev_unlocked){speak("Developer access is required.");return;}while(true){nv_form f;f.create_window("Server Manager",false,true);nv_form_list_box@ list=f.add_list("Saved servers","servers");for(uint i=0;i<saved_servers.length();i++)list.add(saved_servers[i].name+": "+saved_servers[i].address+":"+saved_servers[i].port,""+i);nv_form_button@ use=f.add_button("Use selected server","use",true);nv_form_button@ add=f.add_button("Add server","add");nv_form_button@ remove=f.add_button("Remove selected server","remove");nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(list);bool refresh=false;while(true){wait(5);f.monitor();if(f.is_pressed(close))return;if(f.is_pressed(use)){int pos=list.list_position;if(pos>=0 and pos<int(saved_servers.length())){netaddress=saved_servers[pos].address;netport=saved_servers[pos].port;writeprefs();speak("Selected "+saved_servers[pos].name+".");}return;}if(f.is_pressed(add)){string label=af_input("Server name","",false).trim_whitespace();string address=af_input("Server address","",false).trim_whitespace();int port=string_to_number(af_input("Server port","1316",false));if(label!="" and address!="" and port>0 and port<=65535 and string_contains(label,"|",1)<0 and string_contains(address,"|",1)<0){saved_servers.insert_last(saved_server(label,address,port));save_server_list();refresh=true;}else speak("The server name, address, or port is invalid.");break;}if(f.is_pressed(remove)){int pos=list.list_position;if(pos==0)speak("Localhost is permanent and cannot be removed.");else if(pos>0 and pos<int(saved_servers.length())){saved_servers.remove_at(pos);save_server_list();speak("Server removed.");refresh=true;}break;}}if(!refresh)return;}}
 uint peer_id=0;
+// A disconnect only means ours when it is the server's connection that went.
+// Anything else -- a leftover connection request finally timing out -- is
+// closed quietly instead of being reported as losing the server.
+bool server_event_disconnect(network_event@ ev)
+{
+if(ev.type!=event_disconnect)return false;
+return peer_id==0 or ev.peer_id==peer_id;
+}
 // Probe the server with a temporary connection and return true if it responds.
 // Times out after 5 seconds. Uses its own local network object so it does not
 // disturb the global n or connected state.
@@ -28,11 +36,19 @@ return false;
 return false;
 }
 
-// Always discard the state of a failed or abandoned connection.  Reusing an
-// ENet host after a timeout left queued events and the old peer id alive,
-// which could corrupt the next login when the server returned.
+// Always discard a failed or abandoned connection completely. A connection
+// request that has not been answered stays alive inside the network host,
+// and calling setup_client again does not cancel it: if the first attempt
+// failed because the server was down or the network dropped out, that old
+// request went through as soon as the server was reachable again, alongside
+// the new one. The client then had two connections to the server. Messages
+// sent to every peer arrived twice, messages sent to peer 1 could go to the
+// connection that never logged in, and the server eventually dropped one or
+// the other -- random disconnects that lasted until the game was restarted.
+// Destroying the host is the only thing that cancels the old request.
 void reset_connection_attempt()
 {
+n.destroy();
 connected=false;
 prevconnected=false;
 staff_panel_available=false;
@@ -107,7 +123,7 @@ reset_connection_attempt();
 mainmenu();
 return;
 }
-if(e.type==event_disconnect)
+if(server_event_disconnect(e))
 {
 dlg("The server is currently down or under maintenance. Try connecting later.");
 reset_connection_attempt();
@@ -135,7 +151,7 @@ if(e.type==event_connect)
 resolved=true;
 break;
 }
-if(e.type==event_disconnect)
+if(server_event_disconnect(e))
 {
 dlg("The server is currently down or under maintenance. Try connecting later.");
 reset_connection_attempt();

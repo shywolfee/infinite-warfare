@@ -16,9 +16,11 @@
 #include "includes/team.nvgt"
 #include "includes/moderation.nvgt"
 #include "includes/chat_system.nvgt"
+#include "includes/groups.nvgt"
 #include "includes/rotation.nvgt"
 #include "includes/awareness.nvgt"
 #include "includes/deploy.nvgt"
+#include "../includes/item_data.nvgt"
 #include "includes/weapon.nvgt"
 #include "includes/grenade.nvgt"
 #include "includes/corpse.nvgt"
@@ -86,6 +88,10 @@ for(uint argument=1;argument<ARGS.length();argument++)if(ARGS[argument]=="--phys
 for(uint argument=1;argument<ARGS.length();argument++)if(ARGS[argument]=="--physics-integration-test" or ARGS[argument]=="--native-models")throw("Native physics requires the project-local runtime.");
 #endif
 show_window("Infinite Warfare server!, version "+ minversion);
+// Armour, patches and launched explosives are defined in content/items; a
+// server that cannot find them would treat every item as ordinary.
+load_groups();
+if(load_item_catalogue()==0)alert("Item data missing","The server could not find content/items, so armour and patches will not work. Run the server from its own folder.");
 file pr;
 if(file_exists("admins.txt"))
 {
@@ -204,6 +210,7 @@ bunkerloop();
 bunker_alarm_loop();
 bunker_monitor_loop();
 floodloop();
+group_presence_tick();
 planebombloop();
 ladderloop();
 planeloop();
@@ -241,6 +248,7 @@ exit();
 if(e.type==event_disconnect)
 {
 forget_deploy(e.peer_id);
+{string gone=chat_name_for_peer(e.peer_id);if(gone!="")group_presence_queue.insert_last(gone);}
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
@@ -2315,7 +2323,7 @@ int cd_remain=(5000-players[index].fraggrenadetimer.elapsed)/1000;
 send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before throwing another grenade.", 2);
 }
 }
-if(parsed[1]=="carrier_missile" or parsed[1]=="conventional_guided_missile" or parsed[1]=="cannon_ball")
+if(item_is_launched_explosive(parsed[1]))
 {
 if(players[index].fraggrenadetimer.elapsed>5000){end_spawn_grace(players[index]);spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration,0);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);players[index].fraggrenadetimer.restart();}else send_reliable(players[index].peer_id,"The heavy-launch mechanism needs "+((5000-players[index].fraggrenadetimer.elapsed+999)/1000)+" more seconds before another launch.",2);
 }
@@ -2487,7 +2495,7 @@ send_reliable(players[index].peer_id, "you are already wearing a bomb_vest.", 0)
 }
 string armor_region=armor_region_for(parsed[1]);
 if(armor_region!="")equip_player_armor(players[index],parsed[1]);
-if(string_contains(parsed[1],"_patch",1)>=0 or parsed[1]=="aramid_repair_tape" or parsed[1]=="ceramic_plate_epoxy" or parsed[1]=="armor_rivet_pack")apply_armor_patch(players[index],parsed[1]);
+if(is_armour_patch(parsed[1]))apply_armor_patch(players[index],parsed[1]);
 string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","er_frag_grenade","er_molotov","er_bowling_bomb","er_motion_bomb","er_dr_bomb","er_ghost_bomb","er_time_bomb","er_proximity_mine","er_directional_claymore","carrier_missile","conventional_guided_missile","cannon_ball","hightech_grapple","anti_personnel_security_camera","neural_intrusion_device","field_restraints","reconnaissance_ring","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
 bool is_usable=false;
 for(uint ui=0; ui<usable_items.length(); ui++)
@@ -3401,6 +3409,7 @@ return;
 }
 string active_ban_reason=moderation_ban_reason(user,comp);if(active_ban_reason!=""){send_reliable(peer_id,"banned "+active_ban_reason,0);return;}
 send_reliable(peer_id, "loggedin123", 0);
+group_presence_queue.insert_last(user);
 }
 int get_player_index(uint id)
 {

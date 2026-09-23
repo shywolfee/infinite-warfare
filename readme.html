@@ -217,11 +217,13 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <ul>
 <li><strong>Moderation:</strong> warnings, bans, kicks, account records, player reports, blocks, and combat-logout records.</li>
 <li><strong>Support:</strong> tickets, bug reports, feedback, account service, and player assistance.</li>
-<li><strong>Builders:</strong> validated current-map tools and world editing.</li>
+<li><strong>Builders:</strong> the world editor.</li>
 <li><strong>Administration:</strong> staff roster, authorization, communications, server controls, reboot timers, confirmed shutdown, permanent admin log, and garbage collection.</li>
 </ul>
 <p><code>/accounts</code> opens an account list and detailed record. Other gated commands include <code>/warn</code>, <code>/warnings</code>, <code>/ban</code>, <code>/unban</code>, <code>/bans</code>, <code>/reports</code>, <code>/adminlog</code>, <code>/gc</code>, <code>/staff</code>, <code>/staffrole</code>, and <code>/unstaff</code>.</p>
 <p>Logout is rejected for 30 seconds after taking damage and 20 seconds after dealing damage. A disconnected combatant remains as a temporary combat ghost. Packet queues, automatic-fire updates, chat history, stale state, and explicit staff garbage collection are bounded to control lag without changing mechanics.</p>
+<h3>World editor</h3>
+<p>Builders, administrators and developers open the world editor with <kbd>Alt+Shift+P</kbd>. It shows everything defined where you stand; builds streets, buildings with floors, stairs, doors and windows, whole districts, squares, parks, water, stairs, ramps, ladders, bridges, walls and doorways, placed relative to you and named, with every zone, acoustic space and ambience made for you; and it builds from a plain description such as "a three storey brick building called Harbour Flats to my left". You can mark an area and build into it, browse and edit every element on the map by name, set the map's title, lobby listing and size, undo and redo with a history, go to any map or make a new one, and edit item and weapon files and have the server reload them without restarting. Every change is validated, backed up and applied for everyone at once. The full guide is <code>iwserver/docs/world_editor.txt</code>.</p>
 </section>
 
 <section id="source">

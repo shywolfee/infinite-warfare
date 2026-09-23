@@ -1,0 +1,102 @@
+World editor
+
+The world editor is how maps and game content are made and changed from
+inside the game. Anyone with building permission (developers, administrators
+and the builder staff role) opens it with the builder key, Alt+Shift+P by
+default; the key can be rebound like any other. Every change is checked by
+the server before it is written, backed up, applied at once for everyone on
+the map, and can be undone and redone.
+
+The editor's main list
+
+What is here
+  Everything defined at the spot you are standing on -- surfaces, zones,
+  acoustic spaces, ambience, openings, landmarks, spawn points, fixtures --
+  newest first, because where definitions overlap the newest one wins.
+  Enter on any of them to edit it.
+
+Build something
+  Builders that make a whole thing at once, with every zone, acoustic space
+  and ambience it needs, named from what you give them:
+    Street: carriageway, both pavements and kerbs, each its own zone
+      ("Mill Lane, east pavement"), with a street acoustic and ambience.
+    Building: any number of floors, walls, floors and roof of your choosing,
+      stairs between floors (or a ladder where there is no room for them),
+      a door on the side facing you, windows on every floor, a zone and
+      acoustic space for each floor ("Harbour Flats, second floor"), the
+      roof, the entrance, and optionally a landmark.
+    District: a grid of streets and junctions ("Market Street and Park
+      Road") with a building on every block, in a residential, commercial
+      or industrial style.
+    Square, park, car park, open ground: a surface with its name, or its
+      corners and middle named separately, acoustics and ambience.
+    Water: a river, pond or harbour basin with its ambience.
+    Stairs and ramps up or down any number of levels; ladders; bridges and
+      raised walkways with railings, piers and stairs down at each end;
+      walls; fences; doorways cut through whatever wall is ahead of you;
+      clearing a space; naming an area; spawn points.
+  You place things in plain terms -- starting just ahead of you, centred on
+  you, to your left or right, behind you, or in the area you marked -- and
+  choose which way they run. The form shows what will be built, where, and
+  how much of the area is already built on, and updates as you change any
+  setting. Nothing is written until you press Build.
+
+Describe what you want
+  Type it: "a three storey brick building 20 by 12 called Harbour Flats to
+  my left", "a 60 long street called Mill Lane going north", "an industrial
+  district 150 by 150 ahead", "a pond 30 by 20 called Duck Pond here". The
+  editor picks the builder, fills in what you said -- name, size, floors,
+  materials, where, which way -- and opens the builder with it, so you can
+  check and adjust before building.
+
+Mark an area
+  Stand on one corner and mark it, then the opposite corner. You can then
+  list or delete everything in it, cover it with a surface, clear it, name
+  it, or build into it.
+
+Browse and edit everything on this map
+  Every element by kind, nearest first, or a search by name. Opening one
+  lets you edit its fields by name (west edge, top, surface, name...), move
+  it, copy it where you stand or beside it, go to it, read its raw line, or
+  delete it.
+
+This map
+  Its title; whether it is listed in the lobby, and the description the
+  lobby reads out; its size; the footstep sound for each surface; statistics;
+  validation; undo and redo; the history of changes; reloading it from its
+  file.
+
+Every map
+  Every map on the server, with its size and who is on it. Go to any of them
+  -- you are moved straight there, without the lobby -- or make a new one:
+  give it an id, title, size and ground, and it is created, loaded and
+  optionally you are taken to it. New maps start unlisted, so only builders
+  see them in the lobby until you list them.
+
+Content
+  Item and weapon files. Open one to see its settings as a list; change,
+  add or remove settings, edit the whole file as text, move it to another
+  folder, copy it as a new item or weapon, or delete it (the server keeps a
+  backup). Saving writes the file and reloads it on the server. Items are
+  sent to every connected player straight away, so what the game says an item
+  does changes for everyone at once. Weapon changes apply on the server
+  immediately and on each player's own game after a restart. You can also
+  reload items, weapons, maps or everything from their files, after editing
+  them outside the game, without restarting the server.
+
+Go somewhere
+  To coordinates, a point of interest, a zone by name, another player (on
+  any map), a spawn point, or another map.
+
+Also: add a fixture, a destructible object, or a room, open region, opening
+or landmark area where you stand; and undo and redo from the main list.
+
+Notes
+  The editor's surfaces, acoustic kinds and ambience beds are listed in
+  content/editor (surfaces.txt, acoustics.txt, ambience.txt), the same
+  palette the map generator in tools/mapgen uses.
+  Server-side physics maps (the optional native physics build) are compiled
+  from map files with tools/compile_physics_maps.py and are not updated by
+  the editor.
+  Every change is backed up to administration/map_backups, and content
+  deletions to administration/content_backups.

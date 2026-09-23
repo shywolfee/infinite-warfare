@@ -17,6 +17,9 @@ if(kind=="fixtures")return line=="fixtures:authored";
 // sounds like. Both are header lines carrying free text, so they are checked
 // for shape rather than for numbers.
 if(kind=="title")return fields.length()==2 and fields[1].trim_whitespace()!="";
+// Whether the map appears in the lobby, and the line the lobby reads for it.
+if(kind=="listed")return fields.length()==2 and (fields[1]=="true" or fields[1]=="false");
+if(kind=="summary")return fields.length()>=2 and fields[1].trim_whitespace()!="";
 if(kind=="surface")return fields.length()==3 and fields[1].trim_whitespace()!="" and fields[2].trim_whitespace()!="";
 if(kind=="spawn")return fields.length()==4 and builder_integer(fields[1]) and builder_integer(fields[2]) and builder_integer(fields[3]);
 if(kind=="fixture")return fields.length()==6 and fields[1]!="" and builder_integer(fields[2]) and builder_integer(fields[3]) and builder_integer(fields[4]) and fields[5]!="";
@@ -65,17 +68,4 @@ return found_name;
 
 // One in-memory undo point per map plus durable timestamped snapshots. Every
 // live-builder mutation calls this before touching the authoritative file.
-dictionary builder_undo_snapshots;
-bool builder_snapshot_map(string map_id,string path)
-{
-file source;if(path=="" or !source.open(path,"rb"))return false;string data=source.read();source.close();
-builder_undo_snapshots.set(map_id,data);directory_create("administration");directory_create("administration/map_backups");
-file backup;if(backup.open("administration/map_backups/"+map_id+"_"+ticks()+".map","wb")){backup.write(data);backup.close();}
-return true;
-}
-bool builder_restore_snapshot(string map_id,string path)
-{
-string data;if(path=="" or !builder_undo_snapshots.get(map_id,data) or !builder_map_valid(data,map_id))return false;
-file current;if(current.open(path,"rb")){string now=current.read();current.close();builder_undo_snapshots.set(map_id,now);}
-file output;if(!output.open(path,"wb"))return false;output.write(data);output.close();return true;
-}
+// Snapshots, undo and redo are in world_editor.nvgt.

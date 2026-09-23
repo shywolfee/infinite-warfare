@@ -1,0 +1,599 @@
+// World editor, part three: the editor itself.
+//
+// Opened with the builder key (Alt+Shift+P by default) by anyone with
+// building permission. It replaces the old builder, which offered map lines
+// by number and asked for coordinates one field at a time. From here you can:
+//
+//   look around     everything at the spot you are standing on, what is near,
+//                   the whole map by kind, with a search
+//   build           streets, buildings, districts, parks, water, stairs,
+//                   bridges and more, placed relative to you, or described
+//                   in words
+//   edit            any element, field by field, with names instead of
+//                   numbers; move it, copy it, delete it
+//   mark an area    two corners, then build into it, clear it or name it
+//   the map         title, lobby listing and description, size, surface
+//                   sounds, validation, and undo and redo with a history
+//   maps            every map on the server: go to one, make a new one
+//   content         item and weapon files: read, change, add, remove, and
+//                   have the server reload them without restarting
+//   travel          to coordinates, a point of interest, a zone, a player
+//
+// It is all built on includes/world_editor_core.nvgt and
+// includes/world_editor_builders.nvgt.
+
+// ---------------------------------------------------------------------------
+// Looking around
+// ---------------------------------------------------------------------------
+we_element@[] we_all_elements()
+{
+we_element@[] result;
+for(uint i=0;i<we_lines.length();i++)
+{
+string l=we_lines[i];
+if(l=="" or l.substr(0,2)=="//")continue;
+result.insert_last(we_parse(i,l));
+}
+return result;
+}
+void we_what_is_here()
+{
+if(!we_fetch_map())return;
+int x=int(mr.x),y=int(mr.y),z=int(me.z);
+we_element@[] all=we_all_elements();
+we_element@[] here;
+for(uint i=0;i<all.length();i++)if(all[i].kind!="surface" and all[i].kind!="objectpart" and we_element_contains(all[i],x,y,z))here.insert_last(all[i]);
+if(here.length()==0){speak("Nothing is defined at "+x+", "+y+", "+z+".");return;}
+we_element_list("At "+x+", "+y+", "+z+", last written first",here,true);
+}
+// A list of elements; Enter opens one to edit. Later lines win in the map
+// format, so "last written first" is the order that matters where they overlap.
+void we_element_list(const string &in title,we_element@[]@ items,bool newest_first)
+{
+int pos=0;
+while(true)
+{
+string[] labels,ids;
+for(uint k=0;k<items.length();k++)
+{
+uint i=newest_first?items.length()-1-k:k;
+labels.insert_last(we_element_label(items[i]));
+ids.insert_last(""+i);
+}
+if(labels.length()==0){speak("Nothing left in this list.");return;}
+string chosen=we_list_keeping("",title,labels,ids,pos);
+if(chosen=="")return;
+if(we_element_screen(items[int(string_to_number(chosen))])=="deleted")
+{
+// The file has changed; the list must be read again.
+return;
+}
+}
+}
+// A list that returns you to the same place each time it is shown.
+string we_list_keeping(const string &in prompt,const string &in title,string[]@ labels,string[]@ ids,int &inout position)
+{
+nv_form f;
+f.create_window(title,false,true);
+nv_form_list_box@ list=f.add_list(prompt==""?title:prompt,"list");
+for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
+if(position>=0 and position<int(labels.length()))list.set_pos(position);
+nv_form_button@ open=f.add_button("Open","open",true);
+open.hidden=true;
+nv_form_button@ back=f.add_button("Back","back",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(back))return "";
+if(f.is_pressed(open) and @list.focused_item!=null){position=list.list_position;return list.focused_item.id;}
+}
+return "";
+}
+void we_browse_by_kind()
+{
+if(!we_fetch_map())return;
+we_element@[] all=we_all_elements();
+string[] kinds={"zone","tile","space","openspace","portal","src","poi","poiregion","spawn","ispawn","fixture","transition","turbolift","bunker","object","surface"};
+string[] labels,ids;
+for(uint k=0;k<kinds.length();k++)
+{
+int n=0;for(uint i=0;i<all.length();i++)if(all[i].kind==kinds[k])n++;
+if(n==0)continue;
+labels.insert_last(we_kind_words(kinds[k])+", "+n);ids.insert_last(kinds[k]);
+}
+labels.insert_last("Search every element by name");ids.insert_last("search");
+string chosen=pick_from_list("Elements on this map",labels,ids);
+if(chosen=="")return;
+we_element@[] pick;
+string wanted="";
+if(chosen=="search"){wanted=af_input("Search for","",true).trim_whitespace().lower();if(wanted=="")return;}
+for(uint i=0;i<all.length();i++)
+{
+if(chosen=="search"){if(all[i].text.lower().find(wanted)>=0)pick.insert_last(all[i]);}
+else if(all[i].kind==chosen)pick.insert_last(all[i]);
+}
+// Nearest first.
+int x=int(mr.x),y=int(mr.y);
+for(uint i=1;i<pick.length();i++){we_element@ e=pick[i];int d=we_element_distance(e,x,y);int j=int(i)-1;while(j>=0 and we_element_distance(pick[j],x,y)>d){@pick[j+1]=pick[j];j--;}@pick[j+1]=e;}
+we_element_list(chosen=="search"?"Matching \""+wanted+"\", nearest first":we_kind_words(chosen)+", nearest first",pick,false);
+}
+
+// ---------------------------------------------------------------------------
+// Editing one element
+// ---------------------------------------------------------------------------
+// Returns "deleted", "changed" or "".
+string we_element_screen(we_element@ e)
+{
+string[] names=we_fields_for(e.kind);
+string[] labels,ids;
+labels.insert_last("Edit its fields");ids.insert_last("edit");
+labels.insert_last("Move it");ids.insert_last("move");
+labels.insert_last("Make a copy of it here");ids.insert_last("copy_here");
+labels.insert_last("Make a copy beside it");ids.insert_last("copy");
+bool boxed=e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface";
+if(boxed){labels.insert_last("Go to it");ids.insert_last("go");}
+labels.insert_last("Read the raw line");ids.insert_last("raw");
+labels.insert_last("Delete it");ids.insert_last("delete");
+string chosen=pick_from_list(we_element_label(e),labels,ids);
+if(chosen=="")return "";
+if(chosen=="raw"){show_info_list("Raw line",{e.text});return "";}
+if(chosen=="go")
+{
+int x=(int(string_to_number(e.values[0]))+int(string_to_number(e.values[1])))/2,y=(int(string_to_number(e.values[2]))+int(string_to_number(e.values[3])))/2,z=int(string_to_number(e.values[4]));
+we_send("we_go|"+x+"|"+y+"|"+z);return "";
+}
+if(chosen=="delete")
+{
+if(yesno("Delete "+we_element_label(e)+"?")!=1)return "";
+return we_change("we_delete|deleted "+we_kind_words(e.kind).lower()+"|"+e.line)?"deleted":"";
+}
+if(chosen=="edit")
+{
+if(names.length()==0){speak("This kind of element is edited as its raw line.");string line=af_input("Line",e.text,true).trim_whitespace();if(line!="" and line!=e.text)return we_change("we_replace|edited a line|"+e.line+"|"+line)?"deleted":"";return "";}
+nv_form f;
+f.create_window("Edit "+we_kind_words(e.kind).lower(),false,true);
+nv_form_input@[] inputs;
+for(uint i=0;i<names.length() and i<e.values.length();i++)inputs.insert_last(f.add_input(names[i],"f"+i,e.values[i]));
+// Fields past the named ones (lift levels, item lists) stay as one line.
+nv_form_input@ rest=null;
+if(e.values.length()>names.length()){string[] tail;for(uint i=names.length();i<e.values.length();i++)tail.insert_last(e.values[i]);@rest=f.add_input("The remaining fields, separated by colons","rest",join(tail,":"));}
+nv_form_button@ save=f.add_button("Save","save",true);
+nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
+while(true)
+{
+wait(5);f.monitor();
+if(f.is_pressed(cancel))return "";
+if(!f.is_pressed(save))continue;
+string[] v;
+for(uint i=0;i<inputs.length();i++){string t=inputs[i].text.trim_whitespace();if(t.find(":")>=0){speak(names[i]+" cannot contain a colon.");v.resize(0);break;}v.insert_last(t);}
+if(v.length()!=inputs.length())continue;
+string line=e.kind+":"+join(v,":");
+if(@rest!=null and rest.text.trim_whitespace()!="")line+=":"+rest.text.trim_whitespace();
+return we_change("we_replace|edited "+we_kind_words(e.kind).lower()+"|"+e.line+"|"+line)?"deleted":"";
+}
+}
+if(chosen=="move" or chosen=="copy" or chosen=="copy_here")
+{
+int dx=0,dy=0,dz=0;
+if(chosen=="copy_here")
+{
+// Keep its size; put its south-west corner (or its point) where you stand.
+int ox=0,oy=0,oz=0;
+if(boxed){ox=int(string_to_number(e.values[0]));oy=int(string_to_number(e.values[2]));oz=int(string_to_number(e.values[4]));}
+else if(e.kind=="fixture"){ox=int(string_to_number(e.values[1]));oy=int(string_to_number(e.values[2]));oz=int(string_to_number(e.values[3]));}
+else if(e.values.length()>=3){ox=int(string_to_number(e.values[0]));oy=int(string_to_number(e.values[1]));oz=int(string_to_number(e.values[2]));}
+dx=int(mr.x)-ox;dy=int(mr.y)-oy;dz=int(me.z)-oz;
+}
+else
+{
+nv_form f;
+f.create_window(chosen=="move"?"Move it":"Copy it",false,true);
+nv_form_spin@ sx=f.add_spin("Tiles east (negative for west)","dx",chosen=="copy"?"10":"0",-2000,2000);
+nv_form_spin@ sy=f.add_spin("Tiles north (negative for south)","dy","0",-2000,2000);
+nv_form_spin@ sz=f.add_spin("Levels up (negative for down)","dz","0",-400,400);
+nv_form_button@ ok=f.add_button(chosen=="move"?"Move":"Copy","ok",true);
+nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
+bool go=false;
+while(!go){wait(5);f.monitor();if(f.is_pressed(cancel))return "";if(f.is_pressed(ok))go=true;}
+dx=int(sx.output);dy=int(sy.output);dz=int(sz.output);
+}
+string line=we_shift_line(e,dx,dy,dz);
+if(chosen=="move")return we_change("we_replace|moved "+we_kind_words(e.kind).lower()+"|"+e.line+"|"+line)?"deleted":"";
+return we_change("we_append|copied "+we_kind_words(e.kind).lower()+"|"+line)?"deleted":"";
+}
+return "";
+}
+string we_shift_line(we_element@ e,int dx,int dy,int dz)
+{
+string[] v=e.values;
+bool boxed=v.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface";
+if(boxed)
+{
+v[0]=""+(int(string_to_number(v[0]))+dx);v[1]=""+(int(string_to_number(v[1]))+dx);
+v[2]=""+(int(string_to_number(v[2]))+dy);v[3]=""+(int(string_to_number(v[3]))+dy);
+v[4]=""+(int(string_to_number(v[4]))+dz);v[5]=""+(int(string_to_number(v[5]))+dz);
+}
+else if(e.kind=="fixture" and v.length()>=4){v[1]=""+(int(string_to_number(v[1]))+dx);v[2]=""+(int(string_to_number(v[2]))+dy);v[3]=""+(int(string_to_number(v[3]))+dz);}
+else if(v.length()>=3){v[0]=""+(int(string_to_number(v[0]))+dx);v[1]=""+(int(string_to_number(v[1]))+dy);v[2]=""+(int(string_to_number(v[2]))+dz);}
+return e.kind+":"+join(v,":");
+}
+
+// ---------------------------------------------------------------------------
+// The marked area
+// ---------------------------------------------------------------------------
+void we_selection_menu()
+{
+string[] labels,ids;
+labels.insert_last(we_mark_count%2==0?"Mark the first corner where you stand":"Mark the opposite corner where you stand");ids.insert_last("mark");
+if(we_selection_set)
+{
+int w=abs(we_sel_x2-we_sel_x1)+1,d=abs(we_sel_y2-we_sel_y1)+1;
+labels.insert_last("The marked area: "+w+" by "+d+", from "+we_min(we_sel_x1,we_sel_x2)+", "+we_min(we_sel_y1,we_sel_y2)+" to "+we_max(we_sel_x1,we_sel_x2)+", "+we_max(we_sel_y1,we_sel_y2)+", at height "+we_sel_z1);ids.insert_last("info");
+labels.insert_last("List everything inside it");ids.insert_last("list");
+labels.insert_last("Cover it with a surface");ids.insert_last("fill");
+labels.insert_last("Clear everything in it");ids.insert_last("clear");
+labels.insert_last("Name it: zone, acoustics and ambience");ids.insert_last("zone");
+labels.insert_last("Build something in it");ids.insert_last("build");
+labels.insert_last("Delete everything that lies wholly inside it");ids.insert_last("delete_inside");
+labels.insert_last("Forget the marked area");ids.insert_last("forget");
+}
+string chosen=pick_from_list("Marked area",labels,ids);
+if(chosen=="mark")we_mark_corner();
+else if(chosen=="forget"){we_selection_set=false;we_mark_count=0;speak("Forgotten.");}
+else if(chosen=="clear")we_run_builder("clear");
+else if(chosen=="zone")we_run_builder("zone");
+else if(chosen=="build")we_builders_menu();
+else if(chosen=="fill")
+{
+we_load_palette();
+if(!we_fetch_map())return;
+string m=pick_from_list("Cover it with",we_surface_names,we_surface_names);
+if(m=="")return;
+we_batch b;
+b.tile(we_min(we_sel_x1,we_sel_x2),we_max(we_sel_x1,we_sel_x2),we_min(we_sel_y1,we_sel_y2),we_max(we_sel_y1,we_sel_y2),we_sel_z1,we_sel_z1,m);
+we_send_batch(b,"covered an area with "+m);
+}
+else if(chosen=="list" or chosen=="delete_inside")
+{
+if(!we_fetch_map())return;
+int x1=we_min(we_sel_x1,we_sel_x2),x2=we_max(we_sel_x1,we_sel_x2),y1=we_min(we_sel_y1,we_sel_y2),y2=we_max(we_sel_y1,we_sel_y2);
+we_element@[] all=we_all_elements(),inside;
+for(uint i=0;i<all.length();i++)
+{
+we_element@ e=all[i];
+if(e.kind=="mapname" or e.kind=="title" or e.kind=="surface" or e.kind.substr(0,3)=="max" or e.kind=="listed" or e.kind=="summary" or e.kind=="fixtures")continue;
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn")
+{
+int ex1=int(string_to_number(e.values[0])),ex2=int(string_to_number(e.values[1])),ey1=int(string_to_number(e.values[2])),ey2=int(string_to_number(e.values[3]));
+if(chosen=="list"?(ex2>=x1 and ex1<=x2 and ey2>=y1 and ey1<=y2):(ex1>=x1 and ex2<=x2 and ey1>=y1 and ey2<=y2))inside.insert_last(e);
+}
+else
+{
+int ex=-1,ey=-1;
+if(e.kind=="fixture" and e.values.length()>=3){ex=int(string_to_number(e.values[1]));ey=int(string_to_number(e.values[2]));}
+else if(e.values.length()>=2){ex=int(string_to_number(e.values[0]));ey=int(string_to_number(e.values[1]));}
+if(ex>=x1 and ex<=x2 and ey>=y1 and ey<=y2)inside.insert_last(e);
+}
+}
+if(inside.length()==0){speak("Nothing there.");return;}
+if(chosen=="list"){we_element_list("In the marked area",inside,true);return;}
+if(yesno("Delete the "+inside.length()+" things that lie wholly inside the marked area?")!=1)return;
+string[] rows;for(uint i=0;i<inside.length();i++)rows.insert_last(""+inside[i].line);
+we_change("we_delete|deleted "+inside.length()+" things in an area|"+join(rows,","));
+}
+}
+
+// ---------------------------------------------------------------------------
+// This map
+// ---------------------------------------------------------------------------
+void we_map_menu()
+{
+while(true)
+{
+if(!we_fetch_map())return;
+string listed=we_header("listed");
+if(listed=="")listed=(mapname=="freeforall" or mapname=="battlegrounds" or mapname=="freyas_ascent" or mapname=="habitat_alpha")?"true":"false";
+string[] labels={"Title: "+we_header("title"),"Listed in the lobby: "+(listed=="true"?"yes":"no"),"Lobby description: "+(we_header("summary")==""?"none":we_header("summary")),"Size: "+we_map_maxx+" by "+we_map_maxy+", "+we_map_maxz+" high","Surface sounds","Statistics","Check that it is valid","Undo the last change","Redo","History of changes","Reload it from its file"};
+string[] ids={"title","listed","summary","size","surfaces","stats","validate","undo","redo","history","reload"};
+string chosen=pick_from_list("This map: "+mapname,labels,ids);
+if(chosen=="")return;
+if(chosen=="title"){string t=af_input("Title",we_header("title"),true).trim_whitespace();if(t!="")we_change("we_meta|title|"+t);}
+else if(chosen=="listed")we_change("we_meta|listed|"+(listed=="true"?"false":"true"));
+else if(chosen=="summary"){string t=af_input("What the lobby says about this map",we_header("summary"),true).trim_whitespace();we_change("we_meta|summary|"+t);}
+else if(chosen=="size")
+{
+nv_form f;f.create_window("Map size",false,true);
+nv_form_spin@ sx=f.add_spin("East to west","x",""+we_map_maxx,20,2000);
+nv_form_spin@ sy=f.add_spin("North to south","y",""+we_map_maxy,20,2000);
+nv_form_spin@ sz=f.add_spin("Height","z",""+we_map_maxz,8,400);
+nv_form_button@ ok=f.add_button("Apply","ok",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
+bool apply=false;while(true){wait(5);f.monitor();if(f.is_pressed(cancel))break;if(f.is_pressed(ok)){apply=true;break;}}
+if(apply){we_change("we_meta|maxx|"+int(sx.output));we_change("we_meta|maxy|"+int(sy.output));we_change("we_meta|maxz|"+int(sz.output));}
+}
+else if(chosen=="surfaces")we_surfaces_menu();
+else if(chosen=="stats")
+{
+we_element@[] all=we_all_elements();
+string[] kinds={"tile","zone","space","openspace","portal","src","poi","poiregion","spawn","ispawn","fixture","transition","turbolift","bunker","object","surface"};
+string[] lines={"Map "+mapname+", "+we_header("title")+": "+we_lines.length()+" lines."};
+for(uint k=0;k<kinds.length();k++){int n=0;for(uint i=0;i<all.length();i++)if(all[i].kind==kinds[k])n++;if(n>0)lines.insert_last(we_kind_words(kinds[k])+": "+n);}
+show_info_list("Statistics",lines);
+}
+else if(chosen=="validate")we_request("we_validate","we_done");
+else if(chosen=="undo")we_change("we_undo");
+else if(chosen=="redo")we_change("we_redo");
+else if(chosen=="reload")we_change("we_reload|map");
+else if(chosen=="history")
+{
+if(!we_request("we_history","we_history"))continue;
+string[] entries=string_split(we_reply_data,";",false),lines;
+for(uint i=0;i<entries.length();i++){string[] f=string_split(entries[i],"~",false);if(f.length()<2)continue;lines.insert_last((f[0]=="undo"?"Can be undone: ":"Can be redone: ")+f[1]);}
+if(lines.length()==0)lines.insert_last("No changes to this map since the server started.");
+show_info_list("History of changes, newest first",lines);
+}
+}
+}
+void we_surfaces_menu()
+{
+we_load_palette();
+string[] labels,ids;
+for(uint i=0;i<we_lines.length();i++)if(we_lines[i].substr(0,8)=="surface:"){string[] f=string_split(we_lines[i],":",false);if(f.length()>=3){labels.insert_last(f[1]+" sounds like "+f[2]);ids.insert_last(""+i);}}
+labels.insert_last("Add a surface from the palette");ids.insert_last("add");
+string chosen=pick_from_list("Surface sounds on this map",labels,ids);
+if(chosen=="")return;
+if(chosen=="add")
+{
+string m=pick_from_list("Which surface",we_surface_names,we_surface_names);
+if(m!="")we_change("we_append|added the "+m+" surface|surface:"+m+":"+we_family_of(m));
+return;
+}
+we_element@ e=we_parse(int(string_to_number(chosen)),we_lines[int(string_to_number(chosen))]);
+we_element_screen(e);
+}
+
+// ---------------------------------------------------------------------------
+// Every map
+// ---------------------------------------------------------------------------
+void we_maps_menu()
+{
+while(true)
+{
+if(!we_request("we_maps","we_maps"))return;
+string[] entries=string_split(we_reply_data,";",false),labels,ids;
+for(uint i=0;i<entries.length();i++)
+{
+string[] f=string_split(entries[i],",",false);
+if(f.length()<7)continue;
+labels.insert_last(f[1]+" ("+f[0]+"), "+f[2]+" by "+f[3]+", "+f[5]+(f[5]=="1"?" player":" players")+(f[6]=="1"?"":", not listed")+(f[0]==mapname?", you are here":""));
+ids.insert_last(f[0]);
+}
+labels.insert_last("Make a new map");ids.insert_last(":new");
+string chosen=pick_from_list("Maps",labels,ids);
+if(chosen=="")return;
+if(chosen==":new"){we_new_map();continue;}
+if(chosen==mapname){speak("You are already on it.");continue;}
+if(yesno("Go to "+chosen+"?")==1){we_send("we_travel|"+chosen);return;}
+}
+}
+void we_new_map()
+{
+we_load_palette();
+nv_form f;f.create_window("New map",false,true);
+nv_form_input@ id=f.add_input("Id: lower case letters, digits and underscores","id");
+nv_form_input@ title=f.add_input("Title","title");
+nv_form_spin@ sx=f.add_spin("East to west","x","300",20,2000);
+nv_form_spin@ sy=f.add_spin("North to south","y","300",20,2000);
+nv_form_spin@ sz=f.add_spin("Height","z","60",8,400);
+nv_form_list_box@ ground=f.add_list("Ground","ground");
+for(uint i=0;i<we_surface_names.length();i++){ground.add(we_surface_names[i],we_surface_names[i]);if(we_surface_names[i]=="grass")ground.set_pos(i,false);}
+nv_form_checkbox@ go=f.add_checkbox("Go there once it is made","go",true);
+nv_form_button@ ok=f.add_button("Create","ok",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
+f.focus_control(id);
+while(true)
+{
+wait(5);f.monitor();
+if(f.is_pressed(cancel))return;
+if(!f.is_pressed(ok))continue;
+string g=ground.focused_item_id;
+if(we_change("we_create|"+id.text.trim_whitespace().lower()+"|"+title.text.trim_whitespace()+"|"+int(sx.output)+"|"+int(sy.output)+"|"+int(sz.output)+"|"+g+"|"+we_family_of(g)))
+{
+if(go.state)we_send("we_travel|"+id.text.trim_whitespace().lower());
+return;
+}
+}
+}
+
+// ---------------------------------------------------------------------------
+// Content files
+// ---------------------------------------------------------------------------
+void we_content_menu()
+{
+string[] labels={"Items","Weapons","Reload items from their files","Reload weapons from their files","Reload every map from its file","Reload everything"};
+string[] ids={"items","weapons","r:items","r:weapons","r:maps","r:all"};
+while(true)
+{
+string chosen=pick_from_list("Content",labels,ids);
+if(chosen=="")return;
+if(chosen.substr(0,2)=="r:"){we_change("we_reload|"+chosen.substr(2));continue;}
+we_content_kind(chosen);
+}
+}
+void we_content_kind(const string &in kind)
+{
+int pos=0;
+while(true)
+{
+if(!we_request("we_content_list|"+kind,"we_content_list"))return;
+int bar=we_reply_data.find("|");
+string[] entries=string_split(bar<0?"":we_reply_data.substr(bar+1),";",false);
+entries.sort_ascending();
+string[] labels,ids;
+labels.insert_last("Make a new one");ids.insert_last(":new");
+for(uint i=0;i<entries.length();i++){int slash=entries[i].find("/");labels.insert_last(entries[i].substr(slash+1)+", in "+entries[i].substr(0,slash));ids.insert_last(entries[i]);}
+string chosen=we_list_keeping("",kind=="items"?"Item files":"Weapon files",labels,ids,pos);
+if(chosen=="")return;
+if(chosen==":new"){we_content_new(kind);continue;}
+int slash=chosen.find("/");
+we_content_file(kind,chosen.substr(0,slash),chosen.substr(slash+1));
+}
+}
+// A content file as a list of its settings. Enter on one changes it; you can
+// add a setting, remove one, move the file to another folder, copy it as a
+// new item, delete it, or edit the whole text at once.
+void we_content_file(const string &in kind,string folder,const string &in id)
+{
+if(!we_request("we_content_read|"+kind+"|"+id,"we_content_file"))return;
+string text=after_bars(we_reply_data,2);
+string[] keys,values;
+we_split_settings(text,keys,values);
+int pos=0;
+while(true)
+{
+string[] labels,ids;
+for(uint i=0;i<keys.length();i++){labels.insert_last(keys[i]+": "+values[i]);ids.insert_last("k"+i);}
+labels.insert_last("Add a setting");ids.insert_last("add");
+labels.insert_last("Edit the whole file as text");ids.insert_last("text");
+labels.insert_last("Move it to another folder (now "+folder+")");ids.insert_last("folder");
+labels.insert_last("Copy it as a new "+(kind=="items"?"item":"weapon"));ids.insert_last("copy");
+labels.insert_last("Save and reload on the server");ids.insert_last("save");
+labels.insert_last("Delete it");ids.insert_last("delete");
+string chosen=we_list_keeping("",id+(kind=="items"?" (item)":" (weapon)"),labels,ids,pos);
+if(chosen=="")
+{
+if(we_join_settings(keys,values)!=text and yesno("Save your changes to "+id+"?")==1)we_change("we_content_write|"+kind+"|"+folder+"|"+id+"|"+we_join_settings(keys,values));
+return;
+}
+if(chosen.substr(0,1)=="k")
+{
+int i=int(string_to_number(chosen.substr(1)));
+string v=af_input(keys[i],values[i],true);
+string action=pick_from_list(keys[i],{"Set it to \""+v+"\"","Remove this setting"},{"set","remove"});
+if(action=="set")values[i]=v.trim_whitespace();else if(action=="remove"){keys.remove_at(i);values.remove_at(i);}
+}
+else if(chosen=="add")
+{
+string k=af_input("Setting name","",true).trim_whitespace().lower();
+if(k=="" or k.find("=")>=0)continue;
+string v=af_input(k,"",true).trim_whitespace();
+int at=keys.find(k);if(at>=0)values[at]=v;else{keys.insert_last(k);values.insert_last(v);}
+}
+else if(chosen=="text")
+{
+string t=af_input("The whole file, one setting per line",we_join_settings(keys,values),true);
+we_split_settings(t,keys,values);
+}
+else if(chosen=="folder"){string f=af_input("Folder",folder,true).trim_whitespace().lower();if(f!="")folder=f;}
+else if(chosen=="copy")
+{
+string nid=af_input("Id for the copy",id+"_copy",true).trim_whitespace().lower();
+if(nid!="")we_change("we_content_write|"+kind+"|"+folder+"|"+nid+"|"+we_join_settings(keys,values));
+}
+else if(chosen=="save")
+{
+if(we_change("we_content_write|"+kind+"|"+folder+"|"+id+"|"+we_join_settings(keys,values)))text=we_join_settings(keys,values);
+if(kind=="weapons")speak("The server now uses the new values. Players on other machines, you included if your game is not running from the server's own folder, see them after restarting.");
+}
+else if(chosen=="delete"){if(yesno("Delete "+id+"? A backup is kept on the server.")==1){we_change("we_content_delete|"+kind+"|"+id);return;}}
+}
+}
+string after_bars(const string &in s,int n){int at=-1;for(int i=0;i<n;i++){at=s.find("|",at+1);if(at<0)return "";}return s.substr(at+1);}
+void we_split_settings(const string &in text,string[]@ keys,string[]@ values)
+{
+keys.resize(0);values.resize(0);
+string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);
+for(uint i=0;i<lines.length();i++){string l=lines[i].trim_whitespace();int eq=l.find("=");if(l=="" or l.substr(0,1)=="#" or eq<=0)continue;keys.insert_last(l.substr(0,eq));values.insert_last(l.substr(eq+1));}
+}
+string we_join_settings(string[]@ keys,string[]@ values)
+{
+string[] lines;
+for(uint i=0;i<keys.length();i++)lines.insert_last(keys[i]+"="+values[i]);
+return join(lines,"\n");
+}
+void we_content_new(const string &in kind)
+{
+string id=af_input("Id for the new "+(kind=="items"?"item":"weapon")+": lower case letters, digits and underscores","",true).trim_whitespace().lower();
+if(id=="")return;
+string folder=af_input("Folder (its category)",kind=="items"?"utility":"pistols",true).trim_whitespace().lower();
+if(folder=="")return;
+string name=af_input("What players hear it called","",true).trim_whitespace();
+if(name=="")return;
+string text;
+if(kind=="items")text="name="+name+"\ncategory=Utility\nsummary=Describe what it does.\ngive_amount=1";
+else text="name="+name+"\nwclass=pistol\nfiretime=500\nwalktime=180\nrange=25\nmin_damage=200\nmax_damage=240\nspread=1\ncapacity=12\nreload_ms=2000\nfire_modes=semi";
+if(we_change("we_content_write|"+kind+"|"+folder+"|"+id+"|"+text))we_content_file(kind,folder,id);
+}
+
+// ---------------------------------------------------------------------------
+// Travel
+// ---------------------------------------------------------------------------
+void we_travel_menu()
+{
+string[] labels={"To coordinates","To a point of interest","To a zone, by name","To a player","To a spawn point","To another map"};
+string[] ids={"coords","poi","zone","player","spawn","map"};
+string chosen=pick_from_list("Go",labels,ids);
+if(chosen=="coords")builder_teleport_tool();
+else if(chosen=="poi")dev_teleport_to_poi();
+else if(chosen=="map")we_maps_menu();
+else if(chosen=="player")
+{
+string[] list=fetch_player_list(),pl,pi;
+for(uint i=0;i<list.length();i++){string who=player_name_from_list_label(list[i]);if(who!="" and who!=name){pl.insert_last(list[i]);pi.insert_last(who);}}
+string who=pick_from_list("Go to a player",pl,pi);
+if(who!="")we_send("we_goto|"+who);
+}
+else if(chosen=="zone" or chosen=="spawn")
+{
+if(!we_fetch_map())return;
+we_element@[] all=we_all_elements(),pick;
+string wanted=chosen=="zone"?af_input("Zone name contains","",true).trim_whitespace().lower():"";
+if(chosen=="zone" and wanted=="")return;
+for(uint i=0;i<all.length();i++)
+{
+if(chosen=="zone" and all[i].kind=="zone" and all[i].values.length()>6 and all[i].values[6].lower().find(wanted)>=0)pick.insert_last(all[i]);
+if(chosen=="spawn" and all[i].kind=="spawn")pick.insert_last(all[i]);
+}
+string[] labels2,ids2;
+for(uint i=0;i<pick.length();i++){labels2.insert_last(we_element_label(pick[i]));ids2.insert_last(""+i);}
+if(labels2.length()==0){speak("None found.");return;}
+string c=pick_from_list(chosen=="zone"?"Zones":"Spawn points",labels2,ids2);
+if(c=="")return;
+we_element@ e=pick[int(string_to_number(c))];
+int x,y,z;
+if(e.kind=="spawn"){x=int(string_to_number(e.values[0]));y=int(string_to_number(e.values[1]));z=int(string_to_number(e.values[2]));}
+else{x=(int(string_to_number(e.values[0]))+int(string_to_number(e.values[1])))/2;y=(int(string_to_number(e.values[2]))+int(string_to_number(e.values[3])))/2;z=int(string_to_number(e.values[4]));}
+we_send("we_go|"+x+"|"+y+"|"+z);
+}
+}
+
+// ---------------------------------------------------------------------------
+// The editor
+// ---------------------------------------------------------------------------
+void world_editor_menu()
+{
+we_load_palette();
+int pos=0;
+while(true)
+{
+string[] labels={
+"What is here","Build something","Mark an area"+(we_selection_set?" (one is marked)":""),"Browse and edit everything on this map","This map: title, lobby, size, sounds, undo and history","Every map: go to one, or make a new one","Content: items and weapons","Go somewhere",
+"Add a fixture here","Add a destructible object","Add a room, open region, opening or landmark area","Undo the last change","Redo"};
+string[] ids={"here","build","area","browse","map","maps","content","travel","fixture","object","region","undo","redo"};
+string chosen=we_list_keeping("World editor, "+mapname+", at "+int(mr.x)+", "+int(mr.y)+", "+int(me.z),"World editor",labels,ids,pos);
+if(chosen=="")return;
+if(chosen=="here")we_what_is_here();
+else if(chosen=="build")we_builders_menu();
+else if(chosen=="area")we_selection_menu();
+else if(chosen=="browse")we_browse_by_kind();
+else if(chosen=="map")we_map_menu();
+else if(chosen=="maps")we_maps_menu();
+else if(chosen=="content")we_content_menu();
+else if(chosen=="travel")we_travel_menu();
+else if(chosen=="fixture")builder_add_fixture_here();
+else if(chosen=="object")builder_add_destructible_box();
+else if(chosen=="region")builder_add_navigation_region();
+else if(chosen=="undo")we_change("we_undo");
+else if(chosen=="redo")we_change("we_redo");
+}
+}

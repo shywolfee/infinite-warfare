@@ -71,6 +71,10 @@ bool service_requester_staff(uint peer)
 int player_index=get_player_index(peer);if(player_index>=0)return staff_can(players[player_index].name,"staff",players[player_index].dev,players[player_index].admin);int lobby_index=get_lobby_client_index(peer);return lobby_index>=0 and staff_can(lobby_clients[lobby_index].name,"staff",lobby_clients[lobby_index].dev,lobby_clients[lobby_index].admin);
 }
 #include "includes/map_validation.nvgt"
+#include "includes/world_editor.nvgt"
+#if IW_WORLD_EDITOR_REGRESSION
+#include "includes/world_editor_regression.nvgt"
+#endif
 void route_private_message(string sender,uint sender_peer,string target,string message)
 {
 recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=message;record.scope="pm:"+sender;record.timestamp=chat_timestamp(false);int target_player=get_player_index_from(target);if(target_player>=0){if(chat_is_blocked(players[target_player].name,sender)){send_reliable(sender_peer,"That player is not accepting messages from you.",2);return;}send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_chat_event(players[target_player].peer_id,record.scope,sender,message,record);recent_chat_messages.insert_last(record);send_reliable(sender_peer,"pm sent successfully",2);return;}
@@ -81,6 +85,9 @@ const string BUG_SECRET = "IW_bUg_rPt_K3y_zX5vN8mQ2wL9!";
 string bug_dir="administration/bugs";
 void main()
 {
+#if IW_WORLD_EDITOR_REGRESSION
+run_world_editor_regression();return;
+#endif
 #if IW_REACTPHYSICS_RUNTIME
 for(uint argument=1;argument<ARGS.length();argument++)if(ARGS[argument]=="--physics-integration-test"){server_physics_selftest();return;}
 #endif
@@ -680,8 +687,15 @@ int map_sender=get_player_index(e.peer_id);if(map_sender>=0){string prefix=(play
 }
 if (e.channel==0)
 {
+if(handle_world_editor_request(e.peer_id,get_event_message()))return;
 string[] parsed=string_split(get_event_message(), " ", true);
-if(parsed[0]=="connect_me" and parsed.length() > 3)
+if(parsed[0]=="lobby_maps")
+{
+int li=get_lobby_client_index(e.peer_id);
+bool staff=li>-1 and staff_can(lobby_clients[li].name,"build",lobby_clients[li].dev,lobby_clients[li].admin);
+send_reliable(e.peer_id,"lobby_maps|"+lobby_map_list(staff),0);
+}
+else if(parsed[0]=="connect_me" and parsed.length() > 3)
 {
 bool from_source=(parsed.length()>4 and parsed[4]=="from_source");
 login(parsed[1], e.peer_id, string_to_number(parsed[2]),parsed[3],from_source);
@@ -744,7 +758,10 @@ int li=get_lobby_client_index(e.peer_id);
 if(li>-1)
 {
 string selected_map=parsed[1];
-if(selected_map!="battlegrounds" and selected_map!="habitat_alpha" and selected_map!="freeforall" and selected_map!="freyas_ascent"){send_reliable(e.peer_id,"That map is unavailable.",2);return;}
+// Any map listed in the lobby, and for builders any map at all.
+bool builder=staff_can(lobby_clients[li].name,"build",lobby_clients[li].dev,lobby_clients[li].admin);
+if(indexed_map_path(selected_map)=="" or (!map_listed(selected_map) and !builder)){send_reliable(e.peer_id,"That map is unavailable.",2);return;}
+if(get_map_index(selected_map)<0){mapdata fresh(selected_map);maps.insert_last(fresh);}
 int selected_index=get_map_index(selected_map);if(selected_index<0){send_reliable(e.peer_id,"That map is not loaded on the server.",2);return;}
 string mode_display=map_display_title(selected_map);
 send_reliable(0, lobby_clients[li].name+" has entered "+mode_display, 2);
@@ -3409,6 +3426,7 @@ return;
 }
 string active_ban_reason=moderation_ban_reason(user,comp);if(active_ban_reason!=""){send_reliable(peer_id,"banned "+active_ban_reason,0);return;}
 send_reliable(peer_id, "loggedin123", 0);
+sync_items_to(peer_id);
 group_presence_queue.insert_last(user);
 }
 int get_player_index(uint id)

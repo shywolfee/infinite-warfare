@@ -1,0 +1,18 @@
+// Runs the server's own map validation over a map file and reports every
+// line it would refuse. Used by the world editor regression, which builds a
+// map with every editor builder and needs to know the server would accept
+// all of it. Usage: nvgt map_line_check.nvgt <map file> <map id> <report file>
+#include "bgt_compat.nvgt"
+#include "../../iwserver/includes/map_validation.nvgt"
+string[] delinear(string a){a=string_replace(a,"\r","",true);return string_split(a,"\n",false);}
+void main()
+{
+string path=ARGS.length()>1?ARGS[1]:"",id=ARGS.length()>2?ARGS[2]:"",report_path=ARGS.length()>3?ARGS[3]:"map_line_check.txt";
+file f;string data;if(f.open(path,"rb")){data=f.read();f.close();}
+string report;int bad=0;
+string[] lines=delinear(data);
+for(uint i=0;i<lines.length();i++){string l=lines[i].trim_whitespace();if(l=="")continue;if(!builder_line_valid(l,id,true)){bad++;if(bad<=20)report+="REFUSED line "+(i+1)+": "+l+"\n";}}
+report+=(builder_map_valid(data,id)?"WHOLE MAP VALID":"WHOLE MAP INVALID")+"\n";
+report+="Refused lines: "+bad+" of "+lines.length()+"\n";
+file o;o.open(report_path,"wb");o.write(report);o.close();
+}

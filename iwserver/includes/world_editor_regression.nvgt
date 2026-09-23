@@ -1,0 +1,80 @@
+// World editor server regression. Drives the real request handler with a
+// developer player and checks what reaches the disk: a new map, batched
+// edits, undo and redo, map properties, lobby listing, content files and
+// reloading. Run with iwserver/world_editor_regression_runner.nvgt from the
+// iwserver folder; results go to administration/world_editor_regression.txt.
+// Everything it makes is removed again at the end.
+string wer_results;int wer_failures=0;
+void wer_check(bool ok,const string &in label){wer_results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)wer_failures++;}
+void run_world_editor_regression()
+{
+load_wpn_stats();
+init_mapsystem();
+load_item_catalogue();
+wer_check(indexed_map_path("battlegrounds")!="","Shattersea is found by its id, not only by its file name");
+wer_check(indexed_map_path("freeforall")!="" and map_listed("freeforall") and map_title("battlegrounds")=="Shattersea","the original maps are indexed, listed and titled");
+player tester(50,50,0,"freeforall","wer_tester",1);
+tester.dev=true;
+players.insert_last(tester);
+int idx=int(players.length())-1;
+// A new map.
+if(indexed_map_path("wer_test")!=""){file_delete(indexed_map_path("wer_test"));index_map_files();}
+handle_world_editor_request(1,"we_create|wer_test|Regression Town|80|60|20|grass|grass");
+string path=indexed_map_path("wer_test");
+wer_check(path!="" and file_exists(path),"we_create writes a new map file");
+wer_check(get_map_index("wer_test")>=0,"the new map is loaded without a restart");
+wer_check(!map_listed("wer_test"),"a new map starts unlisted");
+wer_check(lobby_map_list(false).find("wer_test")<0 and lobby_map_list(true).find("wer_test")>=0,"unlisted maps show in the lobby only for builders");
+// Travel there, then edit.
+handle_world_editor_request(1,"we_travel|wer_test|10|10|0");
+wer_check(players[idx].map=="wer_test" and int(players[idx].x)==10,"we_travel moves the player to the other map");
+string before=read_whole_file(path);
+handle_world_editor_request(1,"we_append|built a test street|tile:5:20:5:12:0:0:asphalt\nzone:5:20:5:12:0:8:Test Street");
+string after=read_whole_file(path);
+wer_check(after.find("zone:5:20:5:12:0:8:Test Street")>=0,"we_append writes a batch of lines");
+handle_world_editor_request(1,"we_append|a bad line|tile:5:4:5:12:0:0:asphalt");
+wer_check(read_whole_file(path)==after,"an invalid line is refused and nothing is written");
+handle_world_editor_request(1,"we_undo");
+wer_check(read_whole_file(path)==before,"undo restores the map before the street");
+handle_world_editor_request(1,"we_redo");
+wer_check(read_whole_file(path)==after,"redo puts the street back");
+// Replace and delete by line number.
+string[] lines=delinear(read_whole_file(path));
+int zone_row=-1;for(uint i=0;i<lines.length();i++)if(lines[i]=="zone:5:20:5:12:0:8:Test Street")zone_row=i;
+handle_world_editor_request(1,"we_replace|renamed it|"+zone_row+"|zone:5:20:5:12:0:8:Renamed Street");
+wer_check(read_whole_file(path).find("Renamed Street")>=0,"we_replace edits one line");
+lines=delinear(read_whole_file(path));
+for(uint i=0;i<lines.length();i++)if(lines[i].find("Renamed Street")>=0)zone_row=i;
+handle_world_editor_request(1,"we_delete|deleted it|"+zone_row);
+wer_check(read_whole_file(path).find("Renamed Street")<0,"we_delete removes lines by number");
+// Properties.
+handle_world_editor_request(1,"we_meta|title|Regression City");
+handle_world_editor_request(1,"we_meta|listed|true");
+handle_world_editor_request(1,"we_meta|summary|a map made by the regression test");
+wer_check(map_title("wer_test")=="Regression City" and map_listed("wer_test"),"we_meta sets the title and lobby listing");
+wer_check(lobby_map_list(false).find("a map made by the regression test")>=0,"a listed map shows in everyone's lobby with its description");
+wer_check(builder_map_valid(read_whole_file(path),"wer_test"),"the edited map is still valid");
+// Content files.
+handle_world_editor_request(1,"we_content_write|items|utility|wer_test_item|name=Regression Widget\ncategory=Utility\nsummary=A test.\ngive_amount=3");
+wer_check(item_info("wer_test_item") !is null and item_info("wer_test_item").give_amount==3,"we_content_write writes an item and the server reloads it");
+handle_world_editor_request(1,"we_content_write|items|utility|wer_test_bad|no equals sign here");
+wer_check(content_path("items","wer_test_bad")=="","a malformed content file is refused");
+handle_world_editor_request(1,"we_content_delete|items|wer_test_item");
+wer_check(item_info("wer_test_item") is null and content_path("items","wer_test_item")=="","we_content_delete removes it and reloads");
+wer_check(item_sync_blob().find("plate_carrier")>=0,"the item sync carries every item file");
+// Permission.
+players[idx].dev=false;players[idx].admin=false;
+string title_before=map_title("wer_test");
+handle_world_editor_request(1,"we_meta|title|Should Not Change");
+wer_check(map_title("wer_test")==title_before,"requests without building permission are refused");
+// Clean up.
+players.remove_at(idx);
+string dir="content/maps/wer_test";
+file_delete(path);directory_delete(dir);
+index_map_files();
+for(int i=int(maps.length())-1;i>=0;i--)if(maps[i].name=="wer_test")maps.remove_at(i);
+wer_check(indexed_map_path("wer_test")=="","the test map is removed");
+wer_results+="Failures: "+wer_failures+"\n";
+directory_create("administration");
+file f;f.open("administration/world_editor_regression.txt","wb");f.write(wer_results);f.close();
+}

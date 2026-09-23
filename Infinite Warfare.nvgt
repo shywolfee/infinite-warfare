@@ -34,6 +34,9 @@
 #include "includes/waypoint.nvgt"
 #include "includes/item_data.nvgt"
 #include "includes/groups.nvgt"
+#include "includes/world_editor_core.nvgt"
+#include "includes/world_editor_builders.nvgt"
+#include "includes/world_editor.nvgt"
 #include "includes/surfaces.nvgt"
 #include "includes/net.nvgt"
 //#include "includes/rotation.nvgt"
@@ -1593,56 +1596,8 @@ void builder_teleport_tool()
 string coords=builder_coord_form("Builder teleport",false,false,"");if(coords=="")return;string[] fields=string_split(coords,":",false);me.x=string_to_number(fields[0]);me.y=string_to_number(fields[1]);me.z=string_to_number(fields[2]);mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(0,"/go "+fields[0]+" "+fields[1]+" "+fields[2],1);speak("Builder teleport requested.");
 }
 
-void builder_menu()
-{
-iw_form f;
-f.create_window("Builder - "+mapname, false, true);
-int f_list=f.create_list("Builder options", 0, false);
-f.add_list_item(f_list, "Add element");
-f.add_list_item(f_list, "Edit line");
-f.add_list_item(f_list, "Delete line");
-f.add_list_item(f_list, "Edit map");
-f.add_list_item(f_list, "Delete map");
-f.add_list_item(f_list, "Add spawn at current position");
-f.add_list_item(f_list, "Add fixture at current position");
-f.add_list_item(f_list, "Add room, open region, portal, or POI region");
-f.add_list_item(f_list, "Add rectangular destructible object");
-f.add_list_item(f_list, "Inspect map structure summary");
-f.add_list_item(f_list, "Validate authoritative map");
-f.add_list_item(f_list, "Reload authoritative map");
-f.add_list_item(f_list, "Undo last live-builder change");
-f.add_list_item(f_list, "Export local map snapshot");
-f.add_list_item(f_list, "Teleport to coordinates");
-int ok_btn=f.create_button("OK", true);
-int cancel_btn=f.create_button("Close", false, true);
-f.focus(f_list);
-while(true)
-{
-wait(5);
-f.monitor();
-if(connected==true) netloop();
-if(f.is_pressed(cancel_btn)) return;
-if(f.is_pressed(ok_btn))
-{
-int sel=f.get_list_position(f_list);
-if(sel==0) builder_add_element();
-else if(sel==1) builder_edit_line_menu();
-else if(sel==2) builder_delete_line_menu();
-else if(sel==3) builder_edit_map();
-else if(sel==4) builder_delete_map();
-else if(sel==5) builder_add_spawn_here();
-else if(sel==6) builder_add_fixture_here();
-else if(sel==7) builder_add_navigation_region();
-else if(sel==8) builder_add_destructible_box();
-else if(sel==9) builder_map_summary();
-else if(sel==10) send_reliable(0,"builder_validate_current",0);
-else if(sel==11) send_reliable(0,"builder_reload_current",0);
-else if(sel==12){if(yesno("Restore the immediately previous live-builder snapshot for this map?")==1)send_reliable(0,"builder_undo_current",0);}
-else if(sel==13) builder_export_snapshot();
-else if(sel==14) builder_teleport_tool();
-}
-}
-}
+// The builder key opens the world editor (includes/world_editor.nvgt).
+void builder_menu(){world_editor_menu();}
 
 void command_menu()
 {
@@ -4869,6 +4824,13 @@ if(handle_chat_protocol(full_msg))
 }
 else if(handle_group_packet(full_msg))
 {
+}
+else if(handle_world_editor_packet(full_msg))
+{
+}
+else if(handle_content_sync(full_msg))
+{
+refresh_content_database();
 }
 else if(capture_service_response(full_msg))
 {

@@ -143,9 +143,10 @@ final+=(a[i]+"\r\n");
 }
 return final;
 }
+// Every carriage return goes, not just the first (see the server's copy).
 string[] delinear(string a)
 {
-a=string_replace(a,"\r\n","\n",false);
+a=string_replace(a,"\r","",true);
 return string_split(a, "\n", false);
 }
 string get_zone_at(int x, int y, int z)

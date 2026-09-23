@@ -1,13 +1,4 @@
-string find_map_path(string mapname)
-{
-string[] mode_dirs={"battlegrounds", "habitat_alpha", "freeforall", "freyas_ascent"};
-for(uint i=0; i<mode_dirs.length(); i++)
-{
-string path="content/maps/"+mode_dirs[i]+"/"+mapname+".map";
-if(file_exists(path)) return path;
-}
-return "";
-}
+string find_map_path(string mapname){return indexed_map_path(mapname);}
 // A bunker control panel declared on a map. These are the source of truth for
 // bunker locations; /bunkers reads from the spawned bunkers array.
 class bunkerdef
@@ -325,9 +316,12 @@ final+=(a[i]+"\r\n");
 }
 return final;
 }
+// Every carriage return goes, not just the first: with the replace-all flag
+// off, a map checked out with Windows line endings kept a stray \r on all but
+// its first line.
 string[] delinear(string a)
 {
-a=string_replace(a,"\r\n","\n",false);
+a=string_replace(a,"\r","",true);
 return string_split(a, "\n", false);
 }
 string get_map_data(string map, string data)
@@ -366,17 +360,11 @@ return maps[index].tile_exists(x, y, z);
 void init_mapsystem()
 {
 maps.resize(0);
-string[] mode_dirs={"battlegrounds", "habitat_alpha", "freeforall", "freyas_ascent"};
-for(uint d=0; d<mode_dirs.length(); d++)
+index_map_files();
+for(uint i=0;i<map_file_ids.length();i++)
 {
-string dir="content/maps/"+mode_dirs[d];
-string[] mapfiles=find_files(dir+"/*.map");
-for(uint i=0; i<mapfiles.length(); i++)
-{
-string workingname=string_replace(mapfiles[i], ".map", "", true);
-mapdata temp(workingname);
+mapdata temp(map_file_ids[i]);
 maps.insert_last(temp);
-}
 }
 }
 // Remove all bunkers belonging to a given map from the global bunkers array.

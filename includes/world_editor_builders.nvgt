@@ -1,0 +1,676 @@
+// World editor, part two: builders.
+//
+// Each builder makes a whole thing -- a street with its pavements and kerbs,
+// a building with its floors, stairs, door and windows, a park, a bridge, a
+// whole district -- with every zone, acoustic space and ambience it needs,
+// named from what you tell it. You say where in plain terms (ahead of you, to
+// your left, in the area you marked) and how big; the form shows what it will
+// build, where, and whether that area is already built on, and updates as you
+// change anything. Nothing is written until you press Build, and every build
+// can be undone.
+
+// ---------------------------------------------------------------------------
+// Parameters and the form that asks for them
+// ---------------------------------------------------------------------------
+class we_param
+{
+string id,label,kind; // text, number, choice, check
+string value;
+string[] choices;
+double low=0,high=1000;
+nv_form_input@ input;
+nv_form_spin@ spin;
+nv_form_list_box@ list;
+nv_form_checkbox@ check;
+}
+class we_params
+{
+we_param@[] items;
+we_param@ add(const string &in id,const string &in label,const string &in kind,const string &in value,double low=0,double high=1000)
+{
+we_param p;p.id=id;p.label=label;p.kind=kind;p.value=value;p.low=low;p.high=high;items.insert_last(p);return p;
+}
+we_param@ choice(const string &in id,const string &in label,string[]@ choices,const string &in value)
+{
+we_param@ p=add(id,label,"choice",value);p.choices=choices;return p;
+}
+we_param@ find(const string &in id){for(uint i=0;i<items.length();i++)if(items[i].id==id)return items[i];return null;}
+string get(const string &in id){we_param@ p=find(id);return p is null?"":p.value;}
+int num(const string &in id){return int(string_to_number(get(id)));}
+bool flag(const string &in id){return get(id)=="true";}
+void set(const string &in id,const string &in value){we_param@ p=find(id);if(p !is null)p.value=value;}
+}
+funcdef void we_builder_fn(we_params@ p,we_batch@ result);
+
+// The common placement settings every builder offers first.
+string[] we_anchor_ids={"ahead","centred","left","right","behind","selection"};
+string[] we_anchor_words={"Starting just ahead of you","Centred where you stand","To your left","To your right","Behind you","In the area you marked"};
+string[] we_direction_ids={"facing","north","east","south","west"};
+string[] we_direction_words={"The way you are facing","North","East","South","West"};
+void we_add_placement(we_params@ p,int length,int width)
+{
+we_param@ a=p.choice("anchor","Where",we_anchor_ids,we_selection_set?"selection":"ahead");
+we_param@ d=p.choice("direction","Running",we_direction_ids,"facing");
+p.add("length","Length along that direction","number",""+length,1,2000);
+p.add("width","Width across it","number",""+width,1,2000);
+p.add("z","Ground height","number",""+int(me.z),0,1000);
+}
+we_rect@ we_params_rect(we_params@ p){return we_place(p.get("anchor"),p.get("direction"),p.num("length"),p.num("width"),p.num("z"));}
+string we_choice_word(we_param@ p,const string &in id)
+{
+if(p.id=="anchor"){int i=we_anchor_ids.find(id);if(i>=0)return we_anchor_words[i];}
+if(p.id=="direction"){int i=we_direction_ids.find(id);if(i>=0)return we_direction_words[i];}
+return id;
+}
+
+// Shows the parameters with a live description of the result, and builds
+// on request. Returns true if something was built.
+bool we_builder_form(const string &in title,we_params@ p,we_builder_fn@ build)
+{
+nv_form f;
+f.create_window(title,false,true);
+for(uint i=0;i<p.items.length();i++)
+{
+we_param@ it=p.items[i];
+if(it.kind=="text")@it.input=f.add_input(it.label,it.id,it.value);
+else if(it.kind=="number")@it.spin=f.add_spin(it.label,it.id,it.value,it.low,it.high,false,1,10);
+else if(it.kind=="check")@it.check=f.add_checkbox(it.label,it.id,it.value=="true");
+else
+{
+@it.list=f.add_list(it.label,it.id);
+int at=0;
+for(uint c=0;c<it.choices.length();c++){it.list.add(we_choice_word(it,it.choices[c]),it.choices[c]);if(it.choices[c]==it.value)at=c;}
+it.list.set_pos(at,false);
+}
+}
+nv_form_input@ preview=f.add_input("What this will build","preview","","",0,true,true);
+nv_form_button@ go=f.add_button("Build","build",false);
+nv_form_button@ close=f.add_button("Cancel","cancel",false,true);
+string last="";
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(close))return false;
+string state="";
+for(uint i=0;i<p.items.length();i++)
+{
+we_param@ it=p.items[i];
+if(it.kind=="text")it.value=it.input.text.trim_whitespace();
+else if(it.kind=="number")it.value=""+int(it.spin.output);
+else if(it.kind=="check")it.value=it.check.state?"true":"false";
+else if(@it.list.focused_item!=null)it.value=it.list.focused_item.id;
+state+=it.value+"|";
+}
+if(state!=last)
+{
+last=state;
+we_batch b;build(p,b);
+preview.default_text="This will build "+b.summary()+". "+b.overlap_report();
+}
+if(f.is_pressed(go))
+{
+we_batch b;build(p,b);
+if(b.lines.length()==0){speak("That would not build anything; check the settings.");continue;}
+string name=p.get("name");
+if(we_send_batch(b,"built "+(name==""?title.lower():name))!="")return true;
+}
+}
+return false;
+}
+
+// ---------------------------------------------------------------------------
+// The builders
+// ---------------------------------------------------------------------------
+// Street: carriageway, two pavements, two kerbs, each its own zone, and an
+// acoustic space and ambience over the whole corridor.
+void build_street(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+int pw=p.num("pavement");string name=p.get("name");if(name=="")name="Unnamed street";
+int z=r.z;
+b.tile(r.x1,r.x2,r.y1,r.y2,z,z,p.get("pavement_surface"));
+b.air(r.x1,r.x2,r.y1,r.y2,z+1,z+7);
+string near_name,far_name,near_kerb,far_kerb;
+int rx1=r.x1,rx2=r.x2,ry1=r.y1,ry2=r.y2;
+if(r.axis()=="x")
+{
+ry1=r.y1+pw;ry2=r.y2-pw;
+if(ry2>=ry1)b.tile(r.x1,r.x2,ry1,ry2,z,z,p.get("surface"));
+b.zone(r.x1,r.x2,r.y1,r.y1+pw-1,z,z+8,name+", south pavement");
+b.zone(r.x1,r.x2,r.y2-pw+1,r.y2,z,z+8,name+", north pavement");
+b.zone(r.x1,r.x2,r.y1+pw-1,r.y1+pw-1,z,z+8,name+", south kerb");
+b.zone(r.x1,r.x2,r.y2-pw+1,r.y2-pw+1,z,z+8,name+", north kerb");
+}
+else
+{
+rx1=r.x1+pw;rx2=r.x2-pw;
+if(rx2>=rx1)b.tile(rx1,rx2,r.y1,r.y2,z,z,p.get("surface"));
+b.zone(r.x1,r.x1+pw-1,r.y1,r.y2,z,z+8,name+", west pavement");
+b.zone(r.x2-pw+1,r.x2,r.y1,r.y2,z,z+8,name+", east pavement");
+b.zone(r.x1+pw-1,r.x1+pw-1,r.y1,r.y2,z,z+8,name+", west kerb");
+b.zone(r.x2-pw+1,r.x2-pw+1,r.y1,r.y2,z,z+8,name+", east kerb");
+}
+if(rx2>=rx1 and ry2>=ry1)b.zone(rx1,rx2,ry1,ry2,z,z+8,name+", carriageway");
+b.space(r.x1,r.x2,r.y1,r.y2,z,z+8,name,"concrete","street",false);
+b.ambience(r.x1,r.x2,r.y1,r.y2,z,z+8,p.get("ambience"));
+}
+
+// Building: floors, walls, roof, a door on the side facing you, windows,
+// stairs between floors, and a zone and acoustic space for every floor.
+string we_floor_name(int k){string[] n={"ground floor","first floor","second floor","third floor","fourth floor","fifth floor","sixth floor","seventh floor","eighth floor","ninth floor","tenth floor"};return k<int(n.length())?n[k]:"floor "+k;}
+void build_building(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="Unnamed building";
+int floors=p.num("floors"),h=p.num("floor_height");if(floors<1)floors=1;if(h<3)h=3;
+string wall=p.get("wall"),floor=p.get("floor"),roof=p.get("roof"),kind=p.get("kind");
+int z=r.z;
+if(r.width()<4 or r.depth()<4)return;
+int top=z+floors*h;
+b.air(r.x1,r.x2,r.y1,r.y2,z,top+2);
+// Floors and walls.
+for(int k=0;k<floors;k++)
+{
+int fz=z+k*h;
+b.tile(r.x1,r.x2,r.y1,r.y2,fz,fz,floor);
+b.tile(r.x1,r.x1,r.y1,r.y2,fz,fz+h-1,wall);
+b.tile(r.x2,r.x2,r.y1,r.y2,fz,fz+h-1,wall);
+b.tile(r.x1,r.x2,r.y1,r.y1,fz,fz+h-1,wall);
+b.tile(r.x1,r.x2,r.y2,r.y2,fz,fz+h-1,wall);
+}
+b.tile(r.x1,r.x2,r.y1,r.y2,top,top,roof);
+// Stairs: a switchback along the west or south inner wall, one flight a
+// floor, each landing beside the next flight's foot.
+int ix1=r.x1+1,ix2=r.x2-1,iy1=r.y1+1,iy2=r.y2-1;
+bool along_y=(iy2-iy1)>=(ix2-ix1);
+int run=along_y?(iy2-iy1+1):(ix2-ix1+1);
+bool stairs=floors>1 and run>=h+1 and (along_y?(ix2-ix1+1):(iy2-iy1+1))>=4;
+if(floors>1 and stairs)
+{
+for(int k=0;k<floors-1;k++)
+{
+int fz=z+k*h;
+int lane=k%2; // which of the two strips this flight uses
+bool forward=k%2==0;
+for(int s=0;s<=h;s++)
+{
+int along=forward?s:h-s;
+int tz=fz+s;
+int ax,ay;
+if(along_y){ax=ix1+lane;ay=iy1+along;}else{ax=ix1+along;ay=iy1+lane;}
+b.air(ax,ax,ay,ay,tz+1,tz+3);
+b.tile(ax,ax,ay,ay,tz,tz,p.get("stair_surface"));
+}
+// The hole in the floor above the flight.
+for(int s=0;s<h;s++)
+{
+int along=forward?s:h-s;
+int ax,ay;
+if(along_y){ax=ix1+lane;ay=iy1+along;}else{ax=ix1+along;ay=iy1+lane;}
+b.air(ax,ax,ay,ay,fz+h,fz+h);
+}
+}
+if(along_y)b.zone(ix1,ix1+1,iy1,iy1+h,z,top-1,name+", stairs");else b.zone(ix1,ix1+h,iy1,iy1+1,z,top-1,name+", stairs");
+}
+else if(floors>1)
+{
+// No room for a flight: a ladder in the corner, through every floor.
+for(int k=0;k<floors;k++)b.air(ix1,ix1,iy1,iy1,z+k*h+1,z+(k+1)*h);
+b.tile(ix1,ix1,iy1,iy1,z+1,top-1,"access ladder");
+b.zone(ix1,ix1,iy1,iy1,z,top,name+", ladder");
+}
+// Zones and acoustics for each floor.
+string material=we_absorption(wall);
+for(int k=0;k<floors;k++)
+{
+int fz=z+k*h;
+string floor_name=floors==1?name:name+", "+we_floor_name(k);
+b.zone(ix1,ix2,iy1,iy2,fz,fz+h-1,floor_name);
+b.space(ix1,ix2,iy1,iy2,fz,fz+h-1,floor_name,material,kind,true);
+b.ambience(ix1,ix2,iy1,iy2,fz,fz+h-1,p.get("ambience"));
+}
+b.zone(r.x1,r.x2,r.y1,r.y2,top,top+4,name+", roof");
+// The door: middle of the side nearest where you stand.
+int dw=p.num("door_width");if(dw<1)dw=1;
+int px=int(mr.x),py=int(mr.y);
+int dx1,dx2,dy1,dy2;
+int dxs=abs(px-r.x1)<abs(px-r.x2)?r.x1:r.x2,dys=abs(py-r.y1)<abs(py-r.y2)?r.y1:r.y2;
+bool door_on_x=we_min(abs(px-r.x1),abs(px-r.x2))<we_min(abs(py-r.y1),abs(py-r.y2));
+if(door_on_x){dx1=dxs;dx2=dxs;dy1=(r.y1+r.y2)/2-dw/2;dy2=dy1+dw-1;}
+else{dy1=dys;dy2=dys;dx1=(r.x1+r.x2)/2-dw/2;dx2=dx1+dw-1;}
+// Windows: along every outer wall of every floor, every fourth tile.
+if(p.flag("windows"))
+{
+for(int k=0;k<floors;k++)
+{
+int wz=z+k*h+1;
+for(int x=r.x1+2;x<=r.x2-2;x+=4){if(k==0 and !door_on_x and x>=dx1-1 and x<=dx2+1)continue;b.tile(x,x,r.y1,r.y1,wz,wz+1,"window wall");b.portal(x,x,r.y1,r.y1,wz,wz+1,name+", window","window");b.tile(x,x,r.y2,r.y2,wz,wz+1,"window wall");b.portal(x,x,r.y2,r.y2,wz,wz+1,name+", window","window");}
+for(int y=r.y1+2;y<=r.y2-2;y+=4){if(k==0 and door_on_x and y>=dy1-1 and y<=dy2+1)continue;b.tile(r.x1,r.x1,y,y,wz,wz+1,"window wall");b.portal(r.x1,r.x1,y,y,wz,wz+1,name+", window","window");b.tile(r.x2,r.x2,y,y,wz,wz+1,"window wall");b.portal(r.x2,r.x2,y,y,wz,wz+1,name+", window","window");}
+}
+}
+// The door last, so nothing seals it.
+int door_h=we_min(3,h-1);
+b.air(dx1,dx2,dy1,dy2,z+1,z+door_h);
+b.tile(dx1,dx2,dy1,dy2,z,z,floor);
+b.zone(dx1,dx2,dy1,dy2,z,z+door_h,name+", entrance");
+b.portal(dx1,dx2,dy1,dy2,z,z+door_h,name+", entrance","opening");
+if(p.flag("landmark"))b.poiregion(r.x1,r.x2,r.y1,r.y2,z,z+h-1,name);
+}
+
+// An open area: a square, a car park, a courtyard, a field.
+void build_area(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="Unnamed area";
+b.air(r.x1,r.x2,r.y1,r.y2,r.z+1,r.z+7);
+b.tile(r.x1,r.x2,r.y1,r.y2,r.z,r.z,p.get("surface"));
+if(p.flag("quarters") and r.width()>=12 and r.depth()>=12)
+{
+string[] names={"south-west","south","south-east","west","middle","east","north-west","north","north-east"};
+for(int cy=0;cy<3;cy++)for(int cx=0;cx<3;cx++)
+{
+int ax=r.x1+r.width()*cx/3,bx=r.x1+r.width()*(cx+1)/3-1,ay=r.y1+r.depth()*cy/3,by=r.y1+r.depth()*(cy+1)/3-1;
+string where=names[cy*3+cx];
+b.zone(ax,bx,ay,by,r.z,r.z+7,where=="middle"?name+", the middle":name+", "+where+" corner");
+}
+}
+else b.zone(r.x1,r.x2,r.y1,r.y2,r.z,r.z+7,name);
+b.space(r.x1,r.x2,r.y1,r.y2,r.z,r.z+7,name,we_absorption(p.get("surface")),p.get("kind"),false);
+b.ambience(r.x1,r.x2,r.y1,r.y2,r.z,r.z+7,p.get("ambience"));
+if(p.flag("landmark"))b.poiregion(r.x1,r.x2,r.y1,r.y2,r.z,r.z+3,name);
+}
+
+// Water: a basin a step or more down, with a shore zone around it.
+void build_water(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="Unnamed water";
+int depth=p.num("depth");if(depth<1)depth=1;
+// Nothing can go below the bottom of the map; on the lowest ground the water
+// lies level with it, to wade through rather than step down into.
+int bed=r.z-depth;if(bed<0)bed=0;
+b.air(r.x1,r.x2,r.y1,r.y2,bed+1,r.z+6);
+b.tile(r.x1,r.x2,r.y1,r.y2,bed,bed,p.get("surface"));
+b.zone(r.x1,r.x2,r.y1,r.y2,bed,r.z+6,name);
+b.space(r.x1,r.x2,r.y1,r.y2,bed,r.z+6,name,"water","water",false);
+b.ambience(r.x1,r.x2,r.y1,r.y2,bed,r.z+6,p.get("ambience"));
+}
+
+// Stairs or a ramp from where you are, up or down a number of levels.
+void build_stairs(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="Stairs";
+int rise=p.num("rise");bool up=p.get("way")=="up";
+int low=r.z,high=up?r.z+rise:r.z-rise;
+int run=r.axis()=="y"?r.depth():r.width();
+if(run<rise+1)run=rise+1;
+for(int s=0;s<run;s++)
+{
+int tz=int(round(double(low)+double(high-low)*double(s)/double(run-1),0));
+int ax1,ax2,ay1,ay2;
+if(r.axis()=="y"){int y=r.fy>0?r.y1+s:r.y2-s;ax1=r.x1;ax2=r.x2;ay1=y;ay2=y;}
+else{int x=r.fx>0?r.x1+s:r.x2-s;ax1=x;ax2=x;ay1=r.y1;ay2=r.y2;}
+b.air(ax1,ax2,ay1,ay2,tz+1,tz+4);
+if(p.flag("support") and tz>we_min(low,high))b.tile(ax1,ax2,ay1,ay2,we_min(low,high),tz-1,"concrete wall");
+b.tile(ax1,ax2,ay1,ay2,tz,tz,p.get("surface"));
+}
+b.zone(r.x1,r.x2,r.y1,r.y2,we_min(low,high),we_max(low,high)+4,name);
+}
+
+// A ladder where you stand, or just ahead, up a number of levels.
+void build_ladder(we_params@ p,we_batch@ b)
+{
+int fx,fy;we_facing_step(fx,fy);
+int x=int(mr.x)+(p.get("anchor")=="ahead"?fx:0),y=int(mr.y)+(p.get("anchor")=="ahead"?fy:0),z=int(me.z);
+int h=p.num("height");if(h<1)h=1;
+string name=p.get("name");if(name=="")name="Ladder";
+b.air(x,x,y,y,z+1,z+h+2);
+b.tile(x,x,y,y,z+1,z+h,p.get("surface"));
+b.zone(x,x,y,y,z,z+h+2,name);
+}
+
+// A bridge or walkway: a deck at a height, rails, and piers down to the ground.
+void build_bridge(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="Bridge";
+int dz=r.z+p.num("height");
+b.air(r.x1,r.x2,r.y1,r.y2,dz+1,dz+6);
+b.tile(r.x1,r.x2,r.y1,r.y2,dz,dz,p.get("surface"));
+if(p.flag("rails"))
+{
+if(r.axis()=="y"){b.tile(r.x1,r.x1,r.y1,r.y2,dz+1,dz+2,"railing wall");b.tile(r.x2,r.x2,r.y1,r.y2,dz+1,dz+2,"railing wall");}
+else{b.tile(r.x1,r.x2,r.y1,r.y1,dz+1,dz+2,"railing wall");b.tile(r.x1,r.x2,r.y2,r.y2,dz+1,dz+2,"railing wall");}
+}
+int spacing=p.num("pier_spacing");
+if(spacing>0 and dz>r.z)
+{
+if(r.axis()=="y"){for(int y=r.y1+spacing/2;y<=r.y2;y+=spacing)b.tile(r.x1,r.x1,y,y,r.z,dz-1,"concrete wall");}
+else{for(int x=r.x1+spacing/2;x<=r.x2;x+=spacing)b.tile(x,x,r.y1,r.y1,r.z,dz-1,"concrete wall");}
+}
+// Stairs down to the ground at each end, beyond the deck, so a raised
+// bridge is somewhere you can get onto.
+if(p.flag("end_stairs") and dz>r.z)
+{
+int rise=dz-r.z;
+for(int end=0;end<2;end++)
+{
+for(int s=1;s<=rise;s++)
+{
+int tz=dz-s;
+int ax1,ax2,ay1,ay2;
+if(r.axis()=="y"){int y=end==0?r.y1-s:r.y2+s;ax1=r.x1;ax2=r.x2;ay1=y;ay2=y;}
+else{int x=end==0?r.x1-s:r.x2+s;ax1=x;ax2=x;ay1=r.y1;ay2=r.y2;}
+b.air(ax1,ax2,ay1,ay2,tz+1,tz+4);
+if(tz>r.z)b.tile(ax1,ax2,ay1,ay2,r.z,tz-1,"concrete wall");
+b.tile(ax1,ax2,ay1,ay2,tz,tz,"concrete stairs");
+}
+if(r.axis()=="y")b.zone(r.x1,r.x2,end==0?r.y1-rise:r.y2+1,end==0?r.y1-1:r.y2+rise,r.z,dz+4,name+", "+(end==0?"south":"north")+" steps");
+else b.zone(end==0?r.x1-rise:r.x2+1,end==0?r.x1-1:r.x2+rise,r.y1,r.y2,r.z,dz+4,name+", "+(end==0?"west":"east")+" steps");
+}
+}
+b.zone(r.x1,r.x2,r.y1,r.y2,dz,dz+6,name);
+b.space(r.x1,r.x2,r.y1,r.y2,dz,dz+6,name,"metal","bridge",false);
+}
+
+// A wall or fence along a line.
+void build_wall(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+int h=p.num("height");if(h<1)h=1;
+b.tile(r.x1,r.x2,r.y1,r.y2,r.z+1,r.z+h,p.get("surface"));
+string name=p.get("name");
+if(name!="")b.zone(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,name);
+}
+
+// A doorway cut through whatever wall is ahead of you.
+void build_doorway(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="Doorway";
+int h=p.num("height");if(h<2)h=2;
+b.air(r.x1,r.x2,r.y1,r.y2,r.z+1,r.z+h);
+b.tile(r.x1,r.x2,r.y1,r.y2,r.z,r.z,p.get("surface"));
+b.zone(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,name);
+b.portal(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,name,"opening");
+}
+
+// Clears everything in a volume: the undo for building by hand.
+void build_clear(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+b.air(r.x1,r.x2,r.y1,r.y2,r.z+(p.flag("keep_ground")?1:0),r.z+p.num("height"));
+}
+
+// Named zones, acoustics and ambience alone, over what is already there.
+void build_zone_only(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")return;
+int h=p.num("height");if(h<1)h=6;
+b.zone(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,name);
+if(p.get("kind")!="none")b.space(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,name,we_absorption(p.get("material")),p.get("kind"),p.flag("enclosed"));
+b.ambience(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,p.get("ambience"));
+if(p.flag("landmark"))b.poiregion(r.x1,r.x2,r.y1,r.y2,r.z,r.z+h,name);
+}
+
+// Spawn points: one where you stand, or scattered through the marked area.
+void build_spawns(we_params@ p,we_batch@ b)
+{
+int count=p.num("count");if(count<1)count=1;
+if(p.get("anchor")=="selection" and we_selection_set)
+{
+int x1=we_min(we_sel_x1,we_sel_x2),x2=we_max(we_sel_x1,we_sel_x2),y1=we_min(we_sel_y1,we_sel_y2),y2=we_max(we_sel_y1,we_sel_y2);
+for(int i=0;i<count;i++)b.spawn(random(x1,x2),random(y1,y2),we_sel_z1);
+}
+else b.spawn(int(mr.x),int(mr.y),int(me.z));
+}
+
+// A city district: a grid of streets with junctions, and a building on
+// every block, named from the names you give or ones it makes up.
+string[] we_street_names={"Market Street","Church Lane","Station Road","Mill Street","High Street","Bridge Street","King Street","Queen Street","Park Road","Victoria Road","Albert Street","Water Lane","Chapel Street","Castle Street","Garden Row","Canal Street","North Road","South Road","Union Street","Foundry Lane"};
+string[] we_building_names={"Apartments","House","Shop","Office","Warehouse","Workshop","Bakery","Clinic","Garage","Hotel","Pharmacy","Bank","Library","Cafe","Bar","School","Chapel","Market Hall","Depot","Hardware Store"};
+void build_district(we_params@ p,we_batch@ b)
+{
+we_rect@ r=we_params_rect(p);
+string name=p.get("name");if(name=="")name="New district";
+int block=p.num("block");int sw=p.num("street_width");if(block<10)block=10;if(sw<6)sw=6;
+int maxf=p.num("max_floors");if(maxf<1)maxf=1;
+int z=r.z;
+string style=p.get("style");
+string wall=style=="industrial"?"shutter wall":(style=="commercial"?"concrete wall":"brick wall");
+int pitch=block+sw;
+int cols=(r.width()-sw)/pitch,rows=(r.depth()-sw)/pitch;
+if(cols<1 or rows<1)return;
+b.air(r.x1,r.x2,r.y1,r.y2,z+1,z+maxf*4+4);
+int used=0;
+// Streets running north-south, then east-west, then the junctions.
+for(int c=0;c<=cols;c++)
+{
+int sx=r.x1+c*pitch;
+we_params sp;sp.add("name","","text",we_street_names[(c*3)%we_street_names.length()]);sp.add("pavement","","number","2");sp.add("surface","","text","asphalt");sp.add("pavement_surface","","text","concrete pavement");sp.add("ambience","","text",style=="residential"?"quiet street":"busy street");
+sp.add("anchor","","text","selection");
+we_sel_set_temp(sx,sx+sw-1,r.y1,r.y1+rows*pitch+sw-1,z);
+sp.add("direction","","text","north");sp.add("length","","number","1");sp.add("width","","number","1");sp.add("z","","number",""+z);
+build_street(sp,b);
+}
+for(int w=0;w<=rows;w++)
+{
+int sy=r.y1+w*pitch;
+we_params sp;sp.add("name","","text",we_street_names[(w*3+10)%we_street_names.length()]);sp.add("pavement","","number","2");sp.add("surface","","text","asphalt");sp.add("pavement_surface","","text","concrete pavement");sp.add("ambience","","text",style=="residential"?"quiet street":"busy street");
+sp.add("anchor","","text","selection");
+we_sel_set_temp(r.x1,r.x1+cols*pitch+sw-1,sy,sy+sw-1,z);
+sp.add("direction","","text","east");sp.add("length","","number","1");sp.add("width","","number","1");sp.add("z","","number",""+z);
+build_street(sp,b);
+}
+for(int c=0;c<=cols;c++)for(int w=0;w<=rows;w++)
+{
+int jx=r.x1+c*pitch,jy=r.y1+w*pitch;
+string a=we_street_names[(c*3)%we_street_names.length()],s=we_street_names[(w*3+10)%we_street_names.length()];
+b.tile(jx,jx+sw-1,jy,jy+sw-1,z,z,"asphalt");
+b.zone(jx,jx+sw-1,jy,jy+sw-1,z,z+8,a+" and "+s);
+}
+// A building on each block, its door on the street to its south.
+for(int c=0;c<cols;c++)for(int w=0;w<rows;w++)
+{
+int bx1=r.x1+c*pitch+sw+1,by1=r.y1+w*pitch+sw+1;
+int bx2=bx1+block-3,by2=by1+block-3;
+we_params bp;
+string bname=we_street_names[(c*3)%we_street_names.length()]+" "+we_building_names[(c*7+w*3+used)%we_building_names.length()];
+used++;
+bp.add("name","","text",bname);
+bp.add("floors","","number",""+random(1,maxf));bp.add("floor_height","","number","4");
+bp.add("wall","","text",wall);bp.add("floor","","text",style=="industrial"?"concrete floor":"ceramic tile");bp.add("roof","","text","concrete pavement");
+bp.add("kind","","text",style=="industrial"?"warehouse":(style=="commercial"?"shop":"room"));
+bp.add("ambience","","text","none");bp.add("door_width","","number","2");bp.add("windows","","check","true");bp.add("landmark","","check","false");bp.add("stair_surface","","text","concrete stairs");
+bp.add("anchor","","text","selection");bp.add("direction","","text","north");bp.add("length","","number","1");bp.add("width","","number","1");bp.add("z","","number",""+z);
+we_sel_set_temp(bx1,bx2,by1,by2,z);
+// Doors face south: pretend we stand on the street below.
+double sx=mr.x,sy2=mr.y;mr.x=(bx1+bx2)/2;mr.y=by1-2;
+build_building(bp,b);
+mr.x=sx;mr.y=sy2;
+}
+we_sel_restore_temp();
+b.zone(r.x1,r.x2,r.y1,r.y2,z,z+maxf*4+4,name);
+}
+// District building borrows the selection to place each part.
+bool we_saved_sel_set=false;int we_saved_x1,we_saved_x2,we_saved_y1,we_saved_y2,we_saved_z;bool we_temp_active=false;
+void we_sel_set_temp(int x1,int x2,int y1,int y2,int z)
+{
+if(!we_temp_active){we_saved_sel_set=we_selection_set;we_saved_x1=we_sel_x1;we_saved_x2=we_sel_x2;we_saved_y1=we_sel_y1;we_saved_y2=we_sel_y2;we_saved_z=we_sel_z1;we_temp_active=true;}
+we_selection_set=true;we_sel_x1=x1;we_sel_x2=x2;we_sel_y1=y1;we_sel_y2=y2;we_sel_z1=z;we_sel_z2=z;
+}
+void we_sel_restore_temp()
+{
+if(!we_temp_active)return;
+we_selection_set=we_saved_sel_set;we_sel_x1=we_saved_x1;we_sel_x2=we_saved_x2;we_sel_y1=we_saved_y1;we_sel_y2=we_saved_y2;we_sel_z1=we_saved_z;we_temp_active=false;
+}
+
+// ---------------------------------------------------------------------------
+// The parameter sets each builder asks for, with sensible defaults
+// ---------------------------------------------------------------------------
+we_params@ we_street_params(){we_params p;we_add_placement(p,60,14);p.add("name","Street name","text","");p.add("pavement","Pavement width","number","3",1,20);p.choice("surface","Road surface",we_surface_names,"asphalt");p.choice("pavement_surface","Pavement surface",we_surface_names,"concrete pavement");string[] beds={"none"};for(uint i=0;i<we_ambience_names.length();i++)beds.insert_last(we_ambience_names[i]);p.choice("ambience","Ambience",beds,"busy street");return p;}
+string[] we_building_kinds={"room","shop","office","warehouse","hall","ward","workshop","garage","chapel","kitchen","hangar"};
+we_params@ we_building_params(){we_params p;we_add_placement(p,16,12);p.add("name","Building name","text","");p.add("floors","Floors","number","2",1,40);p.add("floor_height","Height of each floor","number","4",3,12);p.choice("kind","What it is inside",we_building_kinds,"room");p.choice("wall","Walls",we_surface_names,"brick wall");p.choice("floor","Floors made of",we_surface_names,"ceramic tile");p.choice("roof","Roof",we_surface_names,"concrete pavement");p.choice("stair_surface","Stairs",we_surface_names,"concrete stairs");p.add("door_width","Door width","number","2",1,10);p.add("windows","Windows","check","true");p.add("landmark","List it as a point of interest","check","true");string[] beds={"none"};for(uint i=0;i<we_ambience_names.length();i++)beds.insert_last(we_ambience_names[i]);p.choice("ambience","Ambience inside",beds,"none");return p;}
+we_params@ we_area_params(const string &in surface,const string &in kind,const string &in bed){we_params p;we_add_placement(p,24,24);p.add("name","Name","text","");p.choice("surface","Surface",we_surface_names,surface);p.choice("kind","Acoustic kind",we_acoustic_kinds,kind);string[] beds={"none"};for(uint i=0;i<we_ambience_names.length();i++)beds.insert_last(we_ambience_names[i]);p.choice("ambience","Ambience",beds,bed);p.add("quarters","Name its corners and middle separately","check","true");p.add("landmark","List it as a point of interest","check","false");return p;}
+we_params@ we_water_params(){we_params p;we_add_placement(p,30,20);p.add("name","Name","text","");p.add("depth","How far down the water is","number","2",1,50);p.choice("surface","Surface",we_surface_names,"shallow water");string[] beds={"none"};for(uint i=0;i<we_ambience_names.length();i++)beds.insert_last(we_ambience_names[i]);p.choice("ambience","Ambience",beds,"river");return p;}
+we_params@ we_stairs_params(const string &in surface){we_params p;we_add_placement(p,6,3);p.add("name","Name","text","");string[] way={"up","down"};p.choice("way","Going",way,"up");p.add("rise","Levels to climb","number","4",1,200);p.choice("surface","Surface",we_surface_names,surface);p.add("support","Fill in underneath","check","true");return p;}
+we_params@ we_ladder_params(){we_params p;string[] a={"here","ahead"};p.choice("anchor","Where",a,"ahead");p.add("height","Height","number","8",1,300);p.add("name","Name","text","");p.choice("surface","Surface",we_surface_names,"access ladder");return p;}
+we_params@ we_bridge_params(){we_params p;we_add_placement(p,30,4);p.add("name","Name","text","");p.add("height","Height of the deck above the ground","number","6",0,300);p.choice("surface","Deck",we_surface_names,"steel deck");p.add("rails","Railings","check","true");p.add("end_stairs","Stairs down at each end","check","true");p.add("pier_spacing","Distance between piers (0 for none)","number","10",0,200);return p;}
+we_params@ we_wall_params(const string &in surface){we_params p;we_add_placement(p,12,1);p.add("height","Height","number","3",1,200);p.choice("surface","Material",we_surface_names,surface);p.add("name","Name (optional)","text","");return p;}
+we_params@ we_doorway_params(){we_params p;we_add_placement(p,2,2);p.add("name","Name","text","");p.add("height","Height","number","3",2,20);p.choice("surface","Threshold surface",we_surface_names,"concrete pavement");return p;}
+we_params@ we_clear_params(){we_params p;we_add_placement(p,6,6);p.add("height","Height to clear","number","6",1,400);p.add("keep_ground","Keep the ground","check","true");return p;}
+we_params@ we_zone_params(){we_params p;we_add_placement(p,10,10);p.add("name","Name","text","");p.add("height","Height","number","6",1,400);string[] kinds={"none"};for(uint i=0;i<we_acoustic_kinds.length();i++)kinds.insert_last(we_acoustic_kinds[i]);p.choice("kind","Acoustic kind",kinds,"room");p.add("enclosed","Enclosed","check","true");p.choice("material","Walls made of",we_surface_names,"concrete wall");string[] beds={"none"};for(uint i=0;i<we_ambience_names.length();i++)beds.insert_last(we_ambience_names[i]);p.choice("ambience","Ambience",beds,"none");p.add("landmark","List it as a point of interest","check","false");return p;}
+we_params@ we_spawn_params(){we_params p;string[] a={"here","selection"};p.choice("anchor","Where",a,we_selection_set?"selection":"here");p.add("count","How many (in the marked area)","number","4",1,50);return p;}
+string[] we_district_styles={"residential","commercial","industrial"};
+we_params@ we_district_params(){we_params p;we_add_placement(p,120,120);p.add("name","District name","text","");p.choice("style","Style",we_district_styles,"residential");p.add("block","Block size","number","24",10,200);p.add("street_width","Street width","number","12",6,40);p.add("max_floors","Most floors a building has","number","4",1,20);return p;}
+
+// ---------------------------------------------------------------------------
+// The builders menu
+// ---------------------------------------------------------------------------
+void we_run_builder(const string &in id)
+{
+we_load_palette();
+if(!we_fetch_map())return;
+if(id=="street")we_builder_form("Build a street",we_street_params(),build_street);
+else if(id=="building")we_builder_form("Build a building",we_building_params(),build_building);
+else if(id=="square")we_builder_form("Build a square",we_area_params("paving slabs","square","city day"),build_area);
+else if(id=="park")we_builder_form("Build a park",we_area_params("grass","open","park"),build_area);
+else if(id=="car_park")we_builder_form("Build a car park",we_area_params("asphalt","open","car park"),build_area);
+else if(id=="field")we_builder_form("Build open ground",we_area_params("grass","open","grassland"),build_area);
+else if(id=="water")we_builder_form("Build water",we_water_params(),build_water);
+else if(id=="stairs")we_builder_form("Build stairs",we_stairs_params("concrete stairs"),build_stairs);
+else if(id=="ramp")we_builder_form("Build a ramp",we_stairs_params("ramp surface"),build_stairs);
+else if(id=="ladder")we_builder_form("Build a ladder",we_ladder_params(),build_ladder);
+else if(id=="bridge")we_builder_form("Build a bridge or walkway",we_bridge_params(),build_bridge);
+else if(id=="wall")we_builder_form("Build a wall",we_wall_params("brick wall"),build_wall);
+else if(id=="fence")we_builder_form("Build a fence",we_wall_params("chainlink wall"),build_wall);
+else if(id=="doorway")we_builder_form("Cut a doorway",we_doorway_params(),build_doorway);
+else if(id=="clear")we_builder_form("Clear a space",we_clear_params(),build_clear);
+else if(id=="zone")we_builder_form("Name an area",we_zone_params(),build_zone_only);
+else if(id=="spawns")we_builder_form("Add spawn points",we_spawn_params(),build_spawns);
+else if(id=="district")we_builder_form("Build a district",we_district_params(),build_district);
+}
+void we_builders_menu()
+{
+string[] labels={"Describe what you want, in words","A street, with pavements, kerbs and named stretches","A building, with floors, stairs, a door and windows","A whole district of streets and buildings","A square","A park","A car park","Open ground","Water: a river, pond or harbour","Stairs","A ramp","A ladder","A bridge or raised walkway","A wall","A fence","A doorway through a wall","Clear a space","Name an area: zone, acoustics and ambience","Spawn points"};
+string[] ids={"describe","street","building","district","square","park","car_park","field","water","stairs","ramp","ladder","bridge","wall","fence","doorway","clear","zone","spawns"};
+while(true)
+{
+string id=pick_from_list("Build",labels,ids);
+if(id=="")return;
+if(id=="describe")we_describe();else we_run_builder(id);
+}
+}
+
+// ---------------------------------------------------------------------------
+// Describe what you want
+// ---------------------------------------------------------------------------
+// "a three storey brick building called Harbour Flats to my left",
+// "a 60 long street called Mill Lane going north", "a park 40 by 30 ahead".
+// The words pick the builder and fill in its settings; the settings form
+// then opens with them filled in, so you can check and adjust before
+// anything is built.
+int we_word_number(const string &in w)
+{
+string[] words={"zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty","single","double","triple"};
+int[] values={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,1,2,3};
+int i=words.find(w);if(i>=0)return values[i];
+if(w.length()>0 and w.substr(0,1)>="0" and w.substr(0,1)<="9")return int(string_to_number(w));
+return -1;
+}
+void we_describe()
+{
+we_load_palette();
+string text=af_input("Describe what to build","",true).trim_whitespace();
+if(text=="")return;
+if(!we_fetch_map())return;
+string lower=" "+text.lower()+" ";
+// Which builder.
+string[] keys={"district","neighbourhood","neighborhood","street","road","avenue","lane","boulevard","building","house","tower","block","shop","office","warehouse","apartment","church","hospital","square","plaza","courtyard","park","garden","car park","parking","field","meadow","river","pond","lake","harbour","pool","water","staircase","stairs","steps","ramp","ladder","bridge","walkway","catwalk","wall","fence","door","clear","zone","spawn"};
+string[] map_to={"district","district","district","street","street","street","street","street","building","building","building","building","building","building","building","building","building","building","square","square","square","park","park","car_park","car_park","field","field","water","water","water","water","water","water","stairs","stairs","stairs","ramp","ladder","bridge","bridge","bridge","wall","fence","doorway","clear","zone","spawns"};
+string id="";
+for(uint i=0;i<keys.length() and id=="";i++)if(lower.find(" "+keys[i])>=0)id=map_to[i];
+if(id==""){speak("I could not tell what to build. Mention a street, building, district, square, park, water, stairs, ramp, ladder, bridge, wall, fence, doorway, zone or spawn points.");return;}
+we_params@ p;
+if(id=="street")@p=we_street_params();else if(id=="building")@p=we_building_params();else if(id=="district")@p=we_district_params();
+else if(id=="square")@p=we_area_params("paving slabs","square","city day");else if(id=="park")@p=we_area_params("grass","open","park");
+else if(id=="car_park")@p=we_area_params("asphalt","open","car park");else if(id=="field")@p=we_area_params("grass","open","grassland");
+else if(id=="water")@p=we_water_params();else if(id=="stairs")@p=we_stairs_params("concrete stairs");else if(id=="ramp")@p=we_stairs_params("ramp surface");
+else if(id=="ladder")@p=we_ladder_params();else if(id=="bridge")@p=we_bridge_params();else if(id=="wall")@p=we_wall_params("brick wall");
+else if(id=="fence")@p=we_wall_params("chainlink wall");else if(id=="doorway")@p=we_doorway_params();else if(id=="clear")@p=we_clear_params();
+else if(id=="zone")@p=we_zone_params();else @p=we_spawn_params();
+string[] w=string_split(text.lower()," ",true);
+// Name: everything after "called" or "named".
+int called=lower.find(" called ");if(called<0)called=lower.find(" named ");
+if(called>=0)
+{
+string rest=text.substr(called+(lower.substr(called,8)==" called "?7:6)).trim_whitespace();
+string[] stops={" to my"," ahead"," behind"," going"," running"," heading"," here"," in the"," on the"," with"," made of"," using"};
+int cut=rest.length();
+for(uint s=0;s<stops.length();s++){int at=(" "+rest.lower()).find(stops[s]);if(at>=0 and at-1<cut)cut=at-1;}
+if(cut<0)cut=0;
+p.set("name",rest.substr(0,cut).trim_whitespace());
+}
+// Where.
+if(lower.find(" left ")>=0)p.set("anchor","left");else if(lower.find(" right ")>=0)p.set("anchor","right");
+else if(lower.find(" behind ")>=0)p.set("anchor","behind");else if(lower.find(" here ")>=0 or lower.find(" around me ")>=0)p.set("anchor","centred");
+else if(lower.find(" marked ")>=0 or lower.find(" selection ")>=0)p.set("anchor","selection");else if(lower.find(" ahead ")>=0 or lower.find(" in front ")>=0)p.set("anchor","ahead");
+string[] dirs={"north","east","south","west"};
+for(uint d=0;d<dirs.length();d++)if(lower.find(" "+dirs[d]+" ")>=0 or lower.find(" "+dirs[d]+"wards ")>=0)p.set("direction",dirs[d]);
+if(lower.find(" down ")>=0)p.set("way","down");
+// Numbers: "40 by 30", "60 long", "12 wide", "3 storeys", "8 high", "4 deep".
+for(uint i=0;i<w.length();i++)
+{
+int n=we_word_number(w[i]);
+if(n<0)continue;
+string next=i+1<w.length()?w[i+1]:"";
+if(next=="by" and i+2<w.length()){int m=we_word_number(w[i+2]);if(m>0){p.set("length",""+n);p.set("width",""+m);}}
+else if(next=="long" or next=="metres" or next=="tiles")p.set("length",""+n);
+else if(next=="wide")p.set("width",""+n);
+else if(next.find("stor")==0 or next.find("floor")==0 or next=="levels" or next=="level")
+{
+if(p.find("floors") !is null)p.set("floors",""+n);else if(p.find("rise") !is null)p.set("rise",""+n);else if(p.find("max_floors") !is null)p.set("max_floors",""+n);
+}
+else if(next=="high" or next=="tall"){if(p.find("height") !is null)p.set("height",""+n);else if(p.find("rise") !is null)p.set("rise",""+n);}
+else if(next=="deep"){if(p.find("depth") !is null)p.set("depth",""+n);}
+}
+// Materials: the longest surface name mentioned.
+string best="";
+for(uint i=0;i<we_surface_names.length();i++)
+{
+string m=we_surface_names[i];
+string bare=m;if(bare.length()>5 and bare.substr(bare.length()-5)==" wall")bare=bare.substr(0,bare.length()-5);
+if((lower.find(" "+m+" ")>=0 or lower.find(" "+bare+" ")>=0) and bare.length()>best.length())best=m;
+}
+if(best!="")
+{
+string target=p.find("wall") !is null and best.find("wall")>=0?"wall":"surface";
+if(p.find("wall") !is null and best.find("wall")<0)
+{
+// "a brick building": prefer the wall form of the word.
+string walled=best+" wall";
+if(we_surface_names.find(walled)>=0){p.set("wall",walled);best="";}
+}
+if(best!="" and p.find(target) !is null)p.set(target,best);
+}
+if(lower.find(" industrial ")>=0)p.set("style","industrial");else if(lower.find(" commercial ")>=0 or lower.find(" shops ")>=0)p.set("style","commercial");
+if(lower.find(" no windows ")>=0 or lower.find(" without windows ")>=0)p.set("windows","false");
+// Building kinds from the noun.
+string[] nouns={"shop","office","warehouse","church","hospital","garage","workshop","hangar","kitchen"};
+string[] kinds={"shop","office","warehouse","chapel","ward","garage","workshop","hangar","kitchen"};
+for(uint i=0;i<nouns.length();i++)if(lower.find(" "+nouns[i])>=0 and p.find("kind") !is null)p.set("kind",kinds[i]);
+string[] titles={"street","building","district","square","park","car park","open ground","water","stairs","ramp","ladder","bridge","wall","fence","doorway","clear space","named area","spawn points"};
+string[] tids={"street","building","district","square","park","car_park","field","water","stairs","ramp","ladder","bridge","wall","fence","doorway","clear","zone","spawns"};
+int ti=tids.find(id);
+speak("Understood as a "+(ti>=0?titles[ti]:id)+(p.get("name")!=""?" called "+p.get("name"):"")+". Check the settings and press Build.");
+we_builder_fn@ fn;
+if(id=="street")@fn=build_street;else if(id=="building")@fn=build_building;else if(id=="district")@fn=build_district;
+else if(id=="square" or id=="park" or id=="car_park" or id=="field")@fn=build_area;else if(id=="water")@fn=build_water;
+else if(id=="stairs" or id=="ramp")@fn=build_stairs;else if(id=="ladder")@fn=build_ladder;else if(id=="bridge")@fn=build_bridge;
+else if(id=="wall" or id=="fence")@fn=build_wall;else if(id=="doorway")@fn=build_doorway;else if(id=="clear")@fn=build_clear;
+else if(id=="zone")@fn=build_zone_only;else @fn=build_spawns;
+we_builder_form("Build "+(ti>=0?titles[ti]:id),p,fn);
+}

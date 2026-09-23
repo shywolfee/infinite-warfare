@@ -1,0 +1,470 @@
+// The world editor's server side.
+//
+// Everything a developer or builder changes in the world goes through here:
+// maps (create, travel between, retitle, resize, list in the lobby, edit in
+// batches, undo and redo), and content files (items and weapons: list, read,
+// write, delete, and reload without restarting the server). The client side
+// is includes/world_editor.nvgt; the messages are "we_*" in both directions.
+//
+// Every request needs the "build" staff permission, the same as the old
+// builder. Every map change is validated line by line before anything is
+// written, backed up to administration/map_backups, and recorded so it can be
+// undone and redone.
+
+// ---------------------------------------------------------------------------
+// Map files. Maps live anywhere under content/maps, one or more to a folder,
+// and are known by the id on their mapname: line. The old code knew exactly
+// four folders and looked maps up by file name, so a new map was invisible
+// and Shattersea -- file main.map, id battlegrounds -- could never be found by
+// its id, which quietly broke reloading it after a builder change.
+// ---------------------------------------------------------------------------
+dictionary map_file_paths;
+string[] map_file_ids;
+
+string map_header_value_in(const string &in data,const string &in key)
+{
+string[] lines=delinear(data);
+for(uint i=0;i<lines.length() and i<200;i++)
+{
+string l=lines[i];
+if(l.length()>key.length() and l.substr(0,key.length()+1)==key+":")return l.substr(key.length()+1).trim_whitespace();
+}
+return "";
+}
+void index_map_files()
+{
+map_file_paths.delete_all();
+map_file_ids.resize(0);
+string[] dirs=find_directories("content/maps/*");
+for(uint d=0;d<dirs.length();d++)
+{
+string dir="content/maps/"+dirs[d];
+string[] files=find_files(dir+"/*.map");
+for(uint i=0;i<files.length();i++)
+{
+string path=dir+"/"+files[i];
+file f;if(!f.open(path,"rb"))continue;string head=f.read(4096);f.close();
+string id=map_header_value_in(head,"mapname");
+string stem=files[i].substr(0,files[i].length()-4);
+if(id=="")id=stem;
+if(!map_file_paths.exists(id)){map_file_paths.set(id,path);map_file_ids.insert_last(id);}
+if(!map_file_paths.exists(stem))map_file_paths.set(stem,path);
+}
+}
+}
+string indexed_map_path(const string &in id)
+{
+string path;
+if(map_file_paths.get(id,path) and file_exists(path))return path;
+index_map_files();
+if(map_file_paths.get(id,path) and file_exists(path))return path;
+return "";
+}
+string read_whole_file(const string &in path){file f;if(!f.open(path,"rb"))return "";string d=f.read();f.close();return d;}
+bool write_whole_file(const string &in path,const string &in data){file f;if(!f.open(path,"wb"))return false;bool ok=f.write(data)==data.length();f.close();return ok;}
+
+bool map_listed(const string &in id)
+{
+string v=map_header_value_in(read_whole_file(indexed_map_path(id)),"listed");
+// The four original maps predate the listed: line and are always public.
+if(v=="")return id=="freeforall" or id=="battlegrounds" or id=="freyas_ascent" or id=="habitat_alpha";
+return v=="true";
+}
+string map_title(const string &in id){string t=map_header_value_in(read_whole_file(indexed_map_path(id)),"title");return t==""?id:t;}
+
+// ---------------------------------------------------------------------------
+// Undo and redo. Each map keeps its own history of whole-file states, with a
+// description of the change that replaced each one.
+// ---------------------------------------------------------------------------
+class map_history
+{
+string[] undo_data,undo_what,redo_data,redo_what;
+}
+dictionary map_histories;
+map_history@ history_for(const string &in id)
+{
+map_history@ h;
+if(!map_histories.get(id,@h) or h is null){map_history nh;@h=nh;map_histories.set(id,@h);}
+return h;
+}
+// Call before changing a map file: remembers its current state.
+void record_map_change(const string &in id,const string &in path,const string &in what)
+{
+string data=read_whole_file(path);
+map_history@ h=history_for(id);
+h.undo_data.insert_last(data);h.undo_what.insert_last(what);
+if(h.undo_data.length()>40){h.undo_data.remove_at(0);h.undo_what.remove_at(0);}
+h.redo_data.resize(0);h.redo_what.resize(0);
+directory_create("administration");directory_create("administration/map_backups");
+write_whole_file("administration/map_backups/"+id+"_"+ticks()+".map",data);
+}
+// The builder's older requests still take a snapshot through here.
+bool builder_snapshot_map(string map_id,string path){record_map_change(map_id,path,"a builder edit");return true;}
+bool builder_restore_snapshot(string map_id,string path){return we_step_history(map_id,path,true)!="";}
+// Moves one step back (undo) or forward (redo). Returns what was undone or
+// redone, or "" if there was nothing to step to.
+string we_step_history(const string &in id,const string &in path,bool back)
+{
+map_history@ h=history_for(id);
+string[]@ from_data=back?h.undo_data:h.redo_data;
+string[]@ from_what=back?h.undo_what:h.redo_what;
+string[]@ to_data=back?h.redo_data:h.undo_data;
+string[]@ to_what=back?h.redo_what:h.undo_what;
+if(from_data.length()==0)return "";
+string data=from_data[from_data.length()-1],what=from_what[from_what.length()-1];
+if(!builder_map_valid(data,id))return "";
+to_data.insert_last(read_whole_file(path));to_what.insert_last(what);
+from_data.remove_at(from_data.length()-1);from_what.remove_at(from_what.length()-1);
+write_whole_file(path,data);
+return what;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers for requests.
+// ---------------------------------------------------------------------------
+bool we_staff(int index){return index>-1 and staff_can(players[index].name,"build",players[index].dev,players[index].admin);}
+void we_say(int index,const string &in text){send_reliable(players[index].peer_id,"we_notice|"+text,0);}
+bool we_valid_id(const string &in id)
+{
+if(id.length()<1 or id.length()>48)return false;
+for(uint i=0;i<id.length();i++){string c=id.substr(i,1);if(!((c>="a" and c<="z") or (c>="0" and c<="9") or c=="_"))return false;}
+return true;
+}
+// Everything after the n-th bar, so free text may contain bars.
+string after_field(const string &in message,int n)
+{
+int at=-1;
+for(int i=0;i<n;i++){at=message.find("|",at+1);if(at<0)return "";}
+return message.substr(at+1);
+}
+
+// Replace (or add) a header line such as title: or listed:, keeping it with
+// the other header lines at the top of the file.
+string set_header_line(const string &in data,const string &in key,const string &in value)
+{
+string[] lines=delinear(data);
+int insert_at=0;
+for(uint i=0;i<lines.length();i++)
+{
+string l=lines[i];
+if(l.substr(0,key.length()+1)==key+":"){if(value=="")lines.remove_at(i);else lines[i]=key+":"+value;return linear(lines);}
+if(l.substr(0,8)=="mapname:" or l.substr(0,6)=="title:" or l.substr(0,5)=="maxx:" or l.substr(0,5)=="maxy:" or l.substr(0,5)=="maxz:" or l.substr(0,7)=="listed:" or l.substr(0,8)=="summary:")insert_at=i+1;
+}
+if(value!="")lines.insert_at(insert_at,key+":"+value);
+return linear(lines);
+}
+
+// Write a changed map, reload it for everyone on it, and report.
+void commit_map(int index,const string &in id,const string &in path,const string &in data,const string &in what)
+{
+if(!builder_map_valid(data,id)){we_say(index,"That change would leave "+map_title(id)+" invalid, so nothing was written.");return;}
+record_map_change(id,path,what);
+if(!write_whole_file(path,data)){we_say(index,"The map file could not be written.");return;}
+reload_map(id);
+send_reliable(players[index].peer_id,"we_done|"+what,0);
+}
+
+// ---------------------------------------------------------------------------
+// Moving a player to another map, in place of the lobby round trip.
+// ---------------------------------------------------------------------------
+void move_player_to_map(int index,const string &in id,int x,int y,int z)
+{
+player@ p=players[index];
+string old_map=p.map;
+send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old_map,0,index);
+p.map=id;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;
+server_physics_sync_players();
+string path=indexed_map_path(id);
+send_reliable(p.peer_id,"we_travel|"+id+"|"+x+"|"+y+"|"+z,0);
+send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);
+send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);
+er_sync_fixtures_to(p.peer_id,id);
+send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+id,0);
+}
+
+// ---------------------------------------------------------------------------
+// Content files.
+// ---------------------------------------------------------------------------
+string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";return "";}
+string content_ext(const string &in kind){return kind=="weapons"?".wpn":".item";}
+string content_path(const string &in kind,const string &in id)
+{
+string root=content_root(kind);if(root=="")return "";
+string[] dirs=find_directories(root+"/*");
+for(uint d=0;d<dirs.length();d++)if(file_exists(root+"/"+dirs[d]+"/"+id+content_ext(kind)))return root+"/"+dirs[d]+"/"+id+content_ext(kind);
+if(file_exists(root+"/"+id+content_ext(kind)))return root+"/"+id+content_ext(kind);
+return "";
+}
+// Every item file, sent to a client so its idea of what items do is always
+// the server's. Records are separated by \x1e, id from text by \x1f.
+string item_sync_blob()
+{
+string blob;
+string root="content/items";
+string[] dirs=find_directories(root+"/*");
+for(uint d=0;d<dirs.length();d++)
+{
+string[] files=find_files(root+"/"+dirs[d]+"/*.item");
+for(uint i=0;i<files.length();i++)
+{
+if(blob!="")blob+="\x1e";
+blob+=files[i].substr(0,files[i].length()-5)+"\x1f"+read_whole_file(root+"/"+dirs[d]+"/"+files[i]);
+}
+}
+return blob;
+}
+void sync_items_to(uint peer){send_reliable(peer,"content_items|"+item_sync_blob(),0);}
+void sync_items_to_everyone()
+{
+string message="content_items|"+item_sync_blob();
+for(uint i=0;i<players.length();i++)send_reliable(players[i].peer_id,message,0);
+for(uint i=0;i<lobby_clients.length();i++)send_reliable(lobby_clients[i].peer_id,message,0);
+}
+// A content file is key=value lines; anything else is rejected before it can
+// reach the disk.
+bool content_text_valid(const string &in text)
+{
+if(text.length()==0 or text.length()>65536)return false;
+string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);
+bool named=false;
+for(uint i=0;i<lines.length();i++)
+{
+string l=lines[i].trim_whitespace();
+if(l=="" or l.substr(0,1)=="#")continue;
+int eq=l.find("=");
+if(eq<=0)return false;
+if(l.substr(0,eq)=="name")named=true;
+}
+return named;
+}
+void reload_content(int index,const string &in what)
+{
+string done;
+if(what=="items" or what=="all"){int n=load_item_catalogue();sync_items_to_everyone();done+=n+" items";}
+if(what=="weapons" or what=="all"){load_wpn_stats();done+=(done==""?"":", ")+"weapon statistics";}
+if(what=="maps" or what=="all")
+{
+index_map_files();
+for(uint i=0;i<map_file_ids.length();i++)reload_map(map_file_ids[i]);
+done+=(done==""?"":", ")+map_file_ids.length()+" maps";
+}
+if(what=="object_presets" or what=="all"){load_object_presets_if_available();done+=(done==""?"":", ")+"object presets";}
+if(index>=0)send_reliable(players[index].peer_id,"we_done|Reloaded "+(done==""?"nothing":done)+" from disk.",0);
+}
+void load_object_presets_if_available(){}
+
+// ---------------------------------------------------------------------------
+// The requests.
+// ---------------------------------------------------------------------------
+bool handle_world_editor_request(uint peer,const string &in message)
+{
+if(message.substr(0,3)!="we_")return false;
+int index=get_player_index(peer);
+string[] f=string_split(message,"|",false);
+string kind=f[0];
+if(!we_staff(index)){send_reliable(peer,"we_notice|The world editor needs building permission.",0);return true;}
+player@ me=players[index];
+
+if(kind=="we_maps")
+{
+index_map_files();
+string listing;
+for(uint i=0;i<map_file_ids.length();i++)
+{
+string id=map_file_ids[i],data=read_whole_file(indexed_map_path(id));
+int here=0;for(uint p=0;p<players.length();p++)if(players[p].map==id)here++;
+if(listing!="")listing+=";";
+listing+=id+","+string_replace(map_header_value_in(data,"title"),",",";",true)+","+map_header_value_in(data,"maxx")+","+map_header_value_in(data,"maxy")+","+map_header_value_in(data,"maxz")+","+here+","+(map_listed(id)?"1":"0");
+}
+send_reliable(peer,"we_maps|"+listing,0);return true;
+}
+if(kind=="we_create" and f.length()>=6)
+{
+string id=f[1].trim_whitespace().lower(),title=f[2].trim_whitespace();
+int sx=int(string_to_number(f[3])),sy=int(string_to_number(f[4])),sz=int(string_to_number(f[5]));
+string ground=f.length()>6?f[6].trim_whitespace():"grass";
+string family=f.length()>7?f[7].trim_whitespace():"grass";
+if(!we_valid_id(id)){we_say(index,"A map id is lower-case letters, digits and underscores.");return true;}
+if(indexed_map_path(id)!=""){we_say(index,"There is already a map called "+id+".");return true;}
+if(title=="" or title.find(":")>=0){we_say(index,"The map needs a title without a colon.");return true;}
+if(sx<20 or sy<20 or sx>2000 or sy>2000 or sz<8 or sz>400){we_say(index,"Maps are 20 to 2000 across and 8 to 400 high.");return true;}
+string[] lines={"mapname:"+id,"title:"+title,"maxx:"+sx,"maxy:"+sy,"maxz:"+sz,"listed:false","fixtures:authored","surface:"+ground+":"+family,
+"tile:0:"+sx+":0:"+sy+":0:0:"+ground,
+"zone:0:"+sx+":0:"+sy+":0:8:"+title,
+"openspace:0:"+sx+":0:"+sy+":0:8:"+title+":grass:open",
+"spawn:"+(sx/2)+":"+(sy/2)+":0"};
+string data=linear(lines);
+if(!builder_map_valid(data,id)){we_say(index,"The new map did not validate; check the ground material.");return true;}
+directory_create("content/maps/"+id);
+if(!write_whole_file("content/maps/"+id+"/"+id+".map",data)){we_say(index,"The map file could not be written.");return true;}
+index_map_files();
+mapdata fresh(id);maps.insert_last(fresh);
+send_reliable(peer,"we_done|Created "+title+", "+sx+" by "+sy+", "+sz+" high. It is not listed in the lobby yet.",0);
+return true;
+}
+if(kind=="we_travel" and f.length()>=2)
+{
+string id=f[1];
+string path=indexed_map_path(id);
+if(path==""){we_say(index,"There is no map called "+id+".");return true;}
+if(get_map_index(id)<0){mapdata fresh(id);maps.insert_last(fresh);}
+int x,y,z;
+if(f.length()>=5){x=int(string_to_number(f[2]));y=int(string_to_number(f[3]));z=int(string_to_number(f[4]));}
+else{int[] at=choose_safe_player_spawn(id,0,0,0);x=at[0];y=at[1];z=at[2];}
+move_player_to_map(index,id,x,y,z);
+return true;
+}
+if(kind=="we_meta" and f.length()>=3)
+{
+string id=me.map,path=indexed_map_path(id),key=f[1],value=after_field(message,2).trim_whitespace();
+if(path==""){we_say(index,"This map's file was not found.");return true;}
+if(key!="title" and key!="summary" and key!="listed" and key!="maxx" and key!="maxy" and key!="maxz"){we_say(index,"That is not a map property.");return true;}
+if(value.find(":")>=0 and key!="summary"){we_say(index,"Values cannot contain a colon.");return true;}
+commit_map(index,id,path,set_header_line(read_whole_file(path),key,value),"set the map's "+key+" to "+value);
+return true;
+}
+if(kind=="we_append" and f.length()>=3)
+{
+string id=me.map,path=indexed_map_path(id),what=f[1];
+string[] add=string_split(string_replace(after_field(message,2),"\r","",true),"\n",false);
+if(path==""){we_say(index,"This map's file was not found.");return true;}
+for(uint i=0;i<add.length();i++)if(!builder_line_valid(add[i],id,false)){we_say(index,"Line "+(i+1)+" of that change is not valid ("+add[i]+"), so nothing was written.");return true;}
+string data=read_whole_file(path);
+if(data!="" and data.substr(data.length()-1)!="\n")data+="\r\n";
+data+=linear(add);
+commit_map(index,id,path,data,what);
+return true;
+}
+if(kind=="we_delete" and f.length()>=3)
+{
+string id=me.map,path=indexed_map_path(id),what=f[1];
+string[] lines=delinear(read_whole_file(path));
+string[] which=string_split(f[2],",",false);
+int[] rows;for(uint i=0;i<which.length();i++)rows.insert_last(int(string_to_number(which[i])));
+rows.sort_descending();
+for(uint i=0;i<rows.length();i++)
+{
+if(rows[i]<0 or rows[i]>=int(lines.length())){we_say(index,"Some of those lines no longer exist; the map has changed. Nothing was deleted.");return true;}
+if(lines[rows[i]].substr(0,8)=="mapname:"){we_say(index,"The mapname line cannot be deleted.");return true;}
+}
+for(uint i=0;i<rows.length();i++)lines.remove_at(rows[i]);
+commit_map(index,id,path,linear(lines),what);
+return true;
+}
+if(kind=="we_replace" and f.length()>=4)
+{
+string id=me.map,path=indexed_map_path(id),what=f[1];
+int row=int(string_to_number(f[2]));
+string line=after_field(message,3);
+string[] lines=delinear(read_whole_file(path));
+if(row<0 or row>=int(lines.length())){we_say(index,"That line no longer exists; the map has changed.");return true;}
+if(!builder_line_valid(line,id,lines[row].substr(0,8)=="mapname:")){we_say(index,"That line is not valid, so nothing was written.");return true;}
+lines[row]=line;
+commit_map(index,id,path,linear(lines),what);
+return true;
+}
+if(kind=="we_undo" or kind=="we_redo")
+{
+string id=me.map,path=indexed_map_path(id);
+string what=we_step_history(id,path,kind=="we_undo");
+if(what==""){we_say(index,"There is nothing to "+(kind=="we_undo"?"undo":"redo")+" on this map.");return true;}
+reload_map(id);
+send_reliable(peer,"we_done|"+(kind=="we_undo"?"Undid ":"Redid ")+what+".",0);
+return true;
+}
+if(kind=="we_history")
+{
+map_history@ h=history_for(me.map);
+string listing;
+for(int i=int(h.undo_what.length())-1;i>=0;i--){if(listing!="")listing+=";";listing+="undo~"+h.undo_what[i];}
+for(int i=int(h.redo_what.length())-1;i>=0;i--){if(listing!="")listing+=";";listing+="redo~"+h.redo_what[i];}
+send_reliable(peer,"we_history|"+listing,0);return true;
+}
+if(kind=="we_read")
+{
+string path=indexed_map_path(me.map);
+send_reliable(peer,"we_mapfile|"+me.map+"|"+read_whole_file(path),0);return true;
+}
+if(kind=="we_validate")
+{
+string path=indexed_map_path(me.map);
+send_reliable(peer,"we_done|"+(builder_map_valid(read_whole_file(path),me.map)?map_title(me.map)+" is valid.":map_title(me.map)+" has a line that does not validate."),0);return true;
+}
+if(kind=="we_reload" and f.length()>=2){reload_content(index,f[1]);return true;}
+if(kind=="we_go" and f.length()>=4)
+{
+int x=int(string_to_number(f[1])),y=int(string_to_number(f[2])),z=int(string_to_number(f[3]));
+me.x=x;me.y=y;me.z=z;me.last_x=x;me.last_y=y;me.last_z=z;server_physics_sync_players();
+send_reliable(peer,"setcoords "+x+" "+y+" "+z,0);
+play("moved"+random(1,2),x,y,z,me.map,index);
+return true;
+}
+if(kind=="we_goto" and f.length()>=2)
+{
+int t=get_player_index_from(f[1]);
+if(t<0){we_say(index,f[1]+" is not in a match.");return true;}
+if(players[t].map!=me.map)move_player_to_map(index,players[t].map,int(players[t].x),int(players[t].y),int(players[t].z));
+else{me.x=players[t].x;me.y=players[t].y;me.z=players[t].z;me.last_x=int(me.x);me.last_y=int(me.y);me.last_z=int(me.z);server_physics_sync_players();send_reliable(peer,"setcoords "+me.x+" "+me.y+" "+me.z,0);}
+return true;
+}
+if(kind=="we_content_list" and f.length()>=2)
+{
+string root=content_root(f[1]);if(root==""){we_say(index,"Unknown content kind.");return true;}
+string listing;
+string[] dirs=find_directories(root+"/*");
+for(uint d=0;d<dirs.length();d++){string[] files=find_files(root+"/"+dirs[d]+"/*"+content_ext(f[1]));for(uint i=0;i<files.length();i++){if(listing!="")listing+=";";listing+=dirs[d]+"/"+files[i].substr(0,files[i].length()-content_ext(f[1]).length());}}
+send_reliable(peer,"we_content_list|"+f[1]+"|"+listing,0);return true;
+}
+if(kind=="we_content_read" and f.length()>=3)
+{
+string path=content_path(f[1],f[2]);
+if(path==""){we_say(index,"There is no "+f[1]+" file called "+f[2]+".");return true;}
+send_reliable(peer,"we_content_file|"+f[1]+"|"+f[2]+"|"+read_whole_file(path),0);return true;
+}
+if(kind=="we_content_write" and f.length()>=5)
+{
+string ckind=f[1],folder=f[2].lower(),id=f[3].lower(),text=after_field(message,4);
+string root=content_root(ckind);
+if(root==""){we_say(index,"Unknown content kind.");return true;}
+if(!we_valid_id(id) or !we_valid_id(folder)){we_say(index,"Ids and folders are lower-case letters, digits and underscores.");return true;}
+if(!content_text_valid(text)){we_say(index,"A content file is key=value lines and needs a name.");return true;}
+string existing=content_path(ckind,id);
+string path=root+"/"+folder+"/"+id+content_ext(ckind);
+directory_create(root+"/"+folder);
+if(existing!="" and existing!=path)file_delete(existing);
+if(!write_whole_file(path,string_replace(string_replace(text,"\r","",true),"\n","\r\n",true))){we_say(index,"The file could not be written.");return true;}
+admin_log(me.name,"CONTENT_WRITE",ckind+"/"+folder+"/"+id);
+reload_content(index,ckind);
+return true;
+}
+if(kind=="we_content_delete" and f.length()>=3)
+{
+string path=content_path(f[1],f[2]);
+if(path==""){we_say(index,"There is no such file.");return true;}
+directory_create("administration");directory_create("administration/content_backups");
+write_whole_file("administration/content_backups/"+f[2]+"_"+ticks()+content_ext(f[1]),read_whole_file(path));
+file_delete(path);
+admin_log(me.name,"CONTENT_DELETE",f[1]+"/"+f[2]);
+reload_content(index,f[1]);
+return true;
+}
+we_say(index,"Unknown world editor request.");
+return true;
+}
+
+// The lobby's list of maps: every listed map, and for staff every map.
+string lobby_map_list(bool staff)
+{
+index_map_files();
+string listing;
+for(uint i=0;i<map_file_ids.length();i++)
+{
+string id=map_file_ids[i];
+bool listed=map_listed(id);
+if(!listed and !staff)continue;
+string data=read_whole_file(indexed_map_path(id));
+if(listing!="")listing+=";";
+listing+=id+"~"+string_replace(map_header_value_in(data,"title"),"~","-",true)+"~"+string_replace(map_header_value_in(data,"summary"),"~","-",true)+"~"+(listed?"1":"0");
+}
+return listing;
+}

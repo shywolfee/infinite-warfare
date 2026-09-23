@@ -197,3 +197,27 @@ l.insert_last("Repairs "+joined+". Restores 7 percent of the armour's durability
 if(d.give_amount>1)l.insert_last("Comes "+d.give_amount+" at a time.");
 return l;
 }
+
+// The server sends its item files when you log in and whenever they change,
+// so what the game tells you an item does is what the server makes it do,
+// even when the server's files are newer than yours.
+bool handle_content_sync(const string &in message)
+{
+if(message.substr(0,14)!="content_items|")return false;
+string[] records=string_split(message.substr(14),"\x1e",false);
+if(records.length()==0)return true;
+item_catalogue.resize(0);
+item_catalogue_index.delete_all();
+for(uint i=0;i<records.length();i++)
+{
+int sep=records[i].find("\x1f");
+if(sep<=0)continue;
+string id=records[i].substr(0,sep);
+if(item_catalogue_index.exists(id))continue;
+item_catalogue_index.set(id,int(item_catalogue.length()));
+item_catalogue.insert_last(parse_item_file(id,records[i].substr(sep+1)));
+}
+content_database_needs_refresh=true;
+return true;
+}
+bool content_database_needs_refresh=false;

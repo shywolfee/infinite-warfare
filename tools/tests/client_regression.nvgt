@@ -63,6 +63,68 @@ client_check(item_is_pill_bottle("regenex_tablet_bottle") and item_is_loose_pill
 }
 client_check(gesture_signature_words("top:2:double_hold")=="Two finger double tap and hold" and gesture_signature_words("middle:1:swipe:left")=="One finger swipe left","gesture reference wording");
 client_check(gesture_signature_rank("top:1:tap")<gesture_signature_rank("top:1:hold") and gesture_signature_rank("top:1:hold")<gesture_signature_rank("top:1:swipe:up") and gesture_signature_rank("top:1:swipe:up")<gesture_signature_rank("top:2:tap"),"gesture reference ordering");
+client_checkpoint("world editor builders");
+{
+// Every builder, run with its defaults on a blank 300 by 300 map, one place
+// apart, written out as a map for the line validator and the Python raster
+// validator (tools/tests/world_editor_regression.py) to check.
+we_surface_names.resize(0);we_surface_families.resize(0);we_ambience_names.resize(0);we_ambience_files.resize(0);
+we_editor_dir_override=SCRIPT_MAIN_PATH+"/../../iwserver/content/editor";
+we_load_palette();
+client_check(we_surface_names.length()>100 and we_ambience_names.length()>50,"the editor palette loads ("+we_surface_names.length()+" surfaces, "+we_ambience_names.length()+" ambience beds)");
+string[] header={"mapname:editor_test","title:Editor Test","maxx:300","maxy:300","maxz:80","listed:false","fixtures:authored","surface:grass:grass","tile:0:300:0:300:0:0:grass","zone:0:300:0:300:0:8:Editor Test","openspace:0:300:0:300:0:8:Editor Test:grass:open","spawn:150:150:0"};
+we_lines=header;we_map_maxx=300;we_map_maxy=300;we_map_maxz=80;
+we_selection_set=false;
+string[] all=header;
+string[] builders={"street","building","district","square","park","water","stairs","ramp","ladder","bridge","wall","fence","doorway","zone","spawns"};
+int[] xs={20,70,150,20,70,20,110,130,150,170,200,220,240,260,280};
+int[] ys={20,20,140,120,120,200,262,262,262,262,262,262,262,262,262};
+int failures_before=client_test_failures;
+for(uint i=0;i<builders.length();i++)
+{
+string id=builders[i];
+me.x=xs[i];me.y=ys[i];me.z=0;mr.x=me.x;mr.y=me.y;facing=0;
+we_params@ p;we_builder_fn@ fn;
+if(id=="street"){@p=we_street_params();@fn=build_street;p.set("name","Test Street");}
+else if(id=="building"){@p=we_building_params();@fn=build_building;p.set("name","Test House");p.set("floors","3");}
+else if(id=="district"){@p=we_district_params();@fn=build_district;p.set("name","Test District");p.set("length","100");p.set("width","100");p.set("max_floors","2");}
+else if(id=="square"){@p=we_area_params("paving slabs","square","city day");@fn=build_area;p.set("name","Test Square");}
+else if(id=="park"){@p=we_area_params("grass","open","park");@fn=build_area;p.set("name","Test Park");}
+else if(id=="water"){@p=we_water_params();@fn=build_water;p.set("name","Test Pond");}
+else if(id=="stairs"){@p=we_stairs_params("concrete stairs");@fn=build_stairs;p.set("name","Test Stairs");}
+else if(id=="ramp"){@p=we_stairs_params("ramp surface");@fn=build_stairs;p.set("name","Test Ramp");}
+else if(id=="ladder"){@p=we_ladder_params();@fn=build_ladder;p.set("name","Test Ladder");}
+else if(id=="bridge"){@p=we_bridge_params();@fn=build_bridge;p.set("name","Test Bridge");}
+else if(id=="wall"){@p=we_wall_params("brick wall");@fn=build_wall;}
+else if(id=="fence"){@p=we_wall_params("chainlink wall");@fn=build_wall;}
+else if(id=="doorway"){@p=we_doorway_params();@fn=build_doorway;p.set("name","Test Doorway");}
+else if(id=="zone"){@p=we_zone_params();@fn=build_zone_only;p.set("name","Test Zone");}
+else{@p=we_spawn_params();@fn=build_spawns;}
+we_batch b;fn(p,b);
+client_check(b.lines.length()>0,"builder "+id+" produces lines ("+b.lines.length()+")");
+for(uint l=0;l<b.lines.length();l++){all.insert_last(b.lines[l]);if(b.lines[l].substr(0,8)=="surface:")we_lines.insert_last(b.lines[l]);}
+// A spawn beside each thing, so the raster validator checks it is all
+// reachable from everywhere else.
+all.insert_last("spawn:"+xs[i]+":"+(ys[i]-(id=="bridge"?12:2))+":0");
+// And where each thing should take you: every floor of the building, the
+// top of the stairs, the bridge deck. The raster validator fails if any of
+// these cannot be walked to from the ground.
+if(id=="building"){all.insert_last("spawn:72:30:4");all.insert_last("spawn:72:30:8");}
+if(id=="stairs")all.insert_last("spawn:110:269:4");
+if(id=="bridge")all.insert_last("spawn:170:280:6");
+}
+// The describe parser should pick the builder and read the numbers.
+{
+string lower=" a three storey brick building 20 by 12 called harbour flats to my left ";
+client_check(we_word_number("three")==3 and we_word_number("12")==12,"describe reads numbers in words and digits");
+}
+file map_out;
+// Outside the game's maps folder, so the server never loads it as a map.
+string dir=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-editor-test";
+directory_create(dir);
+map_out.open(dir+"/editor_test.map","wb");map_out.write(join(all,"\n")+"\n");map_out.close();
+client_test_results+="  wrote "+all.length()+" lines to "+dir+"/editor_test.map"+"\n";
+}
 client_checkpoint("dialogs while connected");
 // A dialog in the lobby while connected. The network pump and the helper
 // service used to call each other forever here, hanging the game on entering

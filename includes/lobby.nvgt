@@ -164,6 +164,9 @@ else if (e.channel==2)
 // messages and group chat sent while you were in the lobby never arrived.
 else if (e.channel==0 and handle_chat_protocol(msg)) {}
 else if (e.channel==0 and handle_group_packet(msg)) {}
+else if (e.channel==0 and handle_content_sync(msg)) {refresh_content_database();}
+else if (e.channel==0 and msg.substr(0,11)=="lobby_maps|") {lobby_server_maps=msg.substr(11);if(lobby_server_maps=="")lobby_server_maps=" ";}
+else if (e.channel==0 and handle_world_editor_packet(msg)) {}
 else if (msg=="updating")
 {
 dlg("The server is restarting for an update. Please reconnect shortly.");
@@ -305,7 +308,29 @@ m.insert_last(lobby_map("freeforall","Ghost Town","an abandoned modern city: six
 m.insert_last(lobby_map("battlegrounds","Shattersea","nine islands in a tidal sea, joined by twelve bridges, with the old city under water","Deploying to Shattersea."));
 m.insert_last(lobby_map("freyas_ascent","Freya's Ascent","a city climbing a mountain on six terraces, with an orbital ring above it","Deploying to Freya's Ascent."));
 m.insert_last(lobby_map("habitat_alpha","Coruscant","six levels of the Galactic City, from Level 1313 up to the Senate and the Jedi Temple","Deploying to Coruscant."));
+// Any other map the server lists -- made with the world editor, or not yet
+// listed but visible to builders -- is added from the server's list, with
+// the description its file gives.
+if(lobby_server_maps=="")return m;
+string[] entries=string_split(lobby_server_maps,";",false);
+for(uint i=0;i<entries.length();i++)
+{
+string[] f=string_split(entries[i],"~",false);
+if(f.length()<4)continue;
+bool known=false;for(uint k=0;k<m.length();k++)if(m[k].id==f[0])known=true;
+if(known)continue;
+string title=f[1]==""?f[0]:f[1];
+m.insert_last(lobby_map(f[0],title+(f[3]=="1"?"":" (not listed; builders only)"),f[2]==""?"a map made in the world editor":f[2],"Deploying to "+title+"."));
+}
 return m;
+}
+string lobby_server_maps="";
+void request_lobby_maps()
+{
+lobby_server_maps="";
+send_reliable(0,"lobby_maps",0);
+timer t;
+while(lobby_server_maps=="" and t.elapsed<1500){wait(5);lobby_form_netcheck();}
 }
 
 bool freeforall_map_select()
@@ -704,6 +729,7 @@ string last="";
 // offering one mode, which opened a screen offering the maps.
 while(true)
 {
+request_lobby_maps();
 nv_form f;
 f.create_window("Lobby",false,false);
 nv_form_list_box@ list=f.add_list("Lobby","lobby");

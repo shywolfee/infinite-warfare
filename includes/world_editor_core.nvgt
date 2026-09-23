@@ -1,0 +1,366 @@
+// World editor, part one: the pieces everything else is built from.
+//
+//   palette      the surfaces, acoustic kinds and ambience beds you can use,
+//                read from content/editor so the in-game editor and the map
+//                generator (tools/mapgen) offer the same things
+//   requests     talking to the server's editor (iwserver/includes/
+//                world_editor.nvgt) and waiting for its answers
+//   placement    turning "ahead of me", "to my left", "in my selection" and a
+//                size into map coordinates, so nothing has to be typed as
+//                numbers unless you want to
+//   batch        collects the map lines a builder produces, adds any surface
+//                sounds the map does not have yet, and describes what it
+//                will do before anything is written
+//   elements     the map's lines read back as named things with named fields
+
+// ---------------------------------------------------------------------------
+// Palette
+// ---------------------------------------------------------------------------
+string[] we_surface_names,we_surface_families,we_acoustic_kinds,we_ambience_names,we_ambience_files;
+string we_editor_dir_override="";
+string we_editor_dir()
+{
+if(we_editor_dir_override!="")return we_editor_dir_override;
+if(directory_exists("iwserver/content/editor"))return "iwserver/content/editor";
+return "content/editor";
+}
+string[] we_read_lines(const string &in path)
+{
+string[] result;
+file f;
+if(!f.open(path,"rb"))return result;
+string[] lines=string_split(string_replace(f.read(),"\r","",true),"\n",false);
+f.close();
+for(uint i=0;i<lines.length();i++){string l=lines[i].trim_whitespace();if(l!="" and l.substr(0,1)!="#")result.insert_last(l);}
+return result;
+}
+void we_load_palette()
+{
+if(we_surface_names.length()>0)return;
+string dir=we_editor_dir();
+string[] s=we_read_lines(dir+"/surfaces.txt");
+for(uint i=0;i<s.length();i++){int eq=s[i].find("=");if(eq<=0)continue;we_surface_names.insert_last(s[i].substr(0,eq));we_surface_families.insert_last(s[i].substr(eq+1));}
+we_acoustic_kinds=we_read_lines(dir+"/acoustics.txt");
+string[] a=we_read_lines(dir+"/ambience.txt");
+for(uint i=0;i<a.length();i++){int eq=a[i].find("=");if(eq<=0)continue;we_ambience_names.insert_last(a[i].substr(0,eq));we_ambience_files.insert_last(a[i].substr(eq+1));}
+if(we_surface_names.length()==0){we_surface_names={"asphalt","concrete pavement","grass","brick wall","ceramic tile","concrete stairs","access ladder"};we_surface_families={"concrete2","concrete5","grass","wallbrick","tile","concrete5","ladder"};}
+if(we_acoustic_kinds.length()==0)we_acoustic_kinds={"open","room","street","hall","corridor","stairwell"};
+}
+string we_family_of(const string &in material){int i=we_surface_names.find(material);return i<0?"":we_surface_families[i];}
+string we_ambience_file(const string &in name){int i=we_ambience_names.find(name);return i<0?name:we_ambience_files[i];}
+// What a boundary is made of, in the acoustics' terms, as the generator does.
+string we_absorption(const string &in wall)
+{
+string w=wall.lower();
+string[] words={"steel","hull","shutter","glass","timber","hoarding","curtain","hedge","chainlink","railing","earth","rock","cliff","composite"};
+string[] answers={"metal","metal","metal","glass","wood","wood","cloth","cloth","metal","metal","dirt","stone","stone","plastic"};
+for(uint i=0;i<words.length();i++)if(w.find(words[i])>=0)return answers[i];
+return "concrete";
+}
+
+// ---------------------------------------------------------------------------
+// Requests and replies
+// ---------------------------------------------------------------------------
+string we_reply_kind="",we_reply_data="";
+bool we_waiting=false;
+void we_send(const string &in message){send_reliable(0,message,0);}
+// Replies the editor waits on are kept; notices and results are spoken.
+bool handle_world_editor_packet(const string &in message)
+{
+if(message.substr(0,3)!="we_")return false;
+int bar=message.find("|");
+string kind=bar<0?message:message.substr(0,bar),data=bar<0?"":message.substr(bar+1);
+if(kind=="we_notice"){ui_cue_error_or_notify(false);speak(data);we_reply_kind=kind;we_reply_data=data;return true;}
+if(kind=="we_done"){p.play_stationary(ui_sound("apply"),false);speak(data);we_reply_kind=kind;we_reply_data=data;return true;}
+if(kind=="we_travel")
+{
+string[] f=string_split(data,"|",false);
+destroy_all_sources();distpool.destroy_all();ambpool.destroy_all();
+speak("Travelling to "+(f.length()>0?f[0]:"another map")+".");
+we_reply_kind=kind;we_reply_data=data;return true;
+}
+we_reply_kind=kind;we_reply_data=data;
+return true;
+}
+void ui_cue_error_or_notify(bool error){p.play_stationary(ui_sound(error?"error":"notify"),false);}
+void we_pump(){if(mapname=="" or mapname=="main")lobby_form_netcheck();else netloop(false);}
+// Sends a request and waits for a reply of the given kind (or a notice).
+bool we_request(const string &in message,const string &in expect,int timeout=6000)
+{
+we_reply_kind="";we_reply_data="";
+we_send(message);
+timer t;
+while(t.elapsed<timeout)
+{
+wait(5);we_pump();
+if(we_reply_kind==expect)return true;
+if(we_reply_kind=="we_notice")return false;
+}
+speak("The server did not answer.");
+return false;
+}
+// For changes: waits until the server reports it done (or refused).
+bool we_change(const string &in message){return we_request(message,"we_done",10000);}
+
+// ---------------------------------------------------------------------------
+// The current map as the server has it
+// ---------------------------------------------------------------------------
+string[] we_lines;
+int we_map_maxx=0,we_map_maxy=0,we_map_maxz=0;
+bool we_fetch_map()
+{
+if(!we_request("we_read","we_mapfile"))return false;
+int bar=we_reply_data.find("|");
+we_lines=delinear(bar<0?"":we_reply_data.substr(bar+1));
+we_map_maxx=0;we_map_maxy=0;we_map_maxz=0;
+for(uint i=0;i<we_lines.length() and i<200;i++)
+{
+if(we_lines[i].substr(0,5)=="maxx:")we_map_maxx=int(string_to_number(we_lines[i].substr(5)));
+else if(we_lines[i].substr(0,5)=="maxy:")we_map_maxy=int(string_to_number(we_lines[i].substr(5)));
+else if(we_lines[i].substr(0,5)=="maxz:")we_map_maxz=int(string_to_number(we_lines[i].substr(5)));
+}
+return true;
+}
+bool we_map_has_surface(const string &in material)
+{
+for(uint i=0;i<we_lines.length();i++)if(we_lines[i].substr(0,8)=="surface:" and we_lines[i].substr(8,material.length()+1)==material+":")return true;
+return false;
+}
+string we_header(const string &in key){for(uint i=0;i<we_lines.length() and i<200;i++)if(we_lines[i].substr(0,key.length()+1)==key+":")return we_lines[i].substr(key.length()+1);return "";}
+
+// ---------------------------------------------------------------------------
+// Placement
+// ---------------------------------------------------------------------------
+class we_rect
+{
+int x1,x2,y1,y2,z;
+// The direction the thing runs in, as a unit step: (0,1) is north.
+int fx=0,fy=1;
+string axis(){return fx!=0?"x":"y";}
+int width(){return x2-x1+1;}
+int depth(){return y2-y1+1;}
+string describe(){return "from "+x1+", "+y1+" to "+x2+", "+y2+" at height "+z+", "+width()+" by "+depth();}
+}
+// Marked corners: Alt and a key set them from the editor.
+bool we_selection_set=false;
+int we_sel_x1,we_sel_y1,we_sel_z1,we_sel_x2,we_sel_y2,we_sel_z2;
+int we_mark_count=0;
+void we_mark_corner()
+{
+if(we_mark_count%2==0){we_sel_x1=int(mr.x);we_sel_y1=int(mr.y);we_sel_z1=int(me.z);speak("First corner marked at "+we_sel_x1+", "+we_sel_y1+", "+we_sel_z1+". Mark the opposite corner next.");}
+else{we_sel_x2=int(mr.x);we_sel_y2=int(mr.y);we_sel_z2=int(me.z);we_selection_set=true;speak("Selection "+(abs(we_sel_x2-we_sel_x1)+1)+" by "+(abs(we_sel_y2-we_sel_y1)+1)+", marked.");}
+we_mark_count++;
+}
+// The cardinal direction you are facing, as a step.
+void we_facing_step(int &out fx,int &out fy)
+{
+double d=facing;while(d<0)d+=360;while(d>=360)d-=360;
+int q=int(round(d/90.0,0))%4;
+fx=q==1?1:(q==3?-1:0);fy=q==0?1:(q==2?-1:0);
+}
+string we_direction_name(int fx,int fy){return fy==1?"north":(fx==1?"east":(fy==-1?"south":"west"));}
+void we_direction_step(const string &in name,int &out fx,int &out fy)
+{
+if(name=="north"){fx=0;fy=1;}else if(name=="east"){fx=1;fy=0;}else if(name=="south"){fx=0;fy=-1;}else if(name=="west"){fx=-1;fy=0;}
+else we_facing_step(fx,fy);
+}
+// anchor: ahead, centred, left, right, behind, selection. length runs the
+// way you face (or the chosen direction), width across it.
+we_rect@ we_place(const string &in anchor,const string &in direction,int length,int width,int z)
+{
+we_rect r;
+int fx,fy;we_direction_step(direction,fx,fy);
+r.fx=fx;r.fy=fy;r.z=z;
+if(anchor=="selection" and we_selection_set)
+{
+r.x1=we_min(we_sel_x1,we_sel_x2);r.x2=we_max(we_sel_x1,we_sel_x2);r.y1=we_min(we_sel_y1,we_sel_y2);r.y2=we_max(we_sel_y1,we_sel_y2);
+// Runs the long way.
+if(direction=="facing"){if(r.width()>r.depth()){r.fx=1;r.fy=0;}else{r.fx=0;r.fy=1;}}
+return we_clamp(r);
+}
+int rx=fy,ry=-fx; // one step to your right
+int px=int(mr.x),py=int(mr.y);
+// The near end of the run and the offset across it.
+int start=2,across=0;
+if(anchor=="centred"){start=-length/2;across=0;}
+else if(anchor=="behind"){start=-length-1;}
+else if(anchor=="left"){start=-length/2;across=-(width/2+2);}
+else if(anchor=="right"){start=-length/2;across=width/2+2;}
+int ax=px+fx*start+rx*(across-width/2),ay=py+fy*start+ry*(across-width/2);
+int bx=px+fx*(start+length-1)+rx*(across-width/2+width-1),by=py+fy*(start+length-1)+ry*(across-width/2+width-1);
+r.x1=we_min(ax,bx);r.x2=we_max(ax,bx);r.y1=we_min(ay,by);r.y2=we_max(ay,by);
+return we_clamp(r);
+}
+int we_min(int a,int b){return a<b?a:b;}
+int we_max(int a,int b){return a>b?a:b;}
+we_rect@ we_clamp(we_rect@ r)
+{
+int mx=we_map_maxx>0?we_map_maxx-1:100000,my=we_map_maxy>0?we_map_maxy-1:100000;
+if(r.x1<1)r.x1=1;if(r.y1<1)r.y1=1;if(r.x2>mx)r.x2=mx;if(r.y2>my)r.y2=my;
+if(r.x2<r.x1)r.x2=r.x1;if(r.y2<r.y1)r.y2=r.y1;
+return r;
+}
+
+// ---------------------------------------------------------------------------
+// Batch: the lines a builder makes
+// ---------------------------------------------------------------------------
+class we_batch
+{
+string[] lines;
+string[] new_surfaces;
+int tiles=0,zones=0,spaces=0,others=0;
+int bx1=1000000,bx2=-1000000,by1=1000000,by2=-1000000,bz1=1000000,bz2=-1000000;
+void grow(int x1,int x2,int y1,int y2,int z1,int z2){if(x1<bx1)bx1=x1;if(x2>bx2)bx2=x2;if(y1<by1)by1=y1;if(y2>by2)by2=y2;if(z1<bz1)bz1=z1;if(z2>bz2)bz2=z2;}
+string box(int x1,int x2,int y1,int y2,int z1,int z2){return we_min(x1,x2)+":"+we_max(x1,x2)+":"+we_min(y1,y2)+":"+we_max(y1,y2)+":"+we_min(z1,z2)+":"+we_max(z1,z2);}
+string clean(const string &in text){return string_replace(string_replace(text,":"," ",true),"|","/",true).trim_whitespace();}
+void surface(const string &in material)
+{
+if(material=="" or material=="blank" or we_map_has_surface(material) or new_surfaces.find(material)>=0)return;
+string family=we_family_of(material);
+if(family=="")return;
+new_surfaces.insert_last(material);
+lines.insert_at(0,"surface:"+material+":"+family);
+}
+void tile(int x1,int x2,int y1,int y2,int z1,int z2,const string &in material){surface(material);lines.insert_last("tile:"+box(x1,x2,y1,y2,z1,z2)+":"+material);tiles++;grow(we_min(x1,x2),we_max(x1,x2),we_min(y1,y2),we_max(y1,y2),we_min(z1,z2),we_max(z1,z2));}
+void air(int x1,int x2,int y1,int y2,int z1,int z2){lines.insert_last("tile:"+box(x1,x2,y1,y2,z1,z2)+":blank");tiles++;}
+void zone(int x1,int x2,int y1,int y2,int z1,int z2,const string &in name){lines.insert_last("zone:"+box(x1,x2,y1,y2,z1,z2)+":"+clean(name));zones++;}
+void space(int x1,int x2,int y1,int y2,int z1,int z2,const string &in label,const string &in material,const string &in kind,bool enclosed){lines.insert_last((enclosed?"space:":"openspace:")+box(x1,x2,y1,y2,z1,z2)+":"+clean(label)+":"+material+":"+kind);spaces++;}
+void portal(int x1,int x2,int y1,int y2,int z1,int z2,const string &in name,const string &in kind){lines.insert_last("portal:"+box(x1,x2,y1,y2,z1,z2)+":"+clean(name)+":"+kind);others++;}
+void ambience(int x1,int x2,int y1,int y2,int z1,int z2,const string &in bed){if(bed=="" or bed=="none")return;lines.insert_last("src:"+box(x1,x2,y1,y2,z1,z2)+":"+we_ambience_file(bed)+":"+random(1000,999999));others++;}
+void poi(int x,int y,int z,const string &in name){lines.insert_last("poi:"+x+":"+y+":"+z+":"+clean(name));others++;}
+void poiregion(int x1,int x2,int y1,int y2,int z1,int z2,const string &in name){lines.insert_last("poiregion:"+box(x1,x2,y1,y2,z1,z2)+":"+clean(name));others++;}
+void spawn(int x,int y,int z){lines.insert_last("spawn:"+x+":"+y+":"+z);others++;}
+void raw(const string &in line){lines.insert_last(line);others++;}
+string summary()
+{
+string s;
+if(tiles>0)s+=tiles+" surface "+(tiles==1?"block":"blocks");
+if(zones>0)s+=(s==""?"":", ")+zones+(zones==1?" zone":" zones");
+if(spaces>0)s+=(s==""?"":", ")+spaces+" acoustic "+(spaces==1?"space":"spaces");
+if(others>0)s+=(s==""?"":", ")+others+" other "+(others==1?"line":"lines");
+if(new_surfaces.length()>0)s+=(s==""?"":", ")+"and adds footsteps for "+join(new_surfaces,", ");
+if(bx2>=bx1)s+=". It covers "+bx1+", "+by1+" to "+bx2+", "+by2+", heights "+bz1+" to "+bz2;
+return s==""?"nothing":s;
+}
+// How much of the ground it builds on is already walls or something built
+// up, sampled on a grid so a big district still answers at once.
+string overlap_report()
+{
+if(bx2<bx1)return "";
+int step=we_max(1,we_max(bx2-bx1,by2-by1)/40);
+int checked=0,solid=0;
+for(int x=bx1;x<=bx2;x+=step)for(int y=by1;y<=by2;y+=step)
+{
+checked++;
+bool hit=false;
+for(int z=bz1+1;z<=bz1+3 and !hit;z++){string t=get_tile_at(x,y,z);if(!surface_is_air(t))hit=true;}
+if(hit)solid++;
+}
+if(checked==0)return "";
+int pct=solid*100/checked;
+if(pct==0)return "The area is clear.";
+return pct+" percent of the area already has something standing in it, which this will build over.";
+}
+}
+string we_send_batch(we_batch@ b,const string &in what)
+{
+if(b.lines.length()==0){speak("That would not build anything.");return "";}
+if(we_change("we_append|"+string_replace(what,"|","/",true)+"|"+join(b.lines,"\n")))return what;
+return "";
+}
+
+// ---------------------------------------------------------------------------
+// Elements: map lines as named things
+// ---------------------------------------------------------------------------
+class we_element
+{
+int line;
+string kind;
+string[] values;
+string text;
+}
+// Field names for each kind of line, in order after the kind.
+string[] we_fields_for(const string &in kind)
+{
+string[] box={"West edge (lowest x)","East edge (highest x)","South edge (lowest y)","North edge (highest y)","Bottom (lowest z)","Top (highest z)"};
+string[] f;
+if(kind=="tile"){f=box;f.insert_last("Surface");}
+else if(kind=="zone" or kind=="poiregion"){f=box;f.insert_last("Name");}
+else if(kind=="space" or kind=="openspace"){f=box;f.insert_last("Label");f.insert_last("Material");f.insert_last("Acoustic kind");}
+else if(kind=="portal"){f=box;f.insert_last("Name");f.insert_last("Opening or window");}
+else if(kind=="src"){f=box;f.insert_last("Sound file");f.insert_last("Source number");}
+else if(kind=="ispawn"){f=box;f.insert_last("Seconds between spawns");f.insert_last("Most at once");f.insert_last("Items");}
+else if(kind=="transition"){f=box;f.insert_last("Destination x");f.insert_last("Destination y");f.insert_last("Destination z");f.insert_last("What you hear");}
+else if(kind=="turbolift"){f=box;f.insert_last("Name");}
+else if(kind=="poi" or kind=="bunker"){f={"x","y","z","Name"};}
+else if(kind=="spawn"){f={"x","y","z"};}
+else if(kind=="fixture"){f={"Kind","x","y","z","Label"};}
+else if(kind=="surface"){f={"Material","Footstep sound family"};}
+else if(kind=="title" or kind=="summary"){f={"Text"};}
+else if(kind=="maxx" or kind=="maxy" or kind=="maxz" or kind=="listed"){f={"Value"};}
+return f;
+}
+string we_kind_words(const string &in kind)
+{
+if(kind=="tile")return "Surface";if(kind=="zone")return "Zone";if(kind=="space")return "Enclosed acoustic space";if(kind=="openspace")return "Open acoustic space";
+if(kind=="portal")return "Opening";if(kind=="src")return "Ambience";if(kind=="poi")return "Point of interest";if(kind=="poiregion")return "Point of interest area";
+if(kind=="spawn")return "Spawn point";if(kind=="ispawn")return "Item spawn";if(kind=="fixture")return "Fixture";if(kind=="transition")return "Transition";
+if(kind=="turbolift")return "Lift";if(kind=="bunker")return "Bunker";if(kind=="surface")return "Surface sound";if(kind=="object")return "Destructible object";
+if(kind=="objectpart")return "Object part";
+return kind;
+}
+we_element@ we_parse(int index,const string &in line)
+{
+we_element e;
+e.line=index;e.text=line;
+string[] f=string_split(line,":",false);
+if(f.length()==0)return e;
+e.kind=f[0];
+for(uint i=1;i<f.length();i++)e.values.insert_last(f[i]);
+return e;
+}
+// "Zone, Harbour Way, carriageway: 40 to 60 east, 10 to 200 north, heights 0 to 8"
+string we_element_label(we_element@ e)
+{
+string name="";
+if(e.kind=="tile" and e.values.length()>6)name=e.values[6];
+else if((e.kind=="zone" or e.kind=="poiregion" or e.kind=="portal" or e.kind=="space" or e.kind=="openspace" or e.kind=="turbolift") and e.values.length()>6)name=e.values[6];
+else if(e.kind=="src" and e.values.length()>6)name=e.values[6];
+else if((e.kind=="poi" or e.kind=="bunker") and e.values.length()>3)name=e.values[3];
+else if(e.kind=="fixture" and e.values.length()>4)name=e.values[4]+" ("+e.values[0]+")";
+else if(e.kind=="transition" and e.values.length()>9)name=e.values[9];
+string where="";
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")where="x "+e.values[0]+" to "+e.values[1]+", y "+e.values[2]+" to "+e.values[3]+", z "+e.values[4]+" to "+e.values[5];
+else if(e.kind=="fixture" and e.values.length()>=4)where=e.values[1]+", "+e.values[2]+", "+e.values[3];
+else if(e.values.length()>=3 and (e.kind=="poi" or e.kind=="spawn" or e.kind=="bunker"))where=e.values[0]+", "+e.values[1]+", "+e.values[2];
+else where=join(e.values,", ");
+return we_kind_words(e.kind)+(name==""?"":", "+name)+": "+where;
+}
+// Does this element cover the point?
+bool we_element_contains(we_element@ e,int x,int y,int z)
+{
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")
+{
+int x1=int(string_to_number(e.values[0])),x2=int(string_to_number(e.values[1])),y1=int(string_to_number(e.values[2])),y2=int(string_to_number(e.values[3])),z1=int(string_to_number(e.values[4])),z2=int(string_to_number(e.values[5]));
+return x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;
+}
+int px=-1,py=-1,pz=-1;
+if(e.kind=="fixture" and e.values.length()>=4){px=int(string_to_number(e.values[1]));py=int(string_to_number(e.values[2]));pz=int(string_to_number(e.values[3]));}
+else if((e.kind=="poi" or e.kind=="spawn" or e.kind=="bunker") and e.values.length()>=3){px=int(string_to_number(e.values[0]));py=int(string_to_number(e.values[1]));pz=int(string_to_number(e.values[2]));}
+else return false;
+return abs(px-x)<=1 and abs(py-y)<=1 and abs(pz-z)<=2;
+}
+// Rough distance from a point to the element, for sorting.
+int we_element_distance(we_element@ e,int x,int y)
+{
+int cx,cy;
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")
+{
+int x1=int(string_to_number(e.values[0])),x2=int(string_to_number(e.values[1])),y1=int(string_to_number(e.values[2])),y2=int(string_to_number(e.values[3]));
+cx=x<x1?x1:(x>x2?x2:x);cy=y<y1?y1:(y>y2?y2:y);
+}
+else if(e.kind=="fixture" and e.values.length()>=3){cx=int(string_to_number(e.values[1]));cy=int(string_to_number(e.values[2]));}
+else if(e.values.length()>=2){cx=int(string_to_number(e.values[0]));cy=int(string_to_number(e.values[1]));}
+else return 1000000;
+return abs(cx-x)+abs(cy-y);
+}

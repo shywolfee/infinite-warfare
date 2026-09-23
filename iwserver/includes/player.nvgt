@@ -187,24 +187,20 @@ p.medication_tick_interval=1000;
 p.medication_tick_timer.restart();
 send_reliable(p.peer_id,"residual_healing "+(seconds*1000),0);
 }
-bool server_liquid_medication(string i){return i=="nanocyte_solution_bottle" or i=="trauma_repair_serum_bottle" or i=="coagulant_serum_bottle" or i=="medigel_tonic_bottle";}
-bool server_pill_bottle(string i){return i=="regenex_tablet_bottle" or i=="pain_blocker_capsule_bottle" or i=="clotting_tablet_bottle" or i=="combat_stimulant_tablet_bottle" or i=="antitoxin_tablet_bottle";}
-bool server_loose_pill(string i){return string_contains(i,"loose_",1)==0;}
+bool server_liquid_medication(string i){return medication_form(i)=="liquid";}
+bool server_pill_bottle(string i){return medication_form(i)=="pills";}
+bool server_loose_pill(string i){return medication_form(i)=="loose_pill";}
 bool server_medication(string i){return server_liquid_medication(i) or server_pill_bottle(i) or server_loose_pill(i);}
-double server_medication_capacity(string i){if(i=="nanocyte_solution_bottle")return 8;if(i=="trauma_repair_serum_bottle")return 6;if(i=="coagulant_serum_bottle")return 4;if(i=="medigel_tonic_bottle")return 10;if(i=="regenex_tablet_bottle")return 12;if(i=="pain_blocker_capsule_bottle")return 16;if(i=="clotting_tablet_bottle")return 10;if(i=="combat_stimulant_tablet_bottle")return 8;if(i=="antitoxin_tablet_bottle")return 10;return 1;}
-double server_medication_recommended(string i){if(i=="coagulant_serum_bottle")return .5;if(i=="trauma_repair_serum_bottle")return .75;if(i=="medigel_tonic_bottle")return 1.5;if(i=="pain_blocker_capsule_bottle" or i=="loose_pain_blocker_capsule")return 2;return 1;}
-string server_loose_pill_for(string i){if(i=="regenex_tablet_bottle")return "loose_regenex_tablet";if(i=="pain_blocker_capsule_bottle")return "loose_pain_blocker_capsule";if(i=="clotting_tablet_bottle")return "loose_clotting_tablet";if(i=="combat_stimulant_tablet_bottle")return "loose_combat_stimulant_tablet";return "loose_antitoxin_tablet";}
+double server_medication_capacity(string i){return medication_capacity(i);}
+double server_medication_recommended(string i){return medication_recommended(i);}
+string server_loose_pill_for(string i){return item_prop(i,"loose_pill");}
 void server_medication_effect(player@ p,string item,double dose)
 {
-string base=string_replace(item,"loose_","",false);base=string_replace(base,"_bottle","",false);int immediate=0,total=0,toxicity=0,duration=0;
-if(string_contains(base,"nanocyte_solution",1)>=0){immediate=int(55*dose);total=int(125*dose);toxicity=int(13*dose);duration=20;}
-else if(string_contains(base,"trauma_repair_serum",1)>=0){immediate=int(210*dose);total=int(90*dose);toxicity=int(30*dose);duration=8;}
-else if(string_contains(base,"coagulant_serum",1)>=0 or string_contains(base,"clotting_tablet",1)>=0){immediate=int(70*dose);total=int(35*dose);toxicity=int(15*dose);duration=10;p.bleeding=false;send_reliable(p.peer_id,"Bleeding stopped by the coagulant.",2);}
-else if(string_contains(base,"medigel_tonic",1)>=0){immediate=int(25*dose);total=int(170*dose);toxicity=int(8*dose);duration=45;}
-else if(string_contains(base,"regenex_tablet",1)>=0){immediate=int(35*dose);total=int(150*dose);toxicity=int(16*dose);duration=30;}
-else if(string_contains(base,"pain_blocker_capsule",1)>=0){immediate=int(95*dose);total=int(20*dose);toxicity=int(12*dose);duration=12;}
-else if(string_contains(base,"combat_stimulant_tablet",1)>=0){immediate=int(35*dose);toxicity=int(34*dose);send_reliable(p.peer_id,"stamina_restore "+int(30*dose),0);}
-else if(string_contains(base,"antitoxin_tablet",1)>=0){p.medication_toxicity-=int(35*dose);if(p.medication_toxicity<0)p.medication_toxicity=0;immediate=int(15*dose);}
+// Every number comes from the item's file (see content/items/README.txt).
+int immediate=int(item_prop_number(item,"dose_heal")*dose),total=int(item_prop_number(item,"dose_heal_over_time")*dose),toxicity=int(item_prop_number(item,"dose_toxicity")*dose),duration=item_prop_int(item,"heal_seconds");
+if(item_flag(item,"stops_bleeding")){p.bleeding=false;send_reliable(p.peer_id,"Bleeding stopped by the coagulant.",2);}
+int stamina=int(item_prop_number(item,"dose_stamina")*dose);if(stamina>0)send_reliable(p.peer_id,"stamina_restore "+stamina,0);
+int detox=int(item_prop_number(item,"dose_detox")*dose);if(detox>0){p.medication_toxicity-=detox;if(p.medication_toxicity<0)p.medication_toxicity=0;}
 p.health+=immediate;if(total>0){p.medication_heal_remaining+=total;p.medication_tick_amount=total/(duration>0?duration:1);if(p.medication_tick_amount<1)p.medication_tick_amount=1;p.medication_tick_interval=1000;p.medication_tick_timer.restart();}p.medication_toxicity+=toxicity;p.medication_toxicity_timer.restart();if(p.medication_toxicity>100){int harm=(p.medication_toxicity-90)*4;p.health-=harm;p.hitby="a medication overdose";send_reliable(p.peer_id,"Medication overdose. Toxicity "+p.medication_toxicity+" percent; immediate damage "+harm+".",2);}else if(p.medication_toxicity>70)send_reliable(p.peer_id,"Warning: medication toxicity is "+p.medication_toxicity+" percent. Further dosing may cause a fatal overdose.",2);
 }
 void use_server_medication(player@ p,string item,int mode)

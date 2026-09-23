@@ -26,8 +26,27 @@ Armour repair
   repairs       comma-separated ids of the armour this patch fits; it is
                 applied to the most worn fitting piece you are wearing
 
+Medication
+  medication_form      liquid, pills or loose_pill
+  capacity             fluid ounces or pills in a full container
+  recommended_dose     ounces or pills in a normal dose
+  loose_pill           for a pill bottle, the id of one of its loose pills
+  dose_heal            health restored at once per ounce or pill
+  dose_heal_over_time  further health per ounce or pill, spread over heal_seconds
+  heal_seconds         how long that further healing takes
+  dose_toxicity        percent toxicity added per ounce or pill
+  stops_bleeding       true if it stops bleeding
+  dose_stamina         stamina restored per ounce or pill
+  dose_detox           percent toxicity removed per ounce or pill
+
 Explosives
+  thrown        true for grenades and other thrown explosives, whose fuse can be cooked
   launched      true for guided missiles and other fired munitions
+  fuse_ms       milliseconds from throwing or firing to detonation
+  blast_radius  tiles
+  blast_damage  damage at the centre of the blast
+  launch_speed  tiles a second, for launched and specially thrown ones
+  launch_rise   upward speed at release
 
 Any other key is kept and can be read by the game with item_prop().
 Weapons are defined separately, in content/weapons.

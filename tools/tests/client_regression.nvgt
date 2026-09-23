@@ -51,6 +51,18 @@ client_check(patch_repairs("aramid_repair_tape","tactical_greaves") and !patch_r
 string[] visible={"Ammo","Armour","Armour Repair","Containers","Electronics","Equipment","Explosives","Healing","Team","Tools","Utility","Vehicle Supplies","Weapon Maintenance"};bool categories_ok=true;
 for(uint i=0;i<item_catalogue.length();i++)if(visible.find(item_catalogue[i].category)<0){categories_ok=false;client_test_results+="  unknown category "+item_catalogue[i].category+" for "+item_catalogue[i].id+"\n";}
 client_check(categories_ok,"every item file names a known category");
+client_checkpoint("item stats");
+{
+string[] med=item_stats_lines("trauma_repair_serum_bottle"),boom=item_stats_lines("carrier_missile"),plate=item_stats_lines("plate_carrier"),tape=item_stats_lines("aramid_repair_tape"),pill=item_stats_lines("loose_pain_blocker_capsule");
+string all=join(med," / ")+" | "+join(boom," / ")+" | "+join(plate," / ")+" | "+join(tape," / ")+" | "+join(pill," / ");
+client_test_results+="  sample: "+all+"\n";
+client_check(join(med," ").find("heals 210 at once and 90 more over 8 seconds")>=0,"medication stats come from the item file");
+client_check(join(boom," ").find("Launched. Blast radius 20 tiles, 720 damage")>=0,"explosive stats come from the item file");
+client_check(item_is_thrown_explosive("frag_grenade") and !item_is_thrown_explosive("carrier_missile") and explosive_fuse_ms("frag_grenade")==2200,"thrown explosives and fuses come from the item files");
+client_check(item_is_pill_bottle("regenex_tablet_bottle") and item_is_loose_pill("loose_regenex_tablet") and medication_pill_dose("pain_blocker_capsule_bottle",1)==2,"medication forms and doses come from the item files");
+}
+client_check(gesture_signature_words("top:2:double_hold")=="Two finger double tap and hold" and gesture_signature_words("middle:1:swipe:left")=="One finger swipe left","gesture reference wording");
+client_check(gesture_signature_rank("top:1:tap")<gesture_signature_rank("top:1:hold") and gesture_signature_rank("top:1:hold")<gesture_signature_rank("top:1:swipe:up") and gesture_signature_rank("top:1:swipe:up")<gesture_signature_rank("top:2:tap"),"gesture reference ordering");
 client_checkpoint("dialogs while connected");
 // A dialog in the lobby while connected. The network pump and the helper
 // service used to call each other forever here, hanging the game on entering

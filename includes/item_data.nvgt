@@ -108,6 +108,11 @@ int item_prop_int(const string &in id,const string &in key,int fallback=0)
 string value=item_prop(id,key);
 return value==""?fallback:int(string_to_number(value));
 }
+double item_prop_number(const string &in id,const string &in key,double fallback=0)
+{
+string value=item_prop(id,key);
+return value==""?fallback:string_to_number(value);
+}
 bool item_flag(const string &in id,const string &in key){return item_prop(id,key)=="true";}
 string[] item_prop_list(const string &in id,const string &in key)
 {
@@ -129,3 +134,66 @@ bool is_armour_patch(const string &in id){return item_prop(id,"repairs")!="";}
 bool patch_repairs(const string &in patch,const string &in armour){return armour!="" and item_prop_list(patch,"repairs").find(armour)>=0;}
 // Guided missiles and cannon balls are fired rather than thrown.
 bool item_is_launched_explosive(const string &in id){return item_flag(id,"launched");}
+
+// Medication: medication_form is liquid, pills or loose_pill; capacity is
+// fluid ounces or pills; each dose (an ounce or a pill) heals dose_heal at
+// once and dose_heal_over_time over heal_seconds, adds dose_toxicity percent
+// toxicity, and may stop bleeding, restore stamina or clear toxicity.
+string medication_form(const string &in id){return item_prop(id,"medication_form");}
+double medication_capacity(const string &in id){return item_prop_number(id,"capacity",1);}
+double medication_recommended(const string &in id){return item_prop_number(id,"recommended_dose",1);}
+// Explosives: thrown ones have a fuse you can cook; launched ones fly faster
+// and flatter. fuse_ms, blast_radius and blast_damage apply to both.
+bool item_is_thrown_explosive(const string &in id){return item_flag(id,"thrown");}
+int explosive_fuse_ms(const string &in id){return item_prop_int(id,"fuse_ms",2000);}
+
+string item_number_text(double value)
+{
+string s=""+round(value,2);
+return s;
+}
+// What an item actually does, in numbers, from its file. Empty when the item
+// has nothing more to say than its summary.
+string[] item_stats_lines(const string &in id)
+{
+string[] l;
+item_data@ d=item_info(id);
+if(d is null)return l;
+string form=medication_form(id);
+if(form!="")
+{
+bool liquid=form=="liquid";
+string unit=liquid?"fluid ounce":"pill";
+if(form!="loose_pill")l.insert_last((liquid?"Holds "+item_number_text(medication_capacity(id))+" fluid ounces":"Holds "+int(medication_capacity(id))+" pills")+"; recommended dose "+item_number_text(medication_recommended(id))+" "+unit+(medication_recommended(id)==1?"":"s")+".");
+string effect;
+double now=item_prop_number(id,"dose_heal"),later=item_prop_number(id,"dose_heal_over_time");
+if(now>0)effect+="heals "+int(now)+" at once";
+if(later>0)effect+=(effect==""?"":" and ")+int(later)+" more over "+item_prop_int(id,"heal_seconds")+" seconds";
+if(item_flag(id,"stops_bleeding"))effect+=(effect==""?"":", ")+"stops bleeding";
+if(item_prop_number(id,"dose_stamina")>0)effect+=(effect==""?"":", ")+"restores "+int(item_prop_number(id,"dose_stamina"))+" stamina";
+if(item_prop_number(id,"dose_detox")>0)effect+=(effect==""?"":", ")+"clears "+int(item_prop_number(id,"dose_detox"))+" percent of your toxicity";
+if(item_prop_number(id,"dose_toxicity")>0)effect+=(effect==""?"":", ")+"adds "+int(item_prop_number(id,"dose_toxicity"))+" percent toxicity";
+if(effect!="")l.insert_last("Each "+unit+" "+effect+". Toxicity above 70 percent is dangerous and above 100 harms you.");
+}
+if(item_prop(id,"blast_radius")!="")
+{
+string how=item_is_thrown_explosive(id)?"Thrown":(item_is_launched_explosive(id)?"Launched":"Placed");
+int damage=item_prop_int(id,"blast_damage");
+l.insert_last(how+". Blast radius "+item_prop_int(id,"blast_radius")+" tiles, "+(damage>0?damage+" damage at the centre":"no blast damage")+", fuse "+item_number_text(explosive_fuse_ms(id)/1000.0)+" seconds"+(item_is_thrown_explosive(id)?"; the fuse starts when you pull the pin, so it can be cooked":"")+".");
+if(item_prop(id,"launch_speed")!="")l.insert_last("Flies at "+item_number_text(item_prop_number(id,"launch_speed"))+" tiles a second, rising "+item_number_text(item_prop_number(id,"launch_rise"))+".");
+}
+if(armour_slot(id)!="")
+{
+string slot=armour_slot(id);
+l.insert_last("Covers the "+(slot=="arm"?"arms":(slot=="leg"?"legs":slot))+". Stops "+armour_rating(id)+" percent of each hit there, absorbs "+armour_durability(id)+" damage before it is spent, and weighs "+armour_weight(id)+".");
+}
+string[] fits=item_prop_list(id,"repairs");
+if(fits.length()>0)
+{
+string[] names;for(uint i=0;i<fits.length();i++){item_data@ f=item_info(fits[i]);names.insert_last(f is null?fits[i]:f.name);}
+string joined;for(uint i=0;i<names.length();i++){if(i>0)joined+=i==names.length()-1?" and ":", ";joined+=names[i];}
+l.insert_last("Repairs "+joined+". Restores 7 percent of the armour's durability, and cannot raise it above 60 percent.");
+}
+if(d.give_amount>1)l.insert_last("Comes "+d.give_amount+" at a time.");
+return l;
+}

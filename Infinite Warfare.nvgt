@@ -913,16 +913,111 @@ break;
 }
 }
 
+// Developer item grant: one screen that follows what you do. Type in the
+// search box and the list narrows as you type; pick a category and it
+// narrows to that; move through the items and the details, the quantity and
+// the Give button all change to match the one you are on. It used to be a
+// category screen, then an item screen, then a separate quantity prompt,
+// and back to the start for every item.
 void dev_database_give()
 {
 refresh_content_database();
-string[] categories;for(uint record_index=0;record_index<content_database.length();record_index++){string dynamic_category=content_database[record_index].category;if(dynamic_category=="Vehicles")continue;bool known=false;for(uint category_index=0;category_index<categories.length();category_index++)if(categories[category_index]==dynamic_category){known=true;break;}if(!known)categories.insert_last(dynamic_category);}for(uint left=0;left<categories.length();left++)for(uint right=left+1;right<categories.length();right++)if(categories[right]<categories[left]){string swap_category=categories[left];categories[left]=categories[right];categories[right]=swap_category;}
-iw_form cf;cf.create_window("Developer Database Grant",false,true);int cl=cf.create_list("Category",0,false);for(uint i=0;i<categories.length();i++)cf.add_list_item(cl,categories[i]);int next=cf.create_button("Choose category",true),cancel=cf.create_button("Cancel",false,true);cf.focus(cl);int category=-1;
-while(true){wait(5);cf.monitor();if(connected)netloop();if(cf.is_pressed(cancel))return;if(cf.is_pressed(next)){category=cf.get_list_position(cl);break;}}
-if(category<0 or category>=int(categories.length()))return;
-iw_form it;it.create_window("Give "+categories[category],false,true);int il=it.create_list("Database entries",0,false);string[] ids;for(uint i=0;i<content_database.length();i++)if(content_database[i].category==categories[category]){it.add_list_item(il,content_database[i].display_name);ids.insert_last(content_database[i].id);}int grant=it.create_button("Specify quantity and give",true),back=it.create_button("Cancel",false,true);it.focus(il);
-while(true){wait(5);it.monitor();if(connected)netloop();if(it.is_pressed(back))return;if(it.is_pressed(grant)){int selected=it.get_list_position(il);if(selected<0 or selected>=int(ids.length()))return;int quantity=string_to_number(af_input("Quantity to give","1",connected));if(quantity<1)quantity=1;if(quantity>10000)quantity=10000;give_developer_item(ids[selected],quantity);if(ids[selected]!="er_small_credit_chip" and ids[selected]!="er_large_credit_chip")speak(quantity+" "+string_replace(ids[selected],"_"," ",true)+" given.");return;}}
+string[] categories={"All categories"};
+for(uint i=0;i<content_database.length();i++)
+{
+string c=content_database[i].category;
+if(c=="Vehicles" or categories.find(c)>=0)continue;
+categories.insert_last(c);
 }
+nv_form f;
+f.create_window("Give items",false,true);
+nv_form_input@ search=f.add_input("Search by name","search");
+nv_form_list_box@ category_list=f.add_list("Category","category");
+for(uint i=0;i<categories.length();i++)category_list.add(categories[i],categories[i]);
+category_list.set_pos(0,false);
+nv_form_list_box@ items=f.add_list("Items","items");
+nv_form_input@ about=f.add_input("About the selected item","about","","",0,true,true);
+nv_form_spin@ quantity=f.add_spin("Quantity","quantity","1",1,10000,false,1,10);
+nv_form_button@ give_button=f.add_button("Give","give",true);
+nv_form_button@ close=f.add_button("Close","close",false,true);
+f.focus_control(search);
+string last_search="\x01",last_category="\x01",last_item="\x01";
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(close))return;
+string category=category_list.focused_item_id;
+string wanted=search.text.trim_whitespace().lower();
+// Rebuild the item list when the filter changes, keeping the selection
+// when the item is still in it.
+if(wanted!=last_search or category!=last_category)
+{
+last_search=wanted;last_category=category;
+string keep=items.focused_item_id;
+items.list_position=-1;items.items.resize(0);
+for(uint i=0;i<content_database.length();i++)
+{
+content_record@ r=content_database[i];
+if(r.category=="Vehicles")continue;
+if(category!="All categories" and r.category!=category)continue;
+if(wanted!="" and r.display_name.lower().find(wanted)<0 and r.id.find(wanted)<0)continue;
+items.add(r.display_name+(category=="All categories"?", "+r.category:""),r.id);
+}
+if(items.items.length()==0)items.add("Nothing matches"+(wanted==""?"":" \""+wanted+"\""),"");
+int keep_at=0;
+for(uint i=0;i<items.items.length();i++)if(items.items[i].id==keep){keep_at=i;break;}
+items.set_pos(keep_at,false);
+last_item="\x01";
+}
+string id=items.focused_item_id;
+if(id!=last_item)
+{
+last_item=id;
+if(id=="")
+{
+about.default_text="";give_button.caption="Give";
+}
+else
+{
+int ci=content_find(id);
+string[] lines;
+if(ci>=0)lines.insert_last(content_database[ci].summary);
+string[] stats=item_stats_lines(id);
+for(uint s=0;s<stats.length();s++)lines.insert_last(stats[s]);
+int held=get_item_count(id);
+lines.insert_last(held>0?"You have "+held+".":"You have none.");
+if(id=="er_small_credit_chip" or id=="er_large_credit_chip")lines.insert_last("Credit chips are granted by the server and need administrator or developer permission.");
+about.default_text=join(lines," ");
+item_data@ d=item_info(id);
+int amount=(d is null or d.give_amount<1)?1:d.give_amount;
+quantity.text=""+amount;
+}
+}
+if(id!="")
+{
+int count=int(quantity.output);
+int ci=content_find(id);
+string name=ci>=0?content_database[ci].display_name:string_replace(id,"_"," ",true);
+string caption="Give "+count+" "+name;
+if(give_button.caption!=caption)give_button.caption=caption;
+}
+if(f.is_pressed(give_button))
+{
+if(id==""){speak("Choose an item first.");continue;}
+int count=int(quantity.output);
+if(count<1)count=1;
+give_developer_item(id,count);
+if(id!="er_small_credit_chip" and id!="er_large_credit_chip")
+{
+int ci=content_find(id);
+speak("Gave "+count+" "+(ci>=0?content_database[ci].display_name:id)+". You now have "+get_item_count(id)+".");
+}
+last_item="\x01";
+}
+}
+}
+
 
 void dev_teleport_to_poi()
 {
@@ -972,7 +1067,7 @@ break;
 }
 
 // ---------------------------------------------------------------------------
-// Builder menu (Shift+B) — dev only. Edits map files on the server.
+// Builder menu (Alt+Shift+P) — dev only. Edits map files on the server.
 // ---------------------------------------------------------------------------
 string[] builder_tile_types = {"shallow", "sand", "dirt", "forest", "snow", "concrete2", "concrete3", "concrete5", "concrete10", "concrete12", "hardwood", "hardwood2", "carpet1", "tile1", "tile2", "grass", "grass2", "grass3", "gravel1", "rocks1", "stone", "cement", "metal2", "metal4", "metal5", "tunnel", "bridge", "plank", "ladder1", "blank", "water", "water1", "wallbrick", "wallstone", "wallwood", "wallmetal", "wallfence", "wallrock", "glass", "tree"};
 bool builder_map_response_received=false;
@@ -1719,6 +1814,8 @@ content_record@ record=content_database[ci];
 string result=record.display_name+"\n\nCategory: "+record.category+".\n";
 if(record.category=="Weapons")return result+content_weapon_details(entry_name);
 result+=record.summary;
+string[] stats=item_stats_lines(entry_name);
+for(uint si=0;si<stats.length();si++)result+="\n"+stats[si];
 if(record.category=="Ammo")
 {
 string[] fed_weapons;
@@ -3949,11 +4046,14 @@ dev_suite();
 // Builder menu is dev-only: available when running from source (which the
 // server restricts to developer accounts) or when a developer has unlocked
 // dev features with a valid key on a compiled build.
-if ((SCRIPT_COMPILED==false or dev_unlocked) and key_up(KEY_LMENU) and key_up(KEY_RMENU) and (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) and key_pressed(KEY_B))
+// The builder has its own rebindable action (Alt+Shift+P by default). It
+// used to be Shift+B, which is why the zone key refused to work while Shift
+// was held -- and so never worked while sprinting.
+if ((SCRIPT_COMPILED==false or dev_unlocked) and kb_action_pressed("builder_menu"))
 {
 builder_menu();
 }
-else if (action_pressed("zone") and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
+else if (action_pressed("zone") and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
 if (get_zone_at(mr.x,mr.y,me.z)!="")
 {
@@ -4204,8 +4304,7 @@ for(int dz=1;dz<=12;dz++){if(!surface_is_air(get_tile_at(mr.x,mr.y,me.z-dz)))bre
 if(drop>=12)report+=", a long way above anything";
 else if(drop>0)report+=", "+drop+" above the surface below";
 }
-string here=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
-if(here!="")report+=", "+here;
+// The zone is not repeated here; B reports it, and this reads faster without.
 speak(report);
 }
 if (((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_W) or action_pressed("vehicle_window")) and in_vehicle and can_move==true)
@@ -5530,40 +5629,34 @@ else
 return "uncharted area on "+map_display_name(mapname);
 }
 }
+// The camera (hold G and use the arrows and Page Up and Page Down) plays what
+// is at its position, from there: the footstep of the surface, the sound of
+// the wall, a rung for anything climbable, a hazard warning or open air. It
+// used to build the sound's name from the raw tile name, which since the maps
+// gained named surfaces rarely matched a recording, so most tiles were
+// silent; and it played them at double pitch.
 void playcamera()
 {
 string dynamic_camera_description=dynamic_map_description_at(camera.x,camera.y,camera.z);
 if(dynamic_camera_description!=currentcameratile){currentcameratile=dynamic_camera_description;if(dynamic_camera_description!="")speak(dynamic_camera_description+".");}
-if (gct()=="" or gct()=="blank")
-{
-p.play_3d("cameraair.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
-}
-for (uint i=0; i<walls.length(); i++)
-{
-if(camera.x==walls[i].x and camera.y==walls[i].y and camera.z>=walls[i].miniz and camera.z<=walls[i].maxz)
-{
-p.play_3d("wallwood.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
-}
-}
-for (uint i=0; i<ladders.length(); i++)
-{
-if(camera.x==ladders[i].x and camera.y==ladders[i].y and camera.z>=ladders[i].miniz and camera.z<=ladders[i].maxz)
-{
-p.play_3d("ladderstep"+random(1,5)+".ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
-}
-}
-if (gct()=="hazard")
-{
-p.play_3d("camerahazard.ogg",me.x,me.y,me.z,camera.x,camera.y,camera.z,calculate_theta(facing), false);
-}
-else if (string_contains(gct(),"wall",1)>-1)
-{
-p.play_extended_3d(gct()+".ogg", me.x, me.y, me.z, camera.x, camera.y, camera.z, calculate_theta(facing), 0, 0, 0, 0, 0,0,false, 0.0, 0.0, 0.0, 200.0);
-}
+string tile=gct();
+double theta=calculate_theta(facing);
+string cue="";
+if(surface_is_air(tile))cue="cameraair.ogg";
+else if(tile=="hazard")cue="camerahazard.ogg";
+else if(surface_is_wall(tile))cue=surface_wall_sound(tile);
+else if(surface_is_climbable(tile))cue="ladderstep"+random(1,5)+".ogg";
 else
 {
-string camera_terrain=gct();p.play_extended_3d(camera_terrain+"step"+random(1,available_terrain_step_sound_count(camera_terrain))+".ogg", me.x, me.y, me.z, camera.x, camera.y, camera.z, calculate_theta(facing), 0, 0, 0, 0, 0,0,false, 0.0, 0.0, 0.0, 200.0);
+string family=surface_family(tile);
+int count=family==""?0:available_terrain_step_sound_count(family);
+cue=count>0?family+"step"+random(1,count)+".ogg":"cameraair.ogg";
 }
+bool object_here=false;
+for (uint i=0; i<walls.length(); i++)if(camera.x==walls[i].x and camera.y==walls[i].y and camera.z>=walls[i].miniz and camera.z<=walls[i].maxz)object_here=true;
+if(object_here)cue="wallwood.ogg";
+for (uint i=0; i<ladders.length(); i++)if(camera.x==ladders[i].x and camera.y==ladders[i].y and camera.z>=ladders[i].miniz and camera.z<=ladders[i].maxz)cue="ladderstep"+random(1,5)+".ogg";
+p.play_3d(cue,me.x,me.y,me.z,camera.x,camera.y,camera.z,theta,false);
 }
 // Speed-hack detection. The server sends a heartbeat every one and a half
 // seconds of its time; a client whose clock has been sped up sees them

@@ -556,93 +556,107 @@ int touch_form_poll() {
 // ---------------------------------------------------------------------------
 // The player-facing gesture reference. Navigable by touch or keyboard.
 // ---------------------------------------------------------------------------
-void show_android_gestures() {
-	dynamic_menu_pro g;
-	g.reset(true);
-	g.enable_up_and_down = true;
-	g.enable_home_and_end = true;
-	g.wrap = false;
-	g.allow_escape = true;
-	g.click_sound = ui_sound("item");
-	g.enter_sound = ui_sound("activate");
-	g.open_sound = ui_sound("open");
-	g.edge_sound = ui_sound("edge");
-	g.set_callback(cme, ""); // keep the network alive while the reference is open
-	string[] lines = {
-		"Android touch gestures. Swipe up or down to read, two finger tap or escape to go back.",
-		"Bottom band two finger triple tap: open dynamic gesture help for the current menu, audio form, map, vehicle, or touch keyboard.",
-		"In menus, two finger swipe up jumps to the first item and two finger swipe down jumps to the last item.",
-		"In audio forms, two finger swipe right tabs forward and two finger swipe left tabs backward, including entering and leaving category pages.",
-		"With explore by touch enabled, hold one finger still for a moment and then drag to discover controls by their screen positions. Immediate swipes and taps never start exploration.",
-		"The screen has three bands: top, middle, and bottom.",
-		"-- Top band: inventory and status --",
-		"One finger swipe left or right: cycle inventory.",
-		"One finger swipe up or down: cycle inventory categories.",
-		"One finger tap: draw, holster, or open the holster panel.",
-		"One finger double tap: activate the selected inventory item.",
-		"One finger triple tap: help for the selected item.",
-		"One finger triple tap and hold: open the weapon panel to manage attachments.",
-		"Two finger tap: announce your tracked player's location.",
-		"Two finger double tap: open the player tracking menu.",
-		"Two finger hold: cycle the selected item's operating configuration.",
-		"Two finger double tap and hold: inspect the selected item's mechanics.",
-		"Two finger triple tap and hold: open the quickbar and equipment abilities manager.",
-		"Three finger tap: list points of interest on the map.",
-		"Three finger double tap: list items within 20 tiles.",
-		"Three finger hold: cycle compatible ammunition for the wielded weapon.",
-		"Three finger double tap and hold: operate the weapon-specific control.",
-		"Three finger triple tap and hold: maintain, vent, or service the weapon.",
-		"-- Middle band: movement and combat --",
-		"One finger tap and hold: interact with map elements (doors, chests).",
-		"One finger double tap and hold: enter or leave a vehicle.",
-		"One finger drag up, down, left, or right: walk in that direction, building up speed as you go, just as holding an arrow key does.",
-		"Two finger drag: sprint in that direction.",
-		"One finger swipe left or right: rotate to the nearest cardinal direction.",
-		"One finger swipe up or down: adjust vertical aim.",
-		"One finger double tap: check facing and cardinal direction.",
-		"One finger triple tap: check health, stamina, and status effects.",
-		"Two finger tap: fire the current weapon once.",
-		"Two finger tap and hold: keep the trigger down while both fingers stay on the screen, for automatic fire.",
-		"Two finger double tap: jump.",
-		"Two finger triple tap: inspect weapon handling.",
-		"Two finger swipe left or right: target the previous or next body region.",
-		"Two finger swipe up: reset targeting to the whole body.",
-		"Two finger swipe down: sit or stand.",
-		"Two finger double tap and hold: open or close a manual-fed weapon's action.",
-		"Two finger triple tap and hold: insert one round into a manual-fed weapon.",
-		"Three finger tap: reload.",
-		"Three finger double tap: unload.",
-		"Three finger triple tap: switch fire mode (or open a vehicle window when driving).",
-		"Three finger hold: cycle a manual weapon's action.",
-		"Three finger double tap and hold: eject manual weapon ammunition.",
-		"Three finger triple tap and hold: open current-map chat.",
-		"In a vehicle: one finger drag up or down to accelerate or decelerate, and left or right to steer.",
-		"Top band, one finger drag up or down: climb up or down ladders, rungs and stairs.",
-		"Every keyboard action has a gesture. The newer ones are listed in Options, Touch, Gesture bindings, and can be rebound there.",
-		"In a vehicle: three finger swipe left or right to switch seats.",
-		"-- Bottom band: messages and menu --",
-		"Swipe up or down: switch between message buffers.",
-		"Swipe left or right: move through the current buffer.",
-		"Double tap: send a chat message.",
-		"One finger hold: toggle gesture voice transmission.",
-		"Two finger swipe left: jump to the start of the buffer.",
-		"Two finger swipe right: jump to the end of the buffer.",
-		"Two finger double tap: open the game menu.",
-		"Two finger hold: configure the active voice room.",
-		"Two finger double tap and hold: open voice settings.",
-		"Two finger triple tap and hold: toggle hearing your own voice.",
-		"Three finger tap: open team chat.",
-		"Three finger double tap: open recent private-message senders.",
-		"Three finger triple tap: read buffs and debuffs.",
-		"Three finger hold: open equipment.",
-		"Three finger double tap and hold: open quickbar and equipment abilities.",
-		"Three finger triple tap and hold: open global chat.",
-		"Back"
-	};
-	for (uint i = 0; i < lines.length(); i++)
-		g.add_item_tts(lines[i], "line_" + i);
-	g.run("Android Gestures", true);
+// "top:2:double_hold" -> "Two finger double tap and hold".
+string gesture_signature_words(const string &in signature)
+{
+string[] p=string_split(signature,":",false);
+if(p.length()<3)return signature;
+string fingers=p[1]=="1"?"One finger":(p[1]=="2"?"Two finger":(p[1]=="3"?"Three finger":p[1]+" finger"));
+string kind=p[2];
+if(kind=="swipe")return fingers+" swipe "+(p.length()>3?p[3]:"");
+if(kind=="tap")return fingers+" tap";
+if(kind=="double_tap")return fingers+" double tap";
+if(kind=="triple_tap")return fingers+" triple tap";
+if(kind=="hold")return fingers+" tap and hold";
+if(kind=="double_hold")return fingers+" double tap and hold";
+if(kind=="triple_hold")return fingers+" triple tap and hold";
+return fingers+" "+kind;
 }
+// Sort order within a band: finger count, then taps, holds, then swipes.
+int gesture_signature_rank(const string &in signature)
+{
+string[] p=string_split(signature,":",false);
+if(p.length()<3)return 9999;
+string[] kinds={"tap","double_tap","triple_tap","hold","double_hold","triple_hold","swipe"};
+int k=kinds.find(p[2]);if(k<0)k=7;
+string[] directions={"up","down","left","right"};
+int d=p.length()>3?directions.find(p[3]):0;if(d<0)d=4;
+return int(string_to_number(p[1]))*100+k*10+d;
+}
+
+// The touch gesture reference, built from the gestures as they are actually
+// bound, so it is right after rebinding and lists every gesture there is. A
+// tab for the basics, one for each band of the screen, and one for menus and
+// dialogs; each is a list, fewest fingers first, taps before holds before
+// swipes. It used to be one long hand-written list that had fallen out of
+// step with the real bindings, in the older list menu because forms did not
+// work on Android at the time.
+void show_android_gestures()
+{
+init_gesture_bindings();
+nv_form f;
+f.create_window("Touch gestures",false,true);
+nv_form_tab_control@ tabs=nv_form_tab_control(@f,"Sections","sections",true);
+f.add_control(tabs);
+nv_form_tab_page@ basics=tabs.add_tab_page("Getting started");
+nv_form_list_box@ basics_list=basics.add_list("Getting started","basics");
+string[] intro={
+"The screen is divided into three bands, top, middle and bottom, each with its own gestures. The other tabs list them.",
+"The top band handles your inventory, items and weapon management; the middle band movement and combat; the bottom band messages, chat and menus.",
+"A gesture belongs to the band where your finger first touches, even if it moves into another.",
+"Bottom band, two finger triple tap, anywhere in the game: help for the gestures that apply where you are.",
+"Every gesture can be rebound under Options, Touch, Gesture bindings.",
+"Practise touch gestures, on the main menu, tells you what any gesture does without doing it."};
+for(uint i=0;i<intro.length();i++)basics_list.add(intro[i],"intro"+i);
+string[] bands={"top","middle","bottom"};
+string[] band_titles={"Top band","Middle band","Bottom band"};
+for(uint b=0;b<bands.length();b++)
+{
+string[] labels;int[] ranks;
+// Held drags are part of movement rather than bindings.
+if(bands[b]=="top"){labels.insert_last("One finger drag up or down: climb ladders, rungs and stairs.");ranks.insert_last(95);}
+if(bands[b]=="middle")
+{
+labels.insert_last("One finger drag: walk that way, gathering speed as you go, as holding an arrow key does.");ranks.insert_last(95);
+labels.insert_last("Two finger drag: sprint that way.");ranks.insert_last(195);
+labels.insert_last("In a vehicle, one finger drag up or down: accelerate or brake; left or right: steer.");ranks.insert_last(96);
+}
+for(uint i=0;i<gesture_action_ids.length();i++)
+{
+string sig=gesture_current_signatures[i];
+if(sig=="" or sig.substr(0,bands[b].length()+1)!=bands[b]+":")continue;
+labels.insert_last(gesture_signature_words(sig)+": "+gesture_action_labels[i]+".");
+ranks.insert_last(gesture_signature_rank(sig));
+}
+for(uint i=1;i<labels.length();i++){string l=labels[i];int r=ranks[i];int j=int(i)-1;while(j>=0 and ranks[j]>r){labels[j+1]=labels[j];ranks[j+1]=ranks[j];j--;}labels[j+1]=l;ranks[j+1]=r;}
+nv_form_tab_page@ page=tabs.add_tab_page(band_titles[b]);
+nv_form_list_box@ list=page.add_list(band_titles[b]+", "+labels.length()+" gestures",bands[b]);
+for(uint i=0;i<labels.length();i++)list.add(labels[i],bands[b]+i);
+}
+nv_form_tab_page@ menus=tabs.add_tab_page("Menus and dialogs");
+nv_form_list_box@ menu_list=menus.add_list("Menus and dialogs","menus");
+string[] contexts={"menu","audio form"};
+string[] context_titles={"In a menu","In a dialog"};
+for(uint c=0;c<contexts.length();c++)
+{
+string[] lines=gesture_help_lines(contexts[c]);
+for(uint i=0;i<lines.length();i++)
+{
+if(lines[i]=="Close" or lines[i].find("open gesture help for the current context")>=0)continue;
+menu_list.add(context_titles[c]+": "+lines[i],contexts[c]+i);
+}
+}
+nv_form_button@ close=f.add_button("Close","close",true,true);
+tabs.focus();
+while(true)
+{
+wait(5);
+f.monitor();
+if(connected)netloop();
+if(f.is_pressed(close))return;
+}
+}
+
 
 string gesture_practice_band_name(int band) {
 	if (band==REGION_TOP) return "top band";

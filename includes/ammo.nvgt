@@ -1403,6 +1403,10 @@ void unload_mag(string wname)
 int i=find_gun(wname);
 if (i<0) { speak("Nothing to unload."); return; }
 gun_ammo@ g=gun_ammos[i];
+// Revolvers, tube-fed and break-action guns are emptied by hand, as they are
+// loaded: open the action, then eject. Unloading used to empty them in one
+// keypress, skipping the action and chamber state entirely.
+if (g.manual_action) { speak("This weapon is emptied by hand. Open it with "+kb_binding_label("manual_action")+", then eject its rounds with "+kb_binding_label("manual_eject")+"."); return; }
 if (g.reloading) { speak("Cannot unload while reloading."); return; }
 if (g.mag_loaded==0) { speak(g.feed_device+" is already empty."); return; }
 p.play_stationary(weapon_sound_profile(wname)+"unload.ogg", false);

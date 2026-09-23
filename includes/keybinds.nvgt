@@ -229,7 +229,7 @@ _kb_reg_action("weapon_maintenance", "Vent, service, or maintain weapon", KEY_N,
 _kb_reg_action("weapon_inspect", "Inspect weapon handling state", KEY_A, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("item_configuration", "Cycle selected item configuration", KEY_M, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("item_inspect", "Inspect selected item mechanics", KEY_K, KEYMOD_ALT|KEYMOD_SHIFT);
-_kb_reg_action("extract_pill", "Remove one pill from selected medication bottle", KEY_P, KEYMOD_ALT|KEYMOD_SHIFT);
+_kb_reg_action("extract_pill", "Remove one pill from selected medication bottle", KEY_L, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("ammo_check", "Check ammo", KEY_A);
 _kb_reg_action("use_item", "Use item", KEY_RETURN);
 _kb_reg_action("chat", "Chat", KEY_SLASH);
@@ -273,6 +273,7 @@ _kb_reg_action("voice_hear_self", "Toggle hearing your own voice", KEY_O, KEYMOD
 _kb_reg_action("voice_settings", "Open voice chat settings", KEY_F7, KEYMOD_SHIFT);
 _kb_reg_action("voice_ptt_mode", "Toggle push-to-talk or latched voice mode", KEY_F8, KEYMOD_SHIFT);
 _kb_reg_action("voice_control", "Start Windows voice-command listening", KEY_F9, KEYMOD_CTRL|KEYMOD_SHIFT);
+_kb_reg_action("builder_menu", "Open the live map builder (developers)", KEY_P, KEYMOD_ALT|KEYMOD_SHIFT);
 _kb_reg_action("staff_panel", "Open staff and administrator panel", KEY_F8, KEYMOD_CTRL|KEYMOD_SHIFT);
 _kb_reg_action("effects_read", "Read buffs and debuffs", KEY_B, KEYMOD_ALT);
 _kb_reg_action("dev_poi_teleport", "Developer POI teleport", KEY_J, KEYMOD_ALT|KEYMOD_SHIFT);
@@ -309,7 +310,7 @@ show_readonly_audio_form("Duplicate keymaps removed",duplicate_notice);
 }
 if (file_exists(kb_profile_path()))
 {
-kb_load();
+kb_load();kb_migrate_moved_bindings();
 if (!kb_validate_config())
 {
 kb_show_restore_message();
@@ -434,6 +435,16 @@ break;
 }
 }
 
+// The pill action used to be Alt+Shift+P, which is now the builder. Key maps
+// saved before the move still have it on P; move it to its new default
+// rather than leave the two actions fighting over one chord.
+void kb_migrate_moved_bindings()
+{
+int pill=-1,builder=-1;
+for(uint i=0;i<_kb_act_names.length();i++){if(_kb_act_names[i]=="extract_pill")pill=i;else if(_kb_act_names[i]=="builder_menu")builder=i;}
+if(pill<0 or builder<0)return;
+if(_kb_act_binds[pill]==_kb_act_binds[builder] and _kb_act_modifiers[pill]==_kb_act_modifiers[builder])_kb_act_binds[pill]=_kb_act_defaults[pill];
+}
 void kb_load()
 {
 file f;
@@ -524,7 +535,7 @@ void kb_load_profile(string profile)
 if (!kb_valid_profile_name(profile) or !file_exists(KB_PROFILE_DIR+"/"+profile+".json")) return;
 kb_active_profile=profile;
 for (uint i=0; i<_kb_act_names.length(); i++) _kb_act_binds[i]=_kb_act_defaults[i];
-kb_load();
+kb_load();kb_migrate_moved_bindings();
 kb_update_holds();
 writeprefs();
 }
@@ -681,7 +692,6 @@ if(key==KEY_X and modifiers==KEYMOD_SHIFT)return "Fine aim down";
 if((key>=KEY_1 and key<=KEY_0) and modifiers==KEYMOD_ALT)return "Bind the selected item to this quickbar slot";
 if((key>=KEY_1 and key<=KEY_0) and modifiers==0)return "Activate this quickbar slot";
 if(key==KEY_D and modifiers==KEYMOD_SHIFT)return "Open developer suite when authorized";
-if(key==KEY_B and modifiers==KEYMOD_SHIFT)return "Open live map builder when authorized";
 return "";
 }
 

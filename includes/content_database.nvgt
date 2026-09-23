@@ -193,93 +193,130 @@ if(category=="Holsters") { result.insert_last("holster_"+id+"_equip.ogg"); resul
 return result;
 }
 
+// The Armoury: every weapon, item and vehicle in the game, in three lists.
+// Categories, with how many entries each has; then the entries in a
+// category, alphabetically; then an entry, one fact to a line -- what it is,
+// its numbers, what fits it -- followed by its sounds, each played by Enter.
+// Each list comes back to where you were when you return to it. It used to be
+// one crowded form: two lists, a text box and a sound list side by side,
+// with every sound test-loaded from the pack each time you moved.
+string[] armoury_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment","Vehicles"};
+
+string[] armoury_entry_ids(const string &in category)
+{
+string[] ids,names;
+for(uint i=0;i<content_database.length();i++)if(content_database[i].category==category){ids.insert_last(content_database[i].id);names.insert_last(content_database[i].display_name.lower());}
+// Alphabetical by name.
+for(uint i=1;i<ids.length();i++){string ki=ids[i],kn=names[i];int j=int(i)-1;while(j>=0 and names[j]>kn){ids[j+1]=ids[j];names[j+1]=names[j];j--;}ids[j+1]=ki;names[j+1]=kn;}
+return ids;
+}
+
+// A list screen that remembers its position. Returns the chosen id or "".
+string armoury_list(const string &in title,string[]@ labels,string[]@ ids,int &inout position)
+{
+nv_form f;
+f.create_window(title,false,true);
+nv_form_list_box@ list=f.add_list(title,"list");
+for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
+if(position>=0 and position<int(labels.length()))list.set_pos(position);
+nv_form_button@ open=f.add_button("Open","open",true);
+open.hidden=true;
+nv_form_button@ back=f.add_button("Back","back",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(back))return "";
+if(f.is_pressed(open) and @list.focused_item!=null){position=list.list_position;return list.focused_item.id;}
+}
+return "";
+}
+
+// One fact to a line. Weapon statistics come as a run of sentences, which
+// are split so each can be read on its own.
+string[] armoury_fact_lines(const string &in category,const string &in id)
+{
+string[] lines;
+string text=category=="Weapons"?content_weapon_details(id):read_help_file(id);
+int ci=content_find(id);
+if(category=="Weapons" and ci>=0)lines.insert_last(content_database[ci].display_name);
+string[] raw=string_split(text,"\n",false);
+for(uint i=0;i<raw.length();i++)
+{
+string line=raw[i].trim_whitespace();
+if(line=="")continue;
+if(category=="Weapons" and i==0)
+{
+string[] sentences=string_split(line,". ",true);
+for(uint s=0;s<sentences.length();s++){string sentence=sentences[s].trim_whitespace();if(sentence=="")continue;if(sentence.substr(sentence.length()-1)!=".")sentence+=".";lines.insert_last(sentence);}
+}
+else lines.insert_last(line);
+}
+return lines;
+}
+
+void armoury_entry(const string &in category,const string &in id)
+{
+string[] facts=armoury_fact_lines(category,id);
+string[] sounds;
+string[] candidates=content_sound_files(category,id);
+for(uint i=0;i<candidates.length();i++)if(fire_archive_index.file_exists(candidates[i]))sounds.insert_last(candidates[i]);
+int ci=content_find(id);
+string title=ci>=0?content_database[ci].display_name:string_replace(id,"_"," ",true);
+nv_form f;
+f.create_window(title,false,true);
+nv_form_list_box@ list=f.add_list(title+". Enter on a sound plays it.","facts");
+for(uint i=0;i<facts.length();i++)list.add(facts[i],"fact");
+if(sounds.length()==0)list.add("This entry has no sounds of its own.","fact");
+for(uint i=0;i<sounds.length();i++)list.add("Sound: "+string_replace(string_replace(sounds[i],".ogg","",true),"_"," ",true),"sound:"+i);
+nv_form_button@ play=f.add_button("Play","play",true);
+play.hidden=true;
+nv_form_button@ back=f.add_button("Back","back",false,true);
+f.focus_control(list);
+int slot=-1;
+while(true)
+{
+wait(5);
+f.monitor();
+if(f.is_pressed(back)){if(slot>=0)p.destroy_sound(slot);return;}
+if(f.is_pressed(play) and @list.focused_item!=null)
+{
+string item_id=list.focused_item.id;
+if(item_id.substr(0,6)!="sound:")continue;
+if(slot>=0)p.destroy_sound(slot);
+slot=p.play_stationary(sounds[int(string_to_number(item_id.substr(6)))],false);
+}
+}
+}
+
 void armoury_database()
 {
 refresh_content_database();
 if(vehicle_types.length()==0) init_vehicle_types();
-nv_form f; f.create_window("Infinite Warfare Armoury",false,true);
-nv_form_list_box@ categories=f.add_list("Database category","category");
-string[] armoury_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment","Vehicles"};for(uint ac=0;ac<armoury_categories.length();ac++)categories.add(armoury_categories[ac],armoury_categories[ac]);categories.set_pos(0,false);
-nv_form_list_box@ entries=f.add_list("Entries","entries");
-nv_form_input@ details=f.add_input("Statistics and compatibility","details","","",0,true,true);
-nv_form_list_box@ sounds=f.add_list("Available sound previews; hit and impact sounds are excluded","sounds");
-nv_form_button@ play=f.add_button("Preview selected sound","play",true); nv_form_button@ close=f.add_button("Close","close",false,true); f.focus_control(categories);
-int last_category=-1,last_entry=-1,last_sound=-1;
-int preview_slot=-1;
-bool preview_paused=false;
-string preview_file="";
+int category_position=0;
 while(true)
 {
-wait(5); f.monitor(); lobby_form_netcheck();
-if(preview_slot>=0 and !preview_paused and !p.sound_is_active(preview_slot))
+string[] labels,ids;
+for(uint c=0;c<armoury_categories.length();c++)
 {
-preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
+int count=armoury_entry_ids(armoury_categories[c]).length();
+if(count==0)continue;
+labels.insert_last(armoury_categories[c]+", "+count+(count==1?" entry":" entries"));
+ids.insert_last(armoury_categories[c]);
 }
-if(categories.list_position!=last_category)
+string category=armoury_list("Armoury",labels,ids,category_position);
+if(category=="")return;
+string[] entries=armoury_entry_ids(category);
+string[] names;
+for(uint i=0;i<entries.length();i++)names.insert_last(content_database[content_find(entries[i])].display_name);
+int entry_position=0;
+while(true)
 {
-if(categories.list_position<0 or categories.list_position>=int(categories.items.length())) continue;
-last_category=categories.list_position; last_entry=-1;
-// NV_form intentionally preserves selection while items change. Clear the
-// positions first so a former long-list index cannot address the new list.
-entries.list_position=-1; entries.items.resize(0);
-sounds.list_position=-1; sounds.items.resize(0); details.default_text="";
-last_sound=-1;
-if(preview_slot>=0) p.destroy_sound(preview_slot);
-preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
-string selected_category=armoury_categories[last_category];for(uint i=0;i<content_database.length();i++)if(content_database[i].category==selected_category)entries.add(content_database[i].display_name,content_database[i].id);
-if(entries.items.length()>0) entries.set_pos(0,false);
-}
-if(entries.list_position>=int(entries.items.length()))
-{
-entries.list_position=-1; last_entry=-1;
-if(entries.items.length()>0) entries.set_pos(0,false);
-}
-if(entries.list_position!=last_entry and entries.list_position>=0 and entries.list_position<int(entries.items.length()))
-{
-last_entry=entries.list_position; last_sound=-1; sounds.list_position=-1; sounds.items.resize(0);
-if(preview_slot>=0) p.destroy_sound(preview_slot);
-preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
-string id=entries.items[last_entry].id;string category=armoury_categories[last_category];int ci=content_find(id);if(category=="Weapons")details.default_text=content_weapon_details(id);else details.default_text=ci>=0?content_database[ci].display_name+". "+content_database[ci].category+". "+content_database[ci].summary:id;
-string[] previews=content_sound_files(category,id);
-for(uint i=0;i<previews.length();i++)
-{
-// Looked up in the pack's index. Loading each preview to see whether it
-// existed stalled the game for as long as the loads took, long enough on a
-// weapon with dozens of recordings for the lobby to decide the server had
-// gone quiet and drop the connection.
-if(fire_archive_index.file_exists(previews[i])) sounds.add(string_replace(previews[i],"_"," ",true),previews[i]);
-}
-if(sounds.items.length()>0) sounds.set_pos(0,false); else sounds.add("No authored preview sounds are present in the current sound pack","");
-}
-if(sounds.list_position!=last_sound)
-{
-last_sound=sounds.list_position;
-if(preview_slot>=0) p.destroy_sound(preview_slot);
-preview_slot=-1; preview_paused=false; preview_file=""; play.caption="Preview selected sound";
-}
-if(f.is_pressed(play) and sounds.list_position>=0 and sounds.list_position<int(sounds.items.length()))
-{
-string filename=sounds.items[sounds.list_position].id;
-if(filename=="") speak("No authored preview sounds are present for this entry.");
-else if(preview_slot>=0 and preview_file==filename)
-{
-if(preview_paused)
-{
-p.resume_sound(preview_slot); preview_paused=false; play.caption="Pause selected sound"; speak("Resumed.");
-}
-else
-{
-p.pause_sound(preview_slot); preview_paused=true; play.caption="Resume selected sound"; speak("Paused.");
+string entry=armoury_list(category,names,entries,entry_position);
+if(entry=="")break;
+armoury_entry(category,entry);
 }
 }
-else
-{
-if(preview_slot>=0) p.destroy_sound(preview_slot);
-preview_slot=p.play_stationary(filename,false); preview_file=filename; preview_paused=false;
-if(preview_slot>=0) play.caption="Pause selected sound";
-else { preview_file=""; speak("That sound could not be played."); }
 }
-}
-if(f.is_pressed(close)) { if(preview_slot>=0) p.destroy_sound(preview_slot); return; }
-}
-}
+

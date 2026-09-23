@@ -103,11 +103,18 @@ uint64 sequence;
 string direction,transport,summary,payload,endpoint;
 int peer,channel,size,elapsed_ms;
 }
+// Run by every dialog each frame, just before the helper service. It must not
+// call the helper service itself: the helper service runs this pump for the
+// older list menus, and the two calling each other froze the game solid the
+// moment it was connected and showing a dialog -- that is, on entering the
+// lobby.
+bool pumping_network_for_form=false;
 void pump_network_for_form()
 {
+if(pumping_network_for_form)return;
+pumping_network_for_form=true;
 process_fullscreen_shortcut();
 process_screenshot_shortcut();
-helper_notification_tray_loop();helper_visual_hud_loop();
 // In the lobby the lobby's handler reads the network; during a match the
 // match's does. This used to run the match handler everywhere, so screens
 // opened from the lobby -- the Armoury among them -- had lobby messages
@@ -120,6 +127,7 @@ form_net_depth++;
 if(mapname=="" or mapname=="main")lobby_form_netcheck();else netloop(false);
 form_net_depth--;
 }
+pumping_network_for_form=false;
 }
 diagnostic_packet@[] diagnostic_packets;
 dictionary fire_sound_count_cache;

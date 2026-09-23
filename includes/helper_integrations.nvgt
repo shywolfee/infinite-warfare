@@ -322,12 +322,12 @@ int form_net_depth=0;
 // not have that hook.
 void form_network_keepalive()
 {
-if(!connected or form_net_depth>0)return;
+if(!connected or form_net_depth>0 or pumping_network_for_form)return;
 if(@default_nv_form_network_pump!=null)default_nv_form_network_pump();
 }
 // Returning to the main menu or lobby unwinds straight through whatever was
 // running, including a guarded call above; this puts the guards back.
-void reset_service_guards(){form_net_depth=0;helpers_servicing=false;muted_ui_cues.resize(0);}
+void reset_service_guards(){form_net_depth=0;helpers_servicing=false;pumping_network_for_form=false;muted_ui_cues.resize(0);}
 void nvgt_helpers_service()
 {
 form_network_keepalive();

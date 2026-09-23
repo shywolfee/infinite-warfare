@@ -294,9 +294,13 @@ if(fire_archive_index.file_exists(legacy))found=legacy;
 ui_sound_cache.set(cue,found);
 return found;
 }
+// Cues a screen has asked to keep quiet, such as Learn the game's sounds,
+// where a list tick or a button click would play over the sound being learnt.
+string[] muted_ui_cues;
 void play_ui_cue(const string &in cue)
 {
 if(!audio_form_sound_feedback)return;
+if(muted_ui_cues.find(cue)>=0)return;
 spool.play_stationary(ui_sound(cue),false);
 }
 

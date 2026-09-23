@@ -1347,6 +1347,10 @@ labels.insert_last("Menus: Error");files.insert_last(ui_sound("error"));
 labels.insert_last("Menus: Voice command listening");files.insert_last(ui_sound("listen"));
 labels.insert_last("Menus: Voice command heard");files.insert_last(ui_sound("listen_end"));
 nv_form f;
+// Moving through the list and pressing Enter are silent here, so the only
+// thing you hear is the sound you are learning.
+string[] quiet={"item","edge","wrap","move","activate"};
+muted_ui_cues=quiet;
 f.create_window("Learn the game's sounds", false, true);
 nv_form_list_box@ list=f.add_list("Sounds. Enter plays the one you are on.","sounds");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],""+i);
@@ -1367,7 +1371,7 @@ preview.close();
 preview.load(files[now]);
 preview.play();
 }
-if(f.is_pressed(close)){preview.close();return;}
+if(f.is_pressed(close)){preview.close();muted_ui_cues.resize(0);return;}
 }
 }
 void setupmenu(bool music=false, bool main=false)

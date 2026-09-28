@@ -143,27 +143,30 @@ deployable_explosive@[] deployable_explosives;
 class deployable_explosive
 {
 int x,y,z,dir,arming_ms=1200;double sensor_mult=1;string map,owner,kind;timer armed_timer;timer life_timer;timer trigger_timer;bool triggered=false;
-deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind,int profile=1){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;if(profile==0){arming_ms=650;sensor_mult=.78;}else if(profile==2){arming_ms=2200;sensor_mult=1.3;}play(explosive_audio_prefix(kind)+"_place",x,y,z,map);if(kind=="er_time_bomb")play("er_time_bomb_countdown",x,y,z,map);}
+deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind,int profile=1){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;arming_ms=item_prop_int(kind,"arming_ms",1200);if(profile==0){arming_ms=int(arming_ms*.54);sensor_mult=.78;}else if(profile==2){arming_ms=int(arming_ms*1.84);sensor_mult=1.3;}play(item_prop(kind,"place_sound",explosive_audio_prefix(kind)+"_place"),x,y,z,map);string countdown=item_prop(kind,"countdown_sound");if(countdown!="")play(countdown,x,y,z,map);}
 }
 void detonate_deployable(int index)
 {
 deployable_explosive@ d=deployable_explosives[index];fraggrenade@ blast=fraggrenade(d.x,d.y,d.z,d.dir,d.map,d.owner,d.kind,false);blast.landed=true;blast.vx=0;blast.vy=0;blast.vz=0;blast.fuse=0;
-if(d.kind=="proximity_mine" or d.kind=="er_proximity_mine"){blast.radius=11;blast.damage=430;}else if(d.kind=="claymore" or d.kind=="er_directional_claymore"){blast.radius=9;blast.damage=600;}else if(d.kind=="er_motion_bomb"){blast.radius=16;blast.damage=540;}else if(d.kind=="er_ghost_bomb"){blast.radius=8;blast.damage=420;}else if(d.kind=="er_dr_bomb"){blast.radius=15;blast.damage=360;}else{blast.radius=14;blast.damage=700;}
+blast.radius=item_prop_int(d.kind,"blast_radius",14);blast.damage=item_prop_int(d.kind,"blast_damage",700);
 fraggrenades.insert_last(blast);deployable_explosives.remove_at(index);
 }
 void deployable_explosive_loop()
 {
 for(int i=int(deployable_explosives.length())-1;i>=0;i--)
 {
-deployable_explosive@ d=deployable_explosives[i];if((d.kind=="time_bomb" or d.kind=="er_time_bomb") and d.life_timer.elapsed>=10000){detonate_deployable(i);continue;}if(d.kind=="er_dr_bomb" and d.life_timer.elapsed>=8000){detonate_deployable(i);continue;}if(d.kind=="er_motion_bomb" and d.triggered and d.trigger_timer.elapsed>=3000){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
+deployable_explosive@ d=deployable_explosives[i];int timed=item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
 int owner_index=get_player_index_from(d.owner);bool triggered=false;
 for(uint pidx=0;pidx<players.length();pidx++)
 {
-player@ target=players[pidx];if(target.death or target.map!=d.map or target.name==d.owner or (owner_index>=0 and same_team(players[owner_index].name,target.name)))continue;double dx=double(target.x-d.x),dy=double(target.y-d.y),distance=sqrt(dx*dx+dy*dy);
-if((d.kind=="proximity_mine" or d.kind=="er_proximity_mine") and distance<=3.2*d.sensor_mult)triggered=true;
-else if((d.kind=="claymore" or d.kind=="er_directional_claymore") and distance<=5.5*d.sensor_mult){double radians=double(d.dir)*3.14159265358979323846/180.0,dot=dx*sine(radians)+dy*cosine(radians);if(dot>distance*.55)triggered=true;}
-else if(d.kind=="er_ghost_bomb" and distance<=2.3*d.sensor_mult)triggered=true;
-else if(d.kind=="er_motion_bomb" and distance<=7.0*d.sensor_mult){if(!d.triggered){d.triggered=true;d.trigger_timer.restart();play("er_motion_bomb_countdown",d.x,d.y,d.z,d.map);}triggered=false;}
+// The owner is not immune to a live proximity device.  Team protection still
+// applies to other teammates, but walking back into your own armed mine or
+// claymore must trigger the same blast that can already damage its owner.
+player@ target=players[pidx];if(target.death or target.map!=d.map or (target.name!=d.owner and owner_index>=0 and same_team(players[owner_index].name,target.name)))continue;double dx=double(target.x-d.x),dy=double(target.y-d.y),distance=sqrt(dx*dx+dy*dy);
+double sensor=item_prop_number(d.kind,"sensor_radius",3.2)*d.sensor_mult;string sensor_kind=item_prop(d.kind,"sensor_kind","proximity");
+if(sensor_kind=="proximity" and distance<=sensor)triggered=true;
+else if(sensor_kind=="directional" and distance<=sensor){double radians=double(d.dir)*3.14159265358979323846/180.0,dot=dx*sine(radians)+dy*cosine(radians);if(dot>distance*item_prop_number(d.kind,"sensor_cone",.55))triggered=true;}
+else if(sensor_kind=="delayed" and distance<=sensor){if(!d.triggered){d.triggered=true;d.trigger_timer.restart();play(item_prop(d.kind,"trigger_sound","er_motion_bomb_countdown"),d.x,d.y,d.z,d.map);}triggered=false;}
 if(triggered)break;
 }
 if(triggered){if(d.kind=="er_directional_claymore")play("er_claymore_detonate",d.x,d.y,d.z,d.map);detonate_deployable(i);}

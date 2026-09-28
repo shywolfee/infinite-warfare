@@ -1,65 +1,289 @@
-// The low-vision display's layout, separate from the game state it shows so
-// that it can be drawn and checked on its own.
-//
-//   header   where you are: the dialog you are in, or the map in a match
-//   panel    the last thing the game said, as large as the window allows
-//   below    in a dialog, the control that has focus and what kind it is;
-//            in a match, the zone you are standing in
-//   footer   in a match, coordinates and facing
-//
-// Everything is sized from the window, so it holds together from a small
-// window to full screen, and text that does not fit is shrunk until it does
-// rather than running off the edge.
-class low_vision_frame
+// Modern visual presentation for players who use sight alongside the audio
+// game.  This file deliberately contains no gameplay globals: the integration
+// layer turns current game/form state into these small render snapshots.
+
+class visual_ui_row
 {
-string title;
-string said;
-string focus;
-string focus_kind;
-string zone;
-string status;
-bool in_match=false;
+string caption,value,kind;
+bool focused=false,enabled=true;
+visual_ui_row(){}
+visual_ui_row(string c,string v,string k,bool f,bool e){caption=c;value=v;kind=k;focused=f;enabled=e;}
 }
 
-graphics_colour@ lv_background=graphics_colour(6,8,16);
-graphics_colour@ lv_header=graphics_colour(16,32,72);
-graphics_colour@ lv_title=graphics_colour(255,214,40);
-graphics_colour@ lv_panel=graphics_colour(0,0,0);
-graphics_colour@ lv_border=graphics_colour(255,214,40);
-graphics_colour@ lv_text=graphics_colour(255,255,255);
-graphics_colour@ lv_dim=graphics_colour(150,190,255);
-graphics_colour@ lv_status=graphics_colour(120,255,170);
-
-void low_vision_draw(graphics_helper@ g,low_vision_frame@ f,int width,int height)
+class visual_form_frame
 {
-if(g is null or !g.get_active() or width<200 or height<200)return;
-int margin=width/28;
-int header_h=height/7;
-g.clear_screen(lv_background);
-g.rect(0,0,width,header_h,lv_header);
-g.rect(0,header_h-6,width,6,lv_border);
-g.text_fitted(f.title,margin,header_h/5,width-margin*2,header_h/2,18,lv_title,true);
-
-int footer_h=f.in_match?height/9:0;
-int panel_y=header_h+margin;
-int panel_h=(height-footer_h-panel_y)*62/100;
-g.panel(margin,panel_y,width-margin*2,panel_h,lv_panel,lv_border,6);
-int big=f.said.length()<28?height/10:(f.said.length()<70?height/14:(f.said.length()<160?height/19:height/26));
-g.text_wrapped(f.said,margin*2,panel_y+margin,width-margin*4,big,lv_text,true);
-
-int y=panel_y+panel_h+margin;
-// In a match the zone is often exactly what was just said; saying it twice
-// on the same screen wastes the room.
-string line=f.in_match?(f.zone!=f.said?f.zone:""):f.focus;
-if(line!="")
-{
-g.text_fitted(line,margin,y,width-margin*2,height/16,16,lv_text);
-if(!f.in_match and f.focus_kind!="")g.text(f.focus_kind,margin,y+height/14,height/26,lv_dim);
+string title,section,detail;
+string[] tabs;
+int selected_tab=-1;
+visual_ui_row@[] rows;
+int focused_row=-1;
+bool show_keyboard=false;
+string keyboard_text="";
+int keyboard_row=-1,keyboard_col=-1;
+bool keyboard_shift=false,keyboard_caps=false;
 }
-if(f.in_match)
+
+class visual_world_rect
 {
-g.rect(0,height-footer_h,width,footer_h,lv_header);
-g.text_fitted(f.status,margin,height-footer_h+footer_h/4,width-margin*2,footer_h/2,14,lv_status);
+double x1,x2,y1,y2;
+int style=0;
+visual_world_rect(){}
+visual_world_rect(double ax1,double ax2,double ay1,double ay2,int s){x1=ax1;x2=ax2;y1=ay1;y2=ay2;style=s;}
 }
+
+class visual_world_marker
+{
+double x,y,z,heading;
+string label;
+int style=0;
+visual_world_marker(){}
+visual_world_marker(double px,double py,double pz,string text,int s,double angle=0){x=px;y=py;z=pz;label=text;style=s;heading=angle;}
+}
+
+class visual_world_frame
+{
+string map_name,zone,weapon,ammo,status;
+double player_x,player_y,player_z,player_heading;
+int stamina=0,max_stamina=100;
+double map_width=1,map_height=1;
+visual_world_rect@[] geometry;
+visual_world_marker@[] markers;
+}
+
+graphics_colour@ vg_background=graphics_colour(5,9,16);
+graphics_colour@ vg_panel=graphics_colour(13,22,34);
+graphics_colour@ vg_panel_raised=graphics_colour(21,35,51);
+graphics_colour@ vg_border=graphics_colour(54,76,101);
+graphics_colour@ vg_focus=graphics_colour(58,174,255);
+graphics_colour@ vg_accent=graphics_colour(255,194,61);
+graphics_colour@ vg_text=graphics_colour(239,246,255);
+graphics_colour@ vg_dim=graphics_colour(153,174,198);
+graphics_colour@ vg_good=graphics_colour(63,220,139);
+graphics_colour@ vg_danger=graphics_colour(255,83,96);
+graphics_colour@ vg_map_floor=graphics_colour(35,50,61);
+graphics_colour@ vg_map_wall=graphics_colour(96,109,125);
+graphics_colour@ vg_map_water=graphics_colour(24,82,132);
+graphics_colour@ vg_map_hazard=graphics_colour(151,58,48);
+graphics_colour@ vg_map_object=graphics_colour(125,91,58);
+
+int visual_min(int a,int b){return a<b?a:b;}
+int visual_max(int a,int b){return a>b?a:b;}
+int visual_clamp(int n,int low,int high){return n<low?low:(n>high?high:n);}
+
+graphics_colour@ visual_geometry_colour(int style)
+{
+if(style==1)return vg_map_wall;
+if(style==2)return vg_map_water;
+if(style==3)return vg_map_hazard;
+if(style==4)return vg_map_object;
+return vg_map_floor;
+}
+
+string visual_icon_for(const string &in kind)
+{
+string k=string_to_lower_case(kind);
+if(string_contains(k,"button",1)>=0 or string_contains(k,"link",1)>=0)return "ENTER";
+if(string_contains(k,"check",1)>=0)return "CHECK";
+if(string_contains(k,"slider",1)>=0 or string_contains(k,"spin",1)>=0)return "LEVEL";
+if(string_contains(k,"input",1)>=0 or string_contains(k,"edit",1)>=0)return "TEXT";
+if(string_contains(k,"list",1)>=0 or string_contains(k,"tree",1)>=0)return "LIST";
+if(string_contains(k,"switch",1)>=0)return "CHOICE";
+if(string_contains(k,"progress",1)>=0)return "STATUS";
+return "OPTION";
+}
+
+void visual_bar(graphics_helper@ g,int x,int y,int w,int h,double value,double maximum,graphics_colour@ fill)
+{
+g.panel(x,y,w,h,graphics_colour(7,12,20),vg_border,2);
+if(maximum<=0)return;
+int inner=int(double(w-4)*value/maximum);
+inner=visual_clamp(inner,0,w-4);
+if(inner>0)g.rect(x+2,y+2,inner,h-4,fill,true);
+}
+
+void visual_subtitle(graphics_helper@ g,const string &in text,int width,int height,int bottom)
+{
+if(text=="")return;
+int box_w=width*62/100;
+int box_h=visual_max(70,height/10);
+int x=(width-box_w)/2,y=bottom-box_h;
+g.panel(x,y,box_w,box_h,graphics_colour(2,4,8),vg_accent,3);
+g.text_wrapped(text,x+18,y+12,box_w-36,visual_max(18,height/34),vg_text,true);
+}
+
+void visual_keyboard(graphics_helper@ g,int x,int y,int w,int h,const string &in typed,int selected_row,int selected_col,bool shift,bool caps)
+{
+string[][] keys={{"1","2","3","4","5","6","7","8","9","0","Back"},{"Q","W","E","R","T","Y","U","I","O","P"},{"A","S","D","F","G","H","J","K","L","'"},{"Shift","Z","X","C","V","B","N","M",",","."},{"Caps","Space","?","Done"}};
+g.panel(x,y,w,h,vg_panel,vg_border,3);
+int preview_h=visual_max(34,h/7);
+string state=(caps?"CAPS ":"")+(shift?"SHIFT ":"");
+g.text_fitted((state!=""?state+"  ":"")+typed,x+14,y+7,w-28,visual_max(17,preview_h/2),13,vg_text);
+int rows_h=h-preview_h-12,row_h=rows_h/int(keys.length());
+for(uint r=0;r<keys.length();r++)
+{
+int count=keys[r].length(),gap=5,key_w=(w-20-gap*(count-1))/count;
+int row_x=x+10,row_y=y+preview_h+int(r)*row_h;
+for(int c=0;c<count;c++)
+{
+bool selected=int(r)==selected_row and c==selected_col;
+graphics_colour@ fill=selected?graphics_colour(26,104,158):vg_panel_raised;
+graphics_colour@ border=selected?vg_accent:vg_border;
+g.panel(row_x+c*(key_w+gap),row_y,key_w,row_h-5,fill,border,selected?3:1);
+g.text_fitted(keys[r][c],row_x+c*(key_w+gap)+6,row_y+6,key_w-12,visual_max(14,row_h/3),11,selected?vg_text:vg_dim,selected);
+}
+}
+}
+
+void visual_draw_form(graphics_helper@ g,visual_form_frame@ f,int width,int height,const string &in subtitle,bool subtitles)
+{
+g.clear_screen(vg_background);
+int margin=visual_max(12,width/70),header=visual_max(62,height/11);
+g.rect(0,0,width,header,graphics_colour(9,25,42),true);
+g.rect(0,header-4,width,4,vg_focus,true);
+g.text_fitted(f.title,margin,header/4,width-margin*2,header/2,20,vg_text,true);
+int tabs_h=f.tabs.length()>0?visual_max(42,height/16):0;
+if(tabs_h>0)
+{
+int tab_w=visual_max(110,(width-margin*2)/int(f.tabs.length()));
+for(uint i=0;i<f.tabs.length();i++)
+{
+int tx=margin+int(i)*tab_w;
+if(tx>=width-margin)break;
+bool selected=int(i)==f.selected_tab;
+g.panel(tx,header+8,visual_min(tab_w-6,width-margin-tx),tabs_h-8,selected?graphics_colour(20,72,111):vg_panel,selected?vg_focus:vg_border,selected?3:1);
+g.text_fitted(f.tabs[i],tx+10,header+17,tab_w-26,tabs_h/2,12,selected?vg_text:vg_dim,selected);
+}
+}
+
+int content_y=header+tabs_h+margin;
+int keyboard_h=f.show_keyboard?height*38/100:0;
+int subtitle_space=subtitles and subtitle!=""?visual_max(70,height/10)+margin:0;
+int content_bottom=height-margin-keyboard_h-(f.show_keyboard?margin:0)-subtitle_space;
+int content_h=content_bottom-content_y;
+int left_w=width*61/100;
+g.panel(margin,content_y,left_w-margin*2,content_h,vg_panel,vg_border,2);
+int detail_x=left_w,detail_w=width-left_w-margin;
+g.panel(detail_x,content_y,detail_w,content_h,graphics_colour(8,15,25),vg_border,2);
+
+int row_h=visual_max(54,height/11),visible=visual_max(1,(content_h-20)/row_h);
+int start=0;
+if(f.focused_row>=visible/2)start=f.focused_row-visible/2;
+if(start+visible>int(f.rows.length()))start=visual_max(0,int(f.rows.length())-visible);
+for(int slot=0;slot<visible and start+slot<int(f.rows.length());slot++)
+{
+int index=start+slot,y=content_y+10+slot*row_h;
+visual_ui_row@ row=f.rows[index];
+bool focus=row.focused;
+graphics_colour@ fill=focus?graphics_colour(18,66,101):vg_panel_raised;
+graphics_colour@ border=focus?vg_focus:vg_border;
+g.panel(margin+10,y,left_w-margin*2-20,row_h-7,fill,border,focus?4:1);
+g.text(visual_icon_for(row.kind),margin+22,y+10,visual_max(11,row_h/5),focus?vg_accent:vg_dim,true);
+g.text_fitted(row.caption,margin+105,y+7,left_w-margin-125,row_h/3,12,row.enabled?vg_text:vg_dim,focus);
+if(row.value!="")g.text_fitted(row.value,margin+105,y+row_h/2,left_w-margin-125,row_h/4,11,focus?graphics_colour(181,225,255):vg_dim);
+}
+
+g.text("CURRENT",detail_x+18,content_y+18,visual_max(13,height/45),vg_accent,true);
+g.text_fitted(f.section,detail_x+18,content_y+52,detail_w-36,visual_max(23,height/28),15,vg_text,true);
+g.text_wrapped(f.detail,detail_x+18,content_y+108,detail_w-36,visual_max(16,height/42),vg_dim);
+g.text("Arrow keys navigate   Enter activates   Escape goes back",detail_x+18,content_bottom-36,visual_max(11,height/58),vg_dim);
+
+if(f.show_keyboard)visual_keyboard(g,margin,height-keyboard_h-margin,width-margin*2,keyboard_h,f.keyboard_text,f.keyboard_row,f.keyboard_col,f.keyboard_shift,f.keyboard_caps);
+if(subtitles)visual_subtitle(g,subtitle,width,height,f.show_keyboard?height-keyboard_h-margin*2:height-margin);
+g.update();
+}
+
+void visual_project(double wx,double wy,double cx,double cy,double scale,int vx,int vy,int vw,int vh,int &out sx,int &out sy)
+{
+sx=vx+vw/2+int((wx-cx)*scale);
+sy=vy+vh/2-int((wy-cy)*scale);
+}
+
+void visual_marker(graphics_helper@ g,visual_world_marker@ m,double cx,double cy,double scale,int vx,int vy,int vw,int vh)
+{
+int sx,sy;visual_project(m.x,m.y,cx,cy,scale,vx,vy,vw,vh,sx,sy);
+if(sx<vx-15 or sx>vx+vw+15 or sy<vy-15 or sy>vy+vh+15)return;
+graphics_colour@ colour=m.style==1?vg_good:(m.style==2?vg_accent:(m.style==3?vg_danger:graphics_colour(190,114,255)));
+int size=m.style==1?14:10;
+g.rect(sx-size/2,sy-size/2,size,size,colour,true);
+if(m.style==1)
+{
+double rad=m.heading*3.14159265358979323846/180.0;
+g.draw_line(sx,sy,sx+int(sine(rad)*24),sy-int(cosine(rad)*24),colour.r,colour.g,colour.b,3);
+}
+if(m.label!="" and scale>=7)g.text_fitted(m.label,sx+10,sy-10,visual_max(70,vw/5),13,10,vg_text,m.style==1);
+}
+
+void visual_draw_world(graphics_helper@ g,visual_world_frame@ f,int width,int height,const string &in subtitle,bool subtitles)
+{
+g.clear_screen(vg_background);
+int margin=visual_max(10,width/90),header=visual_max(56,height/13),hud=visual_max(106,height/8);
+g.rect(0,0,width,header,graphics_colour(9,25,42),true);
+g.text_fitted(f.map_name,margin,12,width/2,header/2,18,vg_text,true);
+g.text_fitted(f.zone,width/2,15,width/2-margin,header/3,14,vg_accent);
+
+int mini_w=visual_max(220,width/4);
+int subtitle_space=subtitles and subtitle!=""?visual_max(70,height/10)+margin:0;
+int vx=margin,vy=header+margin,vw=width-mini_w-margin*3,vh=height-header-hud-margin*2-subtitle_space;
+g.panel(vx,vy,vw,vh,graphics_colour(8,14,20),vg_border,3);
+double range=34.0,scale=double(visual_min(vw,vh))/double(range*2);
+if(scale<3)scale=3;
+
+for(uint i=0;i<f.geometry.length();i++)
+{
+visual_world_rect@ r=f.geometry[i];
+if(r.x2<f.player_x-range or r.x1>f.player_x+range or r.y2<f.player_y-range or r.y1>f.player_y+range)continue;
+int x1,y1,x2,y2;visual_project(r.x1,r.y2,f.player_x,f.player_y,scale,vx,vy,vw,vh,x1,y1);visual_project(r.x2,r.y1,f.player_x,f.player_y,scale,vx,vy,vw,vh,x2,y2);
+x1=visual_clamp(x1,vx,vx+vw);x2=visual_clamp(x2,vx,vx+vw);y1=visual_clamp(y1,vy,vy+vh);y2=visual_clamp(y2,vy,vy+vh);
+if(x2>x1 and y2>y1)g.rect(x1,y1,x2-x1,y2-y1,visual_geometry_colour(r.style),true);
+}
+// Five-tile grid gives movement scale without turning the map into graph
+// paper. Draw it after the terrain so floor regions do not hide it.
+for(int gx=int(f.player_x-range);gx<=int(f.player_x+range);gx++)if(gx%5==0){int sx1,sy1,sx2,sy2;visual_project(gx,f.player_y-range,f.player_x,f.player_y,scale,vx,vy,vw,vh,sx1,sy1);visual_project(gx,f.player_y+range,f.player_x,f.player_y,scale,vx,vy,vw,vh,sx2,sy2);g.draw_line(sx1,sy1,sx2,sy2,18,32,45,1);}
+for(int gy=int(f.player_y-range);gy<=int(f.player_y+range);gy++)if(gy%5==0){int sx1,sy1,sx2,sy2;visual_project(f.player_x-range,gy,f.player_x,f.player_y,scale,vx,vy,vw,vh,sx1,sy1);visual_project(f.player_x+range,gy,f.player_x,f.player_y,scale,vx,vy,vw,vh,sx2,sy2);g.draw_line(sx1,sy1,sx2,sy2,18,32,45,1);}
+for(uint i=0;i<f.markers.length();i++)visual_marker(g,f.markers[i],f.player_x,f.player_y,scale,vx,vy,vw,vh);
+visual_world_marker self(f.player_x,f.player_y,f.player_z,"You",1,f.player_heading);visual_marker(g,self,f.player_x,f.player_y,scale,vx,vy,vw,vh);
+
+// Minimap uses the authored map bounds and every POI, not merely nearby ones.
+int mx=vx+vw+margin,my=vy,mw=mini_w,mh=visual_min(vh*58/100,mini_w);
+g.panel(mx,my,mw,mh,graphics_colour(6,13,22),vg_border,3);
+g.text("MINIMAP",mx+12,my+9,visual_max(12,height/52),vg_accent,true);
+double usable_w=mw-24,usable_h=mh-44,map_w=f.map_width>0?f.map_width:1,map_h=f.map_height>0?f.map_height:1;
+for(uint i=0;i<f.markers.length();i++)
+{
+visual_world_marker@ m=f.markers[i];if(m.style!=0 and m.style!=4)continue;
+int px=mx+12+int(m.x/map_w*usable_w),py=my+34+int((1.0-m.y/map_h)*usable_h);
+px=visual_clamp(px,mx+9,mx+mw-9);py=visual_clamp(py,my+31,my+mh-9);
+g.rect(px-3,py-3,7,7,m.style==4?vg_accent:graphics_colour(190,114,255),true);
+}
+int ppx=mx+12+int(f.player_x/map_w*usable_w),ppy=my+34+int((1.0-f.player_y/map_h)*usable_h);
+ppx=visual_clamp(ppx,mx+9,mx+mw-9);ppy=visual_clamp(ppy,my+31,my+mh-9);
+g.rect(ppx-5,ppy-5,11,11,vg_good,true);
+
+int info_y=my+mh+margin,info_h=vy+vh-info_y;
+g.panel(mx,info_y,mw,info_h,vg_panel,vg_border,2);
+g.text("MISSION READOUT",mx+14,info_y+14,visual_max(12,height/55),vg_accent,true);
+g.text_wrapped(f.status,mx+14,info_y+48,mw-28,visual_max(15,height/45),vg_text);
+
+int hy=height-hud;
+g.rect(0,hy,width,hud,graphics_colour(8,17,28),true);
+g.rect(0,hy,width,3,vg_focus,true);
+int third=width/3;
+g.text("WEAPON",margin,hy+14,14,vg_dim,true);
+g.text_fitted(f.weapon,margin,hy+38,third-margin*2,hud/3,16,vg_text,true);
+g.text_fitted(f.ammo,margin,hy+72,third-margin*2,hud/4,13,vg_accent);
+g.text("STAMINA  "+f.stamina+" / "+f.max_stamina,third+margin,hy+14,14,vg_dim,true);
+visual_bar(g,third+margin,hy+44,third-margin*2,24,f.stamina,f.max_stamina,f.stamina<25?vg_danger:vg_good);
+g.text("POSITION",third*2+margin,hy+14,14,vg_dim,true);
+g.text_fitted(int(f.player_x)+", "+int(f.player_y)+", "+int(f.player_z),third*2+margin,hy+40,third-margin*2,hud/3,16,vg_text,true);
+g.text("Facing "+int(f.player_heading)+" degrees",third*2+margin,hy+76,14,vg_dim);
+if(subtitles)visual_subtitle(g,subtitle,width,height,hy-10);
+g.update();
+}
+
+void visual_draw_standalone_subtitles(graphics_helper@ g,int width,int height,const string &in subtitle)
+{
+g.clear_screen(vg_background);
+g.text_fitted("Infinite Warfare",width/20,height/15,width*9/10,height/12,22,vg_dim,true);
+visual_subtitle(g,subtitle,width,height,height-height/15);
 g.update();
 }

@@ -35,7 +35,7 @@ if(string_contains(message,"accounts_list_response",1)==0){server_account_names.
 if(string_contains(message,"account_detail_response ",1)==0){server_account_detail_text=string_replace(string_replace(message,"account_detail_response ","",false),"<<NL>>","\n",true);server_account_detail_received=true;}
 }
 
-void server_accounts_network_pump(){if(mapname=="main")lobby_form_netcheck();else netloop(false);}
+void server_accounts_network_pump(){if(client_match_active)netloop(false);else lobby_form_netcheck();}
 
 void show_server_accounts()
 {
@@ -54,7 +54,7 @@ text=text.trim_whitespace();if(text=="")return;if(handle_local_chat_form_command
 void show_player_profile(string selected_name)
 {
 if(selected_name=="")return;player_profile_received=false;player_profile_text="";send_reliable(0,"player_profile "+selected_name,0);timer timeout;
-while(!player_profile_received and timeout.elapsed<3500){wait(5);if(mapname=="main")lobby_form_netcheck();else netloop(false);}
+while(!player_profile_received and timeout.elapsed<3500){wait(5);if(client_match_active)netloop(false);else lobby_form_netcheck();}
 if(!player_profile_received){speak("The player profile request timed out.");return;}
 show_readonly_audio_form(selected_name+" profile",player_profile_text);
 }
@@ -131,7 +131,11 @@ e=n.request();
 // Silence only counts when nothing is waiting to be read. A screen that held
 // up the game for a few seconds came back to a queue of messages from the
 // server and was declared disconnected before reading any of them.
-if (server_event_disconnect(e) or (connected and e.type==event_none and last_server_msg.elapsed>12000))
+// ENet reports a real transport loss. Silence alone is normal while reading
+// an Armoury entry or another lobby screen, especially against a server from
+// before the private acknowledgement channel existed, and must not invent a
+// disconnect.
+if (server_event_disconnect(e))
 {
 speak("You have been disconnected from the server.");
 connected=false;
@@ -401,7 +405,7 @@ while(true)
 {
 wait(5);
 f.monitor();
-if(mapname=="main")lobby_form_netcheck();else netloop(false);
+if(client_match_active)netloop(false);else lobby_form_netcheck();
 if(f.is_pressed(close))return;
 }
 }
@@ -715,6 +719,7 @@ exit();
 }
 void lobby_once()
 {
+client_match_active=false;
 ping_samples.resize(0);
 send_reliable(0, "enter_lobby "+name+" "+comp, 0);
 if(SCRIPT_COMPILED==false)

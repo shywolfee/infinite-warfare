@@ -154,13 +154,14 @@ class nv_form {
 		if (!active) return false;
 		if(@default_nv_form_network_pump!=null)default_nv_form_network_pump();
 		nv_form_focus_uses_paging = @current_control != null && (cast<nv_form_slider@>(current_control) != null || cast<nv_form_spin@>(current_control) != null);
-		nvgt_helpers_service();
 		if (@nv_utility_form != null) {
 			nv_utility_form.monitor();
 			return true;
 		}
 		// focus the first control on open (quiet interrupt so it won't cut the window title)
 		if (@current_control == null && controls.length() > 0) focus_control(controls[0], false, false);
+		visual_form_capture(this);
+		nvgt_helpers_service();
 		handle_touch_input();
 		handle_input();
 		nv_form_control@ctrl;

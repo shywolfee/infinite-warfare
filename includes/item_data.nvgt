@@ -145,6 +145,7 @@ double medication_recommended(const string &in id){return item_prop_number(id,"r
 // Explosives: thrown ones have a fuse you can cook; launched ones fly faster
 // and flatter. fuse_ms, blast_radius and blast_damage apply to both.
 bool item_is_thrown_explosive(const string &in id){return item_flag(id,"thrown");}
+bool item_is_deployable_explosive(const string &in id){return item_flag(id,"deployable");}
 int explosive_fuse_ms(const string &in id){return item_prop_int(id,"fuse_ms",2000);}
 
 string item_number_text(double value)

@@ -1,4 +1,4 @@
-// Drawing for the low-vision display, on NVGT's own window renderer.
+// Drawing primitives for the modern visual interface, on NVGT's renderer.
 //
 // The helper this replaces kept the old plugin's API and drew text by calling
 // game_window.draw_text() with no font set. The window's font starts out null,
@@ -44,8 +44,8 @@ bool get_can_draw_text(){return font_path!="";}
 private string find_font(bool bold)
 {
 string[] candidates;
-if(bold)candidates={"C:/Windows/Fonts/segoeuib.ttf","C:/Windows/Fonts/arialbd.ttf","C:/Windows/Fonts/verdanab.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf","/System/Library/Fonts/Supplemental/Arial Bold.ttf"};
-else candidates={"C:/Windows/Fonts/segoeui.ttf","C:/Windows/Fonts/arial.ttf","C:/Windows/Fonts/verdana.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf","/System/Library/Fonts/Supplemental/Arial.ttf"};
+if(bold)candidates={"C:/Windows/Fonts/segoeuib.ttf","C:/Windows/Fonts/arialbd.ttf","C:/Windows/Fonts/verdanab.ttf","/system/fonts/Roboto-Bold.ttf","/system/fonts/NotoSans-Bold.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf","/System/Library/Fonts/Supplemental/Arial Bold.ttf"};
+else candidates={"C:/Windows/Fonts/segoeui.ttf","C:/Windows/Fonts/arial.ttf","C:/Windows/Fonts/verdana.ttf","/system/fonts/Roboto-Regular.ttf","/system/fonts/NotoSans-Regular.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf","/System/Library/Fonts/Supplemental/Arial.ttf"};
 for(uint i=0;i<candidates.length();i++)if(file_exists(candidates[i]))return candidates[i];
 return "";
 }

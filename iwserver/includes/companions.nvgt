@@ -1,0 +1,41 @@
+// Persistent, server-authoritative drones and bioengineered chimps.
+class companion_actor
+{
+int id;string owner,item,kind,map,mode="follow",sound;double x,y,z;int facing=0,health,speed,follow_distance,attack_range,damage_min,damage_max,attack_cooldown;timer move_timer,attack_timer,sync_timer,sound_timer;
+}
+companion_actor@[] companions;
+int next_companion_id=1;
+int companion_index(int id){for(uint i=0;i<companions.length();i++)if(companions[i].id==id)return int(i);return -1;}
+bool companion_owned(companion_actor@ c,player@ p){return c !is null and p !is null and c.owner==p.name;}
+string companion_label(companion_actor@ c){item_data@ d=item_info(c.item);return (d is null?string_replace(c.item,"_"," ",true):d.name)+" number "+c.id;}
+void companion_sync(companion_actor@ c,bool reliable=false)
+{
+string packet="companion_sync "+c.id+" "+c.kind+" "+c.x+" "+c.y+" "+c.z+" "+c.facing+" "+c.health+" "+c.map+" "+c.owner+" "+c.mode;
+if(reliable)send_reliable_map(c.map,packet,0);else send_unreliable_map(c.map,packet,0);
+}
+void deploy_companion(int player_index,string item)
+{
+if(player_index<0 or item_prop(item,"use_kind")!="companion")return;player@ owner=players[player_index];int owned=0;for(uint i=0;i<companions.length();i++)if(companions[i].owner==owner.name)owned++;if(owned>=8){send_reliable(owner.peer_id,"You may control no more than eight companions at once.",2);return;}
+companion_actor@ c=companion_actor();c.id=next_companion_id++;c.owner=owner.name;c.item=item;c.kind=item_prop(item,"companion_kind","drone");c.map=owner.map;c.x=owner.x;c.y=owner.y;c.z=owner.z+(c.kind=="drone"?1.5:0);c.facing=owner.facing;c.health=item_prop_int(item,"companion_health",500);c.speed=item_prop_int(item,"companion_speed",7);c.follow_distance=item_prop_int(item,"companion_follow_distance",3);c.attack_range=item_prop_int(item,"companion_attack_range",20);c.damage_min=item_prop_int(item,"companion_damage_min",80);c.damage_max=item_prop_int(item,"companion_damage_max",120);c.attack_cooldown=item_prop_int(item,"companion_attack_cooldown_ms",2200);c.sound=item_prop(item,"companion_sound");companions.insert_last(c);
+send_reliable(owner.peer_id,"give "+item+" -1",0);if(c.sound!="")er_play(c.kind=="chimp"?"animals/chimpanzee/phrases/vocal"+random(1,4):"weapons/drones/"+item+"/activate",owner);companion_sync(c,true);send_reliable(owner.peer_id,"Deployed "+companion_label(c)+". Use a Companion Command Remote to direct or pilot it.",2);
+}
+int companion_nearest_hostile(companion_actor@ c)
+{
+int owner=get_player_index_from(c.owner),found=-1;double nearest=999999;for(uint i=0;i<players.length();i++){if(players[i].death or players[i].map!=c.map or players[i].name==c.owner or (owner>=0 and same_team(c.owner,players[i].name)))continue;double d=get_3d_distance(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z);if(d<=c.attack_range and d<nearest){nearest=d;found=int(i);}}return found;
+}
+void companion_step_toward(companion_actor@ c,double tx,double ty,double tz)
+{
+double elapsed=double(c.move_timer.elapsed)/1000.0;if(elapsed<.04)return;if(elapsed>.15)elapsed=.15;c.move_timer.restart();double dx=tx-c.x,dy=ty-c.y,dz=tz-c.z,d=sqrt(dx*dx+dy*dy+dz*dz);if(d<=.05)return;double step=double(c.speed)*elapsed;if(step>d)step=d;double nx=c.x+dx/d*step,ny=c.y+dy/d*step,nz=c.z+dz/d*step;if(string_contains(get_tile_at(int(round(nx,0)),int(round(ny,0)),int(floor(nz)),c.map),"wall",1)<0){c.x=nx;c.y=ny;c.z=nz;c.facing=int(atan2(dx,dy)*180.0/3.14159265358979323846);if(c.facing<0)c.facing+=360;}}
+void companion_loop()
+{
+for(int i=int(companions.length())-1;i>=0;i--){companion_actor@ c=companions[i];int oi=get_player_index_from(c.owner);if(oi<0)continue;player@ owner=players[oi];if(c.mode=="recall"){send_reliable(owner.peer_id,"give "+c.item+" 1",0);send_reliable_map(c.map,"companion_remove "+c.id,0);companions.remove_at(i);continue;}if(c.mode=="follow" and owner.map==c.map){double d=get_3d_distance(c.x,c.y,c.z,owner.x,owner.y,owner.z);if(d>c.follow_distance)companion_step_toward(c,owner.x,owner.y,owner.z+(c.kind=="drone"?1.5:0));}int target=(c.mode=="guard" or c.mode=="attack" or c.mode=="follow")?companion_nearest_hostile(c):-1;if(target>=0){double d=get_3d_distance(c.x,c.y,c.z,players[target].x,players[target].y,players[target].z);if(d>(c.kind=="chimp"?1.8:8))companion_step_toward(c,players[target].x,players[target].y,players[target].z+(c.kind=="drone"?1:0));else if(c.attack_timer.elapsed>=c.attack_cooldown){c.attack_timer.restart();int damage=apply_player_damage(players[target],random(c.damage_min,c.damage_max),c.owner+"'s "+c.item);if(c.kind=="chimp"){er_play_at("animals/chimpanzee/phrases/attack"+random(1,5),c.x,c.y,c.z,c.map);er_play_at("animals/chimpanzee/combat/impact"+random(1,3),players[target].x,players[target].y,players[target].z,c.map);}else{er_play_at("weapons/drones/"+c.item+"/impact"+random(1,3),players[target].x,players[target].y,players[target].z,c.map);}send_reliable(owner.peer_id,companion_label(c)+" dealt "+damage+" damage to "+players[target].name+".",2);}}
+if(c.sound_timer.elapsed>=2200){c.sound_timer.restart();if(c.kind=="chimp")er_play_at("animals/chimpanzee/phrases/vocal"+random(1,4),c.x,c.y,c.z,c.map);else er_play_at("weapons/drones/"+c.item+"/fly",c.x,c.y,c.z,c.map);}if(c.sync_timer.elapsed>=100){c.sync_timer.restart();companion_sync(c);}}
+}
+void companion_send_list(player@ p)
+{
+string data;for(uint i=0;i<companions.length();i++)if(companions[i].owner==p.name){companion_actor@ c=companions[i];if(data!="")data+=";";data+=c.id+","+c.item+","+c.kind+","+c.mode+","+c.health+","+c.x+","+c.y+","+c.z+","+c.map;}send_reliable(p.peer_id,"companion_list "+data,0);
+}
+bool handle_companion_command(uint peer,const string &in message)
+{
+if(message.substr(0,10)!="companion ")return false;int pi=get_player_index(peer);if(pi<0)return true;string[] f=string_split(message," ",true);if(f.length()<2)return true;player@ p=players[pi];if(f[1]=="list"){companion_send_list(p);return true;}if(f.length()<4)return true;int id=int(string_to_number(f[2])),ci=companion_index(id);if(ci<0 or !companion_owned(companions[ci],p)){send_reliable(peer,"That companion is no longer available.",2);return true;}companion_actor@ c=companions[ci];string command=f[1];if(command=="mode" and (f[3]=="follow" or f[3]=="stay" or f[3]=="guard" or f[3]=="attack" or f[3]=="recall")){c.mode=f[3];send_reliable(peer,companion_label(c)+" set to "+c.mode+".",2);}else if(command=="pilot"){c.mode="stay";send_reliable(peer,"companion_pilot "+c.id+" "+c.x+" "+c.y+" "+c.z+" "+c.facing+" "+c.map,0);}else if(command=="move" and f.length()>=7){double nx=string_to_number(f[3]),ny=string_to_number(f[4]),nz=string_to_number(f[5]);int nf=int(string_to_number(f[6]));if(string_contains(get_tile_at(int(round(nx,0)),int(round(ny,0)),int(floor(nz)),c.map),"wall",1)<0){c.x=nx;c.y=ny;c.z=nz;c.facing=nf;companion_sync(c);}}else if(command=="status")send_reliable(peer,companion_label(c)+": "+c.health+" health, "+c.mode+", at "+round(c.x,1)+", "+round(c.y,1)+", "+round(c.z,1)+" on "+c.map+".",2);return true;
+}

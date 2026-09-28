@@ -23,6 +23,7 @@
 #include "../includes/item_data.nvgt"
 #include "includes/weapon.nvgt"
 #include "includes/grenade.nvgt"
+#include "includes/companions.nvgt"
 #include "includes/corpse.nvgt"
 #include "includes/citem.nvgt"
 #include "../includes/sd.nvgt"
@@ -232,6 +233,7 @@ fraggrenadeloop();
 deployable_explosive_loop();
 torpedoloop();
 weaponloop();
+companion_loop();
 bodyfallloop();
 playerloop();
 itemloop();
@@ -688,6 +690,7 @@ int map_sender=get_player_index(e.peer_id);if(map_sender>=0){string prefix=(play
 if (e.channel==0)
 {
 if(handle_world_editor_request(e.peer_id,get_event_message()))return;
+if(handle_companion_command(e.peer_id,get_event_message()))return;
 string[] parsed=string_split(get_event_message(), " ", true);
 if(parsed[0]=="lobby_maps")
 {
@@ -2168,7 +2171,9 @@ int index=get_player_index(e.peer_id);
 if(index > -1)
 {
 int item_configuration=parsed.length()>2?string_to_number(parsed[2]):1;if(item_configuration<0 or item_configuration>2)item_configuration=1;
-if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
+if(item_prop(parsed[1],"use_kind")=="companion")deploy_companion(index,parsed[1]);
+else if(parsed[1]=="companion_command_remote")send_reliable(players[index].peer_id,"companion_remote_open",0);
+else if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
 else if(er_use_item(players[index],parsed[1],item_configuration)){return;}
 else if(parsed[1]=="hightech_grapple")
 {
@@ -2317,14 +2322,14 @@ int cd_remain=(2000-players[index].fake_itemtimer.elapsed)/1000;
 send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds before placing another fake item.", 2);
 }
 }
-if(parsed[1]=="proximity_mine" or parsed[1]=="claymore" or parsed[1]=="time_bomb" or parsed[1]=="er_motion_bomb" or parsed[1]=="er_dr_bomb" or parsed[1]=="er_ghost_bomb" or parsed[1]=="er_time_bomb" or parsed[1]=="er_proximity_mine" or parsed[1]=="er_directional_claymore")
+if(item_is_deployable_explosive(parsed[1]))
 {
 end_spawn_grace(players[index]);
 int owned_deployables=0;for(uint di=0;di<deployable_explosives.length();di++)if(deployable_explosives[di].owner==players[index].name)owned_deployables++;
 if(owned_deployables>=8)send_reliable(players[index].peer_id,"You may have no more than eight armed deployable explosives.",2);
 else{spawn_deployable_explosive(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);}
 }
-if(parsed[1]=="frag_grenade" or parsed[1]=="impact_grenade" or parsed[1]=="flashbang" or parsed[1]=="concussion_grenade" or parsed[1]=="incendiary_grenade" or parsed[1]=="gas_grenade" or parsed[1]=="er_frag_grenade" or parsed[1]=="er_molotov" or parsed[1]=="er_bowling_bomb")
+if(item_is_thrown_explosive(parsed[1]))
 {
 if(players[index].fraggrenadetimer.elapsed>5000)
 {
@@ -2513,13 +2518,14 @@ send_reliable(players[index].peer_id, "you are already wearing a bomb_vest.", 0)
 string armor_region=armor_region_for(parsed[1]);
 if(armor_region!="")equip_player_armor(players[index],parsed[1]);
 if(is_armour_patch(parsed[1]))apply_armor_patch(players[index],parsed[1]);
-string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","fake_item","frag_grenade","impact_grenade","flashbang","concussion_grenade","incendiary_grenade","gas_grenade","er_frag_grenade","er_molotov","er_bowling_bomb","er_motion_bomb","er_dr_bomb","er_ghost_bomb","er_time_bomb","er_proximity_mine","er_directional_claymore","carrier_missile","conventional_guided_missile","cannon_ball","hightech_grapple","anti_personnel_security_camera","neural_intrusion_device","field_restraints","reconnaissance_ring","proximity_mine","claymore","time_bomb","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp"};
+string[] usable_items={"duo_plane_kit","team_supply_beacon","team_armor_crate","team_revive_kit","team_recon_scanner","health_potion","life_injection","ultra_health_potion","fake_item","carrier_missile","conventional_guided_missile","cannon_ball","hightech_grapple","anti_personnel_security_camera","neural_intrusion_device","field_restraints","reconnaissance_ring","bucket","empty_bucket","smoke_bomb","semtex_pack","semtex_controller","semtex","torpedo","bunker_bomb","bomb_vest","rock","bunker_key","hypercomp","c4","hayvork","ks123shotgun","trector_plow","p90_mp","companion_command_remote"};
 bool is_usable=false;
 for(uint ui=0; ui<usable_items.length(); ui++)
 {
 if(parsed[1]==usable_items[ui]){is_usable=true;break;}
 }
 if(armor_region!="")is_usable=true;
+if(item_is_thrown_explosive(parsed[1]) or item_is_launched_explosive(parsed[1]) or item_is_deployable_explosive(parsed[1]) or item_prop(parsed[1],"use_kind")!="")is_usable=true;
 if(server_medication(parsed[1]) or parsed[1]=="humvee_kit" or parsed[1]=="apc_kit" or parsed[1]=="tank_kit")is_usable=true;
 if(string_contains(parsed[1],"_patch",1)>=0 or parsed[1]=="aramid_repair_tape" or parsed[1]=="ceramic_plate_epoxy" or parsed[1]=="armor_rivet_pack")is_usable=true;
 if(!is_usable and string_contains(parsed[1], "corpse_", 1)<0)

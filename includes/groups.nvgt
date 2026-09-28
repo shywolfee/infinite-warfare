@@ -107,7 +107,7 @@ return null;
 }
 int group_online_count(client_group@ g){int n=0;for(uint i=0;i<g.members.length();i++)if(g.members[i].online)n++;return n;}
 
-void group_pump(){if(mapname=="" or mapname=="main")lobby_form_netcheck();else netloop(false);}
+void group_pump(){if(client_match_active)netloop(false);else lobby_form_netcheck();}
 bool refresh_groups()
 {
 group_state_received=false;

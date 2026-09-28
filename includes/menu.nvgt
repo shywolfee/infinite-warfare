@@ -1045,12 +1045,6 @@ return t;
 string escape_menu_last="resume";
 void escape_menu()
 {
-// Android keeps its purpose-built touch menu; desktop uses NV_form.
-if(is_android())
-{
-android_escape_menu();
-return;
-}
 play_ui_cue("open");
 while(true)
 {
@@ -1058,16 +1052,6 @@ nv_form f;
 f.create_window("Game menu", false, false);
 nv_form_list_box@ list=f.add_list("Game menu","entries");
 list.add("Back to the match","resume");
-list.add("Status","stats");
-list.add("Equipment","equipment");
-list.add("Team","team");
-list.add("Options","options");
-list.add("Help topics","help");
-list.add("What's new","changes");
-list.add("Rules","rules");
-list.add("Your account","account");
-list.add("Developers","developers");
-if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)list.add("Staff panel","staff");
 list.add("Leave the match","leave");
 for(uint i=0;i<list.items.length();i++)if(list.items[i].id==escape_menu_last)list.set_pos(i);
 nv_form_button@ open=f.add_button("Open","open",true);
@@ -1085,29 +1069,6 @@ else if(f.is_pressed(open) and @list.focused_item!=null)chosen=list.focused_item
 }
 escape_menu_last=chosen;
 if(chosen=="resume"){play_ui_cue("close");escape_menu_last="resume";return;}
-else if(chosen=="stats")show_info_list("Status",ingame_stats_lines());
-else if(chosen=="equipment")equipment_menu();
-else if(chosen=="team")team_menu();
-else if(chosen=="options")optionsmenu();
-else if(chosen=="help")show_help_list();
-else if(chosen=="changes")show_changelog_form();
-else if(chosen=="rules")dlg(read_text_file_or("rules.txt","The rules file is missing."));
-else if(chosen=="developers")dlg(read_text_file_or("developers.txt","The developers file is missing."));
-else if(chosen=="staff")ingame_adminpanel();
-else if(chosen=="account")
-{
-string[] lines;
-lines.insert_last("Name: "+name);
-if (account_exists(name))
-{
-savedata acct(get_account_path(name), ACCOUNT_SECRET);
-acct.load();
-string em=acct.read("email");
-lines.insert_last("Registered account"+(em!=""?", email "+em:", no email on file"));
-}
-else lines.insert_last("No registered account for this name.");
-show_info_list("Your account",lines);
-}
 else if(chosen=="leave")
 {
 if(yesno("Leave the match and return to the lobby?")==1)
@@ -1500,8 +1461,11 @@ nv_form_checkbox@ f_practice_band=touch.add_checkbox("Say which screen band you 
 nv_form_button@ f_gestures=touch.add_button("List the touch gestures", "gestures");
 nv_form_button@ f_gesture_bindings=touch.add_button("Change or reset gesture bindings", "gesture_bindings");
 
-// Accessibility: seeing it, finding your way round it, and talking to it.
-nv_form_checkbox@ f_helper_hud=access.add_checkbox("Low-vision display: show what the game says in large, high-contrast text", "helper_hud", helper_visual_hud);
+// Accessibility: the visual presentation is independent from speech.  The
+// subtitle box can be used with or without the rendered world and forms.
+nv_form_checkbox@ f_helper_hud=access.add_checkbox("Modern visual interface: render the top-down world, HUD, minimap, menus, and forms", "helper_hud", helper_visual_hud);
+nv_form_checkbox@ f_visual_subtitles=access.add_checkbox("Visual subtitles: show spoken game messages in a separate subtitle box", "visual_subtitles", visual_subtitles_enabled);
+nv_form_checkbox@ f_visual_keyboard=access.add_checkbox("Visual keyboard: show a QWERTY keyboard while typing", "visual_keyboard", visual_keyboard_enabled);
 nv_form_checkbox@ f_fullscreen=access.add_checkbox("Full screen", "fullscreen", fullscreen_enabled);
 nv_form_checkbox@ f_wrap=access.add_checkbox("Menus wrap from the last item back to the first", "wrap", menu_wrap_enabled);
 nv_form_checkbox@ f_classic_menu=access.add_checkbox("Show the main menu as a column of buttons instead of a list", "classic_menu", classic_main_menu);
@@ -1578,6 +1542,8 @@ touch_menu_explore_enabled=f_touch_explore.state;
 if(touch_portrait_mode!=f_touch_portrait.state){touch_portrait_mode=f_touch_portrait.state;apply_touch_orientation();}
 bool hud_was=helper_visual_hud;
 helper_visual_hud=f_helper_hud.state;
+visual_subtitles_enabled=f_visual_subtitles.state;
+visual_keyboard_enabled=f_visual_keyboard.state;
 helper_desktop_notifications=f_helper_notifications.state;
 helper_tray_controls=f_helper_tray.state;
 helper_voice_commands=f_helper_voice.state;

@@ -219,12 +219,9 @@ AMBIENCE = {
     "still air": "amb3.ogg",
 }
 
-# Destructible object presets available to maps (iwserver/content/object_presets.json).
-PRESET_NAMES = {
-    "bench", "table", "bookcase", "counter", "sofa", "bed", "locker", "cabinet",
-    "display_case", "crate", "generator", "planter", "barrier", "workbench",
-    "pew", "tank", "headstone", "screen",
-}
+# Destructible object presets are discovered from their individual JSON files.
+from .presets import PRESETS
+PRESET_NAMES = set(PRESETS)
 
 # Interactive services. Each must have a sound directory under
 # sounds/executioners_rage/environment/objects/.

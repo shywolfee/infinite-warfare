@@ -1,166 +1,232 @@
 # Infinite Warfare
 
-Infinite Warfare is an open-source, audio-first online action game for Windows and Android. It combines detailed projectile combat, accessibility-focused interfaces, touch gestures, live communication, physical vehicles, and large explorable maps. A stripped-down, high-contrast visual layer supplements the audio experience for players with residual vision.
+Infinite Warfare is an audio-first online action game for Windows and Android.
+It combines detailed server-authoritative combat, large three-dimensional maps,
+touch access, live communications, accessible interfaces, and an optional
+top-down visual presentation.
 
-Current release: **0.5.1.2, build 85**
+Current source release: **0.5.2, build 86**
 
-> Infinite Warfare is in active alpha development. Expect unfinished systems, balance changes, bugs, server downtime, and data resets before a final release.
+> Infinite Warfare is an active alpha. Expect unfinished systems, balance
+> changes, server maintenance, bugs, and possible data resets.
 
-## Development
+## What the game includes
 
-Infinite Warfare is developed by **Equinox_Equine** using an agentic-development workflow.
+### Combat and simulation
 
-Agentic intelligence used during development:
+- Projectiles with flight time, gravity, drag, dispersion, penetration,
+  retained energy, flybys, and ammunition-specific behavior.
+- Facing-aware player models with distinct head, neck, torso, pelvis, arm,
+  and leg hit regions.
+- Firearms, energy weapons, bows, launchers, explosives, melee weapons, and
+  heavy weapons with class-specific operation rather than one shared firing
+  model.
+- Manual actions, individual-round loading, ammunition selection, magazines,
+  attachments, heat, fouling, maintenance, failures, recoil, and wall bracing
+  where the weapon supports them.
+- Armour by body location, durability, equipment weight, medication doses,
+  toxicity, persistent credits, quickbars, and equipment abilities.
 
-- **GPT-5.6 Sol**
-- **Claude 4.8 Opus**
-- **Claude 5 Opus**
+### World
 
-The models assist with implementation, refactoring, testing, documentation, content integration, and technical analysis. Equinox_Equine directs the project and its development.
+- Four authored maps: Ghost Town, Shattersea, Freya's Ascent, and Coruscant.
+- Elevation, ramps, roofs, water, destructible objects, fixtures, services,
+  acoustic occlusion, points of interest, and multiple safe spawn locations.
+- Physical vehicles with solid footprints, collision and player impact, roof
+  riding, seats, doors, windows, fuel, damage, repairs, refitting, and
+  customization.
+- A live, permission-controlled world editor for building and changing maps
+  without restarting the server. Maps can also be added as data files and are
+  discovered dynamically.
 
-### Project lineage
+### Interface and accessibility
 
-This project was forked from a leaked copy of **Infinite Warfair 0.14**, originally produced by **Firegaming**, with **Max Vrenken** as developer and **Djonan Smid** as sound designer. That historical attribution describes the codebase from which this project was forked; it does not describe the current development team.
+- NV_form audio interfaces, categorized menus, dynamic database help, key
+  practice, configurable keymap profiles, and optional interface sounds.
+- Android gesture navigation, rebindable gestures, contextual gesture help,
+  gesture practice, explore by touch, and QWERTY or analogue touch keyboards.
+- An optional modern top-down visual interface with rendered terrain and
+  objects, player and projectile markers, HUD, POI minimap, graphical forms,
+  and a visual keyboard.
+- Visual subtitles are independent from the graphical interface and occupy a
+  reserved caption area rather than replacing the game screen.
+- Full-screen presentation, scalable high-contrast layouts, mouse controls,
+  desktop notifications, screenshots, and Windows voice commands.
 
-## Highlights
+### Online systems
 
-- Server-authoritative projectile combat with flight time, gravity, drag, penetration, dispersion, recoil, and weapon-specific ballistics.
-- Facing-aware player models with separate head, neck, torso, pelvis, arm, and leg hit regions.
-- Manual revolver, break-action, tube-fed, bolt-action, energy-weapon, heavy-weapon, melee, maintenance, and ammunition mechanics.
-- Dynamic weapons, ammunition, attachments, armour, items, vehicles, help, and armoury databases.
-- Categorized inventory, equipment slots, quickbars, equipment abilities, persistent credits, online shops, and team systems.
-- Solid physical vehicles with fuel, damage, collision, roof riding, seat controls, service, repair, refitting, and customization.
-- Four rebuilt maps: Shattersea, Coruscant, Ghost Town, and Freya's Ascent.
-- Destructible world objects, ramps, elevation, acoustic occlusion, contextual fixtures, and detailed bunkers.
-- Global language channels, map chat, team chat, private messages, group chat, movable buffers, message withdrawal, blocking, reports, and live voice chat.
-- NV_form interfaces, keyboard practice, dynamic help, low-vision graphics, Android gestures, explore by touch, and built-in touch keyboards.
-- Role-based administration, moderation, support, building tools, diagnostics, packet inspection, crash logs, and server maintenance.
-- Optional ReactPhysics-enabled dedicated server alongside the regular server.
+- Global language channels, map chat, teams, private messages, persistent
+  groups, movable message buffers, timestamps, withdrawal, blocking, reports,
+  and support tickets.
+- Positional voice chat plus exclusive team, map, channel, group, and private
+  voice rooms.
+- Persistent accounts, team roles and points, shops, credits, moderation,
+  staff roles, administration logs, packet diagnostics, and live server
+  maintenance tools.
+- Data-driven weapons, ammunition, items, vehicles, maps, help, developer
+  grants, and Armoury entries shared with the authoritative server.
 
 ## Getting started
 
 ### Packaged client
 
-1. Obtain the complete release package. The executable requires the matching sounds.dat and lib directory.
-2. Run Infinite Warfare.exe.
-3. Complete the first-boot accessibility and input wizard.
-4. Create or select an account, configure the server address if needed, and connect.
+Keep the complete release together. The client executable needs the matching
+`sounds.dat`, `lib`, and data directories.
 
-The repository tracks the compiled client and source, but a working distribution must retain all packaged runtime libraries and the sound archive.
+1. Run `Infinite Warfare.exe`.
+2. Complete the first-boot accessibility and input setup.
+3. Create or select an account.
+4. Select a server if necessary, then connect.
 
-### Essential controls
+The in-game updater compares the local `version.txt` with the main branch on
+GitHub, downloads the repository archive, replaces the installation after the
+client exits, and restarts it. It does not require Git to be installed.
+
+### Essential default controls
 
 | Action | Default |
 | --- | --- |
-| Move | Arrow keys |
-| Sprint | Shift plus a movement key |
+| Move / sprint | Arrow keys / Shift+arrow |
 | Jump | Space |
-| Fire | Control |
+| Fire | Left Control |
 | Reload / unload | R / Shift+R |
 | Ammunition report / fire mode | A / Shift+A |
 | Select ammunition | Alt+R |
 | Drawn weapon panel | Alt+A |
-| Inventory | I |
-| Quickbar and abilities | Shift+I |
-| Game menu | Escape |
-| Options | F11 |
-| Help | Shift+H |
-| Key practice | Shift+F1 |
-| Full screen | Control+Shift+F12 |
+| Inventory / quickbar | I / Shift+I |
+| Global / map / team chat | Slash / Backslash / Shift+Backslash |
+| Groups / recent private contacts | Alt+Slash / Alt+Backslash |
+| Voice transmission / room | Alt+O / Shift+V |
+| Game menu / Options | Escape / F11 |
+| Help / key practice | Shift+H / Shift+F1 |
+| Full screen / screenshot | Control+Shift+F12 / Print Screen |
 
-Most actions are rebindable, and named keymap profiles are stored in the game's application-data directory.
+Most gameplay actions are rebindable. Named keymaps and `keyconfig.json` are
+stored under the game's local application-data directory, not beside the
+executable. The complete player and operator manual is
+[readme.html](readme.html), and the in-game help is generated from the same
+content databases used by gameplay.
 
-For the complete controls, systems, accessibility, touch, staff, and troubleshooting guide, open [readme.html](readme.html).
+## Running from source
 
-## Chat and voice
+The project targets **NVGT 0.90**. Clone the repository and run the client
+entry point with NVGT:
 
-| Destination | Default |
-| --- | --- |
-| Global/language chat | Slash |
-| Current map or mode | Backslash |
-| Team | Shift+Backslash |
-| Group | Alt+Slash |
-| Recent private messages | Alt+Backslash |
-| Buffer manager | Alt+Shift+B |
-| Voice transmission | Alt+O |
-| Enter or leave a voice room | Shift+V |
-| Voice settings | Shift+F7 |
+```powershell
+git clone https://github.com/shywolfee/infinite-warfare.git
+cd infinite-warfare
+& C:/nvgt/nvgt.exe "Infinite Warfare.nvgt"
+```
 
-The game includes forty language channels plus Unfiltered, server timestamps, group buffers, persistent blocking, message withdrawal with staff auditing, player reports, positional voice, and exclusive non-positional voice rooms.
+Compile release-mode client and server binaries with:
 
-## Building from source
+```powershell
+& C:/nvgt/nvgt.exe -c "Infinite Warfare.nvgt"
+& C:/nvgt/nvgt.exe -c "iwserver/iwserver.nvgt"
+```
 
-The project targets **NVGT 0.90**.
+The normal server builds as `iwserver/iwserver.exe`. The repository also
+contains `iwserver/iwserver_physics.exe`, the ReactPhysics-enabled server
+variant. Keep their matching runtime libraries with the executable being run.
 
-Primary entry points:
+To rebuild the sound archive after changing source audio:
 
-- Infinite Warfare.nvgt — client
-- iwserver/iwserver.nvgt — dedicated server
-- pack_creator.nvgt — sound archive builder
+```powershell
+& C:/nvgt/nvgt.exe "pack_creator.nvgt"
+```
 
-Produced server binaries are intentionally distinguished:
+When run from source, the developer-only release builder can compile the
+client, build or verify `sounds.dat`, stage the required files, and create a
+release zip. Server authorization is still required for developer and builder
+features.
 
-- iwserver.exe — regular dedicated server
-- iwserver_physics.exe — ReactPhysics-enabled dedicated server
+## Tests
 
-When the client is running directly from source, authorized developer tools include a release builder that compiles the client, verifies or creates sounds.dat, stages the executable and dependencies, and creates the release archive.
+Use the same NVGT installation that builds the game:
 
-## Repository guide
+```powershell
+& C:/nvgt/nvgt.exe tools/tests/wallet_regression.nvgt
+& C:/nvgt/nvgt.exe tools/tests/client_regression_runner.nvgt
+& C:/nvgt/nvgt.exe tools/tests/acoustic_regression_runner.nvgt
+& C:/nvgt/nvgt.exe tools/tests/world_objects_regression.nvgt
+python tools/tests/world_editor_regression.py
+Push-Location iwserver
+& C:/nvgt/nvgt.exe world_editor_regression_runner.nvgt
+Pop-Location
+python tools/build_maps.py
+python tools/validate_maps.py
+```
+
+The regression programs use isolated temporary data. See
+[tools/tests/README.md](tools/tests/README.md) for what each suite covers and
+where its report is written.
+
+## Repository layout
 
 | Path | Purpose |
 | --- | --- |
-| includes/ | Client systems and shared interface code |
-| iwserver/ | Authoritative server, content, maps, and documentation |
-| iwserver/content/ | Dynamic weapons, maps, and other game content |
-| iwserver/docs/ | In-game authored help topics |
-| sounds/ | Source audio tree used by the sound pack builder |
-| lib/ | Runtime libraries, helpers, and third-party notices |
-| tools/ | Validation and regression utilities |
-| changes.txt | Detailed chronological changelog |
-| readme.html | Complete player and operator manual |
-| version.txt | Version used by the GitHub updater |
+| `Infinite Warfare.nvgt` | Client entry point and core game loop |
+| `includes/` | Client gameplay, interface, accessibility, and networking systems |
+| `iwserver/iwserver.nvgt` | Authoritative server entry point |
+| `iwserver/content/` | Data-driven maps, weapons, items, editor palettes, and fixtures |
+| `iwserver/docs/` | Authored in-game help that is not generated from a database |
+| `sounds/` | Source audio tree used to create `sounds.dat` |
+| `lib/` | Runtime libraries, plugins, helpers, and notices |
+| `tools/` | Import, validation, build, and regression utilities |
+| `changes.txt` | Detailed player-facing release history |
+| `readme.html` | Complete game manual |
+| `version.txt` | Version checked by the GitHub updater |
 
-## Bug reports and diagnostics
+Runtime accounts, server logs, administrator files, MOTD changes, and other
+live server state do not belong in source-control commits. See
+[AGENTS.md](AGENTS.md) for build, test, changelog, and commit-message rules.
 
-Use /bug in game to submit an issue and /bugs to review its status. Include the action being performed, map, approximate time, and reproduction steps.
+## Diagnostics and support
 
-Unhandled script exceptions create a shareable report in the local application-data iw/crash_logs directory. latest_client_session.log contains startup information for failures that occur outside normal script exception handling.
+- Use `/bug` in game to file a bug report and `/bugs` to review reports.
+- Include the action, map, approximate time, expected result, and what
+  actually happened.
+- Unhandled client script errors create shareable reports under
+  `iw/crash_logs` in local application data.
+- `latest_client_session.log` records startup context for native or operating
+  system failures that bypass script exception handling.
+- Source builds include packet inspection, live server diagnostics, and the
+  permission-controlled administration and world-editor panels.
 
-## Credits and acknowledgements
+## Development and lineage
 
-### Development
+Infinite Warfare is currently directed and developed agentically by
+**Equinox_Equine**, using **GPT-5.6 Sol**, **Claude 4.8 Opus**, and
+**Claude 5 Opus** for implementation, refactoring, testing, documentation,
+content integration, and technical analysis.
 
-- **Equinox_Equine** — project direction and agentic development
-- **GPT-5.6 Sol** — agentic development intelligence
-- **Claude 4.8 Opus** — agentic development intelligence
-- **Claude 5 Opus** — agentic development intelligence
+This project was forked from a leaked copy of **Infinite Warfair 0.14**, made
+by **Firegaming**, with **Max Vrenken** as developer and **Djonan Smid** as
+sound designer. Those names describe the historical codebase and are not the
+current development team. The game also incorporates source originating in
+*Redspot: Blood and Peril* by **Sam Tupy**, credited for his original work and
+ideas.
 
-### Original Infinite Warfair 0.14
-
-- **Firegaming** — original project
-- **Max Vrenken** — original developer
-- **Djonan Smid** — original sound designer
-
-Infinite Warfare was forked from a leaked copy of that 0.14 codebase. These are historical credits, not the current development team.
-
-### Libraries and accessibility helpers
+### Libraries and accessibility work
 
 - **Blindpro** — NVGT Helpers
 - **Ivan Soto** — NV_form
-- **NVGT contributors and community** — engine, tooling, and technical support
+- **NVGT contributors and community** — engine, tools, and support
 
 ### Sound-resource acknowledgements
 
-Sound resources used in the project include material sourced from or designed for:
+Sound resources used by gameplay include material associated with:
 
-- **Executioner's Rage**
-- **Firefight**
-- **Call of Duty: Modern Warfare**
-- **Insurgency: Sandstorm**
-- **Fortnite**
+- Executioner's Rage
+- Firefight
+- Call of Duty: Modern Warfare
+- Insurgency: Sandstorm
+- Fortnite
 
-All product names, game names, trademarks, and sound resources remain associated with their respective creators and rights holders. Inclusion in this acknowledgement does not imply endorsement of Infinite Warfare by those parties.
+Product names, game names, trademarks, and sound resources remain associated
+with their respective creators and rights holders. Acknowledgement does not
+imply their endorsement of Infinite Warfare.
 
-## Changelog
+## Changes
 
-See [changes.txt](changes.txt) for the full release history and implementation notes.
+See [changes.txt](changes.txt) for the complete release history.

@@ -171,11 +171,14 @@ void move_player_to_map(int index,const string &in id,int x,int y,int z)
 {
 player@ p=players[index];
 string old_map=p.map;
+// Tell the travelling client before broadcasting its old-map departure. The
+// ordinary client interprets an "offline" packet naming itself as a match
+// exit; this marker lets editor travel distinguish a transfer from a logout.
+send_reliable(p.peer_id,"we_travel|"+id+"|"+x+"|"+y+"|"+z,0);
 send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old_map,0,index);
 p.map=id;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;
 server_physics_sync_players();
 string path=indexed_map_path(id);
-send_reliable(p.peer_id,"we_travel|"+id+"|"+x+"|"+y+"|"+z,0);
 send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);
 send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);
 er_sync_fixtures_to(p.peer_id,id);
@@ -185,11 +188,12 @@ send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+id,0);
 // ---------------------------------------------------------------------------
 // Content files.
 // ---------------------------------------------------------------------------
-string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";return "";}
-string content_ext(const string &in kind){return kind=="weapons"?".wpn":".item";}
+string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";if(kind=="object_presets")return "content/object_presets";return "";}
+string content_ext(const string &in kind){if(kind=="weapons")return ".wpn";if(kind=="object_presets")return ".json";return ".item";}
 string content_path(const string &in kind,const string &in id)
 {
 string root=content_root(kind);if(root=="")return "";
+if(kind=="object_presets"){string path=root+"/"+id+".json";return file_exists(path)?path:"";}
 string[] dirs=find_directories(root+"/*");
 for(uint d=0;d<dirs.length();d++)if(file_exists(root+"/"+dirs[d]+"/"+id+content_ext(kind)))return root+"/"+dirs[d]+"/"+id+content_ext(kind);
 if(file_exists(root+"/"+id+content_ext(kind)))return root+"/"+id+content_ext(kind);
@@ -237,6 +241,20 @@ if(l.substr(0,eq)=="name")named=true;
 }
 return named;
 }
+bool object_preset_text_valid(const string &in text)
+{
+if(text.length()==0 or text.length()>65536)return false;
+try
+{
+json_object@ root=parse_json(text);if(root is null)return false;
+int health=root["health"];double bullet=root["bullet"],blast=root["blast"];
+string hit=root["hit"],breaking=root["break"];json_array@ parts=root["parts"];
+if(health<=0 or bullet<0 or blast<0 or hit=="" or breaking=="" or parts is null or parts.length()==0 or parts.length()>100)return false;
+for(uint i=0;i<parts.length();i++){json_array@ part=parts[i];if(part is null or part.length()!=8)return false;string material=part[6];if(material=="")return false;}
+return true;
+}
+catch{return false;}
+}
 void reload_content(int index,const string &in what)
 {
 string done;
@@ -251,7 +269,7 @@ done+=(done==""?"":", ")+map_file_ids.length()+" maps";
 if(what=="object_presets" or what=="all"){load_object_presets_if_available();done+=(done==""?"":", ")+"object presets";}
 if(index>=0)send_reliable(players[index].peer_id,"we_done|Reloaded "+(done==""?"nothing":done)+" from disk.",0);
 }
-void load_object_presets_if_available(){}
+void load_object_presets_if_available(){index_map_files();for(uint i=0;i<map_file_ids.length();i++)reload_map(map_file_ids[i]);}
 
 // ---------------------------------------------------------------------------
 // The requests.
@@ -411,6 +429,11 @@ if(kind=="we_content_list" and f.length()>=2)
 {
 string root=content_root(f[1]);if(root==""){we_say(index,"Unknown content kind.");return true;}
 string listing;
+if(f[1]=="object_presets")
+{
+string[] files=find_files(root+"/*.json");for(uint i=0;i<files.length();i++){if(listing!="")listing+=";";listing+="object_presets/"+files[i].substr(0,files[i].length()-5);}
+send_reliable(peer,"we_content_list|"+f[1]+"|"+listing,0);return true;
+}
 string[] dirs=find_directories(root+"/*");
 for(uint d=0;d<dirs.length();d++){string[] files=find_files(root+"/"+dirs[d]+"/*"+content_ext(f[1]));for(uint i=0;i<files.length();i++){if(listing!="")listing+=";";listing+=dirs[d]+"/"+files[i].substr(0,files[i].length()-content_ext(f[1]).length());}}
 send_reliable(peer,"we_content_list|"+f[1]+"|"+listing,0);return true;
@@ -427,12 +450,12 @@ string ckind=f[1],folder=f[2].lower(),id=f[3].lower(),text=after_field(message,4
 string root=content_root(ckind);
 if(root==""){we_say(index,"Unknown content kind.");return true;}
 if(!we_valid_id(id) or !we_valid_id(folder)){we_say(index,"Ids and folders are lower-case letters, digits and underscores.");return true;}
-if(!content_text_valid(text)){we_say(index,"A content file is key=value lines and needs a name.");return true;}
+if(ckind=="object_presets"?!object_preset_text_valid(text):!content_text_valid(text)){we_say(index,ckind=="object_presets"?"The preset must be valid JSON with health, bullet, blast, hit, break and parts values.":"A content file is key=value lines and needs a name.");return true;}
 string existing=content_path(ckind,id);
-string path=root+"/"+folder+"/"+id+content_ext(ckind);
-directory_create(root+"/"+folder);
+string path=ckind=="object_presets"?root+"/"+id+content_ext(ckind):root+"/"+folder+"/"+id+content_ext(ckind);
+if(ckind!="object_presets")directory_create(root+"/"+folder);
 if(existing!="" and existing!=path)file_delete(existing);
-if(!write_whole_file(path,string_replace(string_replace(text,"\r","",true),"\n","\r\n",true))){we_say(index,"The file could not be written.");return true;}
+if(!write_whole_file(path,ckind=="object_presets"?text:string_replace(string_replace(text,"\r","",true),"\n","\r\n",true))){we_say(index,"The file could not be written.");return true;}
 admin_log(me.name,"CONTENT_WRITE",ckind+"/"+folder+"/"+id);
 reload_content(index,ckind);
 return true;

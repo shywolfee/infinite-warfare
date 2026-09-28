@@ -63,6 +63,25 @@ client_check(item_is_pill_bottle("regenex_tablet_bottle") and item_is_loose_pill
 }
 client_check(gesture_signature_words("top:2:double_hold")=="Two finger double tap and hold" and gesture_signature_words("middle:1:swipe:left")=="One finger swipe left","gesture reference wording");
 client_check(gesture_signature_rank("top:1:tap")<gesture_signature_rank("top:1:hold") and gesture_signature_rank("top:1:hold")<gesture_signature_rank("top:1:swipe:up") and gesture_signature_rank("top:1:swipe:up")<gesture_signature_rank("top:2:tap"),"gesture reference ordering");
+client_checkpoint("keyboard practice");
+// The regression entry point deliberately runs before normal client startup,
+// including kb_init. Seed only the catalogue entries this test needs, then
+// restore every array; never load or change the player's AppData keymaps.
+uint old_key_names=_kb_key_names.length(),old_key_codes=_kb_key_codes.length(),old_key_labels=_kb_key_labels.length();
+uint old_action_names=_kb_act_names.length(),old_action_labels=_kb_act_labels.length(),old_action_defaults=_kb_act_defaults.length(),old_action_binds=_kb_act_binds.length(),old_action_modifiers=_kb_act_modifiers.length();
+_kb_reg_key("print_screen",KEY_PRINTSCREEN,"Print Screen");_kb_reg_key("applications",KEY_APPS,"Applications");_kb_reg_key("numpad_enter",KEY_NUMPAD_ENTER,"Numpad Enter");_kb_reg_key("b",KEY_B,"B");_kb_reg_key("f1",KEY_F1,"F1");
+_kb_reg_action("buffer_manager","Open buffer manager",KEY_B,KEYMOD_ALT|KEYMOD_SHIFT);_kb_reg_action("key_practice","Open key practice",KEY_F1,KEYMOD_SHIFT);
+client_check(kb_practice_description(KEY_A,KEYMOD_SHIFT).find("fire mode")>=0 and kb_practice_description(KEY_R,KEYMOD_ALT).find("ammunition type")>=0,"practice describes modifier-dependent weapon controls");
+client_check(kb_key_label(KEY_PRINTSCREEN)=="Print Screen" and kb_key_label(KEY_APPS)=="Applications" and kb_key_label(KEY_NUMPAD_ENTER)=="Numpad Enter","practice names formerly missing keys");
+client_check(kb_practice_description(kb("buffer_manager"),KEYMOD_ALT|KEYMOD_SHIFT).find("Open buffer manager")>=0,"practice follows the active rebindable chord");
+int[] practice_keys=kb_practice_keys();client_check(practice_keys.find(KEY_PRINTSCREEN)>=0 and practice_keys.find(KEY_APPS)>=0 and practice_keys.find(kb("key_practice"))>=0,"practice scans named and currently bound keys");
+_kb_key_names.resize(old_key_names);_kb_key_codes.resize(old_key_codes);_kb_key_labels.resize(old_key_labels);_kb_act_names.resize(old_action_names);_kb_act_labels.resize(old_action_labels);_kb_act_defaults.resize(old_action_defaults);_kb_act_binds.resize(old_action_binds);_kb_act_modifiers.resize(old_action_modifiers);
+client_checkpoint("visual presentation");
+client_check(visual_icon_for("checkbox")=="CHECK" and visual_icon_for("text input")=="TEXT" and visual_icon_for("list box")=="LIST","visual controls receive distinct icons");
+int projected_x,projected_y;visual_project(12,18,10,20,5,100,200,400,300,projected_x,projected_y);
+client_check(projected_x==310 and projected_y==360,"top-down projection preserves map direction and scale");
+visual_form_frame visual_test;visual_test.title="Options";visual_test.tabs={"Accessibility","Audio"};visual_test.selected_tab=0;visual_test.rows.insert_last(visual_ui_row("Visual subtitles","On","checkbox",true,true));
+client_check(visual_test.rows.length()==1 and visual_test.rows[0].focused and visual_test.tabs[visual_test.selected_tab]=="Accessibility","visual form snapshots retain tabs, focus and values");
 client_checkpoint("world editor builders");
 {
 // Every builder, run with its defaults on a blank 300 by 300 map, one place
@@ -130,13 +149,16 @@ client_checkpoint("dialogs while connected");
 // service used to call each other forever here, hanging the game on entering
 // the lobby; this returns only if they no longer do.
 {
-bool was_connected=connected;string was_map=mapname;
+bool was_connected=connected,was_match=client_match_active;string was_map=mapname;
 @default_nv_form_network_pump=@pump_network_for_form;
-connected=true;mapname="main";last_server_msg.restart();lobby_keepalive_timer.restart();
+// A retained non-lobby map name must not switch a lobby form to the match
+// parser. This is the exact state reached by opening the Armoury after a
+// match.
+connected=true;client_match_active=false;mapname="battlegrounds";last_server_msg.restart();lobby_keepalive_timer.restart();
 nv_form lf;lf.create_window("Regression lobby",false,true);nv_form_list_box@ ll=lf.add_list("Entries","entries");ll.add("One","one");
 timer lt;int frames=0;while(lt.elapsed<300){lf.monitor();frames++;wait(5);}
 client_check(frames>10 and !pumping_network_for_form and form_net_depth==0,"dialogs keep running while connected in the lobby ("+frames+" frames)");
-connected=was_connected;mapname=was_map;
+connected=was_connected;client_match_active=was_match;mapname=was_map;
 }
 client_test_results+="Failures: "+client_test_failures+"\n";
 client_checkpoint("finished");

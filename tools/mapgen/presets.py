@@ -1,6 +1,10 @@
-"""Destructible-object presets, read from the file the server also reads."""
+"""Destructible-object presets, one JSON file per editable preset."""
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PRESETS = json.loads((ROOT / "iwserver/content/object_presets.json").read_text(encoding="utf-8"))
+PRESET_ROOT = ROOT / "iwserver/content/object_presets"
+PRESETS = {
+    path.stem: json.loads(path.read_text(encoding="utf-8"))
+    for path in sorted(PRESET_ROOT.glob("*.json"))
+}

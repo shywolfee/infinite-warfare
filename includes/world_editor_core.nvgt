@@ -63,6 +63,7 @@ return "concrete";
 // ---------------------------------------------------------------------------
 string we_reply_kind="",we_reply_data="";
 bool we_waiting=false;
+bool we_map_transfer_active=false;
 void we_send(const string &in message){send_reliable(0,message,0);}
 // Replies the editor waits on are kept; notices and results are spoken.
 bool handle_world_editor_packet(const string &in message)
@@ -75,6 +76,7 @@ if(kind=="we_done"){p.play_stationary(ui_sound("apply"),false);speak(data);we_re
 if(kind=="we_travel")
 {
 string[] f=string_split(data,"|",false);
+we_map_transfer_active=true;
 destroy_all_sources();distpool.destroy_all();ambpool.destroy_all();
 speak("Travelling to "+(f.length()>0?f[0]:"another map")+".");
 we_reply_kind=kind;we_reply_data=data;return true;
@@ -83,7 +85,7 @@ we_reply_kind=kind;we_reply_data=data;
 return true;
 }
 void ui_cue_error_or_notify(bool error){p.play_stationary(ui_sound(error?"error":"notify"),false);}
-void we_pump(){if(mapname=="" or mapname=="main")lobby_form_netcheck();else netloop(false);}
+void we_pump(){if(client_match_active)netloop(false);else lobby_form_netcheck();}
 // Sends a request and waits for a reply of the given kind (or a notice).
 bool we_request(const string &in message,const string &in expect,int timeout=6000)
 {

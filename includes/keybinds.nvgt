@@ -136,6 +136,10 @@ return "Unknown";
 void kb_init()
 {
 _kb_reg_key("escape", KEY_ESCAPE, "Escape");
+_kb_reg_key("left_shift", KEY_LSHIFT, "Left Shift");
+_kb_reg_key("right_shift", KEY_RSHIFT, "Right Shift");
+_kb_reg_key("left_alt", KEY_LMENU, "Left Alt");
+_kb_reg_key("right_alt", KEY_RMENU, "Right Alt");
 _kb_reg_key("1", KEY_1, "1");
 _kb_reg_key("2", KEY_2, "2");
 _kb_reg_key("3", KEY_3, "3");
@@ -189,6 +193,25 @@ _kb_reg_key("period", KEY_PERIOD, "Period");
 _kb_reg_key("slash", KEY_SLASH, "Slash");
 _kb_reg_key("right_control", KEY_RCONTROL, "Right Control");
 _kb_reg_key("space", KEY_SPACE, "Space");
+_kb_reg_key("caps_lock", KEY_CAPSLOCK, "Caps Lock");
+_kb_reg_key("print_screen", KEY_PRINTSCREEN, "Print Screen");
+_kb_reg_key("applications", KEY_APPS, "Applications");
+_kb_reg_key("numpad_enter", KEY_NUMPAD_ENTER, "Numpad Enter");
+_kb_reg_key("numpad_0", KEY_NUMPAD0, "Numpad 0");
+_kb_reg_key("numpad_1", KEY_NUMPAD1, "Numpad 1");
+_kb_reg_key("numpad_2", KEY_NUMPAD2, "Numpad 2");
+_kb_reg_key("numpad_3", KEY_NUMPAD3, "Numpad 3");
+_kb_reg_key("numpad_4", KEY_NUMPAD4, "Numpad 4");
+_kb_reg_key("numpad_5", KEY_NUMPAD5, "Numpad 5");
+_kb_reg_key("numpad_6", KEY_NUMPAD6, "Numpad 6");
+_kb_reg_key("numpad_7", KEY_NUMPAD7, "Numpad 7");
+_kb_reg_key("numpad_8", KEY_NUMPAD8, "Numpad 8");
+_kb_reg_key("numpad_9", KEY_NUMPAD9, "Numpad 9");
+_kb_reg_key("numpad_plus", KEY_ADD, "Numpad Plus");
+_kb_reg_key("numpad_minus", KEY_SUBTRACT, "Numpad Minus");
+_kb_reg_key("numpad_multiply", KEY_MULTIPLY, "Numpad Multiply");
+_kb_reg_key("numpad_divide", KEY_DIVIDE, "Numpad Divide");
+_kb_reg_key("numpad_period", KEY_DECIMAL, "Numpad Period");
 _kb_reg_key("f1", KEY_F1, "F1");
 _kb_reg_key("f2", KEY_F2, "F2");
 _kb_reg_key("f3", KEY_F3, "F3");
@@ -638,23 +661,82 @@ kS.key_code=kb("aim_up");
 kX.key_code=kb("aim_down");
 }
 
+bool kb_is_modifier_key(int key)
+{
+return key==KEY_LSHIFT or key==KEY_RSHIFT or key==KEY_LMENU or key==KEY_RMENU or key==KEY_LCONTROL or key==KEY_RCONTROL;
+}
+
+void kb_add_unique_key(int[]@ keys,int key)
+{
+if(key>0 and keys.find(key)<0)keys.insert_last(key);
+}
+
+int[] kb_practice_keys()
+{
+int[] keys;
+for(uint i=0;i<_kb_key_codes.length();i++)kb_add_unique_key(keys,_kb_key_codes[i]);
+// A profile may contain a key introduced by a newer NVGT build or loaded
+// from an older configuration. It remains practisable even when it has no
+// friendly label in this client.
+for(uint i=0;i<_kb_act_binds.length();i++)kb_add_unique_key(keys,_kb_act_binds[i]);
+return keys;
+}
+
+void kb_add_unique_action(string[]@ actions,const string &in label)
+{
+if(label!="" and actions.find(label)<0)actions.insert_last(label);
+}
+
+string kb_practice_description(int key,int modifiers)
+{
+string key_name=kb_key_label(key);
+if(key_name=="Unknown")key_name="Key code "+key;
+string label=kb_modifier_label(modifiers)+key_name;
+string[] actions;
+for(uint action=0;action<_kb_act_names.length();action++)
+if(_kb_act_binds[action]==key and _kb_act_modifiers[action]==modifiers)kb_add_unique_action(actions,_kb_act_labels[action]);
+string contextual=kb_contextual_action(key,modifiers);
+if(contextual!="")kb_add_unique_action(actions,contextual);
+if(actions.length()==0)return label+" is not currently assigned.";
+return label+" is bound to "+join(actions,", ")+".";
+}
+
 void key_practice_mode()
 {
+// Do not let the chord used to open practice become its first result.
 while(key_down(KEY_F1) or key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))wait(5);
-speak("Key practice. Press any key to hear its current action. Press Escape to close.");
+speak("Key practice. Press any key or key combination to hear every action it performs. Press Escape to close.");
+int[] keys=kb_practice_keys();
+bool[] was_down(keys.length()),modifier_used(keys.length());
+for(uint i=0;i<keys.length();i++)was_down[i]=key_down(keys[i]);
 while(true)
 {
-wait(5);if(connected)netloop();
-for(int key=1;key<=211;key++)if(key_pressed(key))
+wait(5);if(connected)pump_network_for_form();
+int pressed=-1;
+for(uint i=0;i<keys.length();i++)
 {
-if(key==KEY_LSHIFT or key==KEY_RSHIFT or key==KEY_LMENU or key==KEY_RMENU or key==KEY_LCONTROL or key==KEY_RCONTROL)continue;
+bool down=key_down(keys[i]);
+if(down and !was_down[i] and !kb_is_modifier_key(keys[i])){pressed=int(i);break;}
+}
+if(pressed>=0)
+{
+int key=keys[pressed];
 if(key==KEY_ESCAPE){speak("Key practice closed.");return;}
-int modifiers=kb_current_modifiers();
-string label=kb_modifier_label(modifiers)+kb_key_label(key),actions="";
-for(uint action=0;action<_kb_act_names.length();action++)if(_kb_act_binds[action]==key and _kb_act_modifiers[action]==modifiers){if(actions!="")actions+=", ";actions+=_kb_act_labels[action];}
-string contextual=kb_contextual_action(key,modifiers);if(contextual!=""){if(actions!="")actions+=", ";actions+=contextual;}
-if(actions=="")speak(label+" is not bound to a configurable action.");else speak(label+" is bound to "+actions+".");
-break;
+for(uint i=0;i<keys.length();i++)if(kb_is_modifier_key(keys[i]) and key_down(keys[i]))modifier_used[i]=true;
+speak(kb_practice_description(key,kb_current_modifiers()));
+}
+// A modifier pressed by itself is useful information too. Announce it on
+// release, but stay quiet when it participated in a chord just reported.
+for(uint i=0;i<keys.length();i++)
+{
+bool down=key_down(keys[i]);
+if(kb_is_modifier_key(keys[i]) and down and !was_down[i])modifier_used[i]=false;
+if(kb_is_modifier_key(keys[i]) and !down and was_down[i])
+{
+if(!modifier_used[i])speak(kb_key_label(keys[i])+" is a modifier key.");
+modifier_used[i]=false;
+}
+was_down[i]=down;
 }
 }
 }
@@ -667,6 +749,10 @@ if(key==KEY_DELETE and modifiers==0)return "Current buffer-message actions";
 if(key==KEY_C and modifiers==(KEYMOD_ALT|KEYMOD_SHIFT))return "Review current buffer message";
 if(key==KEY_C and modifiers==KEYMOD_ALT)return "Open command menu";
 if(key==KEY_RETURN and modifiers==KEYMOD_SHIFT)return "Open selected weapon information";
+if(key==KEY_A and modifiers==KEYMOD_SHIFT)return "Change the drawn weapon's fire mode";
+if(key==KEY_A and modifiers==KEYMOD_ALT)return "Open the drawn weapon panel";
+if(key==KEY_R and modifiers==KEYMOD_SHIFT)return "Unload the drawn weapon";
+if(key==KEY_R and modifiers==KEYMOD_ALT)return "Select the drawn weapon's ammunition type";
 if(key==KEY_BACK and modifiers==KEYMOD_SHIFT)return "Draw or holster current weapon";
 if(key==KEY_BACK and modifiers==KEYMOD_ALT)return "Unequip a holster";
 if(key==KEY_S and modifiers==KEYMOD_ALT)return "Open support";
@@ -682,6 +768,8 @@ if(key==KEY_HOME and modifiers==KEYMOD_ALT)return "Select previous volume mixer;
 if(key==KEY_END and modifiers==KEYMOD_ALT)return "Select next volume mixer; in inventory, move selected item last";
 if(key==KEY_RETURN and modifiers==KEYMOD_ALT)return "Open dynamic help for selected inventory item";
 if(key==KEY_TAB and modifiers==KEYMOD_SHIFT)return "Previous inventory category where supported";
+if(key==KEY_K and modifiers==KEYMOD_SHIFT)return "Previous inventory category";
+if(key==KEY_P and modifiers==KEYMOD_SHIFT)return "Use a nearby lift";
 if(key==KEY_APPS and modifiers==0)return "Open selected inventory item actions";
 if(key==KEY_SPACE and modifiers==0)return "Jump; in inventory, give selected item to a nearby player";
 if(key==KEY_BACK and modifiers==0)return "Drop selected inventory item seven tiles ahead when inventory is open";
@@ -692,6 +780,11 @@ if(key==KEY_X and modifiers==KEYMOD_SHIFT)return "Fine aim down";
 if((key>=KEY_1 and key<=KEY_0) and modifiers==KEYMOD_ALT)return "Bind the selected item to this quickbar slot";
 if((key>=KEY_1 and key<=KEY_0) and modifiers==0)return "Activate this quickbar slot";
 if(key==KEY_D and modifiers==KEYMOD_SHIFT)return "Open developer suite when authorized";
+if(key==KEY_F1 and modifiers==0)return "List online players; in a text field, toggle speaking typed characters";
+if(key==KEY_F2 and modifiers==0)return "Read the message of the day; in a text field, toggle speaking typed words";
+if(key==KEY_F3 and modifiers==0)return "Measure server ping; in a text field, toggle the Caps Lock beep";
+if(key==KEY_TAB and modifiers==KEYMOD_CTRL)return "Move to the next form category";
+if(key==KEY_TAB and modifiers==(KEYMOD_CTRL|KEYMOD_SHIFT))return "Move to the previous form category";
 return "";
 }
 

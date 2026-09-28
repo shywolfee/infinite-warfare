@@ -7,6 +7,10 @@ class nv_form_tab_control: nv_form_control {
 		return tab_pages[tab_page_index];
 	}
 	int get_page_count() const property { return tab_pages.length(); }
+	nv_form_tab_page@get_page(int index) const {
+		if (index < 0 || index >= int(tab_pages.length())) return null;
+		return tab_pages[index];
+	}
 	bool speak_position = false;
 	nv_form_tab_control(nv_form@parent, const string &in caption, const string &in id = "", bool speak_position = false) {
 		super(caption, id, nv_form_ct_tab_control, @parent);

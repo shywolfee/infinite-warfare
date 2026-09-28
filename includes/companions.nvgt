@@ -1,0 +1,24 @@
+class client_companion
+{
+int id,health,facing;string item,kind,mode,map;double x,y,z;
+}
+client_companion@[] client_companions;
+string companion_list_reply="";bool companion_list_ready=false;
+bool companion_piloting=false;int piloted_companion_id=-1;double companion_body_x,companion_body_y,companion_body_z;int companion_body_facing=0;timer companion_pilot_move_timer;
+int client_companion_index(int id){for(uint i=0;i<client_companions.length();i++)if(client_companions[i].id==id)return int(i);return -1;}
+void companion_remote_menu()
+{
+companion_list_ready=false;companion_list_reply="";send_reliable(0,"companion list",0);timer timeout;while(!companion_list_ready and timeout.elapsed<3000){wait(5);netloop(false);}if(!companion_list_ready){speak("The companion remote did not receive telemetry.");return;}string[] rows=string_split(companion_list_reply,";",false);if(rows.length()==0 or companion_list_reply==""){speak("You have no deployed companions.");return;}string[] labels,ids;for(uint i=0;i<rows.length();i++){string[] f=string_split(rows[i],",",false);if(f.length()<9)continue;labels.insert_last(string_replace(f[1],"_"," ",true)+" number "+f[0]+", "+f[3]+", "+f[4]+" health, at "+f[5]+", "+f[6]+", "+f[7]+" on "+f[8]);ids.insert_last(f[0]);}string selected=pick_from_list("Companion Command Remote",labels,ids);if(selected=="")return;string command=pick_from_list("Command",{"Follow me","Stay here","Guard this area","Seek and attack","Report full status","Pilot directly","Recall to inventory"},{"follow","stay","guard","attack","status","pilot","recall"});if(command=="")return;if(command=="status")send_reliable(0,"companion status "+selected+" now",0);else if(command=="pilot")send_reliable(0,"companion pilot "+selected+" now",0);else send_reliable(0,"companion mode "+selected+" "+command,0);
+}
+void stop_companion_pilot()
+{
+if(!companion_piloting)return;companion_piloting=false;piloted_companion_id=-1;me.x=companion_body_x;me.y=companion_body_y;me.z=companion_body_z;mr.x=me.x;mr.y=me.y;facing=companion_body_facing;can_move=true;speak("Returned to your body.");
+}
+void companion_pilot_loop()
+{
+if(!companion_piloting)return;if(key_pressed(KEY_ESCAPE)){stop_companion_pilot();return;}if(companion_pilot_move_timer.elapsed<70)return;double nx=me.x,ny=me.y,nz=me.z;bool changed=false;if(key_down(KEY_UP)){vector v=move(nx,ny,nz,facing,0);nx=v.x;ny=v.y;changed=true;}if(key_down(KEY_DOWN)){vector v=move(nx,ny,nz,facing+180,0);nx=v.x;ny=v.y;changed=true;}if(key_pressed(KEY_LEFT)){facing-=15;if(facing<0)facing+=360;changed=true;}if(key_pressed(KEY_RIGHT)){facing+=15;if(facing>=360)facing-=360;changed=true;}if(key_down(KEY_PAGEUP)){nz+=1;changed=true;}if(key_down(KEY_PAGEDOWN)){nz-=1;changed=true;}if(!changed)return;companion_pilot_move_timer.restart();me.x=nx;me.y=ny;me.z=nz;mr.x=nx;mr.y=ny;send_reliable(0,"companion move "+piloted_companion_id+" "+nx+" "+ny+" "+nz+" "+facing,0);
+}
+bool handle_companion_packet(const string &in message)
+{
+if(message=="companion_remote_open"){companion_remote_menu();return true;}if(message.substr(0,15)=="companion_list "){companion_list_reply=message.substr(15);companion_list_ready=true;return true;}string[] f=string_split(message," ",true);if(f.length()==0)return false;if(f[0]=="companion_remove" and f.length()>1){int at=client_companion_index(int(string_to_number(f[1])));if(at>=0)client_companions.remove_at(at);if(piloted_companion_id==int(string_to_number(f[1])))stop_companion_pilot();return true;}if(f[0]=="companion_sync" and f.length()>=11){int id=int(string_to_number(f[1])),at=client_companion_index(id);if(at<0){client_companions.insert_last(client_companion());at=int(client_companions.length())-1;}client_companion@ c=client_companions[at];c.id=id;c.kind=f[2];c.x=string_to_number(f[3]);c.y=string_to_number(f[4]);c.z=string_to_number(f[5]);c.facing=int(string_to_number(f[6]));c.health=int(string_to_number(f[7]));c.map=f[8];c.mode=f[10];if(companion_piloting and id==piloted_companion_id){me.x=c.x;me.y=c.y;me.z=c.z;mr.x=me.x;mr.y=me.y;facing=c.facing;}return true;}if(f[0]=="companion_pilot" and f.length()>=7){companion_body_x=me.x;companion_body_y=me.y;companion_body_z=me.z;companion_body_facing=facing;piloted_companion_id=int(string_to_number(f[1]));me.x=string_to_number(f[2]);me.y=string_to_number(f[3]);me.z=string_to_number(f[4]);facing=int(string_to_number(f[5]));mr.x=me.x;mr.y=me.y;companion_piloting=true;can_move=false;speak("Piloting companion number "+piloted_companion_id+". Arrow keys move and turn, Page Up and Page Down change height, and Escape returns to your body.");return true;}return false;
+}

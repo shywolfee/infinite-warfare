@@ -410,8 +410,8 @@ return;
 // ---------------------------------------------------------------------------
 void we_content_menu()
 {
-string[] labels={"Items","Weapons","Reload items from their files","Reload weapons from their files","Reload every map from its file","Reload everything"};
-string[] ids={"items","weapons","r:items","r:weapons","r:maps","r:all"};
+string[] labels={"Items","Weapons","Object presets","Reload items from their files","Reload weapons from their files","Reload object presets and maps","Reload every map from its file","Reload everything"};
+string[] ids={"items","weapons","object_presets","r:items","r:weapons","r:object_presets","r:maps","r:all"};
 while(true)
 {
 string chosen=pick_from_list("Content",labels,ids);
@@ -432,12 +432,32 @@ entries.sort_ascending();
 string[] labels,ids;
 labels.insert_last("Make a new one");ids.insert_last(":new");
 for(uint i=0;i<entries.length();i++){int slash=entries[i].find("/");labels.insert_last(entries[i].substr(slash+1)+", in "+entries[i].substr(0,slash));ids.insert_last(entries[i]);}
-string chosen=we_list_keeping("",kind=="items"?"Item files":"Weapon files",labels,ids,pos);
+string chosen=we_list_keeping("",kind=="items"?"Item files":(kind=="weapons"?"Weapon files":"Object preset files"),labels,ids,pos);
 if(chosen=="")return;
-if(chosen==":new"){we_content_new(kind);continue;}
+if(chosen==":new"){if(kind=="object_presets")we_object_preset_new();else we_content_new(kind);continue;}
 int slash=chosen.find("/");
-we_content_file(kind,chosen.substr(0,slash),chosen.substr(slash+1));
+if(kind=="object_presets")we_object_preset_file(chosen.substr(slash+1));else we_content_file(kind,chosen.substr(0,slash),chosen.substr(slash+1));
 }
+}
+void we_object_preset_file(const string &in id)
+{
+if(!we_request("we_content_read|object_presets|"+id,"we_content_file"))return;
+string text=after_bars(we_reply_data,2);
+while(true)
+{
+string chosen=pick_from_list(id+" object preset",{"Edit JSON","Save and reload maps","Copy as a new preset","Delete preset"},{"edit","save","copy","delete"});
+if(chosen=="")return;
+if(chosen=="edit")text=af_input("Preset JSON: health, bullet, blast, hit, break and eight-value part arrays",text,true);
+else if(chosen=="save")we_change("we_content_write|object_presets|object_presets|"+id+"|"+text);
+else if(chosen=="copy"){string nid=af_input("Id for the copy",id+"_copy",true).trim_whitespace().lower();if(nid!="")we_change("we_content_write|object_presets|object_presets|"+nid+"|"+text);}
+else if(chosen=="delete" and yesno("Delete "+id+"? A backup is kept on the server.")==1){we_change("we_content_delete|object_presets|"+id);return;}
+}
+}
+void we_object_preset_new()
+{
+string id=af_input("Id for the new object preset","",true).trim_whitespace().lower();if(id=="")return;
+string text="{\"health\":300,\"bullet\":1,\"blast\":1,\"hit\":\"wallwood\",\"break\":\"executioners_rage/environment/objects/table/dest.wav\",\"parts\":[[0,1,0,1,0,1,\"wallwood\",1]]}";
+if(we_change("we_content_write|object_presets|object_presets|"+id+"|"+text))we_object_preset_file(id);
 }
 // A content file as a list of its settings. Enter on one changes it; you can
 // add a setting, remove one, move the file to another folder, copy it as a

@@ -21,7 +21,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <header class="hero">
 <h1>Infinite Warfare</h1>
 <p><span class="version">Version 0.5.2 &middot; Build 86</span></p>
-<p class="lead">An open-source, audio-first online action game for Windows and Android, with a supplemental high-contrast visual layer for players with residual vision.</p>
+<p class="lead">An open-source, audio-first online action game for Windows and Android, with an optional modern top-down visual interface, HUD, minimap, forms, subtitles and keyboard.</p>
 <p>This manual describes the current game rather than retired prototypes. Exact weapon, ammunition, attachment, armour, item, and vehicle statistics come from the live database and are available through Dynamic Help and the Dynamic Armoury.</p>
 </header>
 
@@ -62,8 +62,10 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <h2>2. Menus and accessibility</h2>
 <p>Most interfaces use NV_form. Arrow keys move through controls, <kbd>Tab</kbd> and <kbd>Shift+Tab</kbd> move between control groups, <kbd>Enter</kbd> activates, and <kbd>Escape</kbd> goes back. Categorized forms use left and right on the category strip. <kbd>Ctrl+Tab</kbd> moves to the next category and its first option; <kbd>Ctrl+Shift+Tab</kbd> moves to the previous one.</p>
 <p>Audio-form navigation and activation sounds are optional. Forms continue pumping network and game state while open. Long text such as the message of the day, changelog, documentation, reports, and account details uses read-only forms.</p>
-<h3>Low-vision display</h3>
-<p>The visual layer uses a dark background, oversized high-contrast icons, focused labels, status text, and simple contextual layouts. It supplements the audio game rather than replacing spatial audio. <kbd>Ctrl+Shift+F12</kbd> toggles full screen. <kbd>Print Screen</kbd> saves a PNG in the <code>screenshots</code> folder beside the running client without blocking gameplay.</p>
+<h3>Visual interface, subtitles and keyboard</h3>
+<p>The optional modern visual interface renders gameplay from above. Authored terrain, walls, ladders, dynamic objects, vehicles, nearby players and projectiles share the world view; the HUD shows weapon, ammunition, fire mode, stamina and position; and the minimap places points of interest and the active waypoint within the real map bounds. Menus and forms use category tabs, control cards, visible focus and value states, and a contextual detail panel.</p>
+<p>Visual subtitles are a separate option. They put spoken game messages in a compact box above the HUD rather than replacing or covering the game view. The optional visual keyboard displays a full QWERTY layout, typed text, the focused key, Shift and Caps Lock state. On Android it follows the functional explore-by-touch or analogue keyboard live. All three settings can be changed independently under <strong>Options, Accessibility</strong>.</p>
+<p><kbd>Ctrl+Shift+F12</kbd> toggles full screen. <kbd>Print Screen</kbd> saves a PNG in the <code>screenshots</code> folder beside the running client without blocking gameplay.</p>
 <h3>Input-box speech</h3>
 <p>While typing, <kbd>F1</kbd> toggles speaking typed characters, <kbd>F2</kbd> toggles speaking completed words, and <kbd>F3</kbd> toggles the caps-lock beep.</p>
 </section>

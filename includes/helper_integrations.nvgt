@@ -1,6 +1,6 @@
 // Game-facing integration for the NVGT Helpers bundle (GPL-3.0, by Blindpro):
 // desktop notifications and tray controls, Windows voice commands, mouse
-// shortcuts, the application volume, and the low-vision display.
+// shortcuts, the application volume, and the visual presentation.
 //
 // Every one of these was reported as not working, and every one had a
 // specific reason:
@@ -213,54 +213,259 @@ if(iw_mouse.pressed(MOUSE_FORWARD))bufferright();
 }
 
 // ---------------------------------------------------------------------------
-// The low-vision display.
+// Visual presentation.
 //
-// It shows what the game is saying, not a summary of it. Everything a player
-// hears is spoken through one function, and the last line spoken is the
-// thing on screen in the largest text the window can hold. Above it is where
-// you are -- the dialog or the map -- and below it, when a form is open, the
-// control that has focus and what sort of control it is. During a match a
-// status line gives the map, the zone and the coordinates.
-string low_vision_title="Infinite Warfare",low_vision_item="";
-int low_vision_control_type=-1;
-bool low_vision_dirty=true;
-string low_vision_last_spoken="";
-timer low_vision_refresh;
+// Spoken text is not the interface.  Forms provide a complete control
+// snapshot, while gameplay provides map geometry, objects, POIs, vehicles,
+// players and weapon state.  speechbuff is used only by the optional,
+// independently controlled subtitle box.
+visual_form_frame@ current_visual_form;
+timer visual_form_seen;
+string visual_subtitle_text="";
+timer visual_subtitle_seen;
+bool visual_dirty=true;
+timer visual_refresh;
+
+class visual_remote_player
+{
+string name;
+double x,y,z;
+timer seen;
+visual_remote_player(string n,double px,double py,double pz){name=n;x=px;y=py;z=pz;}
+}
+visual_remote_player@[] visual_remote_players;
+
+visual_world_rect@[] visual_static_geometry;
+string visual_geometry_map="";
+int visual_geometry_z=-999999;
+uint visual_geometry_tiles=0,visual_geometry_walls=0;
+timer visual_geometry_age;
 
 void low_vision_set_context(string title,string item,int control_type)
 {
-low_vision_title=title;low_vision_item=item;low_vision_control_type=control_type;low_vision_dirty=true;
+// Compatibility hook used by old forms.  New NV_form screens are captured in
+// full by visual_form_capture; this still gives legacy menus a useful frame.
+if(@current_visual_form==null)@current_visual_form=visual_form_frame();
+current_visual_form.title=title;
+current_visual_form.section=item;
+current_visual_form.detail=control_type>=0?get_nv_form_control_type_string(control_type):"";
+visual_dirty=true;
 }
-string low_vision_type_label()
+
+string visual_control_value(nv_form_control@ control)
 {
-if(low_vision_control_type<0 or low_vision_item=="")return "";
-string t=get_nv_form_control_type_string(low_vision_control_type);
-return t==""?"":t.substr(0,1).upper()+t.substr(1);
+if(@control==null)return "";
+nv_form_list_box@ list=cast<nv_form_list_box@>(control);
+if(@list!=null and @list.focused_item!=null)return list.focused_item.text+(list.speak_position?"  "+(list.list_position+1)+" of "+list.items.length():"");
+nv_form_checkbox@ check=cast<nv_form_checkbox@>(control);
+if(@check!=null)return check.state?"On":"Off";
+nv_form_slider@ slider=cast<nv_form_slider@>(control);
+if(@slider!=null)return slider.text_value;
+nv_form_switch@ sw=cast<nv_form_switch@>(control);
+if(@sw!=null and @sw.focused_item!=null)return sw.focused_item.text;
+nv_form_progress_bar@ progress=cast<nv_form_progress_bar@>(control);
+if(@progress!=null)return progress.get_control_info();
+nv_form_input@ input=cast<nv_form_input@>(control);
+if(@input!=null)return input.get_control_info();
+return control.get_control_info();
 }
+
+void visual_add_form_row(visual_form_frame@ frame,nv_form_control@ control,bool focused)
+{
+if(@control==null or control.hidden)return;
+string kind=control.custom_type!=""?control.custom_type:get_nv_form_control_type_string(control.type);
+string value=visual_control_value(control);
+frame.rows.insert_last(visual_ui_row(control.caption,value,kind,focused,control.enabled));
+if(focused)
+{
+frame.focused_row=int(frame.rows.length())-1;
+frame.section=control.caption;
+frame.detail=(value!=""?value+". ":"")+(kind!=""?kind+". ":"")+(control.enabled?"Ready.":"Unavailable.");
+nv_form_input@ input=cast<nv_form_input@>(control);
+if(@input!=null and !input.read_only and visual_keyboard_enabled)
+{
+frame.show_keyboard=true;
+frame.keyboard_text=input.password_mask!=""?input.text.length()+" protected characters":input.text;
+}
+}
+}
+
+void visual_form_capture(nv_form@ form)
+{
+if(!helper_visual_hud and !visual_subtitles_enabled)return;
+if(@form==null or !form.active)return;
+visual_form_frame@ frame=visual_form_frame();
+frame.title=form.window_title;
+nv_form_tab_control@ tabs=null;
+for(uint i=0;i<form.controls.length();i++){@tabs=cast<nv_form_tab_control@>(form.controls[i]);if(@tabs!=null)break;}
+if(@tabs!=null)
+{
+for(int i=0;i<tabs.page_count;i++){nv_form_tab_page@ p=tabs.get_page(i);frame.tabs.insert_last(@p==null?"Category":p.name);}
+frame.selected_tab=tabs.pos;
+nv_form_tab_page@ page=tabs.current_page;
+if(@page!=null)
+{
+frame.section=page.name;
+for(uint i=0;i<page.controls.length();i++)visual_add_form_row(frame,page.controls[i],page.control_index==int(i));
+}
+for(uint i=0;i<form.controls.length();i++)if(@form.controls[i]!=@tabs)visual_add_form_row(frame,form.controls[i],form.control_index==int(i));
+if(@form.current_control==@tabs and (@page==null or page.control_index<0)){frame.focused_row=-1;frame.detail="Choose a category with Left and Right, then press Tab to enter it.";}
+}
+else for(uint i=0;i<form.controls.length();i++)visual_add_form_row(frame,form.controls[i],form.control_index==int(i));
+if(frame.section=="")frame.section=frame.title;
+if(frame.detail=="")frame.detail="Use the arrow keys to navigate the available controls.";
+@current_visual_form=frame;
+visual_form_seen.restart();
+visual_dirty=true;
+}
+
+// dynamic_menu_pro predates NV_form, but it still drives a few important
+// screens.  Give it the same visual treatment instead of falling back to a
+// subtitle-shaped line of speech.
+void visual_menu_capture(const string &in title,dynamic_menu_item[]@ items,int position)
+{
+if(!helper_visual_hud or @items==null)return;
+visual_form_frame@ frame=visual_form_frame();
+frame.title=title!=""?title:"Menu";
+frame.section="Menu";
+for(uint i=0;i<items.length();i++)
+{
+bool focused=int(i)==position-1;
+frame.rows.insert_last(visual_ui_row(items[i].name,"","menu item",focused,true));
+if(focused){frame.focused_row=int(i);frame.section=items[i].name;frame.detail="Press Enter to activate this option.";}
+}
+if(frame.detail=="")frame.detail="Use the arrow keys to choose an option.";
+@current_visual_form=frame;
+visual_form_seen.restart();
+visual_dirty=true;
+}
+
+void visual_keyboard_state(const string &in text,int row,int col,bool shift,bool caps)
+{
+if(@current_visual_form==null)@current_visual_form=visual_form_frame();
+visual_form_seen.restart();
+current_visual_form.show_keyboard=true;
+current_visual_form.keyboard_text=text;
+current_visual_form.keyboard_row=row;
+current_visual_form.keyboard_col=col;
+current_visual_form.keyboard_shift=shift;
+current_visual_form.keyboard_caps=caps;
+visual_dirty=true;
+}
+
+void visual_keyboard_closed(){if(@current_visual_form!=null)current_visual_form.show_keyboard=false;visual_dirty=true;}
+
+void visual_remote_player_update(const string &in player,double x,double y,double z)
+{
+if(player=="" or player==name)return;
+for(uint i=0;i<visual_remote_players.length();i++)if(visual_remote_players[i].name==player){visual_remote_players[i].x=x;visual_remote_players[i].y=y;visual_remote_players[i].z=z;visual_remote_players[i].seen.restart();return;}
+visual_remote_players.insert_last(visual_remote_player(player,x,y,z));
+}
+
+int visual_surface_style(const string &in surface)
+{
+string s=string_to_lower_case(surface);
+if(surface_is_wall(surface) or string_contains(s,"wall",1)>=0 or string_contains(s,"fence",1)>=0)return 1;
+if(string_contains(s,"water",1)>=0 or string_contains(s,"river",1)>=0 or string_contains(s,"ocean",1)>=0 or string_contains(s,"harbour",1)>=0)return 2;
+if(string_contains(s,"hazard",1)>=0 or string_contains(s,"fire",1)>=0 or string_contains(s,"lava",1)>=0)return 3;
+return 0;
+}
+
+void visual_rebuild_static_geometry()
+{
+int z=int(round(me.z,0));
+if(visual_geometry_map==mapname and visual_geometry_z==z and visual_geometry_tiles==tile_regions.length() and visual_geometry_walls==walls.length() and visual_geometry_age.elapsed<5000)return;
+visual_static_geometry.resize(0);
+visual_geometry_age.restart();
+visual_geometry_map=mapname;visual_geometry_z=z;visual_geometry_tiles=tile_regions.length();visual_geometry_walls=walls.length();
+for(uint i=0;i<tile_regions.length();i++)
+{
+map_region@ r=tile_regions[i];if(z<r.minz or z>r.maxz)continue;
+visual_static_geometry.insert_last(visual_world_rect(r.minx,r.maxx+1,r.miny,r.maxy+1,visual_surface_style(r.value)));
+}
+for(uint i=0;i<walls.length();i++)if(walls[i].map==mapname and z>=walls[i].miniz and z<=walls[i].maxz)visual_static_geometry.insert_last(visual_world_rect(walls[i].x,walls[i].x+1,walls[i].y,walls[i].y+1,1));
+for(uint i=0;i<ladders.length();i++)if(ladders[i].map==mapname and z>=ladders[i].miniz and z<=ladders[i].maxz)visual_static_geometry.insert_last(visual_world_rect(ladders[i].x,ladders[i].x+1,ladders[i].y,ladders[i].y+1,4));
+}
+
+visual_world_frame@ visual_build_world_frame()
+{
+visual_rebuild_static_geometry();
+visual_world_frame@ frame=visual_world_frame();
+frame.map_name=map_display_name(mapname);frame.zone=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
+frame.player_x=me.x;frame.player_y=me.y;frame.player_z=me.z;frame.player_heading=facing;
+frame.stamina=stamina;frame.max_stamina=max_stamina;frame.map_width=max.x>0?max.x:1;frame.map_height=max.y>0?max.y:1;
+// Keep the per-frame scene small even on the expanded city maps.  The static
+// cache may contain the whole map, but the detailed camera cannot show
+// anything outside this radius.
+for(uint i=0;i<visual_static_geometry.length();i++)
+{
+visual_world_rect@ r=visual_static_geometry[i];
+if(r.x2<me.x-40 or r.x1>me.x+40 or r.y2<me.y-40 or r.y1>me.y+40)continue;
+frame.geometry.insert_last(r);
+}
+
+// Runtime furniture, fixtures and vehicle bodies are transformed back into
+// world rectangles.  Only nearby objects enter the detailed viewport.
+for(uint i=0;i<dynamic_map_elements.length();i++)
+{
+dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active or abs(e.x-me.x)>45 or abs(e.y-me.y)>45)continue;
+for(uint j=0;j<e.tiles.length();j++)
+{
+dynamic_map_tile@ t=e.tiles[j];if(me.z<e.z+t.z1-2 or me.z>e.z+t.z2+2)continue;
+double ax,ay,az,bx,by,bz,cx,cy,cz,dx,dy,dz;
+e.local_to_world(t.x1,t.y1,0,ax,ay,az);e.local_to_world(t.x2,t.y1,0,bx,by,bz);e.local_to_world(t.x1,t.y2,0,cx,cy,cz);e.local_to_world(t.x2,t.y2,0,dx,dy,dz);
+double minx=ax;if(bx<minx)minx=bx;if(cx<minx)minx=cx;if(dx<minx)minx=dx;double maxx=ax;if(bx>maxx)maxx=bx;if(cx>maxx)maxx=cx;if(dx>maxx)maxx=dx;
+double miny=ay;if(by<miny)miny=by;if(cy<miny)miny=cy;if(dy<miny)miny=dy;double maxy=ay;if(by>maxy)maxy=by;if(cy>maxy)maxy=cy;if(dy>maxy)maxy=dy;
+frame.geometry.insert_last(visual_world_rect(minx,maxx,miny,maxy,t.solid?4:visual_surface_style(t.material)));
+}
+}
+
+for(uint i=0;i<pois.length();i++)frame.markers.insert_last(visual_world_marker(pois[i].x,pois[i].y,pois[i].z,string_replace(pois[i].name,"_"," ",true),0));
+if(waypoint_name!="" and waypoint_map==mapname)frame.markers.insert_last(visual_world_marker(waypoint_x,waypoint_y,waypoint_z,waypoint_name,4));
+for(uint i=0;i<map_vehicles.length();i++)if(!map_vehicles[i].destroyed)frame.markers.insert_last(visual_world_marker(map_vehicles[i].x,map_vehicles[i].y,map_vehicles[i].z,map_vehicles[i].get_name(),2,map_vehicles[i].facing));
+for(uint i=0;i<visual_remote_players.length();)
+{
+if(visual_remote_players[i].seen.elapsed>4500){visual_remote_players.remove_at(i);continue;}
+frame.markers.insert_last(visual_world_marker(visual_remote_players[i].x,visual_remote_players[i].y,visual_remote_players[i].z,visual_remote_players[i].name,3));i++;
+}
+for(uint i=0;i<sources.length();i++)if(sources[i].id>=0 and sources[i].lx==sources[i].rx and sources[i].miny==sources[i].maxy and abs(sources[i].lx-me.x)<=40 and abs(sources[i].miny-me.y)<=40)frame.markers.insert_last(visual_world_marker(sources[i].lx,sources[i].miny,sources[i].minz,"",3));
+
+string weapon_id=(w>=0 and w<int(weapons.length()))?weapons[w]:"";
+frame.weapon=weapon_id!="" and weapon_id!="empty"?get_weapon_display_name(weapon_id):"Unarmed";
+int gun=find_gun(weapon_id);
+if(gun>=0)frame.ammo=gun_ammos[gun].mag_loaded+" / "+gun_ammos[gun].mag_capacity+"  "+ammunition_display_name(gun_ammos[gun].loaded_ammunition);
+else frame.ammo=get_weapon_class(weapon_id)==""?"No ammunition":"Ready";
+string mode=has_fire_modes(weapon_id)?fire_mode_name(get_fire_mode(weapon_id)):"fixed";
+frame.status="Fire mode: "+mode+"\nVertical aim: "+turn+" degrees\nElevation: "+int(me.z)+"\n"+get_effects_string();
+if(in_vehicle and player_vehicle_index>=0 and player_vehicle_index<int(map_vehicles.length()))
+{
+vehicle@ active_vehicle=map_vehicles[player_vehicle_index];
+frame.status=active_vehicle.get_name()+"\nHealth: "+active_vehicle.health+"   Armour: "+active_vehicle.armor+"\nFuel: "+round(active_vehicle.fuel,1)+" litres   Speed: "+round(active_vehicle.observed_velocity,1);
+}
+return frame;
+}
+
 void helper_visual_hud_service()
 {
-if(!helper_visual_hud)return;
-if(@iw_graphics==null){if(!helper_windows_features_available())return;@iw_graphics=graphics_helper();}
+if(!helper_visual_hud and !visual_subtitles_enabled)return;
+if(@iw_graphics==null)@iw_graphics=graphics_helper();
 if(!iw_graphics.get_active())return;
-if(speechbuff!=low_vision_last_spoken){low_vision_last_spoken=speechbuff;low_vision_dirty=true;}
-// In a match the zone and coordinates change without anything being said,
-// so the display keeps refreshing; in a dialog it only redraws on change.
+if(speechbuff!=visual_subtitle_text){visual_subtitle_text=speechbuff;visual_subtitle_seen.restart();visual_dirty=true;}
 bool match=helpers_in_match();
-if(!low_vision_dirty and low_vision_refresh.elapsed<(match?250:1000))return;
-low_vision_refresh.restart();low_vision_dirty=false;
-low_vision_frame f;
-f.in_match=match;
-f.title=match?map_display_name(mapname):low_vision_title;
-f.said=low_vision_last_spoken!=""?low_vision_last_spoken:low_vision_item;
-f.focus=low_vision_item;
-f.focus_kind=low_vision_type_label();
-if(match)
-{
-f.zone=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
-f.status=int(mr.x)+", "+int(mr.y)+", "+int(me.z)+"    facing "+int(facing)+" degrees";
-}
+bool form_visible=@current_visual_form!=null and visual_form_seen.elapsed<180;
+string visible_subtitle=visual_subtitle_seen.elapsed<7000?visual_subtitle_text:"";
+int interval=helper_visual_hud?(match?45:70):150;
+if(!visual_dirty and visual_refresh.elapsed<interval)return;
+visual_refresh.restart();visual_dirty=false;
 int dw,dh;iw_graphics.get_drawable(dw,dh);
-low_vision_draw(iw_graphics,f,dw,dh);
+if(helper_visual_hud)
+{
+if(form_visible)visual_draw_form(iw_graphics,current_visual_form,dw,dh,visible_subtitle,visual_subtitles_enabled);
+else if(match){visual_world_frame@ frame=visual_build_world_frame();visual_draw_world(iw_graphics,frame,dw,dh,visible_subtitle,visual_subtitles_enabled);}
+else if(@current_visual_form!=null)visual_draw_form(iw_graphics,current_visual_form,dw,dh,visible_subtitle,visual_subtitles_enabled);
+else visual_draw_standalone_subtitles(iw_graphics,dw,dh,visual_subtitles_enabled?visible_subtitle:"");
+}
+else visual_draw_standalone_subtitles(iw_graphics,dw,dh,visible_subtitle);
 }
 void helper_visual_status_panel()
 {
@@ -282,7 +487,7 @@ void initialize_nvgt_helpers()
 if(iw_helpers_initialized)return;
 iw_helpers_initialized=true;
 @iw_mouse=mouse(fullscreen_enabled or helper_mouse_confined);
-if(helper_visual_hud and helper_windows_features_available())@iw_graphics=graphics_helper();
+if(helper_visual_hud or visual_subtitles_enabled)@iw_graphics=graphics_helper();
 if(!helper_windows_features_available())return;
 helper_remove_stale_shortcut();
 if(helper_desktop_notifications or helper_tray_controls)
@@ -364,12 +569,12 @@ configured_operating_system=setup_choose_operating_system();
 nv_form common;common.create_window("First-boot setup: essentials",false,true);nv_form_checkbox@ modern=common.add_checkbox("Use the categorized main menu", "modern", true);nv_form_checkbox@ form_audio=common.add_checkbox("Play navigation and activation sounds in audio forms", "form_audio", true);nv_form_checkbox@ bind_loadout=common.add_checkbox("Automatically place starting equipment on the quickbar", "bind_loadout", true);nv_form_checkbox@ projectile_audio=common.add_checkbox("Hear your own projectile flight loops and flybys", "projectile_audio", true);nv_form_checkbox@ occlusion=common.add_checkbox("Enable wall and doorway sound occlusion", "occlusion", true);nv_form_input@ volume=common.add_input("Game master volume from 0 to 100 percent", "volume", "100");nv_form_button@ next=common.add_button("Continue", "continue", true);common.focus_control(modern);while(true){wait(5);common.monitor();if(common.is_pressed(next))break;}classic_main_menu=!modern.state;audio_form_sound_feedback=form_audio.state;auto_bind_starting_loadout=bind_loadout.state;hear_own_projectile_audio=projectile_audio.state;acoustic_occlusion_enabled=occlusion.state;int setup_volume=string_to_number(volume.text);if(setup_volume<0)setup_volume=0;if(setup_volume>100)setup_volume=100;mastervol=volume_percent_to_db(setup_volume);set_sound_master_volume(mastervol);
 if(configured_operating_system=="Windows")
 {
-nv_form win;win.create_window("First-boot setup: Windows and input",false,true);nv_form_checkbox@ touchscreen=win.add_checkbox("This computer has a touchscreen", "touchscreen", false);nv_form_checkbox@ hud=win.add_checkbox("Use large high-contrast contextual graphics for residual vision", "hud", false);nv_form_checkbox@ fullscreen=win.add_checkbox("Use full-screen landscape presentation for graphics and touch", "fullscreen", false);nv_form_checkbox@ notify=win.add_checkbox("Show desktop notifications for private messages, tickets, and server events", "notifications", true);nv_form_checkbox@ tray=win.add_checkbox("Add tray controls for show, hide, and mute", "tray", false);nv_form_checkbox@ voice=win.add_checkbox("Enable wake-phrase Windows voice commands", "voice_commands", false);nv_form_input@ wake=win.add_input("Voice-command wake phrase", "wake_phrase", "infinite warfare");nv_form_checkbox@ mouse_shortcuts=win.add_checkbox("Use mouse back and forward buttons to change message buffers", "mouse_shortcuts", true);nv_form_input@ system_volume=win.add_input("Windows application volume from 0 to 100", "system_volume", "100");nv_form_button@ finish=win.add_button("Continue", "continue", true);win.focus_control(touchscreen);while(true){wait(5);win.monitor();if(win.is_pressed(finish))break;}configured_touchscreen=touchscreen.state;helper_visual_hud=hud.state;fullscreen_enabled=fullscreen.state or helper_visual_hud;helper_desktop_notifications=notify.state;helper_tray_controls=tray.state;helper_voice_commands=voice.state;helper_voice_wake_phrase=wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=mouse_shortcuts.state;helper_mouse_confined=fullscreen_enabled;set_app_volume_percent(string_to_number(system_volume.text));
+nv_form win;win.create_window("First-boot setup: Windows and input",false,true);nv_form_checkbox@ touchscreen=win.add_checkbox("This computer has a touchscreen", "touchscreen", false);nv_form_checkbox@ hud=win.add_checkbox("Render the modern top-down world, HUD, minimap, menus, and forms", "hud", false);nv_form_checkbox@ subtitles=win.add_checkbox("Show spoken messages in a separate visual subtitle box", "subtitles", false);nv_form_checkbox@ visual_keyboard=win.add_checkbox("Show a visual QWERTY keyboard while typing", "visual_keyboard", false);nv_form_checkbox@ fullscreen=win.add_checkbox("Use full-screen landscape presentation for graphics and touch", "fullscreen", false);nv_form_checkbox@ notify=win.add_checkbox("Show desktop notifications for private messages, tickets, and server events", "notifications", true);nv_form_checkbox@ tray=win.add_checkbox("Add tray controls for show, hide, and mute", "tray", false);nv_form_checkbox@ voice=win.add_checkbox("Enable wake-phrase Windows voice commands", "voice_commands", false);nv_form_input@ wake=win.add_input("Voice-command wake phrase", "wake_phrase", "infinite warfare");nv_form_checkbox@ mouse_shortcuts=win.add_checkbox("Use mouse back and forward buttons to change message buffers", "mouse_shortcuts", true);nv_form_input@ system_volume=win.add_input("Windows application volume from 0 to 100", "system_volume", "100");nv_form_button@ finish=win.add_button("Continue", "continue", true);win.focus_control(touchscreen);while(true){wait(5);win.monitor();if(win.is_pressed(finish))break;}configured_touchscreen=touchscreen.state;helper_visual_hud=hud.state;visual_subtitles_enabled=subtitles.state;visual_keyboard_enabled=visual_keyboard.state;fullscreen_enabled=fullscreen.state or helper_visual_hud;helper_desktop_notifications=notify.state;helper_tray_controls=tray.state;helper_voice_commands=voice.state;helper_voice_wake_phrase=wake.text.trim_whitespace();if(helper_voice_wake_phrase=="")helper_voice_wake_phrase="infinite warfare";helper_mouse_shortcuts=mouse_shortcuts.state;helper_mouse_confined=fullscreen_enabled;set_app_volume_percent(string_to_number(system_volume.text));
 if(configured_touchscreen){nv_form touch;touch.create_window("First-boot setup: Windows touchscreen",false,true);nv_form_checkbox@ game_keyboard=touch.add_checkbox("Use the Infinite Warfare touch keyboard instead of the Windows keyboard","touch_keyboard",true);nv_form_checkbox@ analogue=touch.add_checkbox("Use analogue grid typing instead of explore-by-touch typing","analogue",false);nv_form_checkbox@ explore=touch.add_checkbox("Explore menus by holding and dragging across the touchscreen","explore",true);nv_form_checkbox@ bands=touch.add_checkbox("Expand gesture bands across the full laptop touchscreen","bands",true);nv_form_button@ done=touch.add_button("Finish touchscreen setup","finish",true);touch.focus_control(game_keyboard);while(true){wait(5);touch.monitor();if(touch.is_pressed(done))break;}touch_keyboard_enabled=game_keyboard.state;touch_keyboard_analogue=analogue.state;touch_menu_explore_enabled=explore.state;touch_pc_fullscreen_bands=bands.state;touch_force_enabled=true;if(touch_pc_fullscreen_bands)fullscreen_enabled=true;}
 }
 else if(configured_operating_system=="Android")
 {
-configured_touchscreen=true;touch_force_enabled=true;nv_form mobile;mobile.create_window("First-boot setup: Android touch",false,true);nv_form_checkbox@ game_keyboard=mobile.add_checkbox("Use the Infinite Warfare touch keyboard", "touch_keyboard", true);nv_form_checkbox@ analogue=mobile.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue", false);nv_form_checkbox@ explore=mobile.add_checkbox("Explore menu controls by holding and dragging", "explore", true);nv_form_checkbox@ bands=mobile.add_checkbox("Announce gesture bands in practice mode", "bands", true);nv_form_button@ finish=mobile.add_button("Finish setup", "finish", true);mobile.focus_control(game_keyboard);while(true){wait(5);mobile.monitor();if(mobile.is_pressed(finish))break;}touch_keyboard_enabled=game_keyboard.state;touch_keyboard_analogue=analogue.state;touch_menu_explore_enabled=explore.state;gesture_practice_speak_band=bands.state;
+configured_touchscreen=true;touch_force_enabled=true;nv_form mobile;mobile.create_window("First-boot setup: Android touch",false,true);nv_form_checkbox@ hud=mobile.add_checkbox("Render the modern top-down world, HUD, minimap, menus, and forms", "hud", false);nv_form_checkbox@ subtitles=mobile.add_checkbox("Show spoken messages in a separate visual subtitle box", "subtitles", false);nv_form_checkbox@ visual_keyboard=mobile.add_checkbox("Show the visual keyboard while typing", "visual_keyboard", true);nv_form_checkbox@ game_keyboard=mobile.add_checkbox("Use the Infinite Warfare touch keyboard", "touch_keyboard", true);nv_form_checkbox@ analogue=mobile.add_checkbox("Use analogue grid typing instead of explore-by-touch typing", "analogue", false);nv_form_checkbox@ explore=mobile.add_checkbox("Explore menu controls by holding and dragging", "explore", true);nv_form_checkbox@ bands=mobile.add_checkbox("Announce gesture bands in practice mode", "bands", true);nv_form_button@ finish=mobile.add_button("Finish setup", "finish", true);mobile.focus_control(hud);while(true){wait(5);mobile.monitor();if(mobile.is_pressed(finish))break;}helper_visual_hud=hud.state;visual_subtitles_enabled=subtitles.state;visual_keyboard_enabled=visual_keyboard.state;touch_keyboard_enabled=game_keyboard.state;touch_keyboard_analogue=analogue.state;touch_menu_explore_enabled=explore.state;gesture_practice_speak_band=bands.state;
 }
 else
 {

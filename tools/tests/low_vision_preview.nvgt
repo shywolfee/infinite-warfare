@@ -1,28 +1,24 @@
-// Renders the low-vision display with sample content so its layout can be
-// checked without starting the game. Pass "match" to draw the in-match frame.
+// Renders the modern visual presentation with sample content so its layout
+// can be checked without starting the game. Pass "match" for the world view.
 #include "bgt_compat.nvgt"
 #include "../../includes/helpers/graphics_helper.nvgt"
 #include "../../includes/helpers/low_vision_display.nvgt"
 void main()
 {
-show_window("Low vision preview");
+show_window("Visual interface preview");
 graphics_helper g;
-low_vision_frame f;
-f.in_match=COMMAND_LINE.find("match")>=0;
-if(f.in_match)
+bool match=COMMAND_LINE.find("match")>=0;
+int dw,dh;
+if(match)
 {
-f.title="Ghost Town";
-f.said="Meridian Avenue between Fourth Street and Market Street, west pavement";
-f.zone="Meridian Avenue between Fourth Street and Market Street, west pavement";
-f.status="115, 160, 0    facing 90 degrees";
+visual_world_frame f;f.map_name="Ghost Town";f.zone="Meridian Avenue, west pavement";f.player_x=115;f.player_y=160;f.player_heading=90;f.map_width=300;f.map_height=300;f.weapon="M4A1";f.ammo="24 / 30  5.56 NATO";f.stamina=82;f.status="Fire mode: automatic\nVertical aim: 0 degrees\nNo active effects";
+f.geometry.insert_last(visual_world_rect(85,145,140,180,0));f.geometry.insert_last(visual_world_rect(90,92,145,177,1));f.geometry.insert_last(visual_world_rect(128,136,155,163,4));
+f.markers.insert_last(visual_world_marker(130,170,0,"Market",0));f.markers.insert_last(visual_world_marker(108,168,0,"Pickup truck",2));f.markers.insert_last(visual_world_marker(121,157,0,"Player",3));
+for(int i=0;i<300;i++){g.get_drawable(dw,dh);visual_draw_world(g,f,dw,dh,"Team: regroup at the market.",true);wait(16);}
 }
 else
 {
-f.title="Options";
-f.said="Play navigation and activation sounds in dialogs, checkbox, checked";
-f.focus="Play navigation and activation sounds in dialogs";
-f.focus_kind="Checkbox";
+visual_form_frame f;f.title="Options";f.tabs={"Accessibility","Audio","Display","Touch"};f.selected_tab=0;f.section="Visual subtitles";f.detail="On. Checkbox. Ready.";f.rows.insert_last(visual_ui_row("Modern visual interface","On","checkbox",false,true));f.rows.insert_last(visual_ui_row("Visual subtitles","On","checkbox",true,true));f.rows.insert_last(visual_ui_row("Visual keyboard","On","checkbox",false,true));f.focused_row=1;f.show_keyboard=true;f.keyboard_text="Hello";f.keyboard_row=2;f.keyboard_col=5;
+for(int i=0;i<300;i++){g.get_drawable(dw,dh);visual_draw_form(g,f,dw,dh,"Options, Accessibility",true);wait(16);}
 }
-int dw,dh;
-for(int i=0;i<300;i++){g.get_drawable(dw,dh);low_vision_draw(g,f,dw,dh);wait(16);}
 }

@@ -1404,6 +1404,63 @@ else if(channel==3)interface_mixer.volume=db;
 else if(channel==4)notification_mixer.volume=db;
 }
 
+bool data_copy_tree(const string &in source,const string &in destination)
+{
+if(!directory_exists(destination) and !directory_create(destination))return false;
+string[] files=find_files(source+"/*");
+for(uint i=0;i<files.length();i++)if(!file_copy(source+"/"+files[i],destination+"/"+files[i],true))return false;
+string[] folders=find_directories(source+"/*");
+for(uint i=0;i<folders.length();i++)if(!data_copy_tree(source+"/"+folders[i],destination+"/"+folders[i]))return false;
+return true;
+}
+bool copy_player_data(const string &in source,const string &in destination)
+{
+if(!directory_exists(destination) and !directory_create(destination))return false;
+string[] files={"settings.dat","keyconfig.json","gesture_config.json","servers.json"};
+for(uint i=0;i<files.length();i++)if(file_exists(source+"/"+files[i]) and !file_copy(source+"/"+files[i],destination+"/"+files[i],true))return false;
+string[] folders={"keymaps","crash_logs","builder_exports"};
+for(uint i=0;i<folders.length();i++)if(directory_exists(source+"/"+folders[i]) and !data_copy_tree(source+"/"+folders[i],destination+"/"+folders[i]))return false;
+return true;
+}
+string data_location_label()
+{
+if(prefsdir==normalize_data_path(DIRECTORY_LOCAL_APPDATA+"/iw"))return "User configuration directory (AppData)";
+if(prefsdir==normalize_data_path(SCRIPT_MAIN_PATH))return "Current game directory";
+return "Custom path: "+prefsdir;
+}
+bool apply_data_location(string destination)
+{
+destination=normalize_data_path(destination);
+if(destination=="" or destination==prefsdir){speak(destination==prefsdir?"That data location is already active.":"The data path cannot be empty.");return false;}
+if(string_contains(destination+"/",prefsdir+"/",1)==0){dlg("The new data folder cannot be inside the current data folder.");return false;}
+writeprefs();
+if(!directory_exists(destination) and !directory_create(destination)){dlg("Infinite Warfare could not create "+destination+". Choose an existing writable folder or another path.");return false;}
+if(!copy_player_data(prefsdir,destination)){dlg("Infinite Warfare could not copy all player data to "+destination+". The old location remains active.");return false;}
+prefsdir=destination;
+sd.fn=client_data_path("settings.dat");
+file_put_contents(DATA_LOCATION_FILE,prefsdir+"\n",false);
+writeprefs();kb_save();save_gesture_bindings();save_server_list();
+speak("Data location changed immediately to "+prefsdir+".");
+return true;
+}
+void data_location_menu()
+{
+nv_form f;f.create_window("Game data location",false,true);
+nv_form_input@ current=f.add_input("Current location","current",data_location_label(),"",0,true,true);
+nv_form_button@ appdata=f.add_button("Use the user configuration directory (AppData)","appdata",true);
+nv_form_button@ portable=f.add_button("Use the current game directory","portable");
+nv_form_button@ custom=f.add_button("Use a custom path","custom");
+nv_form_button@ close=f.add_button("Cancel","cancel",false,true);f.focus_control(appdata);
+while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(close))return;
+string destination="";
+if(f.is_pressed(appdata))destination=DIRECTORY_LOCAL_APPDATA+"/iw";
+else if(f.is_pressed(portable))destination=SCRIPT_MAIN_PATH;
+else if(f.is_pressed(custom))destination=af_input("Custom game data path",prefsdir,connected);
+else continue;
+if(apply_data_location(destination))return;
+}
+}
+
 void optionsmenu()
 {
 nv_form f;
@@ -1486,6 +1543,7 @@ nv_form_checkbox@ f_autolog=online.add_checkbox("Save message buffers to a file 
 nv_form_checkbox@ f_helper_notifications=online.add_checkbox("Windows notifications for private messages, ticket replies, your name in chat and server problems, while the game is in the background", "helper_notifications", helper_desktop_notifications);
 nv_form_checkbox@ f_helper_tray=online.add_checkbox("Tray icon with show, hide and mute", "helper_tray", helper_tray_controls);
 nv_form_button@ f_test_notification=online.add_button("Send a test notification", "test_notification");
+nv_form_button@ f_data_location=online.add_button("Change where Infinite Warfare stores player data", "data_location");
 
 nv_form_button@ f_save=f.add_button("Save", "save", true);
 nv_form_button@ f_close=f.add_button("Cancel", "cancel", false, true);
@@ -1514,6 +1572,7 @@ if (touch.is_pressed(f_gesture_bindings)){gesture_bindings_menu();continue;}
 if (online.is_pressed(f_voice)){voice_settings_menu();continue;}
 if(@f_server_manager!=null and online.is_pressed(f_server_manager)){server_manager();f_server_address.text=netaddress;f_server_port.text=""+netport;continue;}
 if(online.is_pressed(f_test_notification)){bool was=helper_desktop_notifications;helper_desktop_notifications=true;helper_test_notification();helper_desktop_notifications=was;continue;}
+if(online.is_pressed(f_data_location)){data_location_menu();continue;}
 if(sound_page.is_pressed(f_toggle_system_mute)){helper_toggle_app_mute();continue;}
 // Setup replaces these settings wholesale, so this screen reopens with its
 // answers rather than saving stale values over them.
@@ -1923,6 +1982,7 @@ nv_form_button@ f_player_reports=moderation.add_button("List filed player report
 nv_form_button@ f_admin_log=moderation.add_button("Read the administration log", "admin_log");
 nv_form_button@ f_notify=communication.add_button("Broadcast a server notification", "notify");
 nv_form_button@ f_motd=communication.add_button("Replace the message of the day", "motd");
+nv_form_button@ f_announcement=communication.add_button("Post a persistent staff announcement", "announcement");
 nv_form_button@ f_builder=world.add_button("Open the live map builder", "builder");
 nv_form_button@ f_teleport=world.add_button("Teleport to coordinates", "teleport");
 nv_form_button@ f_give=world.add_button("Give an item to a player", "give");
@@ -1962,6 +2022,13 @@ if(saved)
 speak("Authorization mode "+(f_authmode.state ? "enabled" : "disabled")+" and saved.");
 else
 dlg("Failed to save setting. Server may not have responded.");
+}
+else if(communication.is_pressed(f_announcement))
+{
+string text=af_input("Staff announcement","",true).trim_whitespace();if(text=="")continue;
+send_reliable(0,"announcement_post "+text,0);string response;
+if(wait_for_service_response("announcement_",response,4000))speak(response=="announcement_posted"?"Announcement posted.":string_replace(response,"announcement_error ","",false));
+else speak("The announcement request timed out.");
 }
 else if(accounts.is_pressed(f_viewunauth))
 {

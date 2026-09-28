@@ -814,6 +814,8 @@ string profile="Player: "+display+"<<NL>>Status: "+status+"<<NL>>Role: "+role+"<
 int ti=get_team_index_for_member(display);if(ti>=0){int mi=get_team_member_index(ti,display);profile+="<<NL>>Team: "+teams[ti].name;if(mi>=0)profile+="<<NL>>Team role: "+teams[ti].members[mi].role;}
 send_reliable(e.peer_id,"player_profile_response "+profile,0);
 }
+else if(parsed[0]=="announcements_get")send_reliable(e.peer_id,"announcements_response "+chat_escape(read_staff_announcements()),0);
+else if(parsed[0]=="announcement_post")post_staff_announcement(e.peer_id,string_replace(get_event_message(),"announcement_post ","",false));
 else if(parsed[0]=="accounts_list")
 {
 send_moderation_account_list(e.peer_id);

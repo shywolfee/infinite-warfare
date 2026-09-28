@@ -129,12 +129,13 @@ game_dashboard_options.add("Control deployed companions: View, command, recall o
 game_dashboard_options.add("Configure Infinite Warfare: Change audio, accessibility, controls, interface, network and gameplay preferences. Alt+O.","options");
 game_dashboard_options.add("Browse game help: Read controls, mechanics and other reference topics. Alt+H.","help");
 game_dashboard_options.add("View game changes: Display the latest changes and release notes. Alt+W.","changes");
+game_dashboard_options.add("View latest announcements: Read persistent news posted by the Infinite Warfare staff. Alt+N.","announcements");
 game_dashboard_options.add("Read the game rules: Review the standards that apply while playing online. Alt+R.","rules");
 game_dashboard_options.add("Review your account: Display your player name, registration and saved email status. Alt+A.","account");
 game_dashboard_options.add("View the developers and credits: Read who created and contributed to Infinite Warfare. Alt+D.","developers");
 if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)game_dashboard_options.add("Open staff administration: Access moderation, world-building, account and server tools. Alt+M.","staff");
-string[] shortcut_ids={"stats","equipment","team","inventory","groups","companions","options","help","changes","rules","account","developers","staff"};
-int[] shortcut_keys={KEY_S,KEY_E,KEY_T,KEY_I,KEY_B,KEY_C,KEY_O,KEY_H,KEY_W,KEY_R,KEY_A,KEY_D,KEY_M};
+string[] shortcut_ids={"stats","equipment","team","inventory","groups","companions","options","help","changes","announcements","rules","account","developers","staff"};
+int[] shortcut_keys={KEY_S,KEY_E,KEY_T,KEY_I,KEY_B,KEY_C,KEY_O,KEY_H,KEY_W,KEY_N,KEY_R,KEY_A,KEY_D,KEY_M};
 for(uint i=0;i<game_dashboard_options.items.length();i++){nv_form_button@ shortcut=game_dashboard_form.add_button("", "__dash_option_"+shortcut_ids[i]);shortcut.hidden=true;@shortcut.shortcut=nv_shortcut(shortcut_keys[i],alt=true);}
 game_dashboard_options.set_pos(0,false);game_dashboard_refresh_timer.restart();game_dashboard_player_timer.restart();
 game_dashboard_form.monitor();game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form),true,false);
@@ -162,11 +163,22 @@ if(account_exists(name)){savedata acct(get_account_path(name),ACCOUNT_SECRET);ac
 else lines.insert_last("No registered account for this name.");show_info_list("Your account",lines);
 }
 
+bool announcements_received=false;
+string announcements_text="";
+void show_staff_announcements()
+{
+announcements_received=false;announcements_text="";send_reliable(0,"announcements_get",0);timer timeout;
+while(connected and !announcements_received and timeout.elapsed<4000){wait(5);netloop(false);}
+if(!announcements_received){speak("The announcements request timed out.");return;}
+nv_form f;f.create_window("Latest staff announcements",false,true);nv_form_input@ body=f.add_input("Announcements","announcements",announcements_text,"",0,true,true);nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(body);while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;}
+}
+
 void game_dashboard_open_action_id(const string &in chosen)
 {
 if(chosen=="stats")show_info_list("Status",ingame_stats_lines());else if(chosen=="equipment")equipment_menu();else if(chosen=="team")team_menu();
 else if(chosen=="inventory")inventory_menu();else if(chosen=="groups")groups_menu();else if(chosen=="companions")companion_remote_menu();
 else if(chosen=="options")optionsmenu();else if(chosen=="help")show_help_list();else if(chosen=="changes")show_changelog_form();
+else if(chosen=="announcements")show_staff_announcements();
 else if(chosen=="rules")dlg(read_text_file_or("rules.txt","The rules file is missing."));else if(chosen=="account")game_dashboard_show_account();
 else if(chosen=="developers")dlg(read_text_file_or("developers.txt","The developers file is missing."));else if(chosen=="staff")ingame_adminpanel();
 }

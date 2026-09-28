@@ -355,6 +355,17 @@ class nv_form_input: nv_form_control {
 	int current_line_start_position(bool word = false) {
 		if (text == "")
 			return -1;
+		// Focus announcements only need the line under the caret. Use the
+		// string search primitive for that common path instead of walking a
+		// potentially very large document one character at a time.
+		if (!word) {
+			int probe = cursor;
+			if (probe >= int(text.length())) probe = int(text.length()) - 1;
+			if (probe >= 0 && probe == cursor && text[probe] == "\n") probe--;
+			if (probe < 0) return 0;
+			int boundary = text.rfind("\n", probe);
+			return boundary < 0 ? 0 : boundary + 1;
+		}
 		int i = cursor;
 		while (i<text.length() and word and i >= 0 and nvform_word_separators .find(text[i]) > -1)
 			i--;
@@ -372,14 +383,9 @@ class nv_form_input: nv_form_control {
 		return 0;
 	}
 	string read_line(int position) {
-		string temp = "";
 		if (position < 0) position = 0;
-		for (int counter = position; counter < text.length(); counter++) {
-			if (text[counter] != "\n")
-				temp += text[counter];
-			else
-				break;
-		}
+		int line_end=text.find("\n",position);
+		string temp=line_end<0?text.substr(position):text.substr(position,line_end-position);
 		if (temp == "")
 			return "Blank";
 		if (password_mask != "")

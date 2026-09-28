@@ -151,7 +151,7 @@ timer lockout_timer;
 bool lockout_active=false;
 bool capture_service_response(string message)
 {
-string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_purchase_","er_purchase_","er_credit_"};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
+string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_purchase_","er_purchase_","er_credit_","announcement_posted","announcement_error "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
 }
 bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000)
 {
@@ -263,7 +263,24 @@ timer vertical_aim_timer;
 timer vertical_aim_limit_report_timer;
 timer gametracktimer;
 int mousey, mousex, mousez;
-string prefsdir=DIRECTORY_LOCAL_APPDATA+"/iw";
+const string DATA_LOCATION_FILE=DIRECTORY_LOCAL_APPDATA+"/iw_data_location.txt";
+string normalize_data_path(string path)
+{
+path=string_replace(path,"\\","/",true).trim_whitespace();
+while(path.length()>1 and string_right(path,1)=="/")path=string_left(path,path.length()-1);
+return path;
+}
+string initial_data_directory()
+{
+if(file_exists(DATA_LOCATION_FILE))
+{
+string selected=normalize_data_path(file_get_contents(DATA_LOCATION_FILE));
+if(selected!="")return selected;
+}
+return DIRECTORY_LOCAL_APPDATA+"/iw";
+}
+string prefsdir=initial_data_directory();
+string client_data_path(const string &in relative){return prefsdir+"/"+relative;}
 timer respawntimer;
 int channels=1;
 int firetime;
@@ -379,7 +396,8 @@ timer weapon_sway_timer;
 int weapon_sway_duration=0;
 timer last_server_msg;
 int walktime=170;
-savedata sd(prefsdir+"/settings.dat","hgdfgjkdfsglfggfhguhgyktryjkgseryjkgjkyg323454FAFHYGSYJTYGSTJHJTYgdfgsysdfjfgRhRHGRhdgshgsgyjstjkfgfbghsdfvdgsfgdsfgfG$%^&^%HFGHDTRGHYRHNTRsjk");
+const string SETTINGS_SECRET="hgdfgjkdfsglfggfhguhgyktryjkgseryjkgjkyg323454FAFHYGSYJTYGSTJHJTYgdfgsysdfjfgRhRHGRhdgshgsgyjstjkfgfbghsdfvdgsfgdsfgfG$%^&^%HFGHDTRGHYRHNTRsjk";
+savedata sd(client_data_path("settings.dat"),SETTINGS_SECRET);
 vector me,wal,lad,mr,max,camera;
 string currentcameratile;
 string mapname;
@@ -768,11 +786,11 @@ mainmenu();
 }
 void write_client_exception_log()
 {
-string folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(folder);string path=folder+"/client_exception_"+ticks()+".log";string report="Infinite Warfare client exception\nVersion: "+version_name+", build "+build_number+" ("+build_date+")\nCompiled: "+SCRIPT_COMPILED+"\nExecutable: "+SCRIPT_EXECUTABLE+"\nMain path: "+SCRIPT_MAIN_PATH+"\nException: "+get_exception_info()+"\nFunction: "+get_exception_function()+"\nFile: "+get_exception_file()+"\nLine: "+get_exception_line()+"\nLast engine error: "+get_last_error()+"\nCall stack:\n"+last_exception_call_stack+"\n";file_put_contents(path,report,false);alert("Infinite Warfare crashed","A diagnostic log was saved to "+path+". Please share that file with the developers.\n\n"+get_exception_info());
+string folder=client_data_path("crash_logs");directory_create(folder);string path=folder+"/client_exception_"+ticks()+".log";string report="Infinite Warfare client exception\nVersion: "+version_name+", build "+build_number+" ("+build_date+")\nCompiled: "+SCRIPT_COMPILED+"\nExecutable: "+SCRIPT_EXECUTABLE+"\nMain path: "+SCRIPT_MAIN_PATH+"\nException: "+get_exception_info()+"\nFunction: "+get_exception_function()+"\nFile: "+get_exception_file()+"\nLine: "+get_exception_line()+"\nLast engine error: "+get_last_error()+"\nCall stack:\n"+last_exception_call_stack+"\n";file_put_contents(path,report,false);alert("Infinite Warfare crashed","A diagnostic log was saved to "+path+". Please share that file with the developers.\n\n"+get_exception_info());
 }
 void write_recoverable_network_error(string context,string detail)
 {
-string folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(folder);file_put_contents(folder+"/client_network_errors.log","At "+ticks()+" ms, "+context+": "+detail+"\n",true);
+string folder=client_data_path("crash_logs");directory_create(folder);file_put_contents(folder+"/client_network_errors.log","At "+ticks()+" ms, "+context+": "+detail+"\n",true);
 }
 void safe_server_ammo_grant(string weapon,string amount_text)
 {
@@ -788,7 +806,7 @@ void main()
 run_client_regression();
 return;
 #endif
-string session_folder=DIRECTORY_LOCAL_APPDATA+"/iw/crash_logs";directory_create(session_folder);file_put_contents(session_folder+"/latest_client_session.log","Infinite Warfare session started. Version "+version_name+", build "+build_number+". Compiled: "+SCRIPT_COMPILED+". Executable: "+SCRIPT_EXECUTABLE+". Main path: "+SCRIPT_MAIN_PATH+".\nThis breadcrumb remains available if a native library or operating-system crash bypasses AngelScript exception handling.\n",false);
+string session_folder=client_data_path("crash_logs");directory_create(session_folder);file_put_contents(session_folder+"/latest_client_session.log","Infinite Warfare session started. Version "+version_name+", build "+build_number+". Compiled: "+SCRIPT_COMPILED+". Executable: "+SCRIPT_EXECUTABLE+". Main path: "+SCRIPT_MAIN_PATH+".\nThis breadcrumb remains available if a native library or operating-system crash bypasses AngelScript exception handling.\n",false);
 // Looping ambience beds are what make a map sound like a place, and a map can
 // carry twenty of them. Without an earshot limit the pool keeps every one of
 // them decoding for the whole match, whether you are standing in it or four
@@ -1601,7 +1619,7 @@ string map_id,data;if(!builder_fetch_map_data(map_id,data))return;dictionary cou
 
 void builder_export_snapshot()
 {
-string map_id,data;if(!builder_fetch_map_data(map_id,data))return;string folder=DIRECTORY_LOCAL_APPDATA+"/iw/builder_exports";directory_create(DIRECTORY_LOCAL_APPDATA+"/iw");directory_create(folder);string path=folder+"/"+map_id+"_"+ticks()+".map";file_put_contents(path,data,false);speak("Exported the current authoritative map source to "+path+".");
+string map_id,data;if(!builder_fetch_map_data(map_id,data))return;string folder=client_data_path("builder_exports");directory_create(prefsdir);directory_create(folder);string path=folder+"/"+map_id+"_"+ticks()+".map";file_put_contents(path,data,false);speak("Exported the current authoritative map source to "+path+".");
 }
 
 void builder_teleport_tool()
@@ -4939,6 +4957,10 @@ show_readonly_audio_form("Message of the Day",string_replace(full_msg,"motd_resp
 else if(parsed[0]=="player_profile_response")
 {
 receive_player_profile(full_msg);
+}
+else if(parsed[0]=="announcements_response")
+{
+announcements_text=chat_unescape(string_replace(full_msg,"announcements_response ","",false));announcements_received=true;
 }
 else if(parsed[0]=="accounts_list_response" or parsed[0]=="account_detail_response" or parsed[0]=="accounts_error")
 {

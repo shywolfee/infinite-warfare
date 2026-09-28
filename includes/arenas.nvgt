@@ -1,0 +1,26 @@
+int client_arena_id=0;string client_arena_role="none",client_arena_state="none";
+string arena_saved_inventory="";
+string[] arena_saved_order,arena_saved_quickbar,arena_saved_weapons;
+int arena_saved_weapon_index=0;
+bool arena_inventory_saved=false;
+void restore_arena_inventory()
+{
+if(!arena_inventory_saved)return;
+inv=deserialize(arena_saved_inventory);
+inventory_order=arena_saved_order;quickbar=arena_saved_quickbar;weapons=arena_saved_weapons;
+w=arena_saved_weapon_index;arena_inventory_saved=false;
+invalidate_inventory_keys();
+}
+bool handle_arena_packet(const string &in message)
+{
+string[] f=string_split(message," ",true);if(f.length()==0)return false;
+if(f[0]=="arena_begin" and f.length()>4){client_arena_id=string_to_number(f[1]);client_arena_role=f[2];client_arena_state="active";if(!arena_inventory_saved){arena_saved_inventory=serialize(inv);arena_saved_order=inventory_order;arena_saved_quickbar=quickbar;arena_saved_weapons=weapons;arena_saved_weapon_index=w;arena_inventory_saved=true;}inv.delete_all();inventory_order.resize(0);quickbar.resize(0);weapons.resize(0);invalidate_inventory_keys();string[] loadout=string_split(f[4],",",true);for(uint i=0;i<loadout.length();i++)give(loadout[i],1);if(client_arena_role=="spectator"){can_move=true;speak("Arena started. You are spectating and cannot deal or receive damage.");}else{speak("Arena started. Last combatant standing wins. Your arena loadout is temporary; your ordinary inventory will return after the match.");}return true;}
+if(f[0]=="arena_eliminated"){client_arena_role="spectator";client_arena_state="active";can_move=true;speak("You have been eliminated. You are now an invulnerable spectator until the arena finishes.");return true;}
+if(f[0]=="arena_finished"){client_arena_state="finished";can_move=true;restore_arena_inventory();string winner=f.length()>2?f[2]:"";speak(winner==""?"The arena finished without a winner.":winner+" won the arena. Your ordinary inventory has been restored.");return true;}
+return false;
+}
+string arena_request(string command,string prefix="arena_",int timeout=3500){send_reliable(0,command,0);string response;if(!wait_for_service_response(prefix,response,timeout)){speak("The arena service did not answer.");return "";}return response;}
+void arena_manager()
+{
+while(true){string response=arena_request("arena_list","arena_list ");if(response=="")return;string[] entries=string_split(string_replace(response,"arena_list ","",false),";",true);nv_form f;f.create_window("Automatic PK Arenas",false,true);nv_form_list_box@ list=f.add_list("Public arena instances","arenas");for(uint i=0;i<entries.length();i++){string[] a=string_split(entries[i],"~",false);if(a.length()<7)continue;list.add("Arena "+a[0]+": "+a[1]+", hosted by "+a[2]+", "+a[3]+", "+a[4]+" members, on "+a[5]+". Rules: "+a[6],a[0]);}if(list.items.length()==0)list.add("No public arenas are waiting or active.","none");nv_form_button@ create=f.add_button("Create a public arena instance","create",true);nv_form_button@ join=f.add_button("Join selected arena as a combatant","join");nv_form_button@ spectate=f.add_button("Join selected arena as a spectator","spectate");nv_form_button@ status=f.add_button("Read and manage my current arena","status");nv_form_button@ start=f.add_button("Start my hosted arena","start");nv_form_button@ leave=f.add_button("Leave my current arena","leave");nv_form_button@ close=f.add_button("Close arenas","close",false,true);f.focus_control(list);while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;string command="";if(f.is_pressed(create)){string[] types={"Open Arsenal: balanced rifle and sidearm combat","Sidearm Showdown: pistols and compact medical supplies","Close Quarters: melee weapons only","Demolition Ring: grenades and defensive equipment"};int type=android_select("Choose arena rules and starting loadout",types);if(type<0)continue;string[] ids={"open","sidearms","melee","explosives"};int role=android_select("Choose your host role",{"Combatant","Spectator"});if(role<0)continue;command="arena_create "+ids[type]+" "+(role==0?"combatant":"spectator");}else if(f.is_pressed(join) and @list.focused_item!=null and list.focused_item.id!="none")command="arena_join "+list.focused_item.id+" combatant";else if(f.is_pressed(spectate) and @list.focused_item!=null and list.focused_item.id!="none")command="arena_join "+list.focused_item.id+" spectator";else if(f.is_pressed(status))command="arena_status";else if(f.is_pressed(start))command="arena_start";else if(f.is_pressed(leave))command="arena_leave";if(command!=""){string result=arena_request(command);if(command=="arena_leave" and string_contains(result,"arena_ok",1)==0)restore_arena_inventory();speak(string_replace(string_replace(string_replace(result,"arena_ok ","",false),"arena_error ","",false),"arena_status ","Arena ",false));break;}}}
+}

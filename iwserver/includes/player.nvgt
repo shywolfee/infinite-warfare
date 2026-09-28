@@ -67,6 +67,9 @@ int credits=0;
 timer online_shop_timer;
 int bunkers_owned=0;
 bool has_hypercomp=false;
+int terminal_storage=64;
+string terminal_os="frontier_os";
+string[] terminal_apps;
 bool[] bunker_monitor;
 string mate="";
 timer torpedotimer;
@@ -87,6 +90,8 @@ double model_x,model_y,model_z,model_target_x,model_target_y,model_target_z;
 double model_vx=0,model_vy=0,model_vz=0;
 timer model_motion_timer;
 string map;
+int arena_id=0;
+string arena_role="none";
 string zone;
 string name;
 int peer_id;
@@ -167,7 +172,7 @@ int combat_logout_remaining(player@ p)
 {
 int remaining=0;if(p.damage_taken_recent){int value=30000-p.damage_taken_timer.elapsed;if(value>remaining)remaining=value;}if(p.damage_dealt_recent){int value=20000-p.damage_dealt_timer.elapsed;if(value>remaining)remaining=value;}return remaining>0?remaining:0;
 }
-int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p))return 0;if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;p.damage_taken_recent=true;p.damage_taken_timer.restart();int attacker=combat_attacker_index(source);if(attacker>=0 and players[attacker].name!=p.name){players[attacker].damage_dealt_recent=true;players[attacker].damage_dealt_timer.restart();}if(source!="")p.hitby=source;return amount;}
+int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p) or p.arena_role=="spectator")return 0;int attacker=combat_attacker_index(source);if(attacker>=0 and players[attacker].name!=p.name){if(players[attacker].arena_role=="spectator" or players[attacker].arena_id!=p.arena_id)return 0;players[attacker].damage_dealt_recent=true;players[attacker].damage_dealt_timer.restart();}if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;p.damage_taken_recent=true;p.damage_taken_timer.restart();if(source!="")p.hitby=source;return amount;}
 int scaled_fall_damage(int distance)
 {
 // The first three vertical units are survivable. Beyond that, kinetic energy
@@ -445,6 +450,9 @@ int dead_team=get_team_index_for_member(players[i].name);
 if (dead_team>-1) team_notice(dead_team, players[i].name+" was downed. A nearby teammate can use a life injection or Team Revive Kit.");
 send_reliable(0,killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone),2);
 send_reliable(0, "play_s killalert.ogg", 0);
+bool arena_elimination=arena_on_death(players[i]);
+if(!arena_elimination)
+{
 send_reliable(players[i].peer_id, "death", 0);
 er_play("character/voice"+random(1,2)+"/death"+random(1,3),players[i]);
 spawn_corpse(players[i].x, players[i].y, players[i].z, players[i].map, players[i].inv, players[i].ammo);
@@ -459,7 +467,8 @@ send_reliable(0, bunkers[b].name+" has been released. Its owner, "+players[i].na
 }
 players[i].bunkers_owned=0;
 players[i].has_hypercomp=false;
-players[i].death=true;
+}
+players[i].death=!arena_elimination;
 }
 }
 }

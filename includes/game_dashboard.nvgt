@@ -124,8 +124,10 @@ game_dashboard_options.add("Review your current status: Display your weapon, loc
 game_dashboard_options.add("Manage your equipment: Review and change armour, holsters and other currently equipped gear. Alt+E.","equipment");
 game_dashboard_options.add("Manage your team: Control membership, roles, shared resources, team chat and team actions. Alt+T.","team");
 game_dashboard_options.add("Open your complete inventory: Browse, inspect, configure, use, give or drop the items you carry. Alt+I.","inventory");
+game_dashboard_options.add("Spend credits: Open the marketplace through your HyperComp Smart Terminal. Alt+X.","spend");
 game_dashboard_options.add("Manage your groups: Review group conversations, invitations, membership and quick-chat selection. Alt+B.","groups");
 game_dashboard_options.add("Control deployed companions: View, command, recall or directly pilot every drone and chimp you own. Alt+C.","companions");
+game_dashboard_options.add("Enter automatic PK arenas: Create, join, spectate and manage public arena instances. Alt+K.","arenas");
 game_dashboard_options.add("Configure Infinite Warfare: Change audio, accessibility, controls, interface, network and gameplay preferences. Alt+O.","options");
 game_dashboard_options.add("Browse game help: Read controls, mechanics and other reference topics. Alt+H.","help");
 game_dashboard_options.add("View game changes: Display the latest changes and release notes. Alt+W.","changes");
@@ -134,8 +136,8 @@ game_dashboard_options.add("Read the game rules: Review the standards that apply
 game_dashboard_options.add("Review your account: Display your player name, registration and saved email status. Alt+A.","account");
 game_dashboard_options.add("View the developers and credits: Read who created and contributed to Infinite Warfare. Alt+D.","developers");
 if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)game_dashboard_options.add("Open staff administration: Access moderation, world-building, account and server tools. Alt+M.","staff");
-string[] shortcut_ids={"stats","equipment","team","inventory","groups","companions","options","help","changes","announcements","rules","account","developers","staff"};
-int[] shortcut_keys={KEY_S,KEY_E,KEY_T,KEY_I,KEY_B,KEY_C,KEY_O,KEY_H,KEY_W,KEY_N,KEY_R,KEY_A,KEY_D,KEY_M};
+string[] shortcut_ids={"stats","equipment","team","inventory","spend","groups","companions","arenas","options","help","changes","announcements","rules","account","developers","staff"};
+int[] shortcut_keys={KEY_S,KEY_E,KEY_T,KEY_I,KEY_X,KEY_B,KEY_C,KEY_K,KEY_O,KEY_H,KEY_W,KEY_N,KEY_R,KEY_A,KEY_D,KEY_M};
 for(uint i=0;i<game_dashboard_options.items.length();i++){nv_form_button@ shortcut=game_dashboard_form.add_button("", "__dash_option_"+shortcut_ids[i]);shortcut.hidden=true;@shortcut.shortcut=nv_shortcut(shortcut_keys[i],alt=true);}
 game_dashboard_options.set_pos(0,false);game_dashboard_refresh_timer.restart();game_dashboard_player_timer.restart();
 game_dashboard_form.monitor();game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form),true,false);
@@ -176,7 +178,9 @@ nv_form f;f.create_window("Latest staff announcements",false,true);nv_form_input
 void game_dashboard_open_action_id(const string &in chosen)
 {
 if(chosen=="stats")show_info_list("Status",ingame_stats_lines());else if(chosen=="equipment")equipment_menu();else if(chosen=="team")team_menu();
+else if(chosen=="spend"){if(get_item_count("hypercomp")<=0)speak("Spend credits requires a HyperComp Smart Terminal in your inventory.");else online_supply_shop();}
 else if(chosen=="inventory")inventory_menu();else if(chosen=="groups")groups_menu();else if(chosen=="companions")companion_remote_menu();
+else if(chosen=="arenas")arena_manager();
 else if(chosen=="options")optionsmenu();else if(chosen=="help")show_help_list();else if(chosen=="changes")show_changelog_form();
 else if(chosen=="announcements")show_staff_announcements();
 else if(chosen=="rules")dlg(read_text_file_or("rules.txt","The rules file is missing."));else if(chosen=="account")game_dashboard_show_account();

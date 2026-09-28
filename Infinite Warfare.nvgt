@@ -19,6 +19,8 @@
 #include "includes/weapon_handling.nvgt"
 #include "includes/executioners_rage.nvgt"
 #include "includes/item_mechanics.nvgt"
+#include "includes/smart_terminal.nvgt"
+#include "includes/arenas.nvgt"
 #include "includes/release_tools.nvgt"
 #include"includes/buffer.nvgt"
 #include "includes/chat_system.nvgt"
@@ -151,7 +153,7 @@ timer lockout_timer;
 bool lockout_active=false;
 bool capture_service_response(string message)
 {
-string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_purchase_","er_purchase_","er_credit_","announcement_posted","announcement_error "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
+string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","er_purchase_","er_credit_","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
 }
 bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000)
 {
@@ -373,10 +375,10 @@ int multitool_uses=0;
 // `version` stays a bare number because it travels inside the space-delimited
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
-double version=0.52;
-string version_name="0.5.2";
-int build_number=86;
-string build_date="2026-09-22";
+double version=0.53;
+string version_name="0.5.3";
+int build_number=87;
+string build_date="2026-09-28";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
@@ -2369,12 +2371,12 @@ return;
 }
 else if (item == "hypercomp")
 {
-hypercomp_menu();
+smart_terminal_menu();
 return;
 }
 else if(item=="portable_auction_terminal")
 {
-online_supply_shop();
+give("portable_auction_terminal",-1);give("hypercomp",1);speak("The legacy Portable Auction Terminal has been upgraded into a HyperComp Smart Terminal with Marketplace, App Store and commerce applications.");smart_terminal_menu();
 return;
 }
 else if(executioners_item_use(item))return;
@@ -2774,7 +2776,7 @@ break;
 }
 return result;
 }
-void hypercomp_menu()
+void hypercomp_legacy_menu()
 {
 p.play_stationary("hypercomp_activate.ogg", false);
 iw_form f;
@@ -4925,6 +4927,9 @@ else if(handle_world_editor_packet(full_msg))
 {
 }
 else if(handle_companion_packet(full_msg))
+{
+}
+else if(handle_arena_packet(full_msg))
 {
 }
 else if(string_contains(full_msg,"lobby_plist ",1)==0)

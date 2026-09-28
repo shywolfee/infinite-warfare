@@ -28,15 +28,18 @@
 #include "includes/citem.nvgt"
 #include "../includes/sd.nvgt"
 #include "includes/account_wallet.nvgt"
+#include "includes/smart_terminal.nvgt"
+#include "includes/arenas.nvgt"
 #include "includes/native_physics.nvgt"
 #if IW_REACTPHYSICS_RUNTIME
 #include "includes/native_physics_selftest.nvgt"
 #endif
 string[] killmsgs;
 timer spawn_chesttimer;
+timer terminal_storage_spawn_timer;
 // Clients older than this speak a protocol the server no longer agrees with
 // (vehicle damage, spawning and healing all moved to the server in 0.5.2).
-double minversion=0.52;
+double minversion=0.53;
 const int port=1316;
 string adminlist="";
 string[] dev_list = {"velan"};
@@ -201,6 +204,10 @@ if(spawn_chesttimer.elapsed>=300000 and chests.length()<=10)
 spawn_chesttimer.restart();
 spawn_chest(random(490,550),random(565,585),0,"battlegrounds",in_chest[random(0,in_chest.length()-1)]);
 send_reliable(0, "there is a chest spawned", 2);  
+}
+if(terminal_storage_spawn_timer.elapsed>=240000)
+{
+terminal_storage_spawn_timer.restart();string[] storage={"usb_flash_drive_32","usb_flash_drive_32","memory_card_64","solid_state_module_256","quantum_storage_1tb"};string[] storage_maps={"freeforall","battlegrounds","freyas_ascent","habitat_alpha"};string storage_map=storage_maps[random(0,storage_maps.length()-1)];int[] storage_at=choose_safe_player_spawn(storage_map,0,0,0);spawn_citem(storage_at[0],storage_at[1],storage_at[2],storage_map,storage[random(0,storage.length()-1)]);
 }
 if(key_pressed(KEY_ESCAPE))
 {
@@ -2104,9 +2111,17 @@ else if(parsed[0]=="dev_credit_chip" and parsed.length()==3)
 {
 int pi=get_player_index(e.peer_id);if(pi>=0){int amount=string_to_number(parsed[2]);if(!(players[pi].dev or players[pi].admin))send_reliable(e.peer_id,"Developer credit-chip grants require server administrator or developer permission.",2);else if(is_credit_chip(parsed[1]) and amount>0 and amount<=10000){send_reliable(e.peer_id,"give "+parsed[1]+" "+amount,0);send_reliable(e.peer_id,"Granted "+amount+" authenticated "+string_replace(parsed[1],"_"," ",true)+"s.",2);}}
 }
-else if(parsed[0]=="market_balance" or parsed[0]=="market_buy")
+else if(parsed[0]=="market_balance" or parsed[0]=="market_buy" or parsed[0]=="market_catalog")
 {
 handle_online_shop_request(e.peer_id,parsed);
+}
+else if(string_contains(parsed[0],"terminal_",1)==0 or string_contains(parsed[0],"bank_",1)==0)
+{
+terminal_handle(e.peer_id,get_event_message(),parsed);
+}
+else if(string_contains(parsed[0],"arena_",1)==0)
+{
+handle_arena_request(e.peer_id,get_event_message(),parsed);
 }
 else if(parsed[0]=="er_purchase")
 {
@@ -2173,7 +2188,16 @@ int index=get_player_index(e.peer_id);
 if(index > -1)
 {
 int item_configuration=parsed.length()>2?string_to_number(parsed[2]):1;if(item_configuration<0 or item_configuration>2)item_configuration=1;
-if(item_prop(parsed[1],"use_kind")=="companion")deploy_companion(index,parsed[1]);
+if(parsed[1]=="hypercomp"){players[index].has_hypercomp=true;send_reliable(players[index].peer_id,"terminal_open",0);}
+else if(item_prop(parsed[1],"use_kind")=="companion")deploy_companion(index,parsed[1]);
+else if(item_prop(parsed[1],"use_kind")=="terminal_storage")
+{
+if(!players[index].has_hypercomp)send_reliable(players[index].peer_id,"You need a HyperComp Smart Terminal before installing storage.",2);
+else
+{
+int capacity=item_prop_int(parsed[1],"storage_gb",0);if(capacity>0){players[index].terminal_storage+=capacity;send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);send_reliable(players[index].peer_id,"Terminal storage expanded by "+capacity+" GB. Total capacity "+players[index].terminal_storage+" GB.",2);}
+}
+}
 else if(parsed[1]=="companion_command_remote")send_reliable(players[index].peer_id,"companion_remote_open",0);
 else if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
 else if(er_use_item(players[index],parsed[1],item_configuration)){return;}

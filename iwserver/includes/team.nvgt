@@ -46,6 +46,7 @@ return -1;
 
 bool same_team(string a, string b)
 {
+int pa=get_player_index_from(a),pb=get_player_index_from(b);if(pa>=0 and pb>=0 and players[pa].arena_id>0 and players[pa].arena_id==players[pb].arena_id and players[pa].arena_role=="combatant" and players[pb].arena_role=="combatant")return false;
 int ta=get_team_index_for_member(a);
 return ta>-1 and ta==get_team_index_for_member(b);
 }

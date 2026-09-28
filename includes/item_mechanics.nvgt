@@ -79,7 +79,7 @@ else if(i=="nanomatic_multitool" or i=="nanomatic_components" or i=="repair_kit"
 else if(item_is_weapon_maintenance(i))detail="Part of class-specific weapon maintenance. Durable tools are retained; patches, solvents, lubricants, coolants, seals, replacement barrels and repair materials are consumed by timed servicing. Maintenance immobilizes the player, only partially reduces heat or fouling, and has a per-weapon cooldown.";
 else if(i=="biomonitor_bracelet")detail="Occupies the bracelet slot and supplies a movable quickbar scan ability with a server-validated radius and cooldown.";
 else if(i=="wirenet")detail="Occupies the medical slot and supplies a movable quickbar ability controlling three automatic emergency-heal charges.";
-else if(i=="hypercomp")detail="Opens the portable bunker-monitoring and control interface rather than being consumed directly.";
+else if(i=="hypercomp")detail="A session-bound smart terminal with finite storage, replaceable operating systems, downloadable applications, marketplace access, secure banking and its original bunker controls. Installed software and storage expansions belong to this physical terminal and are lost with it on death.";
 else if(i=="binoculars")detail="Provides non-consuming reconnaissance of zones and points of interest.";
 else if(i=="hightech_grapple")detail="A reusable traversal tool that searches ten tiles forward for a solid anchor, attaches to the first valid wall, verifies every traversed tile and pulls the user to the last safe tile. It has an eight-second mechanical recovery.";
 else if(i=="grapple_line_cartridge")detail="A replacement high-tensile spool retained as service stock for the grapple instead of being used as a generic consumable.";
@@ -87,7 +87,7 @@ else if(i=="anti_personnel_security_camera")detail="A reusable sixty-tile hostil
 else if(i=="neural_intrusion_device")detail="A consumable close-range electronic weapon. It acquires the nearest hostile within twelve tiles and disrupts motor control for ten seconds; a failed acquisition does not consume it.";
 else if(i=="field_restraints")detail="Electronic restraints can be fitted only to a hostile within two tiles whose health is critically low. A successful fitting consumes the restraint and imposes a twenty-second movement disruption.";
 else if(i=="reconnaissance_ring")detail="A reusable wearable transponder that reports nearby friendly and hostile signatures after a short ten-second recovery.";
-else if(i=="portable_auction_terminal")detail="An authenticated online supply storefront. Purchases are validated against the account's server-side credit balance and delivered only after the server accepts the exact catalogue item, price and bundle quantity.";
+else if(i=="portable_auction_terminal")detail="Legacy commerce hardware. Using it permanently upgrades it into the unified HyperComp Smart Terminal; Marketplace, App Store, Secure Banking and market tools now run as terminal applications instead of requiring a second device.";
 else if(i=="salvage_scanner")detail="Reusable twenty-five-second salvage scanner that recovers a real maintenance, vehicle or credit component from surrounding debris.";
 else if(i=="security_radio_receiver" or i=="field_television_receiver")detail="Reusable tactical receiver that reports friendly and hostile activity on the current map.";
 else if(i=="er_overdrive_amplifier")detail="Single-use twenty-second ballistic overdrive. It amplifies outgoing projectile energy, announces depletion, and remains subject to the global no-one-shot damage cap.";
@@ -155,7 +155,7 @@ if(!connected){speak("The Online Supply Terminal requires an active authenticate
 send_reliable(0,"market_balance",0);string balance_response;int credits=0;
 if(wait_for_service_response("market_balance ",balance_response,3000))credits=string_to_number(string_replace(balance_response,"market_balance ","",false));
 else {speak("The supply server did not return an account balance.");return;}
-online_shop_offer@[] offers=online_shop_catalogue();string[] categories={"Ammunition","Medical","Maintenance","Explosives","Equipment"};
+send_reliable(0,"market_catalog",0);string catalogue_response;if(!wait_for_service_response("market_catalog ",catalogue_response,5000)){speak("The marketplace catalogue did not answer.");return;}online_shop_offer@[] offers;string[] categories;string[] entries=string_split(string_replace(catalogue_response,"market_catalog ","",false),";",true);for(uint i=0;i<entries.length();i++){string[] q=string_split(entries[i],"~",false);if(q.length()<6)continue;string label=string_replace(q[1],"_"," ",true),category=string_replace(q[2],"_"," ",true),description=string_replace(q[3],"_"," ",true);offers.insert_last(online_shop_offer(q[0],label,category,description,q[0],string_to_number(q[4]),string_to_number(q[5])));if(categories.find(category)<0)categories.insert_last(category);}if(offers.length()==0){speak("The marketplace currently has no listings.");return;}
 nv_form f;f.create_window("Online Supply Terminal",false,true);nv_form_input@ balance=f.add_input("Account balance","balance",credits+" credits","",0,true,true);nv_form_tab_control@ tabs=nv_form_tab_control(@f,"Shop categories","shop_categories",true);f.add_control(tabs);
 nv_form_tab_page@[] pages;nv_form_list_box@[] lists;nv_form_button@[] purchase_buttons;
 for(uint c=0;c<categories.length();c++)

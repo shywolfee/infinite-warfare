@@ -28,7 +28,16 @@ else if(key=="gasoline_topup"){item="gasoline_can";quantity=1;cost=30;}
 else if(key=="diesel_topup"){item="diesel_can";quantity=1;cost=32;}
 else if(key=="aviation_topup"){item="aviation_fuel_can";quantity=1;cost=40;}
 else if(key=="soft_armor_patch_pair"){item="soft_armor_patch";quantity=2;cost=28;}
+else
+{
+item_data@ data=item_info(key);if(data !is null and !item_flag(key,"market_excluded") and string_contains(key,"corpse_",1)!=0 and !is_credit_chip(key)){item=key;quantity=data.give_amount;if(quantity<1)quantity=1;cost=item_prop_int(key,"market_price",0);if(cost<=0){string category=string_to_lower_case(data.category);cost=category=="weapons"?180:(category=="ammunition"?32:(category=="medical"?45:(category=="explosives"?65:(category=="electronics"?90:(category=="armour"?120:55)))));cost+=int(data.summary.length()/18);}}
+}
 return item!="" and quantity>0 and cost>0;
+}
+
+string online_shop_catalogue_packet()
+{
+string packet="market_catalog ";int count=0;for(uint i=0;i<item_catalogue.length();i++){item_data@ d=item_catalogue[i];string item;int quantity,cost;if(!online_shop_offer(d.id,item,quantity,cost) or item!=d.id)continue;if(count++>0)packet+=";";packet+=d.id+"~"+string_replace(d.name," ","_",true)+"~"+string_replace(d.category," ","_",true)+"~"+string_replace(d.summary," ","_",true)+"~"+quantity+"~"+cost;}return packet;
 }
 
 void handle_online_shop_request(uint peer,const string[] &in parsed)
@@ -40,6 +49,7 @@ if(parsed[0]=="market_balance")
 send_reliable(peer,"market_balance "+players[index].credits,0);
 return;
 }
+if(parsed[0]=="market_catalog"){send_reliable(peer,online_shop_catalogue_packet(),0);return;}
 if(parsed.length()<2)
 {
 send_reliable(peer,"market_purchase_error Missing catalogue selection.",0);

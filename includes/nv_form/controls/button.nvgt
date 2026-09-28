@@ -3,6 +3,7 @@ class nv_form_button: nv_form_control {
 	nv_form_button(nv_form@parent, const string &in caption, const string &in id = "", bool pressed = false) {
 		super(caption, id, nv_form_ct_button, @parent);
 		this.pressed = pressed;
+		autoactivate = true;
 	}
 	bool monitor() { return pressed; }
 	void fire() {
@@ -18,4 +19,3 @@ class nv_form_button: nv_form_control {
 		return false;
 	}
 }
-

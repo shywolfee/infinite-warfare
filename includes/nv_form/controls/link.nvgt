@@ -5,6 +5,7 @@ class nv_form_link: nv_form_control {
 		super(caption, id, nv_form_ct_link, @parent);
 		this.pressed = pressed;
 		this.url = url;
+		autoactivate = true;
 	}
 	bool monitor() { return pressed; }
 	void fire() {
@@ -21,4 +22,3 @@ class nv_form_link: nv_form_control {
 		return false;
 	}
 }
-

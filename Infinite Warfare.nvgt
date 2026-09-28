@@ -3567,6 +3567,9 @@ afk_cooldown_timer.restart();
 }
 void game(int first)
 {
+bool resume_nested_dashboard=first==-1;
+if(!resume_nested_dashboard)
+{
 client_match_active=true;
 voice_room="";voice_room_pending="";voice_toggle_active=false;voice_was_transmitting=false;voice_streams.resize(0);
 p.play_stationary("modeenter.ogg",false);
@@ -3603,6 +3606,7 @@ send_reliable(1, "is_dev" , 0);
 if(first==1)
 {
 send_reliable(0, "welcome", 0);
+}
 }
 while(true)
 {
@@ -3657,6 +3661,7 @@ nvgt_helpers_loop();
 // virtual-key flags it sets (gk_fire, gk_use, ...) are read this same frame.
 process_touch_gestures();
 game_dashboard_tick();
+if(resume_nested_dashboard and !game_dashboard_keyboard_active())return;
 if(!game_dashboard_keyboard_active())continue;
 if(pingtimer.elapsed > 20000 and pinging==true)
 {

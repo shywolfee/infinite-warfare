@@ -27,6 +27,8 @@ nv_form_event_handler@ default_nv_form_event_handler = null;
 nv_form_network_pump@ default_nv_form_network_pump = null;
 nv_form_audio_feedback@ default_nv_form_audio_feedback = null;
 nv_form_ui_cue_handler@ default_nv_form_ui_cue = null;
+nv_form_shell_handler@ default_nv_form_shell_handler = null;
+nv_form_pre_monitor_handler@ default_nv_form_pre_monitor_handler = null;
 // Every control used to have one of two sounds: a tick for moving and a
 // click for pressing. A checkbox ticked, a list that has run out, a slider
 // at its limit and a dialog closing were all the same tick or silence. Each
@@ -51,6 +53,7 @@ class nv_form {
 	bool speak_control_attributes_separately = false;
 	private int __tap_timeout__ = 200;
 	bool active = false;
+	bool shell_attached = false;
 	string pending_cue = "";
 	private nv_form_errorcode[] errors;
 	nv_form_control@primary_control = null, cancel_control = null;
@@ -63,6 +66,7 @@ class nv_form {
 	void reset() {
 		window_title = "";
 		active = false;
+		shell_attached = false;
 		controls.resize(0);
 		@primary_control = null;
 		@cancel_control = null;
@@ -153,6 +157,7 @@ class nv_form {
 	bool monitor() {
 		if (!active) return false;
 		if(@default_nv_form_network_pump!=null)default_nv_form_network_pump();
+		if(!shell_attached and @default_nv_form_shell_handler!=null){shell_attached=true;default_nv_form_shell_handler(this);}
 		nv_form_focus_uses_paging = @current_control != null && (cast<nv_form_slider@>(current_control) != null || cast<nv_form_spin@>(current_control) != null);
 		if (@nv_utility_form != null) {
 			nv_utility_form.monitor();
@@ -162,6 +167,7 @@ class nv_form {
 		if (@current_control == null && controls.length() > 0) focus_control(controls[0], false, false);
 		visual_form_capture(this);
 		nvgt_helpers_service();
+		if(@default_nv_form_pre_monitor_handler!=null and default_nv_form_pre_monitor_handler(this))return true;
 		handle_touch_input();
 		handle_input();
 		nv_form_control@ctrl;

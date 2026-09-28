@@ -647,6 +647,8 @@ void application_main()
 @default_nv_form_network_pump=@pump_network_for_form;
 @default_nv_form_audio_feedback=@play_nv_form_audio_feedback;
 @default_nv_form_ui_cue=@play_ui_cue;
+@default_nv_form_shell_handler=@game_dashboard_attach_shell;
+@default_nv_form_pre_monitor_handler=@game_dashboard_shell_pre_monitor;
 set_sound_global_hrtf(true);
 
 p.behind_pitch_decrease=6;
@@ -4847,6 +4849,10 @@ else if(handle_world_editor_packet(full_msg))
 }
 else if(handle_companion_packet(full_msg))
 {
+}
+else if(string_contains(full_msg,"lobby_plist ",1)==0)
+{
+game_dashboard_receive_player_list(full_msg);
 }
 else if(handle_content_sync(full_msg))
 {

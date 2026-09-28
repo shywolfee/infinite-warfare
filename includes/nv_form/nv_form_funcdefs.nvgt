@@ -6,3 +6,5 @@ funcdef void nv_form_audio_feedback(bool activation);
 // A named interface cue: "move", "item", "edge", "wrap", "activate", "check",
 // "uncheck", "slider", "switch", "tab", "open", "close", "error".
 funcdef void nv_form_ui_cue_handler(const string &in cue);
+funcdef void nv_form_shell_handler(nv_form@f);
+funcdef bool nv_form_pre_monitor_handler(nv_form@f);

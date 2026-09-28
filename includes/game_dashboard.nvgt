@@ -1,137 +1,203 @@
-// Persistent in-match dashboard.  Unlike modal game menus, this form stays
-// alive for the match and lets Tab move naturally between play and chat.
+// Persistent match dashboard and the shared shell appended to every form
+// opened from it. Reserved ids keep shell controls separate from a screen's
+// own controls and retained reading position.
 nv_form game_dashboard_form;
-nv_form_keyboard_area@ game_dashboard_keyboard;
 nv_form_list_box@ game_dashboard_options;
-nv_form_list_box@ game_dashboard_conversations;
-nv_form_input@ game_dashboard_message;
-nv_form_button@ game_dashboard_send;
 bool game_dashboard_ready=false;
+bool game_dashboard_tab_mode=true;
+string game_dashboard_draft="";
+nv_form@ game_dashboard_active_form=null;
 timer game_dashboard_refresh_timer;
+timer game_dashboard_player_timer;
+string[] game_dashboard_players;
 
-void game_dashboard_add_conversation(const string &in label,const string &in id)
+nv_form_keyboard_area@ dashboard_keyboard(nv_form@ f){return cast<nv_form_keyboard_area@>(f.get_control_by_id("__dash_keyboard"));}
+nv_form_list_box@ dashboard_players(nv_form@ f){return cast<nv_form_list_box@>(f.get_control_by_id("__dash_players"));}
+nv_form_list_box@ dashboard_transcript(nv_form@ f){return cast<nv_form_list_box@>(f.get_control_by_id("__dash_transcript"));}
+nv_form_list_box@ dashboard_conversations(nv_form@ f){return cast<nv_form_list_box@>(f.get_control_by_id("__dash_conversations"));}
+nv_form_input@ dashboard_message(nv_form@ f){return cast<nv_form_input@>(f.get_control_by_id("__dash_message"));}
+nv_form_button@ dashboard_send(nv_form@ f){return cast<nv_form_button@>(f.get_control_by_id("__dash_send"));}
+
+void game_dashboard_attach_shell(nv_form@ f)
 {
-for(uint i=0;i<game_dashboard_conversations.items.length();i++)if(game_dashboard_conversations.items[i].id==id)return;
-game_dashboard_conversations.add(label,id);
+if(!client_match_active or !game_dashboard_ready or f.get_control_by_id("__dash_keyboard") !is null)return;
+f.add_list("Players currently in the war; press Enter to view the selected profile","__dash_players");
+f.add_list("Messages in the selected conversation; this list updates live","__dash_transcript");
+f.add_list("Conversations and chat channels; select one to read or answer","__dash_conversations");
+f.add_input("Write a message to the selected conversation; your draft is retained","__dash_message",game_dashboard_draft,"",1024);
+f.add_button("Send the written message to the selected conversation","__dash_send");
+f.add_keyboard_area("Keyboard area (Alt+G)","__dash_keyboard");
+game_dashboard_refresh_shell(f,true);
 }
 
-void game_dashboard_refresh_conversations()
+void game_dashboard_add_conversation(nv_form_list_box@ list,const string &in label,const string &in id)
 {
-if(!game_dashboard_ready)return;
-string selected=@game_dashboard_conversations.focused_item!=null?game_dashboard_conversations.focused_item.id:"global";
-game_dashboard_conversations.items.resize(0);
-game_dashboard_add_conversation("Global chat","global");
-if(mapname!="main")game_dashboard_add_conversation("Current map chat","map");
-game_dashboard_add_conversation("Team chat","team");
-for(uint i=0;i<my_groups.length();i++)game_dashboard_add_conversation("Group: "+my_groups[i].name,"group:"+my_groups[i].name);
+for(uint i=0;i<list.items.length();i++)if(list.items[i].id==id)return;
+list.add(label,id);
+}
+
+string game_dashboard_conversation_buffer(const string &in id)
+{
+if(id=="global")
+{
+for(int i=int(buffers.length())-1;i>=0;i--)if(string_contains(buffers[i].name,"language: ",1)==0)return buffers[i].name;
+return "chats";
+}
+if(id=="map")return "map chat";
+if(id=="team")return "team chat";
+if(string_contains(id,"group:",1)==0)return "group: "+id.substr(6);
+if(string_contains(id,"private:",1)==0)return "private: "+id.substr(8);
+return "";
+}
+
+void game_dashboard_refresh_conversations(nv_form@ f)
+{
+nv_form_list_box@ list=dashboard_conversations(f);if(@list==null)return;
+string selected=@list.focused_item!=null?list.focused_item.id:"global";list.items.resize(0);
+game_dashboard_add_conversation(list,"Global chat; messages in your selected language channel","global");
+if(mapname!="main")game_dashboard_add_conversation(list,"Current map chat; messages for everyone on this map","map");
+game_dashboard_add_conversation(list,"Team chat; private coordination with your current team","team");
+for(uint i=0;i<my_groups.length();i++)game_dashboard_add_conversation(list,"Group conversation with "+my_groups[i].name,"group:"+my_groups[i].name);
 for(uint i=0;i<buffers.length();i++)
 {
 string n=buffers[i].name;
-if(string_contains(n,"private: ",1)==0)game_dashboard_add_conversation("Private: "+n.substr(9),"private:"+n.substr(9));
-else if(string_contains(n,"language: ",1)==0)game_dashboard_add_conversation(string_replace(n,"language: ","Language: ",false),"global");
+if(string_contains(n,"private: ",1)==0)game_dashboard_add_conversation(list,"Private conversation with "+n.substr(9),"private:"+n.substr(9));
+else if(string_contains(n,"group: ",1)==0)game_dashboard_add_conversation(list,"Group conversation with "+n.substr(7),"group:"+n.substr(7));
 }
-for(uint i=0;i<game_dashboard_conversations.items.length();i++)if(game_dashboard_conversations.items[i].id==selected){game_dashboard_conversations.set_pos(i,false);return;}
-if(game_dashboard_conversations.items.length()>0)game_dashboard_conversations.set_pos(0,false);
+for(uint i=0;i<list.items.length();i++)if(list.items[i].id==selected){list.set_pos(i,false);return;}
+if(list.items.length()>0)list.set_pos(0,false);
+}
+
+void game_dashboard_refresh_transcript(nv_form@ f)
+{
+nv_form_list_box@ conversations=dashboard_conversations(f);nv_form_list_box@ transcript=dashboard_transcript(f);
+if(@conversations==null or @transcript==null or @conversations.focused_item==null)return;
+string buffer_name=game_dashboard_conversation_buffer(conversations.focused_item.id);
+int old=transcript.list_position;bool follow=old<0 or old>=int(transcript.items.length())-1;transcript.items.resize(0);
+int bi=-1;for(uint i=0;i<buffers.length();i++)if(buffers[i].name==buffer_name){bi=int(i);break;}
+if(bi>=0)for(uint i=0;i<buffers[bi].items.length();i++)transcript.add(buffers[bi].items[i],""+i);
+if(transcript.items.length()==0)transcript.add("No messages have arrived in this conversation yet.","empty");
+if(follow)old=int(transcript.items.length())-1;if(old>=int(transcript.items.length()))old=int(transcript.items.length())-1;
+transcript.set_pos(old<0?0:old,false);
+}
+
+void game_dashboard_refresh_players(nv_form@ f)
+{
+nv_form_list_box@ list=dashboard_players(f);if(@list==null)return;
+string selected=@list.focused_item!=null?list.focused_item.id:"";list.items.resize(0);
+for(uint i=0;i<game_dashboard_players.length();i++)list.add(game_dashboard_players[i],player_name_from_list_label(game_dashboard_players[i]));
+if(list.items.length()==0)list.add("Waiting for the live player list.","");
+for(uint i=0;i<list.items.length();i++)if(list.items[i].id==selected){list.set_pos(i,false);return;}list.set_pos(0,false);
+}
+
+void game_dashboard_refresh_shell(nv_form@ f,bool force=false)
+{
+if(@f==null or f.get_control_by_id("__dash_keyboard") is null)return;
+game_dashboard_refresh_conversations(f);game_dashboard_refresh_transcript(f);game_dashboard_refresh_players(f);
+if(force){nv_form_input@ input=dashboard_message(f);if(@input!=null)input.text=game_dashboard_draft;}
+}
+
+void game_dashboard_receive_player_list(const string &in message)
+{
+game_dashboard_players.resize(0);string data=string_replace(message,"lobby_plist ","",false);string[] entries=string_split(data,",",false);
+for(uint i=0;i<entries.length();i++)
+{
+string[] parts=string_split(entries[i],"|",false);if(parts.length()<3)continue;string label=parts[0];
+if(string_contains(parts[1],"d",1)>-1)label+=" (dev)";if(string_contains(parts[1],"a",1)>-1)label+=" (admin)";
+label+=" - "+map_display_name(parts[2]);game_dashboard_players.insert_last(label);
+}
 }
 
 void game_dashboard_init()
 {
-game_dashboard_form.reset();
-game_dashboard_form.create_window("Game dashboard",false,false);
-@game_dashboard_keyboard=game_dashboard_form.add_keyboard_area("Game keyboard area","game");
-@game_dashboard_options=game_dashboard_form.add_list("Options and actions","options");
-game_dashboard_options.add("Status","stats");
-game_dashboard_options.add("Equipment","equipment");
-game_dashboard_options.add("Team","team");
-game_dashboard_options.add("Inventory","inventory");
-game_dashboard_options.add("Groups","groups");
-game_dashboard_options.add("Companion command remote","companions");
-game_dashboard_options.add("Options","options");
-game_dashboard_options.add("Help topics","help");
-game_dashboard_options.add("What's new","changes");
-game_dashboard_options.add("Rules","rules");
-game_dashboard_options.add("Your account","account");
-game_dashboard_options.add("Developers","developers");
-if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)game_dashboard_options.add("Staff panel","staff");
-game_dashboard_options.set_pos(0,false);
-@game_dashboard_conversations=game_dashboard_form.add_list("Conversations","conversations");
-@game_dashboard_message=game_dashboard_form.add_input("Message to selected conversation","message","","",1024);
-@game_dashboard_send=game_dashboard_form.add_button("Send message","send");
-game_dashboard_ready=true;
-game_dashboard_refresh_conversations();
-game_dashboard_form.focus_control(game_dashboard_keyboard,true,false);
-game_dashboard_refresh_timer.restart();
+game_dashboard_ready=true;game_dashboard_tab_mode=true;game_dashboard_draft="";@game_dashboard_active_form=null;
+game_dashboard_form.reset();game_dashboard_form.create_window("Infinite Warfare dashboard",false,false);
+@game_dashboard_options=game_dashboard_form.add_list("Game options and actions; press its shortcut or Enter to open the selected choice","options");
+game_dashboard_options.add("S. Review your current status: Display your weapon, location, stamina, effects, inventory total, map, player name and game version.","stats");
+game_dashboard_options.add("E. Manage your equipment: Review and change armour, holsters and other currently equipped gear.","equipment");
+game_dashboard_options.add("T. Manage your team: Control membership, roles, shared resources, team chat and team actions.","team");
+game_dashboard_options.add("I. Open your complete inventory: Browse, inspect, configure, use, give or drop the items you carry.","inventory");
+game_dashboard_options.add("G. Manage your groups: Review group conversations, invitations, membership and quick-chat selection.","groups");
+game_dashboard_options.add("C. Control deployed companions: View, command, recall or directly pilot every drone and chimp you own.","companions");
+game_dashboard_options.add("O. Configure Infinite Warfare: Change audio, accessibility, controls, interface, network and gameplay preferences.","options");
+game_dashboard_options.add("H. Browse game help: Read controls, mechanics and other reference topics.","help");
+game_dashboard_options.add("W. View game changes: Display the latest changes and release notes.","changes");
+game_dashboard_options.add("R. Read the game rules: Review the standards that apply while playing online.","rules");
+game_dashboard_options.add("A. Review your account: Display your player name, registration and saved email status.","account");
+game_dashboard_options.add("D. View the developers and credits: Read who created and contributed to Infinite Warfare.","developers");
+if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)game_dashboard_options.add("M. Open staff administration: Access moderation, world-building, account and server tools.","staff");
+game_dashboard_options.set_pos(0,false);game_dashboard_refresh_timer.restart();game_dashboard_player_timer.restart();
+game_dashboard_form.monitor();game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form),true,false);
 }
 
-bool game_dashboard_keyboard_active()
-{
-return !game_dashboard_ready or @game_dashboard_form.current_control==@game_dashboard_keyboard;
-}
-
-void game_dashboard_focus_game()
-{
-if(game_dashboard_ready)game_dashboard_form.focus_control(game_dashboard_keyboard);
-}
+bool game_dashboard_keyboard_active(){return !game_dashboard_ready or @game_dashboard_form.current_control==@dashboard_keyboard(game_dashboard_form);}
+void game_dashboard_focus_game(){if(game_dashboard_ready)game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form));}
 
 void game_dashboard_show_account()
 {
-string[] lines;
-lines.insert_last("Name: "+name);
-if(account_exists(name))
-{
-savedata acct(get_account_path(name),ACCOUNT_SECRET);acct.load();
-string em=acct.read("email");
-lines.insert_last("Registered account"+(em!=""?", email "+em:", no email on file"));
-}
-else lines.insert_last("No registered account for this name.");
-show_info_list("Your account",lines);
+string[] lines;lines.insert_last("Name: "+name);
+if(account_exists(name)){savedata acct(get_account_path(name),ACCOUNT_SECRET);acct.load();string em=acct.read("email");lines.insert_last("Registered account"+(em!=""?", email "+em:", no email on file"));}
+else lines.insert_last("No registered account for this name.");show_info_list("Your account",lines);
 }
 
 void game_dashboard_open_action()
 {
-if(@game_dashboard_options.focused_item==null)return;
-string chosen=game_dashboard_options.focused_item.id;
-if(chosen=="stats")show_info_list("Status",ingame_stats_lines());
-else if(chosen=="equipment")equipment_menu();
-else if(chosen=="team")team_menu();
-else if(chosen=="inventory")inventory_menu();
-else if(chosen=="groups")groups_menu();
-else if(chosen=="companions")companion_remote_menu();
-else if(chosen=="options")optionsmenu();
-else if(chosen=="help")show_help_list();
-else if(chosen=="changes")show_changelog_form();
-else if(chosen=="rules")dlg(read_text_file_or("rules.txt","The rules file is missing."));
-else if(chosen=="account")game_dashboard_show_account();
-else if(chosen=="developers")dlg(read_text_file_or("developers.txt","The developers file is missing."));
-else if(chosen=="staff")ingame_adminpanel();
+if(@game_dashboard_options.focused_item==null)return;string chosen=game_dashboard_options.focused_item.id;
+if(chosen=="stats")show_info_list("Status",ingame_stats_lines());else if(chosen=="equipment")equipment_menu();else if(chosen=="team")team_menu();
+else if(chosen=="inventory")inventory_menu();else if(chosen=="groups")groups_menu();else if(chosen=="companions")companion_remote_menu();
+else if(chosen=="options")optionsmenu();else if(chosen=="help")show_help_list();else if(chosen=="changes")show_changelog_form();
+else if(chosen=="rules")dlg(read_text_file_or("rules.txt","The rules file is missing."));else if(chosen=="account")game_dashboard_show_account();
+else if(chosen=="developers")dlg(read_text_file_or("developers.txt","The developers file is missing."));else if(chosen=="staff")ingame_adminpanel();
 }
 
-void game_dashboard_send_message()
+bool game_dashboard_option_shortcut()
 {
-string text=game_dashboard_message.text.trim_whitespace();
-if(text==""){speak("Enter a message first.");return;}
-if(@game_dashboard_conversations.focused_item==null){speak("Select a conversation first.");return;}
-string target=game_dashboard_conversations.focused_item.id;
-if(target=="global")send_reliable(0,text,1);
-else if(target=="map")send_reliable(0,text,6);
-else if(target=="team")send_team_command("chat "+text);
+if(@game_dashboard_options==null)return false;
+int key=-1;
+if(key_pressed(KEY_S))key=0;else if(key_pressed(KEY_E))key=1;else if(key_pressed(KEY_T))key=2;else if(key_pressed(KEY_I))key=3;
+else if(key_pressed(KEY_G))key=4;else if(key_pressed(KEY_C))key=5;else if(key_pressed(KEY_O))key=6;else if(key_pressed(KEY_H))key=7;
+else if(key_pressed(KEY_W))key=8;else if(key_pressed(KEY_R))key=9;else if(key_pressed(KEY_A))key=10;else if(key_pressed(KEY_D))key=11;
+else if(key_pressed(KEY_M) and game_dashboard_options.items.length()>12)key=12;
+if(key<0)return false;game_dashboard_options.set_pos(key,false);game_dashboard_open_action();return true;
+}
+
+void game_dashboard_send_message(nv_form@ f)
+{
+nv_form_input@ input=dashboard_message(f);nv_form_list_box@ conversations=dashboard_conversations(f);if(@input==null or @conversations==null)return;
+game_dashboard_draft=input.text;string text=game_dashboard_draft.trim_whitespace();if(text==""){speak("Enter a message first.");return;}
+if(@conversations.focused_item==null){speak("Select a conversation first.");return;}string target=conversations.focused_item.id;
+if(target=="global")send_reliable(0,text,1);else if(target=="map")send_reliable(0,text,6);else if(target=="team")send_team_command("chat "+text);
 else if(string_contains(target,"group:",1)==0){group_request("say",target.substr(6),text);p.play_stationary("group/send.ogg",false);}
 else if(string_contains(target,"private:",1)==0)send_reliable(0,"/pm "+target.substr(8)+" "+text,1);
-game_dashboard_message.text="";
-game_dashboard_form.focus_control(game_dashboard_message);
+game_dashboard_draft="";input.text="";f.focus_control(input);
 }
 
-void game_dashboard_tick()
+void game_dashboard_toggle_tab_mode(nv_form@ f)
 {
-if(!game_dashboard_ready)return;
-if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_G)){game_dashboard_focus_game();return;}
-if(!game_dashboard_keyboard_active() and key_pressed(KEY_ESCAPE)){game_dashboard_focus_game();return;}
-if(game_dashboard_refresh_timer.elapsed>1000){game_dashboard_refresh_conversations();game_dashboard_refresh_timer.restart();}
-bool activate=key_pressed(KEY_RETURN);
-if(activate and @game_dashboard_form.current_control==@game_dashboard_options){game_dashboard_open_action();return;}
-if((activate and @game_dashboard_form.current_control==@game_dashboard_message) or game_dashboard_form.is_pressed(game_dashboard_send)){game_dashboard_send_message();return;}
-form_net_depth++;
-game_dashboard_form.monitor();
-form_net_depth--;
-if(game_dashboard_form.is_pressed(game_dashboard_send))game_dashboard_send_message();
+nv_form_input@ input=dashboard_message(f);if(@input!=null)game_dashboard_draft=input.text;game_dashboard_tab_mode=!game_dashboard_tab_mode;
+if(game_dashboard_draft.trim_whitespace()!="")speak("Your unsent conversation text is still waiting and will be here when you return to the dashboard.");
+if(@f!=@game_dashboard_form and @f.cancel_control!=null)f.cancel_control.fire();else f.focus_control(dashboard_keyboard(f));
+speak(game_dashboard_tab_mode?"Tab and Shift Tab now move through the dashboard.":"Tab and Shift Tab now cycle your inventory.");
 }
+
+bool game_dashboard_shell_pre_monitor(nv_form@ f)
+{
+if(!client_match_active or !game_dashboard_ready or f.get_control_by_id("__dash_keyboard") is null)return false;
+if(@game_dashboard_active_form!=@f){@game_dashboard_active_form=f;nv_form_input@ incoming=dashboard_message(f);if(@incoming!=null)incoming.text=game_dashboard_draft;}
+nv_form_input@ input=dashboard_message(f);if(@input!=null and @f.current_control==@input)game_dashboard_draft=input.text;
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_F)){game_dashboard_toggle_tab_mode(f);return true;}
+if(!game_dashboard_tab_mode and @f!=@game_dashboard_form){if(@f.cancel_control!=null)f.cancel_control.fire();return true;}
+nv_form_keyboard_area@ keyboard=dashboard_keyboard(f);
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_G)){f.focus_control(keyboard);return true;}
+if(@f.current_control!=@keyboard and key_pressed(KEY_ESCAPE)){f.focus_control(keyboard);return true;}
+if(game_dashboard_refresh_timer.elapsed>300){game_dashboard_refresh_shell(f);game_dashboard_refresh_timer.restart();}
+if(game_dashboard_player_timer.elapsed>5000){send_reliable(0,"lobby_playerlist",0);game_dashboard_player_timer.restart();}
+if(!game_dashboard_tab_mode and @f.current_control==@keyboard and key_pressed(KEY_TAB)){if(shift_is_down())cycle_inv(0);else cycle_inv(1);p.play_stationary("invmove.ogg",false);return true;}
+bool activate=key_pressed(KEY_RETURN) or key_pressed(KEY_NUMPAD_ENTER);
+if(@f.current_control==@game_dashboard_options and key_up(KEY_LMENU) and key_up(KEY_RMENU) and key_up(KEY_LCONTROL) and key_up(KEY_RCONTROL) and game_dashboard_option_shortcut())return true;
+if(activate and @f.current_control==@game_dashboard_options){game_dashboard_open_action();return true;}
+nv_form_list_box@ players=dashboard_players(f);if(activate and @f.current_control==@players and @players.focused_item!=null and players.focused_item.id!=""){show_player_profile(players.focused_item.id);return true;}
+if((activate and @f.current_control==@input) or f.is_pressed(dashboard_send(f))){game_dashboard_send_message(f);return true;}return false;
+}
+
+void game_dashboard_tick(){if(!game_dashboard_ready)return;form_net_depth++;game_dashboard_form.monitor();form_net_depth--;}

@@ -172,16 +172,17 @@ invalidate_inventory_keys();
 return true;
 }
 
-void inventory_request_transfer_targets()
+bool inventory_request_transfer_targets()
 {
 inventory_transfer_targets.resize(0);inventory_transfer_targets_received=false;send_reliable(0,"inventory_transfer_targets",0);timer request_timer;
-while(connected and !inventory_transfer_targets_received and request_timer.elapsed<2500){wait(5);netloop();}
+nv_form waiting;waiting.create_window("Finding nearby players",false,true);waiting.add_input("Transfer status","status","Waiting for players within ten tiles who can receive this item.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel player search","cancel",false,true);waiting.focus_control(cancel);
+while(connected and !inventory_transfer_targets_received and request_timer.elapsed<2500){wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return false;netloop();}return inventory_transfer_targets_received;
 }
 
 void inventory_give_to_nearby_player(string item)
 {
 if(string_contains(item,"__partial__",1)==0){speak("Partial ammunition containers cannot be transferred directly.");return;}
-inventory_request_transfer_targets();if(!inventory_transfer_targets_received){speak("The server did not return nearby players.");return;}if(inventory_transfer_targets.length()==0){speak("There are no players within ten tiles.");return;}
+if(!inventory_request_transfer_targets()){if(!inventory_transfer_targets_received)speak("The server did not return nearby players.");return;}if(inventory_transfer_targets.length()==0){speak("There are no players within ten tiles.");return;}
 nv_form f;f.create_window("Give "+string_replace(item,"_"," ",true),false,true);nv_form_list_box@ people=f.add_list("Players within ten tiles","players");for(uint i=0;i<inventory_transfer_targets.length();i++)people.add(inventory_transfer_targets[i],inventory_transfer_targets[i]);nv_form_button@ give_button=f.add_button("Give one item","give",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);f.focus_control(people);
 while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(give_button)){int selected=people.list_position;if(selected<0 or selected>=int(inventory_transfer_targets.length())){speak("Select a player first.");continue;}send_reliable(0,"inventory_transfer "+inventory_transfer_targets[selected]+" "+item,0);return;}}
 }

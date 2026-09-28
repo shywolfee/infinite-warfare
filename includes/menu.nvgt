@@ -854,7 +854,8 @@ bool refresh_team_state()
 team_state_received=false;
 send_team_command("state");
 timer timeout;
-while(!team_state_received and timeout.elapsed<2500) { wait(5); netloop(); }
+nv_form waiting;waiting.create_window("Refreshing team",false,true);waiting.add_input("Team status","status","Waiting for team membership, permissions, points and invitations.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel team refresh","cancel",false,true);waiting.focus_control(cancel);
+while(!team_state_received and timeout.elapsed<2500) { wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return false;netloop(); }
 if(!team_state_received) speak("Team information could not be refreshed.");
 return team_state_received;
 }
@@ -2131,6 +2132,11 @@ return;
 }
 int yesno(string question)
 {
+if(client_match_active)
+{
+nv_form f;f.create_window(question,false,true);nv_form_button@ yes=f.add_button("Yes","yes",true);@yes.shortcut=nv_shortcut(KEY_Y,alt=true);nv_form_button@ no=f.add_button("No","no",false,true);@no.shortcut=nv_shortcut(KEY_N,alt=true);f.focus_control(yes);
+while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(yes))return 1;if(f.is_pressed(no))return 2;}
+}
 setupmenu();
 m.add_item_tts("Yes","yes");
 m.add_item_tts("No","no");

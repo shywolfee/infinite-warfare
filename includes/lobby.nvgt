@@ -37,13 +37,30 @@ if(string_contains(message,"account_detail_response ",1)==0){server_account_deta
 
 void server_accounts_network_pump(){if(client_match_active)netloop(false);else lobby_form_netcheck();}
 
-void show_server_accounts()
+void show_server_accounts_legacy()
 {
 server_accounts_list_received=false;server_accounts_error="";server_account_names.resize(0);send_reliable(0,"accounts_list",0);timer request;
 while(connected and !server_accounts_list_received and request.elapsed<4000){wait(5);server_accounts_network_pump();}
 if(server_accounts_error!=""){speak(server_accounts_error);return;}if(!server_accounts_list_received){speak("The account list request timed out.");return;}if(server_account_names.length()==0){speak("There are no registered accounts.");return;}
 nv_form f;f.create_window("Server accounts",false,true);nv_form_list_box@ accounts=f.add_list("Registered accounts","accounts");for(uint i=0;i<server_account_names.length();i++)accounts.add(server_account_names[i],server_account_names[i]);nv_form_button@ view=f.add_button("View selected account","view",true);nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(accounts);
 while(true){wait(5);f.monitor();if(connected)server_accounts_network_pump();if(f.is_pressed(close))return;if(f.is_pressed(view)){int selected=accounts.list_position;if(selected<0 or selected>=int(server_account_names.length())){speak("Select an account first.");continue;}server_account_detail_received=false;server_account_detail_text="";server_accounts_error="";send_reliable(0,"account_detail "+server_account_names[selected],0);timer detail_request;while(connected and !server_account_detail_received and detail_request.elapsed<4000){wait(5);server_accounts_network_pump();}if(server_accounts_error!="")speak(server_accounts_error);else if(!server_account_detail_received)speak("The account detail request timed out.");else show_readonly_audio_form(server_account_names[selected]+" account",server_account_detail_text);}}
+}
+
+void show_server_accounts()
+{
+server_accounts_list_received=false;server_accounts_error="";server_account_names.resize(0);send_reliable(0,"accounts_list",0);timer request;
+nv_form loading;loading.create_window("Loading server accounts",false,true);loading.add_input("Account-list status","status","Waiting for the registered account list.","",0,true,true);nv_form_button@ stop=loading.add_button("Cancel account request","cancel",false,true);loading.focus_control(stop);
+while(connected and !server_accounts_list_received and request.elapsed<4000){wait(5);loading.monitor();if(loading.is_pressed(stop))return;server_accounts_network_pump();}
+if(server_accounts_error!=""){speak(server_accounts_error);return;}if(!server_accounts_list_received){speak("The account list request timed out.");return;}if(server_account_names.length()==0){speak("There are no registered accounts.");return;}
+nv_form f;f.create_window("Server accounts",false,true);nv_form_list_box@ accounts=f.add_list("Registered accounts","accounts");for(uint i=0;i<server_account_names.length();i++)accounts.add(server_account_names[i],server_account_names[i]);nv_form_button@ view=f.add_button("View selected account","view",true);nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(accounts);
+while(true)
+{
+wait(5);f.monitor();if(connected)server_accounts_network_pump();if(f.is_pressed(close))return;if(!f.is_pressed(view))continue;int selected=accounts.list_position;if(selected<0 or selected>=int(server_account_names.length())){speak("Select an account first.");continue;}
+server_account_detail_received=false;server_account_detail_text="";server_accounts_error="";send_reliable(0,"account_detail "+server_account_names[selected],0);timer detail_request;
+nv_form detail;detail.create_window("Loading "+server_account_names[selected],false,true);detail.add_input("Account status","status","Waiting for this account's details.","",0,true,true);nv_form_button@ detail_cancel=detail.add_button("Cancel account detail","cancel",false,true);detail.focus_control(detail_cancel);
+while(connected and !server_account_detail_received and detail_request.elapsed<4000){wait(5);detail.monitor();if(detail.is_pressed(detail_cancel))break;server_accounts_network_pump();}
+if(server_accounts_error!="")speak(server_accounts_error);else if(!server_account_detail_received)speak("The account detail request timed out.");else show_readonly_audio_form(server_account_names[selected]+" account",server_account_detail_text);
+}
 }
 
 void send_global_chat_or_command(string text)
@@ -54,7 +71,8 @@ text=text.trim_whitespace();if(text=="")return;if(handle_local_chat_form_command
 void show_player_profile(string selected_name)
 {
 if(selected_name=="")return;player_profile_received=false;player_profile_text="";send_reliable(0,"player_profile "+selected_name,0);timer timeout;
-while(!player_profile_received and timeout.elapsed<3500){wait(5);if(client_match_active)netloop(false);else lobby_form_netcheck();}
+nv_form waiting;if(client_match_active){waiting.create_window("Loading "+selected_name+" profile",false,true);waiting.add_input("Profile status","status","Waiting for the selected player's live profile.","",0,true,true);waiting.add_button("Cancel profile request","cancel",false,true);}
+while(!player_profile_received and timeout.elapsed<3500){wait(5);if(client_match_active){waiting.monitor();nv_form_button@ cancel=cast<nv_form_button@>(waiting.get_control_by_id("cancel"));if(@cancel!=null and waiting.is_pressed(cancel))return;netloop(false);}else lobby_form_netcheck();}
 if(!player_profile_received){speak("The player profile request timed out.");return;}
 show_readonly_audio_form(selected_name+" profile",player_profile_text);
 }
@@ -442,6 +460,12 @@ show_info_list("Your account",lines);
 string[] fetch_player_list()
 {
 string[] result;
+if(client_match_active)
+{
+game_dashboard_player_list_ready=false;send_reliable(0,"lobby_playerlist",0);timer live_wait;
+nv_form waiting;waiting.create_window("Refreshing players",false,true);waiting.add_input("Player-list status","status","Waiting for the live list of players and their current maps.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel player refresh","cancel",false,true);waiting.focus_control(cancel);
+while(connected and !game_dashboard_player_list_ready and live_wait.elapsed<3000){wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return result;netloop(false);}return game_dashboard_players;
+}
 send_reliable(0, "lobby_playerlist", 0);
 string data="";
 timer pt;

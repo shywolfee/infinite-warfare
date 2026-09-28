@@ -155,7 +155,8 @@ string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alll
 }
 bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000)
 {
-timer timeout;while(connected and timeout.elapsed<timeout_ms){for(uint i=0;i<service_response_queue.length();i++)if(string_contains(service_response_queue[i],prefix,1)==0){response=service_response_queue[i];service_response_queue.remove_at(i);return true;}wait(5);netloop(false);}return false;
+timer timeout;nv_form waiting;waiting.create_window("Waiting for server service",false,true);waiting.add_input("Request status","status","Waiting for the server to complete this menu request.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel server request","cancel",false,true);waiting.focus_control(cancel);
+while(connected and timeout.elapsed<timeout_ms){for(uint i=0;i<service_response_queue.length();i++)if(string_contains(service_response_queue[i],prefix,1)==0){response=service_response_queue[i];service_response_queue.remove_at(i);return true;}wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return false;netloop(false);}return false;
 }
 string af_input(string title, string text="", bool online=false)
 {
@@ -1111,9 +1112,11 @@ bool builder_fetch_map_data(string &out map_id,string &out map_data)
 builder_map_response_received=false;builder_map_response_id="";builder_map_response_data="";builder_map_response_error="";
 send_reliable(0, "builder_read_current", 0);
 timer ct;
+nv_form waiting;waiting.create_window("Loading current map",false,true);waiting.add_input("Map request status","status","Waiting for the current map source from the server.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel map request","cancel",false,true);waiting.focus_control(cancel);
 while(connected and !builder_map_response_received and ct.elapsed<5000)
 {
 wait(5);
+waiting.monitor();if(waiting.is_pressed(cancel))return false;
 netloop(false);
 }
 if(!builder_map_response_received){speak("The map builder request timed out.");return false;}
@@ -2101,7 +2104,59 @@ void inventory_item_action_menu(string key)
 	while(true){wait(5);f.monitor();if(connected)netloop();grenade_cook_loop();if(f.is_pressed(close))return;if(@use!=null and f.is_pressed(use)){inv_menu_use(key);return;}if(f.is_pressed(help)){show_item_help(item_id);continue;}if(@give!=null and f.is_pressed(give)){inventory_give_to_nearby_player(key);return;}if(@drop!=null and f.is_pressed(drop)){send_reliable(0,"inventory_drop "+key,0);return;}}
 }
 
+void inventory_form_fill_categories(nv_form_list_box@ categories)
+{
+categories.items.resize(0);for(uint i=0;i<inv_categories.length();i++)if(inventory_category_has_items(i))categories.add(inv_categories[i],""+i);
+if(categories.items.length()==0)return;int selected=0;for(uint i=0;i<categories.items.length();i++)if(string_to_number(categories.items[i].id)==inv_category_index){selected=int(i);break;}categories.set_pos(selected,false);
+}
+
+void inventory_form_fill_items(nv_form_list_box@ items,string[]@ keys,int preferred=0)
+{
+keys.resize(0);keys=get_filtered_keys();items.items.resize(0);items.list_position=-1;
+for(uint i=0;i<keys.length();i++)items.add(inv_menu_label(keys,int(i)),keys[i]);
+if(items.items.length()>0){if(preferred<0)preferred=0;if(preferred>=int(items.items.length()))preferred=int(items.items.length())-1;items.set_pos(preferred,false);}
+}
+
+// The inventory is now a regular NV Form. Dashboard mode appends the shared
+// match shell automatically; Inventory mode leaves this as a standalone form.
 void inventory_menu()
+{
+if(!inventory_category_has_items(inv_category_index) and inventory_category_has_items(0))move_inventory_category(1);
+if(get_filtered_keys().length()==0){speak("Your inventory is empty.");return;}
+nv_form f;f.create_window("Inventory",false,true);
+nv_form_list_box@ categories=f.add_list("Item categories; choose a category to update its items","inventory_categories");@categories.shortcut=nv_shortcut(KEY_C,ctrl=true,alt=true);
+inventory_form_fill_categories(categories);
+nv_form_list_box@ items=f.add_list("Items in the selected category; Enter selects and Shift+Enter uses","inventory_items",false,{},0,-1,true);@items.shortcut=nv_shortcut(KEY_I,ctrl=true,alt=true);
+string[] keys;inventory_form_fill_items(items,keys,invpos);
+nv_form_button@ select=f.add_button("Select the focused item and return to the game","select",true);@select.shortcut=nv_shortcut(KEY_S,ctrl=true,alt=true);
+nv_form_button@ use=f.add_button("Use or equip the focused item","use");@use.shortcut=nv_shortcut(KEY_U,alt=true);
+nv_form_button@ actions=f.add_button("Open all actions for the focused item","actions");@actions.shortcut=nv_shortcut(KEY_A,alt=true);
+nv_form_button@ help=f.add_button("Read detailed help for the focused item","help");@help.shortcut=nv_shortcut(KEY_H,alt=true);
+nv_form_button@ give=f.add_button("Give one focused item to a nearby player","give");@give.shortcut=nv_shortcut(KEY_N,alt=true);
+nv_form_button@ drop=f.add_button("Drop one focused item seven tiles ahead","drop");@drop.shortcut=nv_shortcut(KEY_D,alt=true);
+nv_form_button@ earlier=f.add_button("Move the focused item earlier in this category","earlier");@earlier.shortcut=nv_shortcut(KEY_UP,alt=true);
+nv_form_button@ later=f.add_button("Move the focused item later in this category","later");@later.shortcut=nv_shortcut(KEY_DOWN,alt=true);
+nv_form_button@ close=f.add_button("Close inventory without changing the selected item","close",false,true);@close.shortcut=nv_shortcut(KEY_X,alt=true);
+f.focus_control(items);int category_position=categories.list_position;
+while(true)
+{
+wait(5);if(connected)netloop();grenade_cook_loop();
+if(categories.list_position!=category_position and categories.list_position>=0){category_position=categories.list_position;inv_category_index=string_to_number(categories.focused_item.id);inventory_form_fill_items(items,keys,0);}
+bool shifted_use=@f.current_control==@items and shift_is_down() and (key_pressed(KEY_RETURN) or key_pressed(KEY_NUMPAD_ENTER));
+f.monitor();
+if(f.is_pressed(close))return;
+if(keys.length()==0)continue;int pos=items.list_position;if(pos<0 or pos>=int(keys.length()))pos=0;string key=keys[pos];
+if(shifted_use or f.is_pressed(use)){invpos=pos;inv_menu_use(key);return;}
+if(f.is_pressed(select)){invpos=pos;speak(string_replace(inv_menu_item_id(key),"_"," ",true)+" selected.");return;}
+if(f.is_pressed(actions)){inventory_item_action_menu(key);inventory_form_fill_categories(categories);inventory_form_fill_items(items,keys,pos);continue;}
+if(f.is_pressed(help)){show_item_help(inv_menu_item_id(key));continue;}
+if(f.is_pressed(give)){inventory_give_to_nearby_player(key);inventory_form_fill_categories(categories);inventory_form_fill_items(items,keys,pos);continue;}
+if(f.is_pressed(drop)){if(string_contains(key,"__partial__",1)==0)speak("Partial ammunition containers cannot be dropped directly.");else{send_reliable(0,"inventory_drop "+key,0);return;}continue;}
+bool move_earlier=f.is_pressed(earlier),move_later=f.is_pressed(later);if(move_earlier or move_later){bool forward=move_later;if(inventory_reorder(key,forward?1:-1)){inventory_form_fill_items(items,keys,pos+(forward?1:-1));speak("Item moved.");}else speak("That item cannot move farther in this category.");}
+}
+}
+
+void inventory_menu_legacy()
 {
 	if(!inventory_category_has_items(inv_category_index) and inventory_category_has_items(0))move_inventory_category(1);
 	string[] keys = get_filtered_keys();
@@ -3160,7 +3215,7 @@ speak(t.label);
 }
 void show_translocator_interface()
 {
-team_translocator_received=false;send_team_command("translocator state");timer team_wait;while(!team_translocator_received and team_wait.elapsed<1500){wait(5);netloop();}
+team_translocator_received=false;send_team_command("translocator state");timer team_wait;nv_form waiting;waiting.create_window("Loading team translocator",false,true);waiting.add_input("Translocator status","status","Waiting for teammate destinations, cell costs and shared point costs.","",0,true,true);nv_form_button@ wait_cancel=waiting.add_button("Cancel translocator request","cancel",false,true);waiting.focus_control(wait_cancel);while(!team_translocator_received and team_wait.elapsed<1500){wait(5);waiting.monitor();if(waiting.is_pressed(wait_cancel))return;netloop();}
 if (pois.length()==0 and team_translocator_names.length()==0){speak("No points of interest or available team mates to translocate to.");return;}
 int[] sorted=get_sorted_poi_indices();
 iw_form f;
@@ -3919,29 +3974,28 @@ else if (needs_reload_menu(weapons[w]))
 // Show menu to choose between full and partial ammo items.
 int gi=find_gun(weapons[w]);
 gun_ammo@ rg=gun_ammos[gi];
-setupmenu();
 string selected_load=selected_ammunition_for_weapon(weapons[w]);
 string selected_reserve=ammunition_reserve_item(weapons[w],selected_load);
 int full_count=get_item_count(selected_reserve);
+string[] reload_labels,reload_ids;
 if (full_count>0)
 {
 if(selected_load!="standard_ammunition")
-m.add_item_tts(ammunition_display_name(selected_load)+" ("+full_count+" rounds available)","full");
+{reload_labels.insert_last(ammunition_display_name(selected_load)+" ("+full_count+" rounds available)");reload_ids.insert_last("full");}
 else if (rg.ammo_display=="charge")
-m.add_item_tts("Full "+rg.reserve_label+" ("+full_count+" available)","full");
+{reload_labels.insert_last("Full "+rg.reserve_label+" ("+full_count+" available)");reload_ids.insert_last("full");}
 else if (rg.ammo_display=="fuel")
-m.add_item_tts("Full fuel canister ("+full_count+" available)","full");
+{reload_labels.insert_last("Full fuel canister ("+full_count+" available)");reload_ids.insert_last("full");}
 else
-m.add_item_tts("Full "+rg.reserve_label+" ("+full_count+" available)","full");
+{reload_labels.insert_last("Full "+rg.reserve_label+" ("+full_count+" available)");reload_ids.insert_last("full");}
 }
 int[] pindices=get_partial_indices_for(rg.reserve_item);
 for (uint pi=0; pi<pindices.length(); pi++)
 {
 string amt=partial_amount_label(rg.reserve_item, partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
-m.add_item_tts("Partial "+rg.reserve_label+" ("+amt+", "+ammunition_display_name(partial_items[pindices[pi]].ammunition)+")", "partial_"+pindices[pi]);
+reload_labels.insert_last("Partial "+rg.reserve_label+" ("+amt+", "+ammunition_display_name(partial_items[pindices[pi]].ammunition)+")");reload_ids.insert_last("partial_"+pindices[pi]);
 }
-int mres=m.run("Select ammunition to load",true);
-string choice=m.get_item_name(mres);
+string choice=pick_from_list("Select ammunition to load",reload_labels,reload_ids);
 if (choice=="full")
 start_reload(weapons[w]);
 else if (string_contains(choice, "partial_", 1)==0)

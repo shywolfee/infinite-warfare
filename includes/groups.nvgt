@@ -113,7 +113,9 @@ bool refresh_groups()
 group_state_received=false;
 group_request("state");
 timer t;
-while(!group_state_received and t.elapsed<2500){wait(5);group_pump();}
+nv_form waiting;nv_form_button@ cancel=null;
+if(client_match_active){waiting.create_window("Refreshing groups",false,true);waiting.add_input("Group status","status","Waiting for your groups, invitations and members.","",0,true,true);@cancel=waiting.add_button("Cancel group refresh","cancel",false,true);waiting.focus_control(cancel);}
+while(!group_state_received and t.elapsed<2500){wait(5);if(client_match_active){waiting.monitor();if(@cancel!=null and waiting.is_pressed(cancel))return false;}group_pump();}
 if(!group_state_received)speak("The server did not send your groups.");
 return group_state_received;
 }

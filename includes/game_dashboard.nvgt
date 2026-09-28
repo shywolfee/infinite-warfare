@@ -10,6 +10,7 @@ nv_form@ game_dashboard_active_form=null;
 timer game_dashboard_refresh_timer;
 timer game_dashboard_player_timer;
 string[] game_dashboard_players;
+bool game_dashboard_player_list_ready=false;
 bool game_dashboard_nested_gameplay=false;
 bool game_dashboard_nested_exit=false;
 nv_form@ game_dashboard_nested_form=null;
@@ -24,7 +25,7 @@ nv_form_list_box@ dashboard_open_screen(nv_form@ f){return cast<nv_form_list_box
 
 void game_dashboard_attach_shell(nv_form@ f)
 {
-if(!client_match_active or !game_dashboard_ready or f.get_control_by_id("__dash_keyboard") !is null)return;
+if(!client_match_active or !game_dashboard_ready or !game_dashboard_tab_mode or f.get_control_by_id("__dash_keyboard") !is null)return;
 nv_form_list_box@ open_screen=f.add_list("Open dashboard screen","__dash_open_screen");open_screen.hidden=true;@open_screen.shortcut=nv_shortcut(KEY_V,alt=true);
 nv_form_list_box@ players=f.add_list("Players currently in the war; press Enter to view the selected profile","__dash_players");@players.shortcut=nv_shortcut(KEY_P,alt=true);
 nv_form_list_box@ transcript=f.add_list("Messages in the selected conversation; this list updates live","__dash_transcript");@transcript.shortcut=nv_shortcut(KEY_R,alt=true);
@@ -111,6 +112,7 @@ string[] parts=string_split(entries[i],"|",false);if(parts.length()<3)continue;s
 if(string_contains(parts[1],"d",1)>-1)label+=" (dev)";if(string_contains(parts[1],"a",1)>-1)label+=" (admin)";
 label+=" - "+map_display_name(parts[2]);game_dashboard_players.insert_last(label);
 }
+game_dashboard_player_list_ready=true;
 }
 
 void game_dashboard_init()
@@ -184,7 +186,8 @@ return false;
 void game_dashboard_show_player_profile(nv_form@ f,const string &in selected_name)
 {
 if(selected_name=="")return;player_profile_received=false;player_profile_text="";send_reliable(0,"player_profile "+selected_name,0);timer timeout;
-while(!player_profile_received and timeout.elapsed<3500){wait(5);netloop(false);}if(!player_profile_received){speak("The player profile request timed out.");return;}
+nv_form waiting;waiting.create_window("Loading "+selected_name+" profile",false,true);waiting.add_input("Profile status","status","Waiting for the selected player's live profile.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel profile request","cancel",false,true);waiting.focus_control(cancel);
+while(!player_profile_received and timeout.elapsed<3500){wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return;netloop(false);}if(!player_profile_received){speak("The player profile request timed out.");return;}
 nv_form_list_box@ panel=dashboard_open_screen(f);if(@panel==null)return;panel.items.resize(0);string[] lines=string_split(player_profile_text,"\n",true);
 for(uint i=0;i<lines.length();i++)panel.add(lines[i],""+i);if(panel.items.length()==0)panel.add("No profile details were returned.","empty");
 panel.caption=selected_name+" profile; this screen remains open inside the dashboard";panel.hidden=false;panel.set_pos(0,false);f.focus_control(panel);
@@ -206,12 +209,17 @@ void game_dashboard_toggle_tab_mode(nv_form@ f)
 nv_form_input@ input=dashboard_message(f);if(@input!=null)game_dashboard_draft=input.text;game_dashboard_tab_mode=!game_dashboard_tab_mode;
 if(game_dashboard_draft.trim_whitespace()!="")speak("Your unsent conversation text is still waiting and will be here when you return to the dashboard.");
 if(@f!=@game_dashboard_form and @f.cancel_control!=null){f.cancel_control.fire();if(game_dashboard_nested_gameplay)game_dashboard_nested_exit=true;}else f.focus_control(dashboard_keyboard(f));
-speak(game_dashboard_tab_mode?"Tab and Shift Tab now move through the dashboard.":"Tab and Shift Tab now cycle your inventory.");
+speak(game_dashboard_tab_mode?"Dashboard mode. Tab and Shift Tab now move through the dashboard.":"Inventory mode. Tab and Shift Tab now cycle your inventory.");
 }
 
 bool game_dashboard_shell_pre_monitor(nv_form@ f)
 {
-if(!client_match_active or !game_dashboard_ready or f.get_control_by_id("__dash_keyboard") is null)return false;
+if(!client_match_active or !game_dashboard_ready)return false;
+if(f.get_control_by_id("__dash_keyboard") is null)
+{
+if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_F)){game_dashboard_tab_mode=true;f.shell_attached=false;speak("Dashboard mode. This screen will now connect to the dashboard.");return true;}
+return false;
+}
 if(@game_dashboard_active_form!=@f){@game_dashboard_active_form=f;nv_form_input@ incoming=dashboard_message(f);if(@incoming!=null)incoming.text=game_dashboard_draft;}
 nv_form_input@ input=dashboard_message(f);if(@input!=null and @f.current_control==@input)game_dashboard_draft=input.text;
 if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_F)){game_dashboard_toggle_tab_mode(f);return true;}

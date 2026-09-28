@@ -145,6 +145,17 @@ map_out.open(dir+"/editor_test.map","wb");map_out.write(join(all,"\n")+"\n");map
 client_test_results+="  wrote "+all.length()+" lines to "+dir+"/editor_test.map"+"\n";
 }
 client_checkpoint("dialogs while connected");
+client_checkpoint("in-game form modes");
+{
+bool old_match=client_match_active,old_ready=game_dashboard_ready,old_mode=game_dashboard_tab_mode;
+client_match_active=true;game_dashboard_ready=true;game_dashboard_tab_mode=true;
+nv_form dashboard_test;dashboard_test.create_window("Dashboard mode test",false,false,true);dashboard_test.add_button("Action","action");game_dashboard_attach_shell(dashboard_test);
+client_check(dashboard_test.get_control_by_id("__dash_keyboard") !is null and dashboard_test.get_control_by_id("__dash_conversations") !is null,"dashboard mode connects in-game NV Forms to the shared shell");
+game_dashboard_tab_mode=false;nv_form inventory_mode_test;inventory_mode_test.create_window("Inventory mode test",false,false,true);nv_form_button@ ordinary=inventory_mode_test.add_button("Action","action");game_dashboard_attach_shell(inventory_mode_test);
+client_check(inventory_mode_test.get_control_by_id("__dash_keyboard") is null,"inventory mode leaves in-game NV Forms standalone");
+client_check(ordinary.autoactivate,"actionable NV Form shortcuts auto-activate");
+client_match_active=old_match;game_dashboard_ready=old_ready;game_dashboard_tab_mode=old_mode;
+}
 // A dialog in the lobby while connected. The network pump and the helper
 // service used to call each other forever here, hanging the game on entering
 // the lobby; this returns only if they no longer do.

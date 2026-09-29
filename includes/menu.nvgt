@@ -2030,8 +2030,8 @@ dlg("Failed to save setting. Server may not have responded.");
 }
 else if(communication.is_pressed(f_announcement))
 {
-string text=af_input("Staff announcement","",true).trim_whitespace();if(text=="")continue;
-send_reliable(0,"announcement_post "+text,0);string response;
+string title=af_input("Announcement title","",true).trim_whitespace();if(title=="")continue;string text=af_input("Announcement body","",true).trim_whitespace();if(text=="")continue;title=string_replace(string_replace(title,"%","%25",true),"|","%7C",true);text=string_replace(string_replace(string_replace(string_replace(text,"%","%25",true),"|","%7C",true),"\r","%0D",true),"\n","%0A",true);
+send_reliable(0,"announcement_post "+title+"|"+text,0);string response;
 if(wait_for_service_response("announcement_",response,4000))speak(response=="announcement_posted"?"Announcement posted.":string_replace(response,"announcement_error ","",false));
 else speak("The announcement request timed out.");
 }

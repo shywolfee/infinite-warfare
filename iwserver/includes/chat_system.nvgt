@@ -38,20 +38,23 @@ void chat_staff_notice(string text)
 {
 for(uint i=0;i<players.length();i++)if(staff_can(players[i].name,"staff",players[i].dev,players[i].admin)){send_reliable(players[i].peer_id,"play_s notify.ogg",0);send_reliable(players[i].peer_id,text,2);}for(uint i=0;i<lobby_clients.length();i++)if(staff_can(lobby_clients[i].name,"staff",lobby_clients[i].dev,lobby_clients[i].admin)){send_reliable_id(lobby_clients[i].peer_id,"play_s notify.ogg",0);send_reliable_id(lobby_clients[i].peer_id,text,2);}
 }
-string staff_announcements_path(){return "administration/announcements.txt";}
+string announcement_id(string title)
+{
+string id="";title=string_to_lower_case(title.trim_whitespace());for(uint i=0;i<title.length();i++){string c=title.substr(i,1);bool letter=(c>="a" and c<="z"),number=(c>="0" and c<="9");if(letter or number)id+=c;else if(id!="" and string_right(id,1)!="_")id+="_";}while(id.length()>0 and string_right(id,1)=="_")id=string_left(id,id.length()-1);return id;
+}
+string announcement_title(string id){string title=string_replace(id,"_"," ",true);if(title.length()>0)title=string_to_upper_case(title.substr(0,1))+title.substr(1);return title;}
+string announcement_unescape(string value){value=string_replace(value,"%0A","\n",true);value=string_replace(value,"%0D","\r",true);value=string_replace(value,"%7C","|",true);return string_replace(value,"%25","%",true);}
 string read_staff_announcements()
 {
-string path=staff_announcements_path();if(!file_exists(path))return "No staff announcements have been posted.";
-string text=file_get_contents(path).trim_whitespace();return text==""?"No staff announcements have been posted.":text;
+directory_create("content/announcements");string[] files=find_files("content/announcements/*.txt"),result;for(uint i=0;i<files.length();i++){string id=string_replace(files[i],".txt","",false);result.insert_last(id+"~"+announcement_title(id));}return result.length()==0?"none":join(result,";");
 }
-void post_staff_announcement(uint peer,string body)
+string read_staff_announcement(string id){if(id=="" or announcement_id(id)!=id)return "";string path="content/announcements/"+id+".txt";return file_exists(path)?file_get_contents(path).trim_whitespace():"";}
+void post_staff_announcement(uint peer,string payload)
 {
 string actor=chat_name_for_peer(peer);int pi=get_player_index(peer),li=get_lobby_client_index(peer);
 bool allowed=pi>=0?staff_can(players[pi].name,"staff",players[pi].dev,players[pi].admin):(li>=0 and staff_can(lobby_clients[li].name,"staff",lobby_clients[li].dev,lobby_clients[li].admin));
 if(!allowed){send_reliable(peer,"announcement_error Staff access is required to post announcements.",0);return;}
-body=string_replace(string_replace(body,"\r"," ",true),"\n"," ",true).trim_whitespace();if(body==""){send_reliable(peer,"announcement_error Enter announcement text first.",0);return;}
-directory_create("administration");file f;if(!f.open(staff_announcements_path(),"ab")){send_reliable(peer,"announcement_error The server could not save that announcement.",0);return;}
-string entry=chat_timestamp(true)+" - "+actor+": "+body;f.write(entry+"\r\n");f.close();admin_log(actor,"ANNOUNCEMENT",body);send_reliable(peer,"announcement_posted",0);
+string[] fields=string_split(payload,"|",false);if(fields.length()<2){send_reliable(peer,"announcement_error Enter a title and body.",0);return;}string title=announcement_unescape(fields[0]).trim_whitespace(),body=announcement_unescape(fields[1]).trim_whitespace(),id=announcement_id(title);if(id=="" or body==""){send_reliable(peer,"announcement_error Enter a valid title and body.",0);return;}directory_create("content/announcements");string path="content/announcements/"+id+".txt";if(file_exists(path)){send_reliable(peer,"announcement_error An announcement with that title already exists.",0);return;}file f;if(!f.open(path,"wb") or f.write(body)!=body.length()){send_reliable(peer,"announcement_error The server could not save that announcement.",0);return;}f.close();admin_log(actor,"ANNOUNCEMENT",title+": "+body);send_reliable(peer,"announcement_posted",0);
 }
 bool chat_withdraw(uint peer,string sender)
 {

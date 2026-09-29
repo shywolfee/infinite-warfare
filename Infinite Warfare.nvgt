@@ -377,7 +377,7 @@ int multitool_uses=0;
 // a person actually reads uses version_name instead.
 double version=0.53;
 string version_name="0.5.3";
-int build_number=88;
+int build_number=89;
 string build_date="2026-09-28";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
@@ -1741,7 +1741,7 @@ string[] cat_names = {
 "Game Systems"
 };
 string[][] cat_docs = {
-{"getting_started", "controls", "turning_and_aiming", "weapon_handling", "fire_modes", "stamina", "commands"},
+{"getting_started", "dashboard", "controls", "turning_and_aiming", "weapon_handling", "fire_modes", "stamina", "commands"},
 {"modes", "shattersea_map", "coruscant_map", "freyas_ascent_map", "turbolifts"},
 {"inventory_system", "item_mechanics", "ammo_system", "equipment", "buffs_debuffs", "teams", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "vehicles"}
 };
@@ -4974,6 +4974,10 @@ receive_player_profile(full_msg);
 else if(parsed[0]=="announcements_response")
 {
 announcements_text=chat_unescape(string_replace(full_msg,"announcements_response ","",false));announcements_received=true;
+}
+else if(parsed[0]=="announcement_body" and parsed.length()>1)
+{
+announcement_body_id=parsed[1];announcement_body_text=chat_unescape(string_replace(full_msg,"announcement_body "+parsed[1]+" ","",false));announcement_body_received=true;
 }
 else if(parsed[0]=="accounts_list_response" or parsed[0]=="account_detail_response" or parsed[0]=="accounts_error")
 {

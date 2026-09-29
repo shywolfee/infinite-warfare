@@ -168,12 +168,14 @@ else lines.insert_last("No registered account for this name.");show_info_list("Y
 
 bool announcements_received=false;
 string announcements_text="";
+bool announcement_body_received=false;
+string announcement_body_id="",announcement_body_text="";
 void show_staff_announcements()
 {
 announcements_received=false;announcements_text="";send_reliable(0,"announcements_get",0);timer timeout;
 while(connected and !announcements_received and timeout.elapsed<4000){wait(5);netloop(false);}
 if(!announcements_received){speak("The announcements request timed out.");return;}
-nv_form f;f.create_window("Latest staff announcements",false,true);nv_form_input@ body=f.add_input("Announcements","announcements",announcements_text,"",0,true,true);nv_form_button@ close=f.add_button("Close","close",true,true);f.focus_control(body);while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;}
+string[] rows=string_split(announcements_text,";",true);nv_form f;f.create_window("Staff announcements",false,true);nv_form_list_box@ titles=f.add_list("Announcements; move through titles, then Tab to read the selected body","announcement_titles");for(uint i=0;i<rows.length();i++){string[] fields=string_split(rows[i],"~",false);if(fields.length()>=2)titles.add(fields[1],fields[0]);}if(titles.items.length()==0)titles.add("No staff announcements have been posted.","none");nv_form_input@ body=f.add_input("Selected announcement body","announcement_body","Select an announcement title.","",0,true,true);nv_form_button@ close=f.add_button("Close announcements","close",false,true);f.focus_control(titles);int previous=-1;while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(titles.list_position!=previous and @titles.focused_item!=null){previous=titles.list_position;if(titles.focused_item.id=="none"){body.text="There are no announcements to read.";continue;}announcement_body_received=false;announcement_body_id="";announcement_body_text="";send_reliable(0,"announcement_get "+titles.focused_item.id,0);timer timeout;while(connected and !announcement_body_received and timeout.elapsed<3000){wait(5);f.monitor();netloop(false);}body.text=announcement_body_received and announcement_body_id==titles.focused_item.id?announcement_body_text:"The selected announcement could not be loaded.";}}
 }
 
 void game_dashboard_open_action_id(const string &in chosen)

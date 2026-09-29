@@ -17,6 +17,17 @@ player tester(50,50,0,"freeforall","wer_tester",1);
 tester.dev=true;
 players.insert_last(tester);
 int idx=int(players.length())-1;
+// Arena lifecycle. This exercises the same authoritative transfer routine
+// used by the Start button and confirms that its return snapshot survives.
+player arena_guest(55,55,0,"freeforall","arena_guest",2);players.insert_last(arena_guest);int guest_idx=int(players.length())-1;
+arena_instance arena_test(9000,players[idx].name,"open");arena_test.members.insert_last(arena_member(players[guest_idx].name,"combatant"));arenas.insert_last(arena_test);players[idx].arena_id=9000;players[idx].arena_role="combatant";players[guest_idx].arena_id=9000;players[guest_idx].arena_role="combatant";
+arena_start(arenas[arenas.length()-1]);
+wer_check(arenas[arenas.length()-1].state=="active" and players[idx].map=="arena_open" and players[guest_idx].map=="arena_open","arena start transfers every combatant to its instanced map");
+wer_check(players[idx].arena_return_map=="freeforall" and players[guest_idx].arena_return_map=="freeforall","arena start remembers both return locations");
+wer_check(arena_overview(players[idx]).find("arena_overview 9000~active~combatant~wer_tester")==0,"arena overview reports live role, state and host");
+arena_return_player(players[idx]);arena_return_player(players[guest_idx]);
+wer_check(players[idx].map=="freeforall" and int(players[idx].x)==50 and players[guest_idx].map=="freeforall" and int(players[guest_idx].x)==55,"arena exit restores exact maps and coordinates");
+arenas.remove_last();players.remove_at(guest_idx);
 // A new map.
 if(indexed_map_path("wer_test")!=""){file_delete(indexed_map_path("wer_test"));index_map_files();}
 handle_world_editor_request(1,"we_create|wer_test|Regression Town|80|60|20|grass|grass");

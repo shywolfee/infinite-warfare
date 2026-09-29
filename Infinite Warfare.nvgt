@@ -153,7 +153,7 @@ timer lockout_timer;
 bool lockout_active=false;
 bool capture_service_response(string message)
 {
-string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","er_purchase_","er_credit_","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
+string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","er_purchase_","er_credit_","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_overview ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
 }
 bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000)
 {
@@ -377,7 +377,7 @@ int multitool_uses=0;
 // a person actually reads uses version_name instead.
 double version=0.53;
 string version_name="0.5.3";
-int build_number=89;
+int build_number=90;
 string build_date="2026-09-28";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;

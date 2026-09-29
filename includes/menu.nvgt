@@ -1051,6 +1051,9 @@ while(true)
 {
 nv_form f;
 f.create_window("Game menu", false, false);
+// This modal owns match resumption itself. Attaching the dashboard shell here
+// exposed a keyboard area while the modal loop still intercepted gameplay.
+f.shell_attached=true;
 nv_form_list_box@ list=f.add_list("Game menu","entries");
 list.add("Back to the match","resume");
 list.add("Leave the match","leave");
@@ -1100,7 +1103,7 @@ void equipment_menu()
 int keep=0;
 while(true)
 {
-string[] items={equipped_armor_head,equipped_armor_torso,equipped_armor_arms,equipped_armor_legs,equip_body,equip_holster1,equip_holster2,equip_bracelet,equip_medical};
+string[] items={equipped_armor_head,equipped_armor_torso,equipped_armor_arms,equipped_armor_legs,equip_body,equip_holster1,equip_holster2,equip_bracelet,equip_medical,equip_ring};
 nv_form f;
 f.create_window("Equipment", false, true);
 nv_form_list_box@ list=f.add_list("Equipment. Enter on a slot takes it off.","slots");
@@ -1119,6 +1122,7 @@ if(equip_medical=="wirenet")medical_detail=wirenet_charges+" charges, "+(wirenet
 medical_detail+=round(equipped_item_weight(equip_medical),1)+" weight";
 }
 list.add(equipment_slot_label("Medical",equip_medical,medical_detail),"8");
+list.add(equipment_slot_label("Ring",equip_ring,equip_ring==""?"":round(equipped_item_weight(equip_ring),1)+" weight; reconnaissance ability"),"9");
 list.add("Total equipped weight: "+total_equipment_weight(),"total");
 list.set_pos(keep);
 nv_form_button@ remove=f.add_button("Take off","remove",true);
@@ -1135,7 +1139,7 @@ netloop();
 if(f.is_pressed(close))return;
 if(f.is_pressed(remove) and list.list_position>=0)
 {
-if(list.list_position>=9)continue;
+if(list.list_position>=10)continue;
 sel=list.list_position;
 }
 }
@@ -1157,6 +1161,7 @@ else if(sel==5)unequip_holster(1);
 else if(sel==6)unequip_holster(2);
 else if(sel==7)unequip_item("bracelet");
 else if(sel==8)unequip_item("medical");
+else if(sel==9)unequip_item("ring");
 }
 }
 // The manual is readme.html. This looked for readme.txt and readme.md, which

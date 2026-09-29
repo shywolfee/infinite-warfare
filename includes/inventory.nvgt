@@ -172,6 +172,23 @@ invalidate_inventory_keys();
 return true;
 }
 
+bool inventory_reorder_selected(string[] selected,int direction)
+{
+string[] visible=get_filtered_keys(),moving;
+for(uint i=0;i<visible.length();i++)if(selected.find(visible[i])>=0 and string_contains(visible[i],"__partial__",1)!=0)moving.insert_last(visible[i]);
+if(moving.length()==0)return false;
+int first=visible.find(moving[0]),last=visible.find(moving[moving.length()-1]);
+string anchor="";bool after=false;
+if(direction==-100000){if(first==0)return false;anchor=visible[0];}
+else if(direction==100000){if(last==int(visible.length())-1)return false;anchor=visible[visible.length()-1];after=true;}
+else if(direction<0){if(first<=0)return false;anchor=visible[first-1];}
+else {if(last>=int(visible.length())-1)return false;anchor=visible[last+1];after=true;}
+for(uint i=0;i<moving.length();i++){int at=inventory_order.find(moving[i]);if(at>=0)inventory_order.remove_at(at);}
+int insert_at=inventory_order.find(anchor);if(insert_at<0)return false;if(after)insert_at++;
+for(uint i=0;i<moving.length();i++)inventory_order.insert_at(insert_at+i,moving[i]);
+invalidate_inventory_keys();return true;
+}
+
 bool inventory_request_transfer_targets()
 {
 inventory_transfer_targets.resize(0);inventory_transfer_targets_received=false;send_reliable(0,"inventory_transfer_targets",0);timer request_timer;

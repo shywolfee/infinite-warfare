@@ -283,6 +283,7 @@ return heal;
 string equip_body = "";
 string equip_bracelet = "";
 string equip_medical = "";
+string equip_ring = "";
 
 // WireNet state.
 int wirenet_charges = 0;
@@ -293,11 +294,11 @@ timer wirenet_cooldown;
 timer biomonitor_cooldown;
 bool biomonitor_ready = true;
 
-string equipment_ability_for_item(string item){if(item=="biomonitor_bracelet")return "ability_biomonitor_scan";if(item=="wirenet")return "ability_wirenet_toggle";return "";}
-bool is_equipment_ability(string id){return id=="ability_biomonitor_scan" or id=="ability_wirenet_toggle";}
-string equipment_ability_name(string id){if(id=="ability_biomonitor_scan")return "Biomonitor Scan";if(id=="ability_wirenet_toggle")return "WireNet Auto-Heal Toggle";return string_replace(id,"_"," ",true);}
-string equipment_ability_source(string id){if(id=="ability_biomonitor_scan")return "Biomonitor Bracelet";if(id=="ability_wirenet_toggle")return "WireNet";return "Unknown equipment";}
-string equipment_ability_description(string id){if(id=="ability_biomonitor_scan")return "Scans for nearby players and reports the server-authoritative result.";if(id=="ability_wirenet_toggle")return "Enables or disables automatic emergency healing while WireNet charges remain.";return "";}
+string equipment_ability_for_item(string item){if(item=="biomonitor_bracelet")return "ability_biomonitor_scan";if(item=="wirenet")return "ability_wirenet_toggle";if(item=="reconnaissance_ring")return "ability_recon_ring_scan";return "";}
+bool is_equipment_ability(string id){return id=="ability_biomonitor_scan" or id=="ability_wirenet_toggle" or id=="ability_recon_ring_scan";}
+string equipment_ability_name(string id){if(id=="ability_biomonitor_scan")return "Biomonitor Scan";if(id=="ability_wirenet_toggle")return "WireNet Auto-Heal Toggle";if(id=="ability_recon_ring_scan")return "Signet Ring Reconnaissance Scan";return string_replace(id,"_"," ",true);}
+string equipment_ability_source(string id){if(id=="ability_biomonitor_scan")return "Biomonitor Bracelet";if(id=="ability_wirenet_toggle")return "WireNet";if(id=="ability_recon_ring_scan")return "Reconnaissance Signet Ring";return "Unknown equipment";}
+string equipment_ability_description(string id){if(id=="ability_biomonitor_scan")return "Scans for nearby players and reports the server-authoritative result.";if(id=="ability_wirenet_toggle")return "Enables or disables automatic emergency healing while WireNet charges remain.";if(id=="ability_recon_ring_scan")return "Uses the equipped ring to scan nearby friendly and hostile signatures.";return "";}
 int equipment_ability_cooldown_remaining(string id){if(id=="ability_biomonitor_scan" and !biomonitor_ready and biomonitor_cooldown.elapsed<15000)return int(ceil(double(15000-biomonitor_cooldown.elapsed)/1000.0));return 0;}
 void bind_equipment_ability(string id)
 {
@@ -318,15 +319,19 @@ if(id=="ability_wirenet_toggle")
 {
 if(equip_medical!="wirenet"){speak("Equip WireNet to use this ability.");return;}wirenet_active=!wirenet_active;p.play_stationary("wirenetuse.ogg",false);speak("WireNet "+(wirenet_active?"activated. "+wirenet_charges+" charges remaining.":"deactivated."));
 }
+if(id=="ability_recon_ring_scan")
+{
+if(equip_ring!="reconnaissance_ring"){speak("Equip the Reconnaissance Signet Ring to use this ability.");return;}send_reliable(0,"use reconnaissance_ring 1",0);return;
+}
 }
 
 double equipped_item_weight(string item)
 {
-if(item=="bomb_vest")return 12.0;if(item=="biomonitor_bracelet")return .4;if(item=="wirenet")return 2.5;
+if(item=="bomb_vest")return 12.0;if(item=="biomonitor_bracelet")return .4;if(item=="reconnaissance_ring")return .1;if(item=="wirenet")return 2.5;
 if(string_contains(item,"holster",1)>=0 or string_contains(item,"belt",1)>=0 or string_contains(item,"sling",1)>=0 or string_contains(item,"strap",1)>=0 or string_contains(item,"scabbard",1)>=0 or string_contains(item,"sheath",1)>=0 or string_contains(item,"bandoleer",1)>=0 or string_contains(item,"case",1)>=0)return 1.5;
 return item==""?0:1.0;
 }
-double total_equipment_weight(){return double(equipped_armor_weight)+equipped_item_weight(equip_body)+equipped_item_weight(equip_bracelet)+equipped_item_weight(equip_medical)+equipped_item_weight(equip_holster1)+equipped_item_weight(equip_holster2);}
+double total_equipment_weight(){return double(equipped_armor_weight)+equipped_item_weight(equip_body)+equipped_item_weight(equip_bracelet)+equipped_item_weight(equip_ring)+equipped_item_weight(equip_medical)+equipped_item_weight(equip_holster1)+equipped_item_weight(equip_holster2);}
 
 void equip_item(string item, string slot)
 {
@@ -352,6 +357,7 @@ wirenet_charges = 3;
 wirenet_active = true;
 bind_equipment_ability(equipment_ability_for_item(item));
 }
+else if(slot=="ring"){equip_ring=item;bind_equipment_ability(equipment_ability_for_item(item));}
 }
 }
 
@@ -396,6 +402,10 @@ wirenet_charges = 0;
 else
 speak("Nothing equipped in medical slot.");
 }
+else if(slot=="ring")
+{
+if(equip_ring!=""){remove_equipment_ability(equipment_ability_for_item(equip_ring));p.play_stationary(equip_ring+"unequip.ogg",false);give(equip_ring,1);speak(string_replace(equip_ring,"_"," ",true)+" removed.");equip_ring="";}else speak("Nothing equipped in ring slot.");
+}
 }
 
 string get_equipment_string()
@@ -423,6 +433,7 @@ result += " (" + wirenet_charges + " charges, " + (wirenet_active ? "active" : "
 }
 else
 result += "empty";
+result += ". Ring: "+(equip_ring==""?"empty":string_replace(equip_ring,"_"," ",true));
 result += ". Holster 1: ";
 if (equip_holster1 != "")
 {

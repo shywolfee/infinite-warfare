@@ -22,6 +22,10 @@ FILES = [
     "battlegrounds/main.map",
     "freyas_ascent/freyas_ascent.map",
     "habitat_alpha/habitat_alpha.map",
+    "open/arena_open.map",
+    "sidearms/arena_sidearms.map",
+    "melee/arena_melee.map",
+    "explosives/arena_explosives.map",
 ]
 
 AIR, FLOOR, SOLID, CLIMB = 0, 1, 2, 3

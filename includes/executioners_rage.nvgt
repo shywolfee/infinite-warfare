@@ -124,7 +124,7 @@ int result=-1;double nearest=radius+1;for(uint i=0;i<er_client_fixtures.length()
 bool interact_nearest_executioners_fixture(){int i=nearest_executioners_fixture(me.x,me.y,me.z,3);if(i<0)return false;send_reliable(0,"er_fixture_interact "+er_client_fixtures[i].id,0);return true;}
 string nearby_executioners_fixtures(double x,double y,double z)
 {
-string result="";for(uint i=0;i<er_client_fixtures.length();i++){if(er_client_fixtures[i].map!=mapname)continue;double distance=get_3d_distance(x,y,z,er_client_fixtures[i].x,er_client_fixtures[i].y,er_client_fixtures[i].z);if(distance<=30){if(result!="")result+=" ";result+=executioners_fixture_name(er_client_fixtures[i].type)+", "+int(distance)+" tiles away, "+er_client_fixtures[i].health+" health"+(er_client_fixtures[i].max_stock>0?", stock "+er_client_fixtures[i].stock+" of "+er_client_fixtures[i].max_stock:"")+".";}}return result;
+string result="";for(uint i=0;i<er_client_fixtures.length();i++){if(er_client_fixtures[i].map!=mapname)continue;double distance=get_3d_distance(x,y,z,er_client_fixtures[i].x,er_client_fixtures[i].y,er_client_fixtures[i].z);if(distance<=30){if(result!="")result+=" ";string direction=clock_direction(calculate_x_y_angle(x,y,er_client_fixtures[i].x,er_client_fixtures[i].y,facing));result+=executioners_fixture_name(er_client_fixtures[i].type)+", "+int(distance)+" tiles away at "+direction+", "+er_client_fixtures[i].health+" health"+(er_client_fixtures[i].max_stock>0?", stock "+er_client_fixtures[i].stock+" of "+er_client_fixtures[i].max_stock:"")+".";}}return result;
 }
 bool executioners_fixture_collision_sound(double x,double y,double z)
 {

@@ -377,7 +377,7 @@ int multitool_uses=0;
 // a person actually reads uses version_name instead.
 double version=0.53;
 string version_name="0.5.3";
-int build_number=87;
+int build_number=88;
 string build_date="2026-09-28";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
@@ -2146,7 +2146,7 @@ if(get_filtered_keys().length()==0){speak("Your inventory is empty.");return;}
 nv_form f;f.create_window("Inventory",false,true);
 nv_form_list_box@ categories=f.add_list("Item categories; choose a category to update its items","inventory_categories");@categories.shortcut=nv_shortcut(KEY_C,ctrl=true,alt=true);
 inventory_form_fill_categories(categories);
-nv_form_list_box@ items=f.add_list("Items in the selected category; Enter selects and Shift+Enter uses","inventory_items",false,{},0,-1,true);@items.shortcut=nv_shortcut(KEY_I,ctrl=true,alt=true);
+nv_form_list_box@ items=f.add_list("Items in the selected category; Alt+Space selects stacks for moving, Enter chooses and Shift+Enter uses","inventory_items",true,{},0,-1,true);@items.shortcut=nv_shortcut(KEY_I,ctrl=true,alt=true);
 string[] keys;inventory_form_fill_items(items,keys,invpos);
 nv_form_button@ select=f.add_button("Select the focused item and return to the game","select",true);@select.shortcut=nv_shortcut(KEY_S,ctrl=true,alt=true);
 nv_form_button@ use=f.add_button("Use or equip the focused item","use");@use.shortcut=nv_shortcut(KEY_U,alt=true);
@@ -2156,6 +2156,8 @@ nv_form_button@ give=f.add_button("Give one focused item to a nearby player","gi
 nv_form_button@ drop=f.add_button("Drop one focused item seven tiles ahead","drop");@drop.shortcut=nv_shortcut(KEY_D,alt=true);
 nv_form_button@ earlier=f.add_button("Move the focused item earlier in this category","earlier");@earlier.shortcut=nv_shortcut(KEY_UP,alt=true);
 nv_form_button@ later=f.add_button("Move the focused item later in this category","later");@later.shortcut=nv_shortcut(KEY_DOWN,alt=true);
+nv_form_button@ first=f.add_button("Move selected items to the beginning of this category","first");@first.shortcut=nv_shortcut(KEY_HOME,alt=true);
+nv_form_button@ last=f.add_button("Move selected items to the end of this category","last");@last.shortcut=nv_shortcut(KEY_END,alt=true);
 nv_form_button@ close=f.add_button("Close inventory without changing the selected item","close",false,true);@close.shortcut=nv_shortcut(KEY_X,alt=true);
 f.focus_control(items);int category_position=categories.list_position;
 while(true)
@@ -2163,16 +2165,18 @@ while(true)
 wait(5);if(connected)netloop();grenade_cook_loop();
 if(categories.list_position!=category_position and categories.list_position>=0){category_position=categories.list_position;inv_category_index=string_to_number(categories.focused_item.id);inventory_form_fill_items(items,keys,0);}
 bool shifted_use=@f.current_control==@items and shift_is_down() and (key_pressed(KEY_RETURN) or key_pressed(KEY_NUMPAD_ENTER));
+bool toggle_stack=@f.current_control==@items and MENU_is_down() and key_pressed(KEY_SPACE);
 f.monitor();
 if(f.is_pressed(close))return;
 if(keys.length()==0)continue;int pos=items.list_position;if(pos<0 or pos>=int(keys.length()))pos=0;string key=keys[pos];
+if(toggle_stack){items.focused_item.selected=!items.focused_item.selected;speak(items.focused_item.selected?"Selected this item stack for moving.":"Deselected this item stack.");continue;}
 if(shifted_use or f.is_pressed(use)){invpos=pos;inv_menu_use(key);return;}
 if(f.is_pressed(select)){invpos=pos;speak(string_replace(inv_menu_item_id(key),"_"," ",true)+" selected.");return;}
 if(f.is_pressed(actions)){inventory_item_action_menu(key);inventory_form_fill_categories(categories);inventory_form_fill_items(items,keys,pos);continue;}
 if(f.is_pressed(help)){show_item_help(inv_menu_item_id(key));continue;}
 if(f.is_pressed(give)){inventory_give_to_nearby_player(key);inventory_form_fill_categories(categories);inventory_form_fill_items(items,keys,pos);continue;}
 if(f.is_pressed(drop)){if(string_contains(key,"__partial__",1)==0)speak("Partial ammunition containers cannot be dropped directly.");else{send_reliable(0,"inventory_drop "+key,0);return;}continue;}
-bool move_earlier=f.is_pressed(earlier),move_later=f.is_pressed(later);if(move_earlier or move_later){bool forward=move_later;if(inventory_reorder(key,forward?1:-1)){inventory_form_fill_items(items,keys,pos+(forward?1:-1));speak("Item moved.");}else speak("That item cannot move farther in this category.");}
+bool move_earlier=f.is_pressed(earlier),move_later=f.is_pressed(later),move_first=f.is_pressed(first),move_last=f.is_pressed(last);if(move_earlier or move_later or move_first or move_last){string[] selected;for(uint si=0;si<items.items.length();si++)if(items.items[si].selected)selected.insert_last(items.items[si].id);if(selected.length()==0)selected.insert_last(key);int direction=move_first?-100000:(move_last?100000:(move_later?1:-1));if(inventory_reorder_selected(selected,direction)){string focus=key;inventory_form_fill_items(items,keys,keys.find(focus));for(uint si=0;si<items.items.length();si++)if(selected.find(items.items[si].id)>=0)items.items[si].selected=true;speak(selected.length()+" item stack"+(selected.length()==1?"":"s")+" moved.");}else speak("The selected items cannot move farther in this category.");}
 }
 }
 
@@ -2359,6 +2363,10 @@ if (equip_medical != "")
 speak("You already have medical equipment equipped. Remove it first.");
 return;
 }
+else if(item=="reconnaissance_ring")
+{
+if(equip_ring!=""){speak("You already have a ring equipped. Remove it first.");return;}equip_item(item,"ring");give(item,-1);speak("Reconnaissance Signet Ring equipped. Its scan ability was assigned to an available quickbar slot.");return;
+}
 equip_item("wirenet", "medical");
 give("wirenet", -1);
 speak("WireNet equipped with 3 charges. Its auto-heal toggle was assigned to an available quickbar slot.");
@@ -2380,7 +2388,7 @@ give("portable_auction_terminal",-1);give("hypercomp",1);speak("The legacy Porta
 return;
 }
 else if(executioners_item_use(item))return;
-else if(item=="hightech_grapple" or item=="anti_personnel_security_camera" or item=="neural_intrusion_device" or item=="field_restraints" or item=="reconnaissance_ring" or item=="carrier_missile" or item=="conventional_guided_missile" or item=="cannon_ball")
+else if(item=="hightech_grapple" or item=="anti_personnel_security_camera" or item=="neural_intrusion_device" or item=="field_restraints" or item=="carrier_missile" or item=="conventional_guided_missile" or item=="cannon_ball")
 {
 send_reliable(0,item_use_command(item),0);
 return;
@@ -4200,7 +4208,7 @@ if (MENU_is_down() and key_pressed(KEY_S))
 {
 support_menu();
 }
-if (MENU_is_down() and key_pressed(KEY_F))
+if (MENU_is_down() and shift_is_down() and key_pressed(KEY_F7))
 {
 feedback_menu();
 }
@@ -5476,6 +5484,7 @@ if (wirenet_charges <= 0)
 {
 speak("WireNet depleted.");
 equip_medical = "";
+equip_ring = "";
 }
 }
 else

@@ -33,6 +33,7 @@ nv_form_list_box@ conversations=f.add_list("Conversations and chat channels; sel
 nv_form_input@ message=f.add_input("Write a message to the selected conversation; your draft is retained","__dash_message",game_dashboard_draft,"",1024);@message.shortcut=nv_shortcut(KEY_M,alt=true);
 nv_form_button@ send=f.add_button("Send the written message to the selected conversation","__dash_send");@send.shortcut=nv_shortcut(KEY_S,alt=true);
 nv_form_keyboard_area@ keyboard=f.add_keyboard_area("Game keyboard area (Alt+G)","__dash_keyboard");@keyboard.shortcut=nv_shortcut(KEY_G,alt=true);
+keyboard.custom_type=" ";
 game_dashboard_refresh_shell(f,true);
 }
 
@@ -243,7 +244,11 @@ if(!game_dashboard_tab_mode and @f!=@game_dashboard_form){if(@f.cancel_control!=
 nv_form_keyboard_area@ keyboard=dashboard_keyboard(f);
 if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_G)){f.focus_control(keyboard);if(@f!=@game_dashboard_form and !game_dashboard_nested_gameplay)game_dashboard_begin_nested_gameplay(f);return true;}
 if(@f.current_control==@keyboard and @f!=@game_dashboard_form and !game_dashboard_nested_gameplay){game_dashboard_begin_nested_gameplay(f);return true;}
-if(@f.current_control!=@keyboard and key_pressed(KEY_ESCAPE)){f.focus_control(keyboard);return true;}
+// Nested screens own Escape: their cancel control returns to the previous
+// dashboard menu. Only the dashboard root uses Escape to resume the game.
+if(@f.current_control!=@keyboard and key_pressed(KEY_ESCAPE)){
+if(@f!=@game_dashboard_form and @f.cancel_control!=null){f.cancel_control.fire();return true;}
+f.focus_control(keyboard);return true;}
 if(game_dashboard_refresh_timer.elapsed>300){game_dashboard_refresh_shell(f);game_dashboard_refresh_timer.restart();}
 if(game_dashboard_player_timer.elapsed>5000){send_reliable(0,"lobby_playerlist",0);game_dashboard_player_timer.restart();}
 if(!game_dashboard_tab_mode and @f.current_control==@keyboard and key_pressed(KEY_TAB)){if(shift_is_down())cycle_inv(0);else cycle_inv(1);p.play_stationary("invmove.ogg",false);return true;}

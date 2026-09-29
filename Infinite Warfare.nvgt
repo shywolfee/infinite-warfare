@@ -377,7 +377,7 @@ int multitool_uses=0;
 // a person actually reads uses version_name instead.
 double version=0.53;
 string version_name="0.5.3";
-int build_number=90;
+int build_number=91;
 string build_date="2026-09-28";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
@@ -5242,6 +5242,7 @@ else if(parsed[0]=="setcoords")
 me.x=string_to_number(parsed[1]);
 me.y=string_to_number(parsed[2]);
 me.z=string_to_number(parsed[3]);
+mr.x=me.x;mr.y=me.y;movement_momentum=0;momentum_direction="";
 }
 else if(parsed[0]=="tracking" and parsed.length()>4)
 {

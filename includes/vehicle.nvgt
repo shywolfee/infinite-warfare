@@ -72,6 +72,15 @@ bool[] plane_win = {true, true, true, true};
 vehicle_types.insert_last(vehicle_type("Duo Plane",5000,500,4,13.3,3.5,4.5,plane_win));
 }
 
+string vehicle_setting(const string &in text,const string &in key,const string &in fallback="")
+{string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);for(uint i=0;i<lines.length();i++){int eq=lines[i].find("=");if(eq>0 and lines[i].substr(0,eq).trim_whitespace()==key)return lines[i].substr(eq+1).trim_whitespace();}return fallback;}
+void load_vehicle_content_blob(const string &in blob)
+{
+string[] records=string_split(blob,"\x1e",false);if(records.length()==0)return;vehicle_type@[] loaded;int[] loaded_order;
+for(uint i=0;i<records.length();i++){int sep=records[i].find("\x1f");if(sep<=0)continue;string text=records[i].substr(sep+1),display=vehicle_setting(text,"name");int seats=int(string_to_number(vehicle_setting(text,"seats","1")));if(display=="" or seats<1 or seats>32)continue;string[] window_values=string_split(vehicle_setting(text,"windows","false"),",",false);bool[] windows;for(int s=0;s<seats;s++)windows.insert_last(s<int(window_values.length()) and window_values[s].trim_whitespace().lower()=="true");vehicle_type@ v=vehicle_type(display,int(string_to_number(vehicle_setting(text,"health","500"))),int(string_to_number(vehicle_setting(text,"armour","0"))),seats,string_to_number(vehicle_setting(text,"top_speed","8")),string_to_number(vehicle_setting(text,"acceleration","2")),string_to_number(vehicle_setting(text,"braking","4")),windows);v.fuel_type=vehicle_setting(text,"fuel_type",v.fuel_type);v.fuel_capacity=string_to_number(vehicle_setting(text,"fuel_capacity","70"));v.fuel_per_tile=string_to_number(vehicle_setting(text,"fuel_per_tile","0.11"));int order=int(string_to_number(vehicle_setting(text,"order","999"))),at=int(loaded_order.length());for(uint oi=0;oi<loaded_order.length();oi++)if(order<loaded_order[oi]){at=int(oi);break;}loaded.insert_at(at,v);loaded_order.insert_at(at,order);}
+if(loaded.length()>0)vehicle_types=loaded;
+}
+
 // A vehicle instance on the map.
 class vehicle
 {
@@ -237,10 +246,19 @@ void ensure_vehicle_map_element(vehicle@ v,int owner)
 if(v.map_element_id>=0 and v.map_element_id<int(dynamic_map_elements.length())){dynamic_map_move(v.map_element_id,v.x,v.y,v.z,v.facing);vehicle_update_door_geometry(v);return;}
 v.map_element_id=dynamic_map_create("vehicle",v.get_name(),owner,v.x,v.y,v.z,v.facing);
 dynamic_map_element@ e=dynamic_map_elements[v.map_element_id];double length,width,height;vehicle_dimensions(v,length,width,height);
-if(v.get_name()=="Motorbike"){e.add_tile(-length*.5,length*.5,-width*.42,width*.42,-.12,.14,"metal5","Motorbike chassis",false);e.add_tile(-.35,.35,-.42,.42,.05,.82,"carpet1","Motorbike saddle",false);return;}
+if(v.get_name()=="Motorbike"){e.add_tile(-length*.5,length*.5,-width*.42,width*.42,-.12,.14,"metal5","chassis",false);e.add_tile(-.35,.35,-.42,.42,.05,.82,"carpet1","at the saddle",false);e.add_tile(length*.5,length*.5+1,-.8,.8,-.2,1.2,"","in front of the handlebars",false);e.add_tile(-length*.5-1,-length*.5,-.8,.8,-.2,1.2,"","behind the rear wheel",false);e.add_tile(-length*.5,length*.5,-1.1,-width*.42,-.2,1.2,"","along the left side",false);e.add_tile(-length*.5,length*.5,width*.42,1.1,-.2,1.2,"","along the right side",false);return;}
 e.add_tile(-length*.5,length*.5,-width*.5,width*.5,-.12,.18,"metal5",v.get_name()+" chassis",false);
 e.add_tile(-length*.48,length*.48,-width*.48,width*.48,.18,height-.2,"wallmetal",v.get_name()+" body",true);
 e.add_tile(-length*.42,length*.42,-width*.36,width*.36,height-.2,height,"metal4","roof of "+v.get_name(),true);
+// Non-solid local zones move and rotate with the vehicle. They deliberately
+// sit after collision geometry so zone lookup sees the specific region while
+// tile and solidity lookup continue to use the physical hull underneath.
+e.add_tile(length*.5,length*.5+1.25,-width*.65,width*.65,-.2,height*.75,"","in front of the hood",false);
+e.add_tile(-length*.5-1.25,-length*.5,-width*.65,width*.65,-.2,height*.75,"","behind the rear",false);
+e.add_tile(-length*.5,length*.5,-width*.5-1.25,-width*.5,-.2,height*.8,"","along the left side",false);
+e.add_tile(-length*.5,length*.5,width*.5,width*.5+1.25,-.2,height*.8,"","along the right side",false);
+e.add_tile(length*.08,length*.48,-width*.38,width*.38,height*.55,height-.21,"","on the hood",false);
+e.add_tile(-length*.42,length*.42,-width*.36,width*.36,height-.2,height+.7,"","on the roof",false);
 }
 
 void vehicle_set_interior_local(vehicle@ v,double wx,double wy,double wz)

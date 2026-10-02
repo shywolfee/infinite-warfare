@@ -12,6 +12,8 @@ int voice_quality=1; // 0 low, 1 standard, 2 high
 // non-positional; the player must leave one before entering another.
 string voice_room="";
 string voice_room_pending="";
+bool voice_room_reply=false;
+string voice_room_error="";
 microphone@ voice_microphone=null;
 audio_opus_encoder@ voice_encoder=null;
 timer voice_frame_timer;
@@ -112,7 +114,7 @@ clip.play(); entry.clips.insert_last(clip);
 
 void voice_send_room_state()
 {
-if(connected) send_reliable(0,"voice_join "+(voice_room_pending==""?"local":voice_room_pending),7);
+voice_room_reply=false;voice_room_error="";if(connected) send_reliable(0,"voice_join "+(voice_room_pending==""?"local":voice_room_pending),7);
 }
 
 string voice_route_component(string value){value=string_to_lower_case(value.trim_whitespace());value=string_replace(value," ","_",true);value=string_replace(value,":","_",true);value=string_replace(value,"/","_",true);value=string_replace(value,"\\","_",true);return value;}
@@ -120,6 +122,7 @@ string voice_route_component(string value){value=string_to_lower_case(value.trim
 void voice_chat_loop()
 {
 if(!connected or voice_settings_open) return;
+if(string_contains(voice_room,"map:",1)==0 and voice_room!="map:"+mapname and voice_room_pending==voice_room){voice_room_pending="";voice_send_room_state();}
 bool alt=(key_down(KEY_LMENU) or key_down(KEY_RMENU));
 bool shift=(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
 bool control=(key_down(KEY_LCONTROL) or key_down(KEY_RCONTROL));
@@ -167,13 +170,15 @@ void voice_room_menu()
 {
 voice_settings_open=true;
 nv_form f; f.create_window("Voice Chat Rooms",false,true);
-nv_form_input@ status=f.add_input("Current voice routing","status",voice_room==""?"Ordinary positional voice. You are not in a room.":"Joined room: "+voice_room,"",0,true,true);
-nv_form_list_box@ rooms=f.add_list("Available non-positional rooms","voice_rooms");
+nv_form_input@ status=f.add_input("Current voice routing","status",voice_room==""?"Positional voice on the current map.":"Non-positional room: "+voice_room,"",0,true,true);
+nv_form_list_box@ rooms=f.add_list("Choose a destination; switching does not require leaving first","voice_rooms");
+rooms.add("Positional voice around me","local");
 rooms.add("Non-positional current map room","map:"+mapname);
 rooms.add("Team voice room","team");
 rooms.add("Current text channel room: "+buffers[bufferpos].name,"channel:"+voice_route_component(buffers[bufferpos].name));
 rooms.add("Private-message voice room","private");
-nv_form_button@ join=f.add_button(voice_room==""?"Enter selected room":"Leave current room","join",true);
+for(uint ri=0;ri<rooms.items.length();ri++)if(rooms.items[ri].id==(voice_room==""?"local":voice_room)){rooms.set_pos(ri,false);break;}if(rooms.list_position<0)rooms.set_pos(0,false);
+nv_form_button@ join=f.add_button("Switch to selected voice routing","join",true);
 nv_form_button@ close=f.add_button("Cancel","cancel",false,true); f.focus_control(rooms);
 while(true)
 {
@@ -181,17 +186,17 @@ wait(5); f.monitor(); if(connected) netloop();
 if(f.is_pressed(close)) { voice_settings_open=false; return; }
 if(f.is_pressed(join))
 {
-if(voice_room!=""){voice_room_pending="";voice_send_room_state();speak("Requesting positional voice.");voice_settings_open=false;return;}
 if(rooms.list_position<0){speak("Select a room first.");continue;}
 string selected=rooms.items[rooms.list_position].id;
+if(selected=="local")selected="";
 if(selected=="private")
 {
 string target=af_input("Player for private voice room","",true).trim_whitespace();
-if(target=="") { voice_settings_open=false; return; }
+if(target=="")continue;
 string a=string_to_lower_case(name), b=string_to_lower_case(target);
 selected=(a<b ? "private:"+a+":"+b : "private:"+b+":"+a);
 }
-voice_room_pending=selected; voice_send_room_state();speak("Requesting "+rooms.items[rooms.list_position].text+"."); voice_settings_open=false; return;
+voice_room_pending=selected;voice_send_room_state();status.text="Requesting "+rooms.items[rooms.list_position].text+".";timer timeout;while(connected and !voice_room_reply and timeout.elapsed<3500){wait(5);f.monitor();netloop();}if(!voice_room_reply)status.text="The server did not confirm the voice-room change.";else if(voice_room_error!="")status.text=voice_room_error;else{for(uint si=0;si<voice_streams.length();si++)for(uint ci=0;ci<voice_streams[si].clips.length();ci++)if(voice_streams[si].clips[ci].active)voice_streams[si].clips[ci].stop();voice_streams.resize(0);status.text=voice_room==""?"Positional voice on the current map.":"Non-positional room: "+voice_room;speak(status.text);voice_settings_open=false;return;}
 }
 }
 }

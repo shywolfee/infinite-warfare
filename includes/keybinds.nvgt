@@ -788,6 +788,17 @@ if(key==KEY_TAB and modifiers==(KEYMOD_CTRL|KEYMOD_SHIFT))return "Move to the pr
 return "";
 }
 
+string kb_action_category(const string &in action)
+{
+string[] developer={"builder_menu","staff_panel","dev_poi_teleport","packet_monitor","packet_viewer"};if(developer.find(action)>=0)return "Developer and testing";
+if(string_contains(action,"voice_",1)==0 or action=="chat" or action=="map_chat" or action=="team_chat" or action=="group_chat" or action=="group_menu" or action=="recent_private_messages")return "Communication";
+if(string_contains(action,"vehicle_",1)==0 or action=="transition")return "Vehicles and travel";
+if(string_contains(action,"move_",1)==0 or string_contains(action,"turn_",1)==0 or string_contains(action,"aim_",1)==0 or action=="jump")return "Movement and aiming";
+if(action=="fire" or action=="reload" or string_contains(action,"weapon_",1)==0 or string_contains(action,"manual_",1)==0 or string_contains(action,"target_region_",1)==0 or action=="ammo_check")return "Combat and weapons";
+if(string_contains(action,"item",1)>=0 or action=="inventory" or action=="next_category" or action=="quickbar_view" or action=="equipment" or action=="extract_pill")return "Inventory and equipment";
+if(string_contains(action,"buffer_",1)==0 or action=="player_list" or action=="motd" or action=="ping" or action=="server_uptime" or action=="health" or action=="facing" or action=="coordinates" or action=="zone" or action=="nearby_players" or action=="nearby_items" or action=="points_of_interest" or action=="track_player" or action=="track_info" or action=="effects_read" or action=="stamina_check")return "Information and awareness";
+return "Interface and system";
+}
 void options_keybinds()
 {
 while(true)
@@ -795,8 +806,8 @@ while(true)
 iw_form f;
 f.create_window("Key Bindings",false,true);
 int f_list=f.create_list("Actions. Press Enter to rebind the selected action.",0,false);
-for (uint i=0; i<_kb_act_names.length(); i++)
-f.add_list_item(f_list,_kb_act_labels[i]+": "+kb_binding_label(i));
+int[] displayed_actions;string[] category_order={"Movement and aiming","Combat and weapons","Inventory and equipment","Vehicles and travel","Information and awareness","Communication","Interface and system","Developer and testing"};
+for(uint c=0;c<category_order.length();c++)for(uint i=0;i<_kb_act_names.length();i++)if(kb_action_category(_kb_act_names[i])==category_order[c]){displayed_actions.insert_last(i);f.add_list_item(f_list,category_order[c]+": "+_kb_act_labels[i]+": "+kb_binding_label(i));}
 int f_rebind=f.create_button("&Rebind selected",true);
 int f_profiles=f.create_button("Manage keymap profiles");
 int f_reset=f.create_button("R&eset all to defaults",false);
@@ -820,7 +831,7 @@ refresh=true;
 }
 if (f.is_pressed(f_rebind))
 {
-int sel=f.get_list_position(f_list);
+int shown=f.get_list_position(f_list);int sel=shown>=0 and shown<int(displayed_actions.length())?displayed_actions[shown]:-1;
 if (sel>=0 and uint(sel)<_kb_act_names.length())
 {
 speak("Press the new key for "+_kb_act_labels[sel]+". Press Escape to cancel.");

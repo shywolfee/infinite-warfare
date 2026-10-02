@@ -156,7 +156,7 @@ return zone_grid.value_at(x,y,z);
 string get_acoustic_space_at(int x,int y,int z)
 {return acoustic_grid.value_at(x,y,z);}
 string get_dynamic_or_static_zone_at(double x,double y,double z)
-{for(int i=int(dynamic_map_elements.length())-1;i>=0;i--){dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active)continue;double lx,ly,lz;e.world_to_local(x,y,z,lx,ly,lz);string n=e.zone_at_local(lx,ly,lz);if(n!="")return n;}return get_zone_at(int(x),int(y),int(z));}
+{for(int i=int(dynamic_map_elements.length())-1;i>=0;i--){dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active)continue;double lx,ly,lz;e.world_to_local(x,y,z,lx,ly,lz);string n=e.zone_at_local(lx,ly,lz);if(n!="")return e.kind=="vehicle"?e.name+", "+n:n;}return get_zone_at(int(x),int(y),int(z));}
 void load_map(string mdata)
 {
 p.destroy_all();

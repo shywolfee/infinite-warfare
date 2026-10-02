@@ -73,6 +73,10 @@ wer_check(content_path("items","wer_test_bad")=="","a malformed content file is 
 handle_world_editor_request(1,"we_content_delete|items|wer_test_item");
 wer_check(item_info("wer_test_item") is null and content_path("items","wer_test_item")=="","we_content_delete removes it and reloads");
 wer_check(item_sync_blob().find("plate_carrier")>=0,"the item sync carries every item file");
+handle_world_editor_request(1,"we_content_write|vehicles|test|wer_test_vehicle|name=Regression Rover\nhealth=900\narmour=100\nseats=2\nwindows=true,false\ntop_speed=10\nacceleration=3\nbraking=5\nfuel_type=diesel\nfuel_capacity=90\nfuel_per_tile=0.15");
+wer_check(content_path("vehicles","wer_test_vehicle")!="" and vehicle_sync_blob().find("Regression Rover")>=0,"vehicle content is editable and included in live synchronization");
+handle_world_editor_request(1,"we_content_delete|vehicles|wer_test_vehicle");
+wer_check(content_path("vehicles","wer_test_vehicle")=="","vehicle content deletion removes the authoritative file");
 // Permission.
 players[idx].dev=false;players[idx].admin=false;
 string title_before=map_title("wer_test");

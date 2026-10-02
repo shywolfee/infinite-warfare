@@ -20,6 +20,9 @@
 #include "includes/rotation.nvgt"
 #include "includes/awareness.nvgt"
 #include "includes/deploy.nvgt"
+// The shared item protocol can receive client-only vehicle definitions. The
+// server sends those definitions but never consumes them itself.
+void load_vehicle_content_blob(const string &in blob){}
 #include "../includes/item_data.nvgt"
 #include "includes/weapon.nvgt"
 #include "includes/grenade.nvgt"
@@ -298,7 +301,6 @@ else if(string_contains(requested,"map:",1)==0)valid=requested=="map:"+players[v
 else if(string_contains(requested,"channel:",1)==0)valid=requested.length()>8 and requested.length()<=72 and string_contains(requested,"/",1)<0 and string_contains(requested,"\\",1)<0;
 else if(string_contains(requested,"private:",1)==0){string[] members=string_split(requested,":",false);if(members.length()==3 and (members[1]==sender_key or members[2]==sender_key)){string other=members[1]==sender_key?members[2]:members[1];for(uint private_index=0;private_index<players.length();private_index++)if(string_to_lower_case(players[private_index].name)==other){valid=true;break;}}}
 if(!valid)send_reliable(players[voice_sender].peer_id,"voice_room_denied That voice room is unavailable or you are not authorized to enter it.",0);
-else if(current!="local" and requested!="local" and requested!=current)send_reliable(players[voice_sender].peer_id,"voice_room_denied Leave your current voice room before entering another.",0);
 else{voice_rooms.set(sender_key,requested);send_reliable(players[voice_sender].peer_id,"voice_room_state "+requested,0);}
 }
 else if(voice_sender>-1 and voice_parts.length()>5 and voice_parts[0]=="voice_frame")
@@ -3460,6 +3462,7 @@ return;
 string active_ban_reason=moderation_ban_reason(user,comp);if(active_ban_reason!=""){send_reliable(peer_id,"banned "+active_ban_reason,0);return;}
 send_reliable(peer_id, "loggedin123", 0);
 sync_items_to(peer_id);
+sync_vehicles_to(peer_id);
 group_presence_queue.insert_last(user);
 }
 int get_player_index(uint id)

@@ -188,8 +188,8 @@ send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+id,0);
 // ---------------------------------------------------------------------------
 // Content files.
 // ---------------------------------------------------------------------------
-string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";if(kind=="object_presets")return "content/object_presets";return "";}
-string content_ext(const string &in kind){if(kind=="weapons")return ".wpn";if(kind=="object_presets")return ".json";return ".item";}
+string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";if(kind=="vehicles")return "content/vehicles";if(kind=="object_presets")return "content/object_presets";return "";}
+string content_ext(const string &in kind){if(kind=="weapons")return ".wpn";if(kind=="vehicles")return ".vehicle";if(kind=="object_presets")return ".json";return ".item";}
 string content_path(const string &in kind,const string &in id)
 {
 string root=content_root(kind);if(root=="")return "";
@@ -218,6 +218,9 @@ blob+=files[i].substr(0,files[i].length()-5)+"\x1f"+read_whole_file(root+"/"+dir
 return blob;
 }
 void sync_items_to(uint peer){send_reliable(peer,"content_items|"+item_sync_blob(),0);}
+string vehicle_sync_blob(){string blob;string[] dirs=find_directories("content/vehicles/*");for(uint d=0;d<dirs.length();d++){string[] files=find_files("content/vehicles/"+dirs[d]+"/*.vehicle");for(uint i=0;i<files.length();i++){if(blob!="")blob+="\x1e";blob+=files[i].substr(0,files[i].length()-8)+"\x1f"+read_whole_file("content/vehicles/"+dirs[d]+"/"+files[i]);}}return blob;}
+void sync_vehicles_to(uint peer){send_reliable(peer,"content_vehicles|"+vehicle_sync_blob(),0);}
+void sync_vehicles_to_everyone(){string message="content_vehicles|"+vehicle_sync_blob();for(uint i=0;i<players.length();i++)send_reliable(players[i].peer_id,message,0);for(uint i=0;i<lobby_clients.length();i++)send_reliable(lobby_clients[i].peer_id,message,0);}
 void sync_items_to_everyone()
 {
 string message="content_items|"+item_sync_blob();
@@ -241,6 +244,11 @@ if(l.substr(0,eq)=="name")named=true;
 }
 return named;
 }
+string content_setting(const string &in text,const string &in key){string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);for(uint i=0;i<lines.length();i++){int eq=lines[i].find("=");if(eq>0 and lines[i].substr(0,eq).trim_whitespace()==key)return lines[i].substr(eq+1).trim_whitespace();}return "";}
+bool vehicle_content_valid(const string &in text)
+{
+if(!content_text_valid(text))return false;int seats=int(string_to_number(content_setting(text,"seats"))),health=int(string_to_number(content_setting(text,"health"))),armour=int(string_to_number(content_setting(text,"armour")));double speed=string_to_number(content_setting(text,"top_speed")),accel=string_to_number(content_setting(text,"acceleration")),brake=string_to_number(content_setting(text,"braking")),capacity=string_to_number(content_setting(text,"fuel_capacity")),usage=string_to_number(content_setting(text,"fuel_per_tile"));string fuel=content_setting(text,"fuel_type");string[] windows=string_split(content_setting(text,"windows"),",",false);if(health<1 or health>100000 or armour<0 or armour>100000 or seats<1 or seats>32 or speed<=0 or speed>100 or accel<=0 or brake<=0 or capacity<=0 or usage<=0 or fuel=="" or int(windows.length())!=seats)return false;for(uint i=0;i<windows.length();i++){string value=windows[i].trim_whitespace().lower();if(value!="true" and value!="false")return false;}return true;
+}
 bool object_preset_text_valid(const string &in text)
 {
 if(text.length()==0 or text.length()>65536)return false;
@@ -260,6 +268,7 @@ void reload_content(int index,const string &in what)
 string done;
 if(what=="items" or what=="all"){int n=load_item_catalogue();sync_items_to_everyone();done+=n+" items";}
 if(what=="weapons" or what=="all"){load_wpn_stats();done+=(done==""?"":", ")+"weapon statistics";}
+if(what=="vehicles" or what=="all"){sync_vehicles_to_everyone();done+=(done==""?"":", ")+"vehicle definitions";}
 if(what=="maps" or what=="all")
 {
 index_map_files();
@@ -450,7 +459,7 @@ string ckind=f[1],folder=f[2].lower(),id=f[3].lower(),text=after_field(message,4
 string root=content_root(ckind);
 if(root==""){we_say(index,"Unknown content kind.");return true;}
 if(!we_valid_id(id) or !we_valid_id(folder)){we_say(index,"Ids and folders are lower-case letters, digits and underscores.");return true;}
-if(ckind=="object_presets"?!object_preset_text_valid(text):!content_text_valid(text)){we_say(index,ckind=="object_presets"?"The preset must be valid JSON with health, bullet, blast, hit, break and parts values.":"A content file is key=value lines and needs a name.");return true;}
+if(ckind=="object_presets"?!object_preset_text_valid(text):(ckind=="vehicles"?!vehicle_content_valid(text):!content_text_valid(text))){we_say(index,ckind=="object_presets"?"The preset must be valid JSON with health, bullet, blast, hit, break and parts values.":(ckind=="vehicles"?"A vehicle needs valid health, armour, seats, one window flag per seat, motion and fuel values.":"A content file is key=value lines and needs a name."));return true;}
 string existing=content_path(ckind,id);
 string path=ckind=="object_presets"?root+"/"+id+content_ext(ckind):root+"/"+folder+"/"+id+content_ext(ckind);
 if(ckind!="object_presets")directory_create(root+"/"+folder);

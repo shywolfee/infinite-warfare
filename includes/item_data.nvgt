@@ -204,6 +204,7 @@ return l;
 // even when the server's files are newer than yours.
 bool handle_content_sync(const string &in message)
 {
+if(message.substr(0,17)=="content_vehicles|"){load_vehicle_content_blob(message.substr(17));content_database_needs_refresh=true;return true;}
 if(message.substr(0,14)!="content_items|")return false;
 string[] records=string_split(message.substr(14),"\x1e",false);
 if(records.length()==0)return true;

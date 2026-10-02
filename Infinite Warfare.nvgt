@@ -296,6 +296,7 @@ bool connected;
 bool show_damage_readout=false;
 bool hear_own_projectile_audio=false;
 bool audio_form_sound_feedback=true;
+bool dashboard_form_sound_feedback=true;
 void play_nv_form_audio_feedback(bool activation)
 {
 play_ui_cue(activation?"activate":"move");
@@ -339,6 +340,7 @@ string[] muted_ui_cues;
 void play_ui_cue(const string &in cue)
 {
 if(!audio_form_sound_feedback)return;
+if(!dashboard_form_sound_feedback and @game_dashboard_active_form==@game_dashboard_form)return;
 if(muted_ui_cues.find(cue)>=0)return;
 spool.play_stationary(ui_sound(cue),false);
 }
@@ -377,8 +379,8 @@ int multitool_uses=0;
 // a person actually reads uses version_name instead.
 double version=0.53;
 string version_name="0.5.3";
-int build_number=91;
-string build_date="2026-09-28";
+int build_number=92;
+string build_date="2026-10-02";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
@@ -916,6 +918,18 @@ while(true){wait(5);f.monitor();if(connected)netloop();uint64 newest=diagnostic_
 // ---------------------------------------------------------------------------
 // Developer Suite (Shift+D) — only available in dev builds.
 // ---------------------------------------------------------------------------
+void dev_runtime_report()
+{
+string[] lines;lines.insert_last("Build "+build_number+", map "+mapname+", coordinates "+mr.x+", "+mr.y+", "+me.z+".");lines.insert_last("Static map: "+map.length()+" lines, "+zones.length()+" zones, "+pois.length()+" points of interest.");int active_dynamic=0,dynamic_tiles=0;for(uint i=0;i<dynamic_map_elements.length();i++)if(dynamic_map_elements[i].active){active_dynamic++;dynamic_tiles+=dynamic_map_elements[i].tiles.length();}lines.insert_last("Dynamic map: "+active_dynamic+" active elements and "+dynamic_tiles+" local tiles.");lines.insert_last("Content: "+item_catalogue.length()+" item definitions, "+content_database.length()+" searchable records, "+vehicle_types.length()+" vehicle types.");uint64 received=0,sent=0;for(uint i=0;i<diagnostic_packets.length();i++){if(diagnostic_packets[i].direction=="received")received+=diagnostic_packets[i].size;else sent+=diagnostic_packets[i].size;}lines.insert_last("Captured diagnostic traffic: "+received+" bytes received and "+sent+" bytes sent. Packet ring: "+diagnostic_packets.length()+" of 500.");lines.insert_last("Current dynamic zone: "+get_dynamic_or_static_zone_at(me.x,me.y,me.z)+". Current surface: "+get_tile_at(me.x,me.y,me.z)+".");show_info_list("Runtime diagnostics",lines);
+}
+void dev_validation_report()
+{
+string[] lines;int duplicate_bindings=0,missing_item_names=0,empty_summaries=0;for(uint i=0;i<_kb_act_names.length();i++)for(uint j=i+1;j<_kb_act_names.length();j++)if(_kb_act_binds[i]==_kb_act_binds[j] and _kb_act_modifiers[i]==_kb_act_modifiers[j])duplicate_bindings++;for(uint i=0;i<item_catalogue.length();i++){if(item_catalogue[i].name.trim_whitespace()=="")missing_item_names++;if(item_catalogue[i].summary.trim_whitespace()=="")empty_summaries++;}lines.insert_last("Keybind registry: "+_kb_act_names.length()+" actions, "+duplicate_bindings+" duplicate active chords.");lines.insert_last("Item catalogue: "+item_catalogue.length()+" definitions, "+missing_item_names+" missing names, "+empty_summaries+" missing summaries.");int invalid_dynamic=0;for(uint i=0;i<dynamic_map_elements.length();i++)if(dynamic_map_elements[i].active and dynamic_map_elements[i].tiles.length()==0)invalid_dynamic++;lines.insert_last("Dynamic geometry: "+invalid_dynamic+" active elements without tiles.");lines.insert_last("Map identity: "+(mapname==""?"FAIL, no map id":"pass, "+mapname)+". Bounds "+max.x+" by "+max.y+" by "+max.z+".");lines.insert_last((missing_item_names==0 and invalid_dynamic==0)?"Core validation passed.":"Validation found issues; inspect the counts above.");show_info_list("Live validation",lines);
+}
+void dev_packet_tools()
+{
+string chosen=pick_from_list("Packet diagnostic tools",{"Open live packet viewer","Clear captured packet history","Toggle spoken packet monitor","Export packet summaries to the game data folder"},{"view","clear","toggle","export"});if(chosen=="view")packet_diagnostics_viewer();else if(chosen=="clear"){diagnostic_packets.resize(0);speak("Packet history cleared.");}else if(chosen=="toggle"){packet_monitor_enabled=!packet_monitor_enabled;speak(packet_monitor_enabled?"Spoken packet monitoring enabled.":"Spoken packet monitoring disabled.");}else if(chosen=="export"){string[] rows;for(uint i=0;i<diagnostic_packets.length();i++)rows.insert_last(diagnostic_packets[i].summary);string path=client_data_path("packet_diagnostics.txt");file_put_contents(path,join(rows,"\r\n"),false);speak("Exported "+rows.length()+" packet summaries to "+path+".");}
+}
 void dev_suite()
 {
 iw_form f;
@@ -923,6 +937,9 @@ f.create_window("Developer Suite", false, true);
 int f_giveall=f.create_button("Give &all items");
 int f_giveitem=f.create_button("Give item from &database");
 int f_spawnveh=f.create_button("&Spawn vehicle");
+int f_runtime=f.create_button("Runtime &diagnostics");
+int f_validate=f.create_button("Run live &validation");
+int f_packets=f.create_button("Packet diagnostic &tools");
 int f_close=f.create_button("&Close", false, true);
 f.focus(f_giveall);
 while(true)
@@ -940,6 +957,9 @@ else if (f.is_pressed(f_spawnveh))
 dev_spawn_vehicle();
 }
 else if(f.is_pressed(f_giveitem)) dev_database_give();
+else if(f.is_pressed(f_runtime))dev_runtime_report();
+else if(f.is_pressed(f_validate))dev_validation_report();
+else if(f.is_pressed(f_packets))dev_packet_tools();
 else if (f.is_pressed(f_close))
 {
 break;
@@ -4107,9 +4127,9 @@ builder_menu();
 }
 else if (action_pressed("zone") and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
-if (get_zone_at(mr.x,mr.y,me.z)!="")
+if (get_dynamic_or_static_zone_at(mr.x,mr.y,me.z)!="")
 {
-string locate=get_zone_at(mr.x,mr.y,me.z);
+string locate=get_dynamic_or_static_zone_at(mr.x,mr.y,me.z);
 speak("Current zone: "+locate+" of "+map_display_name(mapname));
 }
 else
@@ -4773,6 +4793,7 @@ if(sd.d.exists("auto_bind_starting_loadout")) auto_bind_starting_loadout=sd.read
 if(sd.d.exists("replace_occupied_attachments"))replace_occupied_attachments=sd.readn("replace_occupied_attachments")>=1;
 if(sd.d.exists("hear_own_projectile_audio"))hear_own_projectile_audio=sd.readn("hear_own_projectile_audio")>=1;
 if(sd.d.exists("audio_form_sound_feedback"))audio_form_sound_feedback=sd.readn("audio_form_sound_feedback")>=1;
+if(sd.d.exists("dashboard_form_sound_feedback"))dashboard_form_sound_feedback=sd.readn("dashboard_form_sound_feedback")>=1;
 if(sd.d.exists("acoustic_occlusion_enabled"))acoustic_occlusion_enabled=sd.readn("acoustic_occlusion_enabled")>=1;
 if(sd.d.exists("configured_operating_system"))configured_operating_system=sd.read("configured_operating_system");else configured_operating_system=system_is_mobile?"Android":"Windows";
 if(sd.d.exists("configured_touchscreen"))configured_touchscreen=sd.readn("configured_touchscreen")>=1;
@@ -4836,6 +4857,7 @@ sd.add("auto_bind_starting_loadout",auto_bind_starting_loadout?1:0);
 sd.add("replace_occupied_attachments",replace_occupied_attachments?1:0);
 sd.add("hear_own_projectile_audio",hear_own_projectile_audio?1:0);
 sd.add("audio_form_sound_feedback",audio_form_sound_feedback?1:0);
+sd.add("dashboard_form_sound_feedback",dashboard_form_sound_feedback?1:0);
 sd.add("acoustic_occlusion_enabled",acoustic_occlusion_enabled?1:0);
 sd.add("configured_operating_system",configured_operating_system);
 sd.add("configured_touchscreen",configured_touchscreen?1:0);
@@ -4986,11 +5008,11 @@ receive_server_accounts(full_msg);
 else if(parsed[0]=="staff_access" and parsed.length()>1){staff_panel_available=parsed[1]!="player";}
 else if(parsed[0]=="voice_room_state" and parsed.length()>1)
 {
-string previous_room=voice_room;voice_room=parsed[1]=="local"?"":parsed[1];voice_room_pending=voice_room;if(voice_room==""){p.play_stationary("modeleave.ogg",false);speak("Left "+(previous_room==""?"the voice room":previous_room)+". Positional voice restored.");}else{p.play_stationary("modeenter.ogg",false);speak("Entered "+voice_room+". Leave this room before entering another.");}
+string previous_room=voice_room;voice_room=parsed[1]=="local"?"":parsed[1];voice_room_pending=voice_room;voice_room_reply=true;voice_room_error="";if(voice_room==""){p.play_stationary("modeleave.ogg",false);if(!voice_settings_open)speak("Positional voice restored.");}else{p.play_stationary("modeenter.ogg",false);if(!voice_settings_open)speak("Voice routing changed to "+voice_room+".");}
 }
 else if(parsed[0]=="voice_room_denied")
 {
-voice_room_pending=voice_room;speak(string_replace(full_msg,"voice_room_denied ","",false));
+voice_room_pending=voice_room;voice_room_error=string_replace(full_msg,"voice_room_denied ","",false);voice_room_reply=true;if(!voice_settings_open)speak(voice_room_error);
 }
 else if(parsed[0]=="logout_denied" and parsed.length()>1)
 {
@@ -5711,9 +5733,9 @@ fallingloop();
 }
 string get_location()
 {
-if (get_zone_at(mr.x,mr.y,me.z)!="")
+if (get_dynamic_or_static_zone_at(mr.x,mr.y,me.z)!="")
 {
-string locate=get_zone_at(mr.x,mr.y,me.z);
+string locate=get_dynamic_or_static_zone_at(mr.x,mr.y,me.z);
 return locate+" of "+map_display_name(mapname);
 }
 else

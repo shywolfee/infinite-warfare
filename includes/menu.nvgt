@@ -1497,6 +1497,7 @@ int[] volume_before;for(uint i=0;i<volume.length();i++)volume_before.insert_last
 int[] volume_last=volume_before;
 nv_form_checkbox@ f_occlusion=sound_page.add_checkbox("Muffle sounds heard through walls and closed doors", "occlusion", acoustic_occlusion_enabled);
 nv_form_checkbox@ f_form_sounds=sound_page.add_checkbox("Play sounds when moving through menus and dialogs", "form_sounds", audio_form_sound_feedback);
+nv_form_checkbox@ f_dashboard_sounds=sound_page.add_checkbox("Play navigation sounds in the in-game dashboard", "dashboard_sounds", dashboard_form_sound_feedback);
 nv_form_slider@ f_system_volume=sound_page.add_slider("Game volume in the Windows mixer","system_volume",0,100,5,round(app_volume_percent()/5,0)*5,20);
 options_label_percent(f_system_volume,0,100,5);
 nv_form_button@ f_toggle_system_mute=sound_page.add_button("Mute or unmute the game in the Windows mixer", "system_mute");
@@ -1591,6 +1592,7 @@ auto_bind_starting_loadout=f_auto_quickbar.state;
 replace_occupied_attachments=f_replace_attachments.state;
 hear_own_projectile_audio=f_own_projectiles.state;
 audio_form_sound_feedback=f_form_sounds.state;
+dashboard_form_sound_feedback=f_dashboard_sounds.state;
 acoustic_occlusion_enabled=f_occlusion.state;
 rctrl=(f_rctrl.state ? 1 : 0);
 menu_wrap_enabled=f_wrap.state;

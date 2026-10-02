@@ -379,7 +379,7 @@ int multitool_uses=0;
 // a person actually reads uses version_name instead.
 double version=0.53;
 string version_name="0.5.3";
-int build_number=92;
+int build_number=93;
 string build_date="2026-10-02";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
@@ -3876,6 +3876,8 @@ can_fire = can_hold_fire(weapons[w]);
 // the same event instead of pistols and shotguns losing it to an earlier read.
 bool physical_fire_pressed=action_pressed("fire") or (key_pressed(KEY_RCONTROL) and rctrl==1);
 bool physical_fire_down=action_down("fire") or (key_down(KEY_RCONTROL) and rctrl==1);
+bool mounted_trigger=physical_fire_down or physical_fire_pressed or gk_fire;
+if(vehicle_fire_mounted_weapon(mounted_trigger)){physical_fire_pressed=false;physical_fire_down=false;gk_fire=false;}
 // Start a new burst on press in burst mode.
 int cur_fm = get_fire_mode(weapons[w]);
 if (cur_fm == FIREMODE_BURST and physical_fire_pressed)

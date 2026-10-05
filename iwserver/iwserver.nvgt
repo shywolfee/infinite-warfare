@@ -3060,7 +3060,10 @@ int index=get_player_index(e.peer_id);
 if(index>-1)
 {
 end_spawn_grace(players[index]);
-int min_fire_interval=players[index].server_firetime*3/4;
+// Pace shots by the weapon actually being fired. The interval used to come
+// from the last weapon the client said it drew, so declaring a fast SMG and
+// then firing a rifle got the rifle the SMG's cadence.
+int min_fire_interval=get_wpn_firetime(parsed[1])*3/4;
 if(min_fire_interval<50) min_fire_interval=50;
 if (players[index].fire_timer.elapsed<min_fire_interval)
 {
@@ -3070,6 +3073,10 @@ if (players[index].rapid_fire_warnings>10)
 send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
 players.remove_at(index);
+// The removed slot now holds a different player (or nothing at all), so
+// nothing below may use this index. Previously the shot still went off,
+// fired by whoever moved into the slot, or crashed the server.
+return;
 }
 }
 else

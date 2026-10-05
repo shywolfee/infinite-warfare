@@ -16,6 +16,7 @@ for wid in sorted(added):
  props={line.partition("=")[0]:line.partition("=")[2] for line in paths[wid].read_text(encoding="utf-8").splitlines() if "=" in line}
  combined=(wid+" "+props.get("name","")).lower()
  assert "call of duty" not in combined and "modern warfare" not in combined and "cod_" not in combined, wid
+ assert not props.get("name","").lower().endswith((" empty"," draw"," holster"," reload"," unload")), f"{wid}: lifecycle suffix leaked into display name"
  profile=props.get("sound_profile",wid)
  for suffix in ("fire1.ogg","draw.ogg","holster.ogg","empty.ogg","reload.ogg","reloadend.ogg","unload.ogg","hit1.ogg"):
   assert (SOUNDS/(profile+suffix)).is_file(), f"{wid}: missing {profile+suffix}"

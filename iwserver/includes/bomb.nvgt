@@ -1,3 +1,22 @@
+// Shared blast rules for launched and thrown explosives. Damage is full at the
+// centre and falls to a quarter at the edge. A wall between the blast and its
+// victim soaks three quarters of what is left, so cover works against
+// explosives as it does against bullets. Launcher and mortar blasts used to
+// deal their full damage everywhere inside the radius, through any wall.
+double blast_falloff(double distance,double radius){if(radius<=0 or distance>radius)return 0;return 1.0-distance/radius*.75;}
+bool blast_occluded(double x,double y,double z,double tx,double ty,double tz,string map)
+{
+double dx=tx-x,dy=ty-y,dz=tz-z,distance=sqrt(dx*dx+dy*dy+dz*dz);if(distance<1.5)return false;
+// Skip the first tile: a shell that burst against a wall sits inside it.
+for(double along=1.0;along<distance-.5;along+=.5){double t=along/distance;if(string_contains(get_tile_at(int(round(x+dx*t,0)),int(round(y+dy*t,0)),int(floor(z+dz*t)),map),"wall",1)>=0)return true;}
+return false;
+}
+int blast_damage_to_player(double x,double y,double z,string map,double radius,int damage,player@ target)
+{
+double scale=blast_falloff(get_3d_distance(x,y,z,target.x,target.y,target.z),radius);if(scale<=0)return 0;
+if(blast_occluded(x,y,z+.5,target.x,target.y,target.z+1.0,map))scale*=.25;
+int result=int(double(damage)*scale);return result<1?1:result;
+}
 planebomb@[] planebombs(0);
 class planebomb
 {
@@ -102,19 +121,21 @@ damage_world_objects_blast(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mo
 string explosion_sound=mortarbombs[i].explosion_sound,explosion_distant=mortarbombs[i].explosion_distant;if(explosion_sound=="120mm_mortarexplode" and string_contains(mortarbombs[i].payload,"thermobaric",1)>=0){explosion_sound="firefight_carrier_missile_explode";explosion_distant="firefight_carrier_missile_dist.ogg";}else if(explosion_sound=="120mm_mortarexplode" and (string_contains(mortarbombs[i].payload,"fragmentation",1)>=0 or string_contains(mortarbombs[i].payload,"hedp",1)>=0)){explosion_sound="firefight_conventional_missile_explode";explosion_distant="firefight_conventional_missile_dist.ogg";}else if(explosion_sound=="120mm_mortarexplode" and string_contains(mortarbombs[i].payload,"_ap",1)>=0){explosion_sound="firefight_cannon_ball_explode";explosion_distant="firefight_cannon_ball_dist.ogg";}else if(explosion_sound=="120mm_mortarexplode" and string_contains(mortarbombs[i].payload,"incendiary",1)>=0){explosion_sound="firefight_grenade_explode";explosion_distant="firefight_grenade_dist.ogg";}play(explosion_sound,mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);send_reliable(0,"distsound "+explosion_distant+" "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
-if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=mortarbombs[i].blast_radius and players[i2].map==mortarbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
-{
-players[i2].hitby=mortarbombs[i].owner+"'s "+mortarbombs[i].source_label;
-apply_player_damage(players[i2],mortarbombs[i].blast_damage);
-if(string_contains(mortarbombs[i].payload,"incendiary",1)>=0){players[i2].burning=true;players[i2].burning_owner=mortarbombs[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
-play(mortarbombs[i].impact_sound,players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-}
+player@ target=players[i2];
+if(target.map!=mortarbombs[i].map or target.death or target.in_plane or !player_can_be_damaged_by(target,mortarbombs[i].owner))continue;
+int dealt=blast_damage_to_player(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map,mortarbombs[i].blast_radius,mortarbombs[i].blast_damage,target);if(dealt<=0)continue;
+// Passing the owner as the source enforces arena boundaries and starts the
+// combat-logout timers; blasts used to bypass both.
+dealt=apply_player_damage(target,dealt,mortarbombs[i].owner+"'s "+mortarbombs[i].source_label);if(dealt<=0)continue;
+if(string_contains(mortarbombs[i].payload,"incendiary",1)>=0){target.burning=true;target.burning_owner=mortarbombs[i].owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
+play(mortarbombs[i].impact_sound,target.x,target.y,target.z,target.map);
 }
 for (uint i2=0; i2<planes.length(); i2++)
 {
-if (get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=mortarbombs[i].blast_radius and planes[i2].map==mortarbombs[i].map)
+double plane_scale=blast_falloff(get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z),mortarbombs[i].blast_radius);
+if (plane_scale>0 and planes[i2].map==mortarbombs[i].map)
 {
-planes[i2].health-=mortarbombs[i].blast_damage;
+planes[i2].health-=int(double(mortarbombs[i].blast_damage)*plane_scale);
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }

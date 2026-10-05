@@ -47,6 +47,9 @@ Explosives
   blast_damage  damage at the centre of the blast
   launch_speed  tiles a second, for launched and specially thrown ones
   launch_rise   upward speed at release
+  sticky        true if a thrown charge sticks to the first person or
+                surface it touches
+  vehicle_only  true if a mine is set off only by vehicles, not people on foot
 
 Any other key is kept and can be read by the game with item_prop().
 Weapons are defined separately, in content/weapons.

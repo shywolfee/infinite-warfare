@@ -20,6 +20,8 @@ int radius=16;
 int damage=500;
 int audio_id=-1;
 timer audio_update_timer;
+string stuck_to="";
+int blast_dir=-1;
 fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner,string gkind="frag_grenade",bool play_launch=true,int delivery=1,int cooked_ms=0)
 {
 x=gx;
@@ -46,6 +48,12 @@ void fraggrenadeloop()
 {
 for (int i=int(fraggrenades.length())-1; i>=0; i--)
 {
+// Adhesive charges (sticky=true) stick to the first person or surface they
+// touch, and ride along with a person until they go off. The Sticky Semtex
+// Charge was described as adhesive but bounced like any other grenade.
+bool sticky=item_flag(fraggrenades[i].kind,"sticky");
+if(fraggrenades[i].stuck_to!=""){int carrier=get_player_index_from(fraggrenades[i].stuck_to);if(carrier>=0 and players[carrier].map==fraggrenades[i].map and !players[carrier].death){fraggrenades[i].x=players[carrier].x;fraggrenades[i].y=players[carrier].y;fraggrenades[i].z=players[carrier].z+1.0;}}
+else if(sticky and !fraggrenades[i].landed){for(uint pi=0;pi<players.length();pi++){if(players[pi].map!=fraggrenades[i].map or players[pi].name==fraggrenades[i].owner or players[pi].death or players[pi].in_plane)continue;if(get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[pi].x,players[pi].y,players[pi].z+1.0)<=.9){fraggrenades[i].stuck_to=players[pi].name;fraggrenades[i].landed=true;fraggrenades[i].vx=0;fraggrenades[i].vy=0;fraggrenades[i].vz=0;send_reliable(players[pi].peer_id,"A sticky charge is stuck to you!",2);break;}}}
 // Continuous ballistic integration: gravity, air drag, wall reflection,
 // ground restitution and rolling friction.  Small substeps prevent tunnelling.
 if(!fraggrenades[i].landed and fraggrenades[i].simulationtimer.elapsed>0)
@@ -76,6 +84,7 @@ if((fraggrenades[i].bounces>=8 or (absolute(fraggrenades[i].vz)<.45 and absolute
 }
 else fraggrenades[i].z=nz;
 }
+if(sticky and fraggrenades[i].bounces>0 and !fraggrenades[i].landed){fraggrenades[i].landed=true;fraggrenades[i].vx=0;fraggrenades[i].vy=0;fraggrenades[i].vz=0;}
 if(fraggrenades[i].audio_id>=0 and fraggrenades[i].audio_update_timer.elapsed>=50){fraggrenades[i].audio_update_timer.restart();send_unreliable_map(fraggrenades[i].map,"projectile_audio_move "+fraggrenades[i].audio_id+" "+fraggrenades[i].x+" "+fraggrenades[i].y+" "+fraggrenades[i].z+" "+fraggrenades[i].map,0);}
 }
 if(fraggrenades[i].landed and fraggrenades[i].audio_id>=0){send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades[i].audio_id=-1;}
@@ -83,51 +92,51 @@ if (fraggrenades[i].explodetimer.elapsed>=fraggrenades[i].fuse or (string_to_low
 {
 if(fraggrenades[i].audio_id>=0)send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);
 string explosion=item_prop(fraggrenades[i].kind,"explosion_sound",fraggrenades[i].kind=="frag_grenade"?"fraggrenadeexplode":(fraggrenades[i].kind=="er_molotov"?"er_molotov_fire_loop":explosive_audio_prefix(fraggrenades[i].kind)+"_explode"));play(explosion,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
-string blast_effect=item_prop(fraggrenades[i].kind,"blast_effect");if(blast_effect!="flash" and blast_effect!="gas" and blast_effect!="smoke")damage_world_objects_blast(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage);
+string blast_effect=item_prop(fraggrenades[i].kind,"blast_effect");
+// Flash, gas, smoke and EMP payloads disorient people; they do not breach
+// walls, wreck vehicles or knock aircraft down. Every grenade used to deal a
+// fixed 500 damage to planes within 16 tiles, smoke included, and the
+// non-lethal ones still damaged vehicles at full strength.
+bool destructive=blast_effect!="flash" and blast_effect!="gas" and blast_effect!="smoke" and blast_effect!="emp";
+if(destructive)damage_world_objects_blast(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage);
 string distant=item_prop(fraggrenades[i].kind,"distant_sound",(fraggrenades[i].kind=="frag_grenade" or fraggrenades[i].kind=="er_frag_grenade" or fraggrenades[i].kind=="er_molotov")?"fraggrenadedist.ogg":((fraggrenades[i].kind=="er_dr_bomb" or fraggrenades[i].kind=="er_ghost_bomb")?"er_time_bomb_dist.ogg":explosive_audio_prefix(fraggrenades[i].kind)+"_dist.ogg"));send_distant_sound(fraggrenades[i].map,distant,int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),35);
-for (uint i2=0; i2<players.length(); i2++)
+// A smoke grenade's payload is the cloud itself. It promised concealment but
+// only ever dealt one point of damage.
+if(blast_effect=="smoke")spawn_smokebomb(int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),fraggrenades[i].map,fraggrenades[i].owner);
+int owner_index=get_player_index_from(fraggrenades[i].owner);bool pinged=false;
+for (uint i2=0; i2<players.length() and blast_effect!="smoke"; i2++)
 {
-double blast_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[i2].x,players[i2].y,players[i2].z);
-if (blast_distance<=fraggrenades[i].radius and players[i2].map==fraggrenades[i].map and players[i2].death==false and players[i2].in_plane==false)
-{
-int index=get_player_index_from(fraggrenades[i].owner);
-if(index>-1)
-{
-send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+player@ target=players[i2];
+if(target.map!=fraggrenades[i].map or target.death or target.in_plane or !player_can_be_damaged_by(target,fraggrenades[i].owner))continue;
+// A directional charge throws its blast forward; people behind it are safe.
+if(fraggrenades[i].blast_dir>=0){double radians=double(fraggrenades[i].blast_dir)*3.14159265358979323846/180.0;if((target.x-fraggrenades[i].x)*sine(radians)+(target.y-fraggrenades[i].y)*cosine(radians)<0)continue;}
+int applied=blast_damage_to_player(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage,target);if(applied<=0)continue;
+applied=apply_player_damage(target,applied,fraggrenades[i].owner+"'s "+fraggrenades[i].kind);if(applied<=0)continue;
+if(owner_index>-1 and !pinged){pinged=true;send_reliable(players[owner_index].peer_id, "play_s weaponping.ogg", 0);}
+int effect_ms=item_prop_int(fraggrenades[i].kind,"effect_duration_ms",6000);string effect=blast_effect;
+if(effect=="flash"){send_reliable(target.peer_id,"play_s flashbang_effect.ogg",0);send_reliable(target.peer_id,"combat_slow "+effect_ms,0);}
+else if(effect=="concussion" or effect=="gas" or effect=="emp")send_reliable(target.peer_id,"combat_slow "+effect_ms,0);
+else if(effect=="incendiary"){target.burning=true;target.burning_owner=fraggrenades[i].owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
+else if(fraggrenades[i].kind=="flashbang"){send_reliable(target.peer_id,"play_s flashbang_effect.ogg",0);send_reliable(target.peer_id,"combat_slow 3000",0);}
+else if(fraggrenades[i].kind=="concussion_grenade")send_reliable(target.peer_id,"combat_slow 6000",0);
+else if(fraggrenades[i].kind=="gas_grenade")send_reliable(target.peer_id,"combat_slow 8000",0);
+else if(fraggrenades[i].kind=="incendiary_grenade" or fraggrenades[i].kind=="er_molotov"){target.burning=true;target.burning_owner=fraggrenades[i].owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
+else if(fraggrenades[i].kind=="er_dr_bomb")send_reliable(target.peer_id,"combat_slow 9000",0);
+else if(fraggrenades[i].kind=="er_bowling_bomb")send_reliable(target.peer_id,"combat_slow 3500",0);
+play("fraggrenadehit",target.x,target.y,target.z,target.map);
+play("playerhit"+random(1,6),target.x,target.y,target.z,target.map);
 }
-
-int applied=int(double(fraggrenades[i].damage)*(1.0-blast_distance/double(fraggrenades[i].radius)*.72));if(applied<0)applied=0;
-applied=apply_player_damage(players[i2],applied,fraggrenades[i].owner+"'s "+fraggrenades[i].kind);if(applied<=0)continue;
-int effect_ms=item_prop_int(fraggrenades[i].kind,"effect_duration_ms",6000);string effect=item_prop(fraggrenades[i].kind,"blast_effect");
-if(effect=="flash"){send_reliable(players[i2].peer_id,"play_s flashbang_effect.ogg",0);send_reliable(players[i2].peer_id,"combat_slow "+effect_ms,0);}
-else if(effect=="concussion" or effect=="gas" or effect=="emp")send_reliable(players[i2].peer_id,"combat_slow "+effect_ms,0);
-else if(effect=="incendiary"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
-else if(fraggrenades[i].kind=="flashbang"){send_reliable(players[i2].peer_id,"play_s flashbang_effect.ogg",0);send_reliable(players[i2].peer_id,"combat_slow 3000",0);}
-else if(fraggrenades[i].kind=="concussion_grenade")send_reliable(players[i2].peer_id,"combat_slow 6000",0);
-else if(fraggrenades[i].kind=="gas_grenade")send_reliable(players[i2].peer_id,"combat_slow 8000",0);
-else if(fraggrenades[i].kind=="incendiary_grenade"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
-else if(fraggrenades[i].kind=="er_molotov"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
-else if(fraggrenades[i].kind=="er_dr_bomb")send_reliable(players[i2].peer_id,"combat_slow 9000",0);
-else if(fraggrenades[i].kind=="er_bowling_bomb")send_reliable(players[i2].peer_id,"combat_slow 3500",0);
-play("fraggrenadehit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-play("playerhit"+random(1,6),players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-}
-}
-for (uint i2=0; i2<planes.length(); i2++)
+for (uint i2=0; i2<planes.length() and destructive; i2++)
 {
-if (get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=16 and planes[i2].map==fraggrenades[i].map)
+double plane_scale=blast_falloff(get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,planes[i2].x,planes[i2].y,planes[i2].z),fraggrenades[i].radius);
+if (plane_scale>0 and planes[i2].map==fraggrenades[i].map)
 {
-int index=get_player_index_from(fraggrenades[i].owner);
-if(index>-1)
-{
-send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
-}
-
-planes[i2].health-=500;
+if(owner_index>-1)send_reliable(players[owner_index].peer_id, "play_s weaponping.ogg", 0);
+planes[i2].health-=int(double(fraggrenades[i].damage)*plane_scale);
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
-for(uint vi=0;vi<authoritative_vehicles.length();vi++)
+for(uint vi=0;vi<authoritative_vehicles.length() and destructive;vi++)
 {
 authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=fraggrenades[i].map or vehicle.health<=0)continue;double vehicle_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vehicle_distance>fraggrenades[i].radius)continue;int vehicle_damage=int(double(fraggrenades[i].damage)*(1.0-vehicle_distance/double(fraggrenades[i].radius)*.6));if(fraggrenades[i].kind=="carrier_missile")vehicle_damage=int(vehicle_damage*1.65);else if(fraggrenades[i].kind=="conventional_guided_missile")vehicle_damage=int(vehicle_damage*1.3);damage_authoritative_vehicle(vehicle,vehicle_damage,-1,"caught in a grenade blast");
 }
@@ -152,7 +161,7 @@ deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,str
 void detonate_deployable(int index)
 {
 deployable_explosive@ d=deployable_explosives[index];fraggrenade@ blast=fraggrenade(d.x,d.y,d.z,d.dir,d.map,d.owner,d.kind,false);blast.landed=true;blast.vx=0;blast.vy=0;blast.vz=0;blast.fuse=0;
-blast.radius=item_prop_int(d.kind,"blast_radius",14);blast.damage=item_prop_int(d.kind,"blast_damage",700);
+blast.radius=item_prop_int(d.kind,"blast_radius",14);blast.damage=item_prop_int(d.kind,"blast_damage",700);if(item_prop(d.kind,"sensor_kind")=="directional")blast.blast_dir=d.dir;
 fraggrenades.insert_last(blast);deployable_explosives.remove_at(index);
 }
 void deployable_explosive_loop()
@@ -161,19 +170,34 @@ for(int i=int(deployable_explosives.length())-1;i>=0;i--)
 {
 deployable_explosive@ d=deployable_explosives[i];int timed=item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
 int owner_index=get_player_index_from(d.owner);bool triggered=false;
-for(uint pidx=0;pidx<players.length();pidx++)
+double sensor=item_prop_number(d.kind,"sensor_radius",3.2)*d.sensor_mult;string sensor_kind=item_prop(d.kind,"sensor_kind","proximity");
+// Anti-vehicle mines (vehicle_only=true) ignore people on foot.
+bool vehicle_only=item_flag(d.kind,"vehicle_only");
+for(uint pidx=0;pidx<players.length() and !vehicle_only;pidx++)
 {
 // The owner is not immune to a live proximity device.  Team protection still
 // applies to other teammates, but walking back into your own armed mine or
 // claymore must trigger the same blast that can already damage its owner.
-player@ target=players[pidx];if(target.death or target.map!=d.map or (target.name!=d.owner and owner_index>=0 and same_team(players[owner_index].name,target.name)))continue;double dx=double(target.x-d.x),dy=double(target.y-d.y),distance=sqrt(dx*dx+dy*dy);
-double sensor=item_prop_number(d.kind,"sensor_radius",3.2)*d.sensor_mult;string sensor_kind=item_prop(d.kind,"sensor_kind","proximity");
-if(sensor_kind=="proximity" and distance<=sensor)triggered=true;
-else if(sensor_kind=="directional" and distance<=sensor){double radians=double(d.dir)*3.14159265358979323846/180.0,dot=dx*sine(radians)+dy*cosine(radians);if(dot>distance*item_prop_number(d.kind,"sensor_cone",.55))triggered=true;}
-else if(sensor_kind=="delayed" and distance<=sensor){if(!d.triggered){d.triggered=true;d.trigger_timer.restart();play(item_prop(d.kind,"trigger_sound","er_motion_bomb_countdown"),d.x,d.y,d.z,d.map);}triggered=false;}
+// Sensors are three-dimensional: someone on another floor, or flying
+// overhead, no longer sets off a mine below them, and arena spectators can
+// no longer trigger devices they are immune to.
+player@ target=players[pidx];if(target.death or target.in_plane or target.map!=d.map or absolute(double(target.z-d.z))>2.0 or !player_can_be_damaged_by(target,d.owner) or (target.name!=d.owner and owner_index>=0 and same_team(players[owner_index].name,target.name)))continue;double dx=double(target.x-d.x),dy=double(target.y-d.y),distance=sqrt(dx*dx+dy*dy);
+if(sensor_kind=="directional"){if(distance<=sensor){double radians=double(d.dir)*3.14159265358979323846/180.0,dot=dx*sine(radians)+dy*cosine(radians);if(dot>distance*item_prop_number(d.kind,"sensor_cone",.55))triggered=true;}}
+else if(distance<=sensor)triggered=true;
 if(triggered)break;
 }
-if(triggered){if(d.kind=="er_directional_claymore")play("er_claymore_detonate",d.x,d.y,d.z,d.map);detonate_deployable(i);}
+// Vehicles set off proximity mines when their body passes over the sensor.
+// Previously nothing a vehicle did could trigger any mine, including the
+// Heavy Anti-vehicle Mine.
+if(!triggered and sensor_kind!="directional")for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ v=authoritative_vehicles[vi];if(v.map!=d.map or v.health<=0 or absolute(v.model_z-double(d.z))>2.0)continue;double reach=sensor+v.body_width*.5;if(get_3d_distance(v.model_x,v.model_y,0,d.x,d.y,0)<=reach){triggered=true;break;}}
+if(triggered)
+{
+// trigger_delay_ms is honoured by every sensor kind. It used to apply only
+// to countdown charges, so the authored delays on other mines did nothing.
+int delay=item_prop_int(d.kind,"trigger_delay_ms");
+if(delay>0 and !d.triggered){d.triggered=true;d.trigger_timer.restart();if(sensor_kind=="delayed" or item_prop(d.kind,"trigger_sound")!="")play(item_prop(d.kind,"trigger_sound","er_motion_bomb_countdown"),d.x,d.y,d.z,d.map);}
+else if(delay<=0){if(d.kind=="er_directional_claymore")play("er_claymore_detonate",d.x,d.y,d.z,d.map);detonate_deployable(i);}
+}
 }
 }
 void spawn_deployable_explosive(int x,int y,int z,int dir,string map,string owner,string kind,int profile=1){deployable_explosives.insert_last(deployable_explosive(x,y,z,dir,map,owner,kind,profile));}

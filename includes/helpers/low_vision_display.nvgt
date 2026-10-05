@@ -18,6 +18,7 @@ int selected_tab=-1;
 visual_ui_row@[] rows;
 int focused_row=-1;
 bool show_keyboard=false;
+bool dashboard_shell=false;
 string keyboard_text="";
 int keyboard_row=-1,keyboard_col=-1;
 bool keyboard_shift=false,keyboard_caps=false;
@@ -213,7 +214,7 @@ g.draw_line(sx,sy,sx+int(sine(rad)*24),sy-int(cosine(rad)*24),colour.r,colour.g,
 if(m.label!="" and scale>=7)g.text_fitted(m.label,sx+10,sy-10,visual_max(70,vw/5),13,10,vg_text,m.style==1);
 }
 
-void visual_draw_world(graphics_helper@ g,visual_world_frame@ f,int width,int height,const string &in subtitle,bool subtitles)
+void visual_draw_world(graphics_helper@ g,visual_world_frame@ f,int width,int height,const string &in subtitle,bool subtitles,bool present=true)
 {
 g.clear_screen(vg_background);
 int margin=visual_max(10,width/90),header=visual_max(56,height/13),hud=visual_max(106,height/8);
@@ -277,6 +278,31 @@ g.text("POSITION",third*2+margin,hy+14,14,vg_dim,true);
 g.text_fitted(int(f.player_x)+", "+int(f.player_y)+", "+int(f.player_z),third*2+margin,hy+40,third-margin*2,hud/3,16,vg_text,true);
 g.text("Facing "+int(f.player_heading)+" degrees",third*2+margin,hy+76,14,vg_dim);
 if(subtitles)visual_subtitle(g,subtitle,width,height,hy-10);
+if(present)g.update();
+}
+
+void visual_draw_dashboard_hud(graphics_helper@ g,visual_world_frame@ world,visual_form_frame@ form,int width,int height,const string &in subtitle,bool subtitles)
+{
+visual_draw_world(g,world,width,height,"",false,false);
+int margin=visual_max(12,width/80),panel_w=visual_max(390,width*39/100),panel_x=width-panel_w-margin;
+int panel_y=margin,panel_h=height-visual_max(124,height/8)-margin*2;
+g.panel(panel_x,panel_y,panel_w,panel_h,graphics_colour(4,12,21),vg_focus,3);
+g.rect(panel_x,panel_y,panel_w,visual_max(58,height/12),graphics_colour(11,37,60),true);
+g.text("TACTICAL DASHBOARD",panel_x+18,panel_y+12,visual_max(13,height/48),vg_accent,true);
+g.text_fitted(form.title,panel_x+18,panel_y+34,panel_w-36,visual_max(20,height/31),15,vg_text,true);
+int top=panel_y+visual_max(72,height/10),row_h=visual_max(48,height/13),available=visual_max(1,(panel_h-(top-panel_y)-70)/row_h);
+int start=0;if(form.focused_row>=available/2)start=form.focused_row-available/2;if(start+available>int(form.rows.length()))start=visual_max(0,int(form.rows.length())-available);
+for(int slot=0;slot<available and start+slot<int(form.rows.length());slot++)
+{
+visual_ui_row@ row=form.rows[start+slot];int y=top+slot*row_h;bool focus=row.focused;
+g.panel(panel_x+12,y,panel_w-24,row_h-6,focus?graphics_colour(18,72,108):vg_panel_raised,focus?vg_accent:vg_border,focus?3:1);
+g.text(visual_icon_for(row.kind),panel_x+24,y+10,visual_max(10,row_h/5),focus?vg_accent:vg_dim,true);
+g.text_fitted(row.caption,panel_x+92,y+7,panel_w-122,row_h/3,11,row.enabled?vg_text:vg_dim,focus);
+if(row.value!="")g.text_fitted(row.value,panel_x+92,y+row_h/2,panel_w-122,row_h/4,10,vg_dim);
+}
+g.text("TAB navigate   ENTER activate   ALT+G game control",panel_x+16,panel_y+panel_h-35,visual_max(10,height/64),vg_dim);
+if(form.show_keyboard)visual_keyboard(g,width/8,height*52/100,width*3/4,height*42/100,form.keyboard_text,form.keyboard_row,form.keyboard_col,form.keyboard_shift,form.keyboard_caps);
+if(subtitles)visual_subtitle(g,subtitle,width,height,height-visual_max(120,height/8));
 g.update();
 }
 

@@ -1051,9 +1051,6 @@ while(true)
 {
 nv_form f;
 f.create_window("Game menu", false, false);
-// This modal owns match resumption itself. Attaching the dashboard shell here
-// exposed a keyboard area while the modal loop still intercepted gameplay.
-f.shell_attached=true;
 nv_form_list_box@ list=f.add_list("Game menu","entries");
 list.add("Back to the match","resume");
 list.add("Leave the match","leave");
@@ -1066,6 +1063,9 @@ while(chosen=="")
 {
 wait(5);
 f.monitor();
+// In dashboard mode the shared shell can hand control to game() while this
+// small decision panel remains open.  That keeps movement, combat and every
+// live dashboard surface available without dismissing the leave prompt.
 if (connected==true)
 netloop();
 if(key_pressed(KEY_ESCAPE))chosen="resume";

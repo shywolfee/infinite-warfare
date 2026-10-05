@@ -14,6 +14,7 @@ bool game_dashboard_player_list_ready=false;
 bool game_dashboard_nested_gameplay=false;
 bool game_dashboard_nested_exit=false;
 nv_form@ game_dashboard_nested_form=null;
+string game_dashboard_option_state="";
 
 nv_form_keyboard_area@ dashboard_keyboard(nv_form@ f){return cast<nv_form_keyboard_area@>(f.get_control_by_id("__dash_keyboard"));}
 nv_form_list_box@ dashboard_players(nv_form@ f){return cast<nv_form_list_box@>(f.get_control_by_id("__dash_players"));}
@@ -121,11 +122,27 @@ void game_dashboard_init()
 game_dashboard_ready=true;game_dashboard_tab_mode=true;game_dashboard_draft="";@game_dashboard_active_form=null;
 game_dashboard_form.reset();game_dashboard_form.create_window("Infinite Warfare dashboard",false,false);
 @game_dashboard_options=game_dashboard_form.add_list("Game options and actions; press its shortcut or Enter to open the selected choice","options");@game_dashboard_options.shortcut=nv_shortcut(KEY_L,alt=true);
+string[] shortcut_ids={"stats","equipment","team","inventory","spend","groups","companions","arenas","options","help","changes","announcements","rules","account","developers","staff"};
+int[] shortcut_keys={KEY_S,KEY_E,KEY_T,KEY_I,KEY_X,KEY_B,KEY_C,KEY_K,KEY_O,KEY_H,KEY_W,KEY_N,KEY_R,KEY_A,KEY_D,KEY_M};
+for(uint i=0;i<shortcut_ids.length();i++){nv_form_button@ shortcut=game_dashboard_form.add_button("", "__dash_option_"+shortcut_ids[i]);shortcut.hidden=true;@shortcut.shortcut=nv_shortcut(shortcut_keys[i],alt=true);}
+game_dashboard_option_state="";game_dashboard_refresh_timer.restart();game_dashboard_player_timer.restart();
+game_dashboard_form.monitor();game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form),true,false);
+}
+
+string game_dashboard_current_option_state()
+{
+return (count_total_items()>0?"inventory":"empty")+"|"+(get_item_count("hypercomp")>0?"terminal":"offline")+"|"+((staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)?"staff":"player");
+}
+
+void game_dashboard_rebuild_options(bool force)
+{
+if(@game_dashboard_options==null)return;string state=game_dashboard_current_option_state();if(!force and state==game_dashboard_option_state)return;
+string selected=@game_dashboard_options.focused_item!=null?game_dashboard_options.focused_item.id:"stats";game_dashboard_option_state=state;game_dashboard_options.items.resize(0);
 game_dashboard_options.add("Review your current status: Display your weapon, location, stamina, effects, inventory total, map, player name and game version. Alt+S.","stats");
 game_dashboard_options.add("Manage your equipment: Review and change armour, holsters and other currently equipped gear. Alt+E.","equipment");
 game_dashboard_options.add("Manage your team: Control membership, roles, shared resources, team chat and team actions. Alt+T.","team");
-game_dashboard_options.add("Open your complete inventory: Browse, inspect, configure, use, give or drop the items you carry. Alt+I.","inventory");
-game_dashboard_options.add("Spend credits: Open the marketplace through your HyperComp Smart Terminal. Alt+X.","spend");
+if(count_total_items()>0)game_dashboard_options.add("Open your complete inventory: Browse, inspect, configure, use, give or drop the items you carry. Alt+I.","inventory");
+if(get_item_count("hypercomp")>0)game_dashboard_options.add("Spend credits: Open the marketplace through your HyperComp Smart Terminal. Alt+X.","spend");
 game_dashboard_options.add("Manage your groups: Review group conversations, invitations, membership and quick-chat selection. Alt+B.","groups");
 game_dashboard_options.add("Control deployed companions: View, command, recall or directly pilot every drone and chimp you own. Alt+C.","companions");
 game_dashboard_options.add("Enter automatic PK arenas: Create, join, spectate and manage public arena instances. Alt+K.","arenas");
@@ -137,11 +154,8 @@ game_dashboard_options.add("Read the game rules: Review the standards that apply
 game_dashboard_options.add("Review your account: Display your player name, registration and saved email status. Alt+A.","account");
 game_dashboard_options.add("View the developers and credits: Read who created and contributed to Infinite Warfare. Alt+D.","developers");
 if(staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)game_dashboard_options.add("Open staff administration: Access moderation, world-building, account and server tools. Alt+M.","staff");
-string[] shortcut_ids={"stats","equipment","team","inventory","spend","groups","companions","arenas","options","help","changes","announcements","rules","account","developers","staff"};
-int[] shortcut_keys={KEY_S,KEY_E,KEY_T,KEY_I,KEY_X,KEY_B,KEY_C,KEY_K,KEY_O,KEY_H,KEY_W,KEY_N,KEY_R,KEY_A,KEY_D,KEY_M};
-for(uint i=0;i<game_dashboard_options.items.length();i++){nv_form_button@ shortcut=game_dashboard_form.add_button("", "__dash_option_"+shortcut_ids[i]);shortcut.hidden=true;@shortcut.shortcut=nv_shortcut(shortcut_keys[i],alt=true);}
-game_dashboard_options.set_pos(0,false);game_dashboard_refresh_timer.restart();game_dashboard_player_timer.restart();
-game_dashboard_form.monitor();game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form),true,false);
+for(uint i=0;i<game_dashboard_options.items.length();i++)if(game_dashboard_options.items[i].id==selected){game_dashboard_options.set_pos(i,false);return;}
+if(game_dashboard_options.items.length()>0)game_dashboard_options.set_pos(0,false);
 }
 
 bool game_dashboard_keyboard_active()
@@ -244,20 +258,22 @@ nv_form_input@ input=dashboard_message(f);if(@input!=null and @f.current_control
 if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_F)){game_dashboard_toggle_tab_mode(f);return true;}
 if(!game_dashboard_tab_mode and @f!=@game_dashboard_form){if(@f.cancel_control!=null)f.cancel_control.fire();return true;}
 nv_form_keyboard_area@ keyboard=dashboard_keyboard(f);
-if((key_down(KEY_LMENU) or key_down(KEY_RMENU)) and key_pressed(KEY_G)){f.focus_control(keyboard);if(@f!=@game_dashboard_form and !game_dashboard_nested_gameplay)game_dashboard_begin_nested_gameplay(f);return true;}
+// Alt+G is a dashboard-only chord and must match exactly.  In particular,
+// Alt+Shift+G belongs to the manual-ammunition eject action.
+if(game_dashboard_tab_mode and (key_down(KEY_LMENU) or key_down(KEY_RMENU)) and !shift_is_down() and key_pressed(KEY_G)){f.focus_control(keyboard);if(@f!=@game_dashboard_form and !game_dashboard_nested_gameplay)game_dashboard_begin_nested_gameplay(f);return true;}
 if(@f.current_control==@keyboard and @f!=@game_dashboard_form and !game_dashboard_nested_gameplay){game_dashboard_begin_nested_gameplay(f);return true;}
 // Nested screens own Escape: their cancel control returns to the previous
 // dashboard menu. Only the dashboard root uses Escape to resume the game.
 if(@f.current_control!=@keyboard and key_pressed(KEY_ESCAPE)){
 if(@f!=@game_dashboard_form and @f.cancel_control!=null){f.cancel_control.fire();return true;}
 f.focus_control(keyboard);return true;}
-if(game_dashboard_refresh_timer.elapsed>300){game_dashboard_refresh_shell(f);game_dashboard_refresh_timer.restart();}
+if(game_dashboard_refresh_timer.elapsed>300){game_dashboard_rebuild_options(false);game_dashboard_refresh_shell(f);game_dashboard_refresh_timer.restart();}
 if(game_dashboard_player_timer.elapsed>5000){send_reliable(0,"lobby_playerlist",0);game_dashboard_player_timer.restart();}
 if(!game_dashboard_tab_mode and @f.current_control==@keyboard and key_pressed(KEY_TAB)){if(shift_is_down())cycle_inv(0);else cycle_inv(1);p.play_stationary("invmove.ogg",false);return true;}
 if(@f.current_control==@game_dashboard_options and game_dashboard_option_shortcut(f))return true;
 if(@f.current_control!=@keyboard)
 {
-nv_form_control@[] shell_controls={game_dashboard_options,dashboard_open_screen(f),dashboard_players(f),dashboard_transcript(f),dashboard_conversations(f),dashboard_message(f),dashboard_send(f),dashboard_keyboard(f)};
+nv_form_control@[] shell_controls={game_dashboard_options,dashboard_open_screen(f),dashboard_players(f),dashboard_transcript(f),dashboard_conversations(f),dashboard_message(f),dashboard_send(f)};
 for(uint i=0;i<shell_controls.length();i++)if(@shell_controls[i]!=null and @shell_controls[i]!=@game_dashboard_options and shell_controls[i].check_shortcut()){shell_controls[i].shortcut_focus();f.shortcut.consume();if(@shell_controls[i]==@dashboard_send(f)){f.is_pressed(dashboard_send(f));game_dashboard_send_message(f);}return true;}
 }
 if(@f.current_control!=@game_dashboard_options)
@@ -273,7 +289,7 @@ if((activate and (@f.current_control==@input or @f.current_control==@dashboard_s
 
 void game_dashboard_tick()
 {
-if(!game_dashboard_ready)return;form_net_depth++;
+if(!game_dashboard_ready)return;game_dashboard_rebuild_options(false);form_net_depth++;
 if(game_dashboard_nested_gameplay and @game_dashboard_nested_form!=null)game_dashboard_nested_form.monitor();else game_dashboard_form.monitor();
 form_net_depth--;
 }

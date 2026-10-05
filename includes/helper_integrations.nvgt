@@ -296,6 +296,7 @@ if(!helper_visual_hud and !visual_subtitles_enabled)return;
 if(@form==null or !form.active)return;
 visual_form_frame@ frame=visual_form_frame();
 frame.title=form.window_title;
+frame.dashboard_shell=form.get_control_by_id("__dash_keyboard") !is null;
 nv_form_tab_control@ tabs=null;
 for(uint i=0;i<form.controls.length();i++){@tabs=cast<nv_form_tab_control@>(form.controls[i]);if(@tabs!=null)break;}
 if(@tabs!=null)
@@ -460,7 +461,8 @@ visual_refresh.restart();visual_dirty=false;
 int dw,dh;iw_graphics.get_drawable(dw,dh);
 if(helper_visual_hud)
 {
-if(form_visible)visual_draw_form(iw_graphics,current_visual_form,dw,dh,visible_subtitle,visual_subtitles_enabled);
+if(form_visible and match and current_visual_form.dashboard_shell){visual_world_frame@ frame=visual_build_world_frame();visual_draw_dashboard_hud(iw_graphics,frame,current_visual_form,dw,dh,visible_subtitle,visual_subtitles_enabled);}
+else if(form_visible)visual_draw_form(iw_graphics,current_visual_form,dw,dh,visible_subtitle,visual_subtitles_enabled);
 else if(match){visual_world_frame@ frame=visual_build_world_frame();visual_draw_world(iw_graphics,frame,dw,dh,visible_subtitle,visual_subtitles_enabled);}
 else if(@current_visual_form!=null)visual_draw_form(iw_graphics,current_visual_form,dw,dh,visible_subtitle,visual_subtitles_enabled);
 else visual_draw_standalone_subtitles(iw_graphics,dw,dh,visual_subtitles_enabled?visible_subtitle:"");

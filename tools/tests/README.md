@@ -8,6 +8,7 @@ Run these from source using the same NVGT installation used to build the game:
 & C:/nvgt/nvgt.exe tools/tests/acoustic_regression_runner.nvgt
 & C:/nvgt/nvgt.exe tools/tests/world_objects_regression.nvgt
 python tools/tests/world_editor_regression.py
+python tools/tests/weapon_data_regression.py
 cd iwserver; & C:/nvgt/nvgt.exe world_editor_regression_runner.nvgt; cd ..
 python tools/build_maps.py
 python tools/validate_maps.py
@@ -42,3 +43,8 @@ real request handler: creating, travelling to and editing a map, undo and
 redo, properties and lobby listing, content files and reloading, and refusing
 requests without permission. It removes what it made and writes its report to
 `iwserver/administration/world_editor_regression.txt`.
+
+`weapon_data_regression.py` reads every weapon definition and checks that each
+magazine, belt or launch tube is used by one calibre only, that each calibre
+has one bullet diameter, and that rocket launchers fire rockets over a
+sensible range. It needs no sound pack or NVGT installation.

@@ -84,7 +84,11 @@ for wid,name,game,token,category,firetime,range_,damage,spread,calibre,capacity,
  velocity,mass,diameter,penetration=ball
  projectile="pellet" if category=="shotguns" else "bullet"; pellets="\npellet_count=9" if projectile=="pellet" else ""
  text=f"""name={name}\nmelee=false\nfiretime={firetime}\nwalktime={250 if category!='sniper_rifles' else 520}\nspeedtime=5\nrange={range_}\nmin_damage={damage[0]}\nmax_damage={damage[1]}\nspread={spread}\nammo_type={calibre}\nfeed_device={capacity}-round {'drum' if 'drum' in reserve else 'magazine'}\ncapacity={capacity}\nreserve_item={reserve}\nreserve_label=magazine\nis_magazine=true\nstarting_reserve={5 if capacity>=50 else 7}\nreload_ms={reload}\nammo_display=rounds\nfire_modes={modes}\nwclass={category[:-1] if category.endswith('s') else category}\nsound_profile={wid}\nprojectile_kind={projectile}\nmuzzle_velocity={velocity}\ngravity=9.81\ndrag=0.008\nmass_grams={mass}\ndiameter_mm={diameter}\ndispersion_degrees={spread/10}\npenetration={penetration}\ndamage_retention=0.84{pellets}\n"""
- outpath=CONTENT/category/f"{wid}.wpn";outpath.parent.mkdir(parents=True,exist_ok=True);outpath.write_text(text,encoding="utf-8")
+ # Weapon definitions are maintained by hand after the first import (0.5.5
+ # replaced the hashed placeholder statistics with real calibres, feeds and
+ # balance). Rebuilding the audio must never overwrite them.
+ if not any(CONTENT.rglob(f"{wid}.wpn")):
+  outpath=CONTENT/category/f"{wid}.wpn";outpath.parent.mkdir(parents=True,exist_ok=True);outpath.write_text(text,encoding="utf-8")
 
 for ordinal,(game,token) in enumerate(EXTRA):
  base=MW2 if game=="mw2" else MW3; title="Modern Warfare 2" if game=="mw2" else "Modern Warfare 3"
@@ -110,7 +114,11 @@ for ordinal,(game,token) in enumerate(EXTRA):
  for n in (1,2,3):(SOUNDS/f"{wid}hit{n}.ogg").write_bytes((SOUNDS/f"ak47hit{n}.ogg").read_bytes())
  descriptor=suffix.replace("_"," ").title();display=DISPLAY.get(token,token.replace("_"," ").title())+" "+descriptor;modes="semi" if token in pistols or token in snipers or token in launchers else "auto"; projectile="explosive" if token in launchers else "bullet"
  text=f"name={display}\nmelee=false\nfiretime={firetime}\nwalktime={280 if token not in snipers else 540}\nspeedtime=5\nrange={range_}\nmin_damage={low}\nmax_damage={high}\nspread={spread}\nammo_type={calibre}\nfeed_device={cap}-round feed\ncapacity={cap}\nreserve_item={reserve}\nreserve_label={'round' if token in launchers else 'magazine'}\nis_magazine=true\nstarting_reserve={4 if token in launchers else 6}\nreload_ms={2200+seed%2300}\nammo_display=rounds\nfire_modes={modes}\nwclass={wclass}\nsound_profile={wid}\nprojectile_kind={projectile}\nmuzzle_velocity={70 if token in launchers else 115}\ngravity=9.81\ndrag=0.009\nmass_grams={240 if token in launchers else 9.5}\ndiameter_mm={40 if token in launchers else 7.62}\ndispersion_degrees={spread/10}\npenetration={0 if token in launchers else 2}\ndamage_retention=0.82\n"
- outpath=CONTENT/category/f"{wid}.wpn";outpath.parent.mkdir(parents=True,exist_ok=True);outpath.write_text(text,encoding="utf-8")
+ # Weapon definitions are maintained by hand after the first import (0.5.5
+ # replaced the hashed placeholder statistics with real calibres, feeds and
+ # balance). Rebuilding the audio must never overwrite them.
+ if not any(CONTENT.rglob(f"{wid}.wpn")):
+  outpath=CONTENT/category/f"{wid}.wpn";outpath.parent.mkdir(parents=True,exist_ok=True);outpath.write_text(text,encoding="utf-8")
 # Fire-mode announcements are interface speech rather than weapon recordings;
 # copy the established phrases for every new multi-mode profile.
 for wid,_,_,_,_,_,_,_,_,_,_,_,_,modes,_ in WEAPONS:

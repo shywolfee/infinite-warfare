@@ -174,6 +174,10 @@ int combat_logout_remaining(player@ p)
 {
 int remaining=0;if(p.damage_taken_recent){int value=30000-p.damage_taken_timer.elapsed;if(value>remaining)remaining=value;}if(p.damage_dealt_recent){int value=20000-p.damage_dealt_timer.elapsed;if(value>remaining)remaining=value;}return remaining>0?remaining:0;
 }
+// Whether attacker_name can hurt p at all, by the same rule apply_player_damage
+// enforces: spectators are untouchable and harmless, and arena combatants only
+// fight their own arena. Callers check this before spending armour on a hit.
+bool player_can_be_damaged_by(player@ p,string attacker_name){if(p.arena_role=="spectator")return false;int attacker=get_player_index_from(attacker_name);if(attacker<0 or players[attacker].name==p.name)return true;return players[attacker].arena_role!="spectator" and players[attacker].arena_id==p.arena_id;}
 int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p) or p.arena_role=="spectator")return 0;int attacker=combat_attacker_index(source);if(attacker>=0 and players[attacker].name!=p.name){if(players[attacker].arena_role=="spectator" or players[attacker].arena_id!=p.arena_id)return 0;players[attacker].damage_dealt_recent=true;players[attacker].damage_dealt_timer.restart();}if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;p.damage_taken_recent=true;p.damage_taken_timer.restart();if(source!="")p.hitby=source;return amount;}
 int scaled_fall_damage(int distance)
 {
@@ -208,7 +212,10 @@ int immediate=int(item_prop_number(item,"dose_heal")*dose),total=int(item_prop_n
 if(item_flag(item,"stops_bleeding")){p.bleeding=false;send_reliable(p.peer_id,"Bleeding stopped by the coagulant.",2);}
 int stamina=int(item_prop_number(item,"dose_stamina")*dose);if(stamina>0)send_reliable(p.peer_id,"stamina_restore "+stamina,0);
 int detox=int(item_prop_number(item,"dose_detox")*dose);if(detox>0){p.medication_toxicity-=detox;if(p.medication_toxicity<0)p.medication_toxicity=0;}
-p.health+=immediate;if(total>0){p.medication_heal_remaining+=total;p.medication_tick_amount=total/(duration>0?duration:1);if(p.medication_tick_amount<1)p.medication_tick_amount=1;p.medication_tick_interval=1000;p.medication_tick_timer.restart();}p.medication_toxicity+=toxicity;p.medication_toxicity_timer.restart();if(p.medication_toxicity>100){int harm=(p.medication_toxicity-90)*4;p.health-=harm;p.hitby="a medication overdose";send_reliable(p.peer_id,"Medication overdose. Toxicity "+p.medication_toxicity+" percent; immediate damage "+harm+".",2);}else if(p.medication_toxicity>70)send_reliable(p.peer_id,"Warning: medication toxicity is "+p.medication_toxicity+" percent. Further dosing may cause a fatal overdose.",2);
+p.health+=immediate;
+// The healing rate covers everything still owed, not just this dose: a small
+// top-up used to slow a larger course already in progress.
+if(total>0){p.medication_heal_remaining+=total;p.medication_tick_amount=p.medication_heal_remaining/(duration>0?duration:1);if(p.medication_tick_amount<1)p.medication_tick_amount=1;p.medication_tick_interval=1000;p.medication_tick_timer.restart();}p.medication_toxicity+=toxicity;p.medication_toxicity_timer.restart();if(p.medication_toxicity>100){int harm=(p.medication_toxicity-90)*4;p.health-=harm;p.hitby="a medication overdose";send_reliable(p.peer_id,"Medication overdose. Toxicity "+p.medication_toxicity+" percent; immediate damage "+harm+".",2);}else if(p.medication_toxicity>70)send_reliable(p.peer_id,"Warning: medication toxicity is "+p.medication_toxicity+" percent. Further dosing may cause a fatal overdose.",2);
 }
 void use_server_medication(player@ p,string item,int mode)
 {
@@ -282,17 +289,20 @@ for(int ghost=int(players.length())-1;ghost>=0;ghost--)if(players[ghost].combat_
 for(uint i=0; i<players.length(); i++)
 {
 update_player_physical_model(players[i]);
-if(players[i].burning)
+// Burns, bleeding and medication act on the living. They used to keep
+// ticking on a downed player, so a revived player could die again the moment
+// they stood up, and a course of medication raised a corpse's health.
+if(players[i].burning and !players[i].death)
 {
 if(players[i].burning_duration_timer.elapsed>=8000)players[i].burning=false;
 else if(players[i].burning_tick_timer.elapsed>=1000){players[i].burning_tick_timer.restart();players[i].health-=35;players[i].hitby=players[i].burning_owner+"'s incendiary fire";play("incendiary_burn",players[i].x,players[i].y,players[i].z,players[i].map);}
 }
-if(players[i].bleeding)
+if(players[i].bleeding and !players[i].death)
 {
 if(players[i].bleeding_duration_timer.elapsed>=10000)players[i].bleeding=false;
 else if(players[i].bleeding_tick_timer.elapsed>=2000){players[i].bleeding_tick_timer.restart();players[i].health-=18;players[i].hitby=players[i].bleeding_owner+"'s ballistic wound";send_reliable(players[i].peer_id,"play_s bleeding_tick"+random(1,3)+".ogg",0);}
 }
-if(players[i].medication_heal_remaining>0 and players[i].medication_tick_timer.elapsed>=players[i].medication_tick_interval){players[i].medication_tick_timer.restart();int healed=players[i].medication_tick_amount;if(healed>players[i].medication_heal_remaining)healed=players[i].medication_heal_remaining;players[i].health+=healed;players[i].medication_heal_remaining-=healed;}
+if(players[i].medication_heal_remaining>0 and !players[i].death and players[i].medication_tick_timer.elapsed>=players[i].medication_tick_interval){players[i].medication_tick_timer.restart();int healed=players[i].medication_tick_amount;if(healed>players[i].medication_heal_remaining)healed=players[i].medication_heal_remaining;players[i].health+=healed;players[i].medication_heal_remaining-=healed;}
 if(players[i].medication_toxicity>0 and players[i].medication_toxicity_timer.elapsed>=15000){players[i].medication_toxicity_timer.restart();players[i].medication_toxicity--;if(players[i].medication_toxicity>100){int harm=(players[i].medication_toxicity-100)*2;players[i].health-=harm;players[i].hitby="ongoing medication toxicity";}}
 if(players[i].energy_stimulant_load>0 and players[i].energy_metabolism_timer.elapsed>=2000){players[i].energy_metabolism_timer.restart();players[i].energy_stimulant_load-=1;if(players[i].energy_stimulant_load<0)players[i].energy_stimulant_load=0;}
 if(players[i].energy_crash_pending and players[i].energy_crash_timer.elapsed>=players[i].energy_crash_delay_ms){players[i].energy_crash_pending=false;int loss=players[i].energy_crash_amount;players[i].energy_crash_amount=0;players[i].energy_stimulant_load*=.45;send_reliable(players[i].peer_id,"energy_crash "+loss,0);send_reliable(players[i].peer_id,"The accumulated stimulants wear off in a delayed energy crash. Smaller servings spaced far enough apart reduce this risk.",2);}
@@ -471,6 +481,7 @@ players[i].bunkers_owned=0;
 players[i].has_hypercomp=false;
 }
 players[i].death=!arena_elimination;
+players[i].burning=false;players[i].bleeding=false;players[i].medication_heal_remaining=0;
 }
 }
 }

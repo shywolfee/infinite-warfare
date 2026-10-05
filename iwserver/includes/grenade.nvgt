@@ -38,7 +38,7 @@ fuse=item_prop_int(kind,"fuse_ms",fuse);radius=item_prop_int(kind,"blast_radius"
 if(item_prop(kind,"launch_speed")!=""){horizontal=item_prop_number(kind,"launch_speed");vertical=item_prop_number(kind,"launch_rise",vertical);}
 vx=sine(radians)*horizontal;vy=cosine(radians)*horizontal;vz=vertical;
 if(cooked_ms<0)cooked_ms=0;if(cooked_ms>fuse-1)cooked_ms=fuse-1;fuse-=cooked_ms;
-if(play_launch){string launch=kind=="frag_grenade"?"fraggrenadethrow":(kind=="er_bowling_bomb"?"er_bowling_bomb_start":kind+"_throw");play(launch,x,y,z,map);}
+if(play_launch){string launch=item_prop(kind,"throw_sound",kind=="frag_grenade"?"fraggrenadethrow":(kind=="er_bowling_bomb"?"er_bowling_bomb_start":kind+"_throw"));play(launch,x,y,z,map);}
 simulationtimer.restart();
 }
 }
@@ -64,14 +64,14 @@ string xtile=get_tile_at(nx,fraggrenades[i].y,int(fraggrenades[i].z),fraggrenade
 string ytile=get_tile_at(fraggrenades[i].x,ny,int(fraggrenades[i].z),fraggrenades[i].map);
 if(string_contains(xtile,"wall",1)>=0)fraggrenades[i].vx*=-.48;
 if(string_contains(ytile,"wall",1)>=0)fraggrenades[i].vy*=-.48;
-fraggrenades[i].bounces++;string bounce=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeboink":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":((fraggrenades[i].kind=="er_molotov" or fraggrenades[i].kind=="er_frag_grenade")?fraggrenades[i].kind+"_impact":fraggrenades[i].kind+"_bounce"));play(bounce,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+fraggrenades[i].bounces++;string bounce=item_prop(fraggrenades[i].kind,"bounce_sound",fraggrenades[i].kind=="frag_grenade"?"fraggrenadeboink":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":((fraggrenades[i].kind=="er_molotov" or fraggrenades[i].kind=="er_frag_grenade")?fraggrenades[i].kind+"_impact":fraggrenades[i].kind+"_bounce")));play(bounce,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
 }
 else{fraggrenades[i].x=nx;fraggrenades[i].y=ny;}
 double surface=projectile_surface_height(fraggrenades[i].x,fraggrenades[i].y,nz,fraggrenades[i].map);
 if(nz<=0 or (fraggrenades[i].vz<0 and surface>-9000 and nz<=surface+.15))
 {
 fraggrenades[i].z=nz<0?0:surface+.12;fraggrenades[i].vz*=-.38;fraggrenades[i].vx*=.67;fraggrenades[i].vy*=.67;double slope_x=0,slope_y=0;projectile_surface_gradient(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,slope_x,slope_y);fraggrenades[i].vx-=slope_x*9.81*dt;fraggrenades[i].vy-=slope_y*9.81*dt;fraggrenades[i].bounces++;
-string landing=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeland":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":(fraggrenades[i].kind=="er_molotov"?"er_molotov_land":(fraggrenades[i].kind=="er_frag_grenade"?"er_frag_grenade_land":fraggrenades[i].kind+"_bounce")));play(landing,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+string landing=item_prop(fraggrenades[i].kind,"landing_sound",fraggrenades[i].kind=="frag_grenade"?"fraggrenadeland":(fraggrenades[i].kind=="er_bowling_bomb"?"er_bowling_bomb_impact":(fraggrenades[i].kind=="er_molotov"?"er_molotov_land":(fraggrenades[i].kind=="er_frag_grenade"?"er_frag_grenade_land":fraggrenades[i].kind+"_bounce"))));play(landing,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
 if((fraggrenades[i].bounces>=8 or (absolute(fraggrenades[i].vz)<.45 and absolute(fraggrenades[i].vx)+absolute(fraggrenades[i].vy)<.8)) and absolute(slope_x)+absolute(slope_y)<.08){fraggrenades[i].landed=true;fraggrenades[i].vz=0;break;}
 }
 else fraggrenades[i].z=nz;
@@ -79,12 +79,12 @@ else fraggrenades[i].z=nz;
 if(fraggrenades[i].audio_id>=0 and fraggrenades[i].audio_update_timer.elapsed>=50){fraggrenades[i].audio_update_timer.restart();send_unreliable_map(fraggrenades[i].map,"projectile_audio_move "+fraggrenades[i].audio_id+" "+fraggrenades[i].x+" "+fraggrenades[i].y+" "+fraggrenades[i].z+" "+fraggrenades[i].map,0);}
 }
 if(fraggrenades[i].landed and fraggrenades[i].audio_id>=0){send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades[i].audio_id=-1;}
-if (fraggrenades[i].explodetimer.elapsed>=fraggrenades[i].fuse or (fraggrenades[i].kind=="impact_grenade" and fraggrenades[i].bounces>0))
+if (fraggrenades[i].explodetimer.elapsed>=fraggrenades[i].fuse or (string_to_lower_case(item_prop(fraggrenades[i].kind,"impact_fuse"))=="true" and fraggrenades[i].bounces>0) or (fraggrenades[i].kind=="impact_grenade" and fraggrenades[i].bounces>0))
 {
 if(fraggrenades[i].audio_id>=0)send_reliable_map(fraggrenades[i].map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);
-string explosion=fraggrenades[i].kind=="frag_grenade"?"fraggrenadeexplode":(fraggrenades[i].kind=="er_molotov"?"er_molotov_fire_loop":explosive_audio_prefix(fraggrenades[i].kind)+"_explode");play(explosion,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
-if(fraggrenades[i].kind!="flashbang" and fraggrenades[i].kind!="gas_grenade" and fraggrenades[i].kind!="smoke_grenade")damage_world_objects_blast(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage);
-string distant=(fraggrenades[i].kind=="frag_grenade" or fraggrenades[i].kind=="er_frag_grenade" or fraggrenades[i].kind=="er_molotov")?"fraggrenadedist.ogg":((fraggrenades[i].kind=="er_dr_bomb" or fraggrenades[i].kind=="er_ghost_bomb")?"er_time_bomb_dist.ogg":explosive_audio_prefix(fraggrenades[i].kind)+"_dist.ogg");send_distant_sound(fraggrenades[i].map,distant,int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),35);
+string explosion=item_prop(fraggrenades[i].kind,"explosion_sound",fraggrenades[i].kind=="frag_grenade"?"fraggrenadeexplode":(fraggrenades[i].kind=="er_molotov"?"er_molotov_fire_loop":explosive_audio_prefix(fraggrenades[i].kind)+"_explode"));play(explosion,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map);
+string blast_effect=item_prop(fraggrenades[i].kind,"blast_effect");if(blast_effect!="flash" and blast_effect!="gas" and blast_effect!="smoke")damage_world_objects_blast(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage);
+string distant=item_prop(fraggrenades[i].kind,"distant_sound",(fraggrenades[i].kind=="frag_grenade" or fraggrenades[i].kind=="er_frag_grenade" or fraggrenades[i].kind=="er_molotov")?"fraggrenadedist.ogg":((fraggrenades[i].kind=="er_dr_bomb" or fraggrenades[i].kind=="er_ghost_bomb")?"er_time_bomb_dist.ogg":explosive_audio_prefix(fraggrenades[i].kind)+"_dist.ogg"));send_distant_sound(fraggrenades[i].map,distant,int(fraggrenades[i].x),int(fraggrenades[i].y),int(fraggrenades[i].z),35);
 for (uint i2=0; i2<players.length(); i2++)
 {
 double blast_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[i2].x,players[i2].y,players[i2].z);
@@ -98,7 +98,11 @@ send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
 
 int applied=int(double(fraggrenades[i].damage)*(1.0-blast_distance/double(fraggrenades[i].radius)*.72));if(applied<0)applied=0;
 applied=apply_player_damage(players[i2],applied,fraggrenades[i].owner+"'s "+fraggrenades[i].kind);if(applied<=0)continue;
-if(fraggrenades[i].kind=="flashbang"){send_reliable(players[i2].peer_id,"play_s flashbang_effect.ogg",0);send_reliable(players[i2].peer_id,"combat_slow 3000",0);}
+int effect_ms=item_prop_int(fraggrenades[i].kind,"effect_duration_ms",6000);string effect=item_prop(fraggrenades[i].kind,"blast_effect");
+if(effect=="flash"){send_reliable(players[i2].peer_id,"play_s flashbang_effect.ogg",0);send_reliable(players[i2].peer_id,"combat_slow "+effect_ms,0);}
+else if(effect=="concussion" or effect=="gas" or effect=="emp")send_reliable(players[i2].peer_id,"combat_slow "+effect_ms,0);
+else if(effect=="incendiary"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
+else if(fraggrenades[i].kind=="flashbang"){send_reliable(players[i2].peer_id,"play_s flashbang_effect.ogg",0);send_reliable(players[i2].peer_id,"combat_slow 3000",0);}
 else if(fraggrenades[i].kind=="concussion_grenade")send_reliable(players[i2].peer_id,"combat_slow 6000",0);
 else if(fraggrenades[i].kind=="gas_grenade")send_reliable(players[i2].peer_id,"combat_slow 8000",0);
 else if(fraggrenades[i].kind=="incendiary_grenade"){players[i2].burning=true;players[i2].burning_owner=fraggrenades[i].owner;players[i2].burning_duration_timer.restart();players[i2].burning_tick_timer.restart();}
@@ -135,7 +139,7 @@ continue;
 void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int delivery=1,int cooked_ms=0)
 {
 fraggrenade e1(x,y,z,dir,map,owner,kind,true,delivery,cooked_ms);
-e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();string loop=kind=="er_bowling_bomb"?"er_bowling_bomb_loop.ogg":(kind=="er_molotov"?"er_molotov_fire_loop.ogg":(kind=="er_frag_grenade"?"frag_grenade_flight_loop.ogg":kind+"_flight_loop.ogg"));send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+loop+" "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
+e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();string loop=item_prop(kind,"flight_loop",kind=="er_bowling_bomb"?"er_bowling_bomb_loop.ogg":(kind=="er_molotov"?"er_molotov_fire_loop.ogg":(kind=="er_frag_grenade"?"frag_grenade_flight_loop.ogg":kind+"_flight_loop.ogg")));send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+loop+" "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
 fraggrenades.insert_last(e1);
 }
 

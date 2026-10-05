@@ -521,7 +521,7 @@ int penetration;
 wpn_stats@[] wpn_cache(0);
 string weapon_sound_profile(string id){for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==id)return wpn_cache[i].sound_profile!=""?wpn_cache[i].sound_profile:id;return id;}
 
-string[] wpn_class_folders = {"pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
+string[] wpn_class_folders = {"handguns", "pistols", "revolvers", "assault_rifles", "battle_rifles", "sniper_rifles", "submachine_guns", "light_machine_guns", "grenade_launchers", "rocket_launchers", "mortars", "artillery", "explosives", "incendiary", "tools", "melee_blunt", "melee_long_blade", "melee_short_blade", "archery", "energy", "shotguns"};
 
 void set_client_ballistics(wpn_stats@ s)
 {
@@ -538,6 +538,7 @@ else if(s.wclass=="archery"){s.projectile_kind="bolt";s.muzzle_velocity=36;s.pro
 else if(s.wclass=="energy"){s.projectile_kind="laser";s.muzzle_velocity=300;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_diameter=1;s.projectile_dispersion=.05;s.penetration=1;s.damage_retention=.96;s.projectile_collision_radius=.34;}
 else if(s.wclass=="explosive"){s.projectile_kind="shell";s.muzzle_velocity=28;s.projectile_gravity=12;s.projectile_drag=.018;s.projectile_mass=14000;s.projectile_diameter=120;s.projectile_dispersion=1.2;s.damage_retention=.8;s.projectile_collision_radius=.55;s.projectile_explosive_radius=20;}
 else if(s.wclass=="grenade_launcher"){s.projectile_kind="shell";s.muzzle_velocity=34;s.projectile_gravity=11;s.projectile_drag=.025;s.projectile_mass=230;s.projectile_diameter=40;s.projectile_dispersion=.8;s.damage_retention=.72;s.projectile_collision_radius=.5;s.projectile_explosive_radius=8;}
+else if(s.wclass=="rocket_launcher"){s.projectile_kind="shell";s.muzzle_velocity=70;s.projectile_gravity=2.8;s.projectile_drag=.009;s.projectile_mass=2800;s.projectile_diameter=84;s.projectile_dispersion=.35;s.damage_retention=.9;s.projectile_collision_radius=.58;s.projectile_explosive_radius=13;}
 else if(s.wclass=="incendiary"){s.projectile_kind="flame particle";s.muzzle_velocity=18;s.projectile_gravity=-1.4;s.projectile_drag=.18;s.projectile_mass=.3;s.projectile_diameter=15;s.projectile_dispersion=4.5;s.damage_retention=.3;s.projectile_collision_radius=.8;s.pellet_count=5;}
 else if(s.wclass=="melee_short_blade"){s.projectile_kind="short melee arc";s.muzzle_velocity=28;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_dispersion=4.5;s.damage_retention=1;s.projectile_collision_radius=.65;}
 else if(s.wclass=="melee_long_blade"){s.projectile_kind="long melee arc";s.muzzle_velocity=24;s.projectile_gravity=0;s.projectile_drag=0;s.projectile_mass=0;s.projectile_dispersion=7;s.damage_retention=1;s.projectile_collision_radius=.9;s.penetration=1;}

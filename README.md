@@ -86,6 +86,12 @@ on GitHub's main branch. If a newer version is published, the game closes and
 restores every file it touched. The result is announced on the next start and
 logged in `updater/last_update.log`. Git is not required.
 
+Repository status, on the main menu, reads this repository through GitHub's
+public API: overview, how the running copy compares with `main` commit by
+commit, What's new on GitHub, commits and their files, branches, pull
+requests, issues, releases, contributors, checks, languages, activity and the
+remaining request allowance.
+
 After deleting or moving a shipped file, run
 `python tools/update_retired_files.py` before committing.
 

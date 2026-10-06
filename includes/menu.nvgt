@@ -49,6 +49,7 @@ e.insert_last(main_menu_entry("gesturepractice","Practise touch gestures"));
 e.insert_last(main_menu_entry("changelog","What's new"));
 e.insert_last(main_menu_entry("readme","Manual"));
 e.insert_last(main_menu_entry("cfu","Check for updates"));
+e.insert_last(main_menu_entry("repostatus","Repository status"));
 if(SCRIPT_COMPILED==false or dev_unlocked)e.insert_last(main_menu_entry("adminpanel","Staff panel"));
 if(!SCRIPT_COMPILED)e.insert_last(main_menu_entry("releasebuild","Build a release"));
 e.insert_last(main_menu_entry("exit","Exit"));
@@ -126,6 +127,7 @@ else if(selected=="gesturepractice")practice_android_gestures();
 else if(selected=="changelog")changelogmenu();
 else if(selected=="readme")show_readme();
 else if(selected=="cfu")cfu("iw","iw.zip");
+else if(selected=="repostatus")repo_status_menu();
 else if(selected=="adminpanel")adminpanel();
 else if(selected=="releasebuild")compress_release_build();
 else if(selected=="exit"){m.fade_music(10);exit();}
@@ -308,36 +310,6 @@ mainmenu();
 // The changelog, one release at a time: a list of releases, newest first, and
 // Enter opens that release as a list with one change per item. It was the
 // whole file -- more than a thousand lines -- in a single text box.
-class changelog_release
-{
-string heading;
-string[] entries;
-}
-// "0.5.2, 45 changes, build 86 (2026-09-22)": the version and how much is in
-// it come first, and the build number, which few players need, comes last
-// where it can be skipped.
-string changelog_release_label(changelog_release@ r)
-{
-string count=r.entries.length()+(r.entries.length()==1?" change":" changes");
-int b=r.heading.find(", build ");
-if(b<0)return r.heading+", "+count;
-return r.heading.substr(0,b)+", "+count+", "+r.heading.substr(b+2);
-}
-changelog_release@[] parse_changelog(const string &in text)
-{
-changelog_release@[] releases;
-string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);
-changelog_release@ current=null;
-for(uint i=0;i<lines.length();i++)
-{
-string l=lines[i].trim_whitespace();
-if(l=="")continue;
-if(l.substr(0,7)=="New in "){changelog_release r;r.heading=l.substr(7);releases.insert_last(r);@current=r;continue;}
-if(current is null){changelog_release r;r.heading="Earlier changes";releases.insert_last(r);@current=r;}
-current.entries.insert_last(l);
-}
-return releases;
-}
 void show_changelog_form()
 {
 file cf;

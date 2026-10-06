@@ -1,0 +1,38 @@
+{
+ "status": "ahead",
+ "ahead_by": 2,
+ "behind_by": 0,
+ "html_url": "https://github.com/shywolfee/infinite-warfare/compare/0b13166...main",
+ "commits": [
+  {
+   "sha": "3c514fe80a9f159c0e1d0886fc455acaeff1a207",
+   "html_url": "https://github.com/shywolfee/infinite-warfare/commit/3c514fe80a9f159c0e1d0886fc455acaeff1a207",
+   "author": {
+    "login": "claude"
+   },
+   "commit": {
+    "message": "fix(updater): download only changed files and remove retired ones\n\nThe GitHub updater had never been tested. Run against a real 0.5.4\ninstall and GitHub, it had these faults:\n\n- It downloaded the whole repository as a 48 MB zip and copied it over\n  the installation, but never deleted anything. Updating 0.5.4 left 81\n  removed or moved files behind, including old launcher definitions\n  and the maintenance items, and the client loads every .wpn and .item\n  it finds.\n- It ignored copy failures, deleted the download anyway and restarted\n  the game on a half-updated installation.\n- A source install restarted NVGT with the path to \"Infinite\n  Warfare.nvgt\" unquoted; the space split it and the game never came\n  back.\n- It judged the installed version by version.txt, so new files without\n  a rebuilt executable looked like a finished update.\n- It waited a fixed 1.5 s for the game to release its files, and in a\n  release folder it would have added the whole source tree.\n\nNew updater/iw-update.ps1, run by the game after it exits:\n- Pins the branch to one commit and reads its tree from the GitHub API.\n  It compares every file by git blob SHA-1 (CRLF copies count as equal)\n  and downloads only what differs from raw.githubusercontent.com. More\n  than 150 changes, or a truncated tree, use the commit's zip instead.\n- Verifies every download before touching the installation, backs up\n  everything it replaces or deletes, and restores it all on any\n  failure. It waits up to 30 s for locked files.\n- Deletes files listed in updater/retired_files.txt, and files it\n  installed last time that are gone now (updater/installed_files.txt).\n- Never touches iwserver/admins.txt, motd.svr or currentmap.txt. Maps\n  a release folder's layout: only the exe, documents, lib/, updater/\n  and the client's content/ folders.\n- Writes updater/last_update.txt and last_update.log, then restarts the\n  game with a quoted path.\n- Targets Windows PowerShell 5.1: User-Agent goes in -UserAgent, since\n  5.1 refuses it in -Headers.\n\nClient (updater.nvgt, Infinite Warfare.nvgt, release_tools.nvgt):\n- cfu() compares GitHub's version.txt with version_name, then launches\n  the script with -Root, -Restart, -Mode, -Repository and -Branch.\n- updater_remove_retired_files() runs once per build, before content\n  loads, so leftovers from the legacy updater are cleaned up.\n- updater_report_last_result() announces the result on start.\n- Release builds copy updater/iw-update.ps1 and retired_files.txt.\n\ntools/update_retired_files.py writes the retired list from the full\nhistory: deleted game-folder paths that do not exist now, never runtime\ndata or the old source/ snapshot. Run it after deleting or moving a\nshipped file.\n\ntools/tests/updater_regression.py serves this working tree through a\nlocal stand-in for GitHub's API, raw and archive URLs. It checks five\nupdates:\n- 0.5.4 to now: the result is identical, retired files are gone and\n  admins.txt is kept.\n- A two-file edit downloads exactly two files.\n- An up-to-date install reports current.\n- A failed download changes nothing.\n- A release folder updates in place.\nDisabling deletion, CRLF tolerance or protection each makes it fail. It\nneeds pwsh; only its static checks run without it.\n\nNot compiled here: NVGT is not available. The script was run under\nPowerShell 7.4 on Linux, against this test and the real GitHub, but not\nunder Windows PowerShell 5.1. No protocol, save or sound-pack change.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01LZSThoR4NXCEZsKtEinCm9",
+    "author": {
+     "name": "Claude",
+     "email": "noreply@anthropic.com",
+     "date": "2026-10-06T01:33:58Z"
+    }
+   }
+  },
+  {
+   "sha": "bdc9f3369ef1d38749b32104a3f34b0120881f26",
+   "html_url": "https://github.com/shywolfee/infinite-warfare/commit/bdc9f3369ef1d38749b32104a3f34b0120881f26",
+   "author": {
+    "login": "claude"
+   },
+   "commit": {
+    "message": "chore(release): raise the version to 0.5.8, build 99\n\nClient version 0.58 (\"0.5.8\"), build 99, dated 2026-10-06, and\nversion.txt to match, so a 0.5.4 to 0.5.7 install sees an update to\ntest the rebuilt updater with. changes.txt gains the 0.5.8 entry for\nthe updater. The server's minimum client version stays 0.57: nothing\nin the protocol changed.\n\nRebuild the client executable with C:/nvgt/nvgt.exe -c; it was not\nrebuilt here, so the tracked Infinite Warfare.exe is still older.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01LZSThoR4NXCEZsKtEinCm9",
+    "author": {
+     "name": "Claude",
+     "email": "noreply@anthropic.com",
+     "date": "2026-10-06T01:34:05Z"
+    }
+   }
+  }
+ ]
+}

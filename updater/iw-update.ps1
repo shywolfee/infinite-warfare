@@ -48,6 +48,9 @@ $UpdaterDir = Join-Path $Root "updater"
 $LogPath = Join-Path $UpdaterDir "last_update.log"
 $ResultPath = Join-Path $UpdaterDir "last_update.txt"
 $ManifestPath = Join-Path $UpdaterDir "installed_files.txt"
+# Which commit this installation now matches; Repository status compares it
+# with GitHub.
+$CommitPath = Join-Path $UpdaterDir "installed_commit.txt"
 $Utf8 = New-Object System.Text.UTF8Encoding($false)
 # Windows PowerShell 5.1 refuses User-Agent and Accept in -Headers ("must be
 # modified using the appropriate property"), so the agent goes in -UserAgent
@@ -222,6 +225,7 @@ try {
         exit 0
     }
     if ($changed.Count -eq 0 -and $retired.Count -eq 0) {
+        [IO.File]::WriteAllText($CommitPath, $sha + "`n", $Utf8)
         Write-Result "current" "Every file already matches the latest version." @{ commit = $sha }
         Log "Nothing to do."
         Start-Game
@@ -290,6 +294,7 @@ try {
     }
 
     [IO.File]::WriteAllText($ManifestPath, (($wanted.Keys | Sort-Object) -join "`n") + "`n", $Utf8)
+    [IO.File]::WriteAllText($CommitPath, $sha + "`n", $Utf8)
     $version = ""
     $versionFile = Local-Path "version.txt"
     if (Test-Path -LiteralPath $versionFile) { $version = (Get-Content -LiteralPath $versionFile -Raw).Trim() }

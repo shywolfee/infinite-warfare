@@ -1,0 +1,43 @@
+// The changelog (changes.txt): releases, newest first, each a heading and its
+// changes. Shared by What's new and the repository status screen.
+class changelog_release
+{
+string heading;
+string[] entries;
+}
+// "0.5.2, 45 changes, build 86 (2026-09-22)": the version and how much is in
+// it come first, and the build number, which few players need, comes last
+// where it can be skipped.
+string changelog_release_label(changelog_release@ r)
+{
+string count=r.entries.length()+(r.entries.length()==1?" change":" changes");
+int b=r.heading.find(", build ");
+if(b<0)return r.heading+", "+count;
+return r.heading.substr(0,b)+", "+count+", "+r.heading.substr(b+2);
+}
+changelog_release@[] parse_changelog(const string &in text)
+{
+changelog_release@[] releases;
+string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);
+changelog_release@ current=null;
+for(uint i=0;i<lines.length();i++)
+{
+string l=lines[i].trim_whitespace();
+if(l=="")continue;
+if(l.substr(0,7)=="New in "){changelog_release r;r.heading=l.substr(7);releases.insert_last(r);@current=r;continue;}
+// "Hotfix for 0.5.7, build 98 (date)" is a release of its own. It used to be
+// filed as the last change of the release above it.
+if(l.substr(0,11)=="Hotfix for "){changelog_release r;string rest=l.substr(11);int comma=rest.find(",");r.heading=comma<0?rest+" hotfix":rest.substr(0,comma)+" hotfix"+rest.substr(comma);releases.insert_last(r);@current=r;continue;}
+if(current is null){changelog_release r;r.heading="Earlier changes";releases.insert_last(r);@current=r;}
+current.entries.insert_last(l);
+}
+return releases;
+}
+// The build number in a heading such as "0.5.9, build 100 (2026-10-06)", or
+// -1 when it has none (the oldest releases).
+int changelog_release_build(changelog_release@ r)
+{
+int b=r.heading.find("build ");if(b<0)return -1;
+string digits="";for(uint i=b+6;i<r.heading.length();i++){string c=r.heading.substr(i,1);if(c<"0" or c>"9")break;digits+=c;}
+return digits==""?-1:int(string_to_number(digits));
+}

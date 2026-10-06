@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "updater" / "iw-update.ps1"
 REPO = "shywolfee/infinite-warfare"
 OLD_COMMIT = "d3ad40c"
-STATE = {"updater/last_update.txt", "updater/last_update.log", "updater/installed_files.txt"}
+STATE = {"updater/last_update.txt", "updater/last_update.log", "updater/installed_files.txt", "updater/installed_commit.txt"}
 PROTECTED = {"iwserver/admins.txt", "iwserver/motd.svr", "iwserver/currentmap.txt"}
 problems: list[str] = []
 
@@ -148,6 +148,7 @@ if pwsh:
         # 1. 0.5.4 to now.
         result = run_update(install)
         check(result.get("status") == "updated", f"update from 0.5.4 failed: {result}")
+        check((install / "updater" / "installed_commit.txt").read_text(encoding="utf-8").strip() == SHA, "the installed commit is not recorded")
         have = files_of(install)
         for name, data in REMOTE.items():
             if name in PROTECTED:

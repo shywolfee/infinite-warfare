@@ -1,0 +1,19 @@
+// Compile-check stubs for NVGT APIs and Windows plugins that the 0.90.0-dev
+// Linux build lacks. Bodies are meaningless; only the signatures matter.
+const int PROCESS_BACKGROUND=1;
+const int WINDOW_FLAG_FULLSCREEN=1;
+class process{bool valid=true;int wait(){return 0;}bool get_is_running(){return false;}int get_exit_code(){return 0;}}
+process@ run(const string[]&in args,int flags=0,const string&in directory=""){return null;}
+class text_font{int height;text_font(const string&in path,int size){height=size;}}
+class game_window{double display_scale=1;void clear(int r,int g,int b){}void present(){}void draw_rect(int x,int y,int w,int h,int r,int g,int b,bool filled){}void draw_line(int x1,int y1,int x2,int y2,int r,int g,int b){}void set_font(text_font@ f){}uint64 measure_text(const string&in t){return 0;}void draw_text(const string&in t,int x,int y,int r,int g,int b){}void draw_text_wrapped(const string&in t,int x,int y,int w,int r,int g,int b){}}
+game_window@ get_window(){return null;}
+game_window@ show_window(const string&in title,int flags){return null;}
+class toast_notifier{void set_app_id(const string&in a){}bool install_shortcut(const string&in a,const string&in n){return true;}string get_action(){return "";}bool show(const string&in t,const string&in b){return true;}bool show(const string&in t,const string&in b,const string&in bu,const string&in ac){return true;}}
+class tray_icon{bool is_clicked(){return false;}int get_menu_click(){return 0;}bool add(const string&in n){return true;}void remove(){}void set_tooltip(const string&in t){}void set_menu_items(const string&in i){}void hide_window(uint64 h){}void show_window(uint64 h){}}
+class voice_recognizer{bool setup(){return true;}bool start(){return true;}void stop(){}string get_command(){return "";}bool add_command(const string&in c){return true;}void clear_commands(){}int get_commands_pending(){return 0;}void clear_queue(){}int get_error_count(){return 0;}void reset_error_count(){}}
+const int KEY_APPS=9001,KEY_DECIMAL=9002,KEY_DIVIDE=9003,KEY_MULTIPLY=9004,KEY_SUBTRACT=9005,KEY_ADD=9006;
+const int KEY_NUMPAD0=9010,KEY_NUMPAD1=9011,KEY_NUMPAD2=9012,KEY_NUMPAD3=9013,KEY_NUMPAD4=9014,KEY_NUMPAD5=9015,KEY_NUMPAD6=9016,KEY_NUMPAD7=9017,KEY_NUMPAD8=9018,KEY_NUMPAD9=9019;
+int get_window_width(){return 0;}
+int get_window_height(){return 0;}
+float sys_audio_get_app_volume(){return 1;}
+bool sys_audio_set_app_volume(float v){return true;}

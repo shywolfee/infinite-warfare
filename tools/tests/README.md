@@ -11,6 +11,8 @@ python tools/tests/world_editor_regression.py
 python tools/tests/weapon_data_regression.py
 python tools/tests/mechanics_wiring_regression.py
 python tools/tests/updater_regression.py
+python tools/tests/repo_status_regression.py
+python tools/compile_check/compile_check.py --nvgt /path/to/nvgt
 cd iwserver; & C:/nvgt/nvgt.exe world_editor_regression_runner.nvgt; cd ..
 python tools/build_maps.py
 python tools/validate_maps.py
@@ -73,3 +75,17 @@ alone, that a second update downloads only what changed (CRLF line endings
 do not count), and that a failed download changes nothing. It needs PowerShell
 (`pwsh`, or set `IW_PWSH`); without it only its static checks run. It also
 checks that `updater/retired_files.txt` is current, which needs full history.
+
+`repo_status_regression.py` runs the Repository status data layer
+(`includes/repo_status.nvgt`) under NVGT against recorded GitHub replies in
+`fixtures/github`, served locally, and checks every view: counts, links,
+drill-downs, the commit comparison of a git checkout, the releases newer than
+yours, time and Markdown handling, caching, and the rate-limit message. Set
+`NVGT` to the executable; it skips without one.
+
+`tools/compile_check/compile_check.py` compiles the client and the server on
+Linux with the NVGT 0.90.0-dev build from nvgt.dev, in a temporary copy with
+stubs for the APIs and Windows plugins that build lacks
+(`nvgt_dev_stubs.nvgt`). It catches missing functions and type errors without
+Windows. With an NVGT matching the one the game is built with, add
+`--no-stubs`.

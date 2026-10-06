@@ -1,0 +1,86 @@
+// The repository status screens. See repo_status.nvgt.
+// ---------------------------------------------------------------------------
+// Screens
+// ---------------------------------------------------------------------------
+// One view: a list of its lines. Enter opens what a line leads to (a commit,
+// a pull request, a branch); Alt+B opens the line, or the view, on GitHub in
+// the browser; Alt+C copies it; Alt+M loads the next page where there is one;
+// Alt+R fetches it again.
+void repo_show(const string &in what)
+{
+speak("Reading from GitHub.");
+repo_view@ v=repo_open(what);
+nv_form f;f.create_window(v.title,false,true);
+nv_form_list_box@ list=f.add_list(v.title,"lines");
+for(uint i=0;i<v.entries.length();i++)list.add(v.entries[i].text,""+i);
+if(list.items.length()>0)list.set_pos(0,false);
+nv_form_button@ open=f.add_button("Open the selected line","open",true);
+nv_form_button@ browser=f.add_button("Open in the browser; Alt+B","browser");@browser.shortcut=nv_shortcut(KEY_B,alt=true);
+nv_form_button@ copy=f.add_button("Copy the line and its link; Alt+C","copy");@copy.shortcut=nv_shortcut(KEY_C,alt=true);
+nv_form_button@ more=f.add_button("Load more; Alt+M","more");@more.shortcut=nv_shortcut(KEY_M,alt=true);more.hidden=v.more=="";
+nv_form_button@ refresh=f.add_button("Refresh from GitHub; Alt+R","refresh");@refresh.shortcut=nv_shortcut(KEY_R,alt=true);
+nv_form_button@ close=f.add_button("Back; Escape","close",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop(false);
+if(f.is_pressed(close))return;
+repo_entry@ e=null;if(list.list_position>=0 and list.list_position<int(v.entries.length()))@e=v.entries[list.list_position];
+if(f.is_pressed(open))
+{
+if(e is null)continue;
+if(e.open!=""){repo_show(e.open);f.focus_control(list);}
+else if(e.url!=""){urlopen(e.url);speak("Opened in the browser.");}
+else speak("This line has nothing further to open.");
+}
+else if(f.is_pressed(browser))
+{
+string url=e !is null and e.url!=""?e.url:v.url;
+if(url=="")speak("There is no web page for this.");else{urlopen(url);speak("Opened in the browser.");}
+}
+else if(f.is_pressed(copy))
+{
+if(e is null)continue;
+clipboard_set_text(e.url==""?e.text:e.text+" "+e.url);speak("Copied.");
+}
+else if(f.is_pressed(more) and v.more!="")
+{
+speak("Loading more.");
+repo_view@ next=repo_open(v.more);
+uint first=v.entries.length();
+for(uint i=0;i<next.entries.length();i++){v.entries.insert_last(next.entries[i]);list.add(next.entries[i].text,""+(first+i));}
+v.more=next.more;more.hidden=v.more=="";
+if(next.entries.length()>0){list.set_pos(first,false);f.focus_control(list);speak(next.entries[0].text);}
+}
+else if(f.is_pressed(refresh))
+{
+repo_forget();repo_show(what);return;
+}
+}
+}
+
+void repo_status_menu()
+{
+speak("Reading the repository from GitHub.");
+string headline=repo_headline();
+string[] labels={"Overview: stars, forks, size, licence and when it last changed","Your copy: how it compares with the version on GitHub","What's new on GitHub: the changelog, and what is newer than your version","Recent commits on the main branch","Branches","Pull requests","Issues","Releases and tags","Contributors","Automated checks","Languages","Recent activity","GitHub request allowance: how many requests are left this hour"};
+string[] ids={"overview","copy","whatsnew","commits:main:1","branches","pulls","issues","releases","contributors","checks","languages","activity","allowance"};
+nv_form f;f.create_window("Repository status",false,true);
+nv_form_input@ summary=f.add_input("Summary","summary",headline,"",0,true,true);
+nv_form_list_box@ list=f.add_list("Sections","sections");
+for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
+list.set_pos(0,false);
+nv_form_button@ open=f.add_button("Open","open",true);
+nv_form_button@ browser=f.add_button("Open the repository in the browser; Alt+B","browser");@browser.shortcut=nv_shortcut(KEY_B,alt=true);
+nv_form_button@ refresh=f.add_button("Refresh from GitHub; Alt+R","refresh");@refresh.shortcut=nv_shortcut(KEY_R,alt=true);
+nv_form_button@ close=f.add_button("Close; Escape","close",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop(false);
+if(f.is_pressed(close))return;
+if(f.is_pressed(open) and @list.focused_item!=null){repo_show(list.focused_item.id);f.focus_control(list);}
+else if(f.is_pressed(browser)){urlopen(repo_home());speak("Opened in the browser.");}
+else if(f.is_pressed(refresh)){repo_forget();speak("Reading the repository from GitHub.");summary.text=repo_headline();speak(summary.text);}
+}
+}

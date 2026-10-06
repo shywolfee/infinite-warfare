@@ -1,0 +1,584 @@
+// Repository status: the game's public GitHub repository, read from inside
+// the game. Main menu, "Repository status".
+//
+// Everything comes from GitHub's public API, which allows 60 requests an hour
+// from one connection without signing in. Each screen therefore costs one or
+// two requests, nothing is fetched until it is opened, and every reply is kept
+// for five minutes (Refresh fetches again). version.txt and changes.txt come
+// from raw.githubusercontent.com, which does not count against that limit, and
+// the remaining allowance itself can be checked for free.
+//
+// This file turns GitHub's replies into repo_view lists: lines of text, each
+// optionally with a web address and a further view to open.
+// repo_status_screens.nvgt displays them. The data layer has no interface of
+// its own, so tools/tests/repo_status_regression.py can run it against
+// recorded GitHub replies.
+
+string repo_slug="shywolfee/infinite-warfare";
+string repo_api="https://api.github.com";
+string repo_raw="https://raw.githubusercontent.com";
+string repo_web="https://github.com";
+// Where this copy of the game is installed; tests point it elsewhere.
+string repo_root=SCRIPT_MAIN_PATH;
+const int repo_cache_ms=300000;
+const int repo_page_size=30;
+
+class repo_entry
+{
+string text,url,open;
+repo_entry(const string &in text,const string &in url="",const string &in open=""){this.text=text;this.url=url;this.open=open;}
+}
+class repo_view
+{
+string title,url,more;
+repo_entry@[] entries;
+void add(const string &in text,const string &in url="",const string &in open=""){entries.insert_last(repo_entry(text,url,open));}
+// Free text (a commit message, a pull request's description) as one entry
+// per paragraph, list item, heading or trailer, with Markdown removed. Lines
+// wrapped at 72 columns are joined back into the sentence they belong to.
+void add_text(const string &in text,const string &in prefix="")
+{
+string[] lines=repo_lines(text);
+string para="";bool after_heading=false;
+for(uint i=0;i<lines.length();i++)
+{
+string raw=lines[i].trim_whitespace();
+if(raw==""){if(para!="")add(prefix+para);para="";after_heading=false;continue;}
+if(repo_starts_block(raw) or after_heading){if(para!="")add(prefix+para);para="";}
+after_heading=raw.substr(0,1)=="#";
+string l=repo_plain(raw);if(l==""){if(para!="")add(prefix+para);para="";continue;}
+para=para==""?l:para+" "+l;
+}
+if(para!="")add(prefix+para);
+}
+}
+
+// ---------------------------------------------------------------------------
+// Fetching
+// ---------------------------------------------------------------------------
+dictionary repo_cache;
+dictionary repo_cache_time;
+string repo_error="";
+int repo_requests=0;
+void repo_forget(){repo_cache.delete_all();repo_cache_time.delete_all();}
+
+// A page from GitHub, from the cache while it is fresh. "" if it failed, with
+// repo_error saying why.
+string repo_fetch(const string &in url)
+{
+repo_error="";
+double fetched=0;string body;
+if(repo_cache.get(url,body) and repo_cache_time.get(url,fetched) and ticks()-fetched<repo_cache_ms)return body;
+body=url_get(url);repo_requests++;
+if(body==""){repo_error="GitHub could not be reached. Check your internet connection and try again.";return "";}
+return body;
+}
+void repo_remember(const string &in url,const string &in body){repo_cache.set(url,body);repo_cache_time.set(url,double(ticks()));}
+
+// GitHub's reply to an API request, parsed. null if it failed, with
+// repo_error set to something a player can act on.
+var@ repo_json(const string &in path)
+{
+string url=repo_api+path;string body=repo_fetch(url);if(body=="")return null;
+var@ parsed=null;
+try{@parsed=parse_json(body);}catch{repo_error="GitHub sent a reply the game could not read.";return null;}
+json_object@ o=parsed;
+if(o !is null and o.exists("message") and o.exists("documentation_url"))
+{
+string message=js(o,"message");
+if(message.lower().find("rate limit")>=0)repo_error="GitHub allows 60 requests an hour from your connection without signing in, and they have been used. The request allowance section says when more become available.";
+else if(message=="Not Found")repo_error="GitHub has no such page. It may have been deleted or made private.";
+else repo_error="GitHub refused the request: "+message;
+return null;
+}
+repo_remember(url,body);
+return parsed;
+}
+json_object@ repo_object(const string &in path){var@ v=repo_json(path);if(v is null)return null;json_object@ o=v;if(o is null and repo_error=="")repo_error="GitHub sent something other than what was asked for.";return o;}
+json_array@ repo_array(const string &in path){var@ v=repo_json(path);if(v is null)return null;json_array@ a=v;if(a is null and repo_error=="")repo_error="GitHub sent something other than what was asked for.";return a;}
+// A file from the main branch, which costs no API allowance.
+string repo_file(const string &in name)
+{
+string url=repo_raw+"/"+repo_slug+"/main/"+name;string body=repo_fetch(url);
+if(body!="" and body.find("404: Not Found")!=0)repo_remember(url,body);else if(body!=""){repo_error="GitHub has no "+name+".";return "";}
+return body;
+}
+
+// JSON fields, with missing and null values as empty.
+string js(json_object@ o,const string &in key){if(o is null or !o.exists(key) or o.is_null(key))return "";return string(o[key]);}
+int64 ji(json_object@ o,const string &in key){if(o is null or !o.exists(key) or o.is_null(key))return 0;return int64(o[key]);}
+bool jb(json_object@ o,const string &in key){if(o is null or !o.exists(key) or o.is_null(key))return false;return bool(o[key]);}
+json_object@ jo(json_object@ o,const string &in key){if(o is null or !o.exists(key) or !o.is_object(key))return null;return o.get_object(key);}
+json_array@ ja(json_object@ o,const string &in key){if(o is null or !o.exists(key) or !o.is_array(key))return null;return o.get_array(key);}
+string repo_login(json_object@ o,const string &in key="user"){string l=js(jo(o,key),"login");return l==""?"someone":l;}
+
+// ---------------------------------------------------------------------------
+// Text
+// ---------------------------------------------------------------------------
+// One line of Markdown as plain text: no heading marks, emphasis or code
+// ticks, and list bullets kept as a dash.
+string repo_plain(string l)
+{
+l=l.trim_whitespace();
+while(l.substr(0,1)=="#")l=l.substr(1).trim_whitespace();
+if(l=="---" or l=="***" or l=="___")return "";
+l=string_replace(l,"**","",true);l=string_replace(l,"__","",true);l=string_replace(l,"`","",true);
+// [text](address) and ![picture](address) read as just their text.
+int close=l.find("](");
+while(close>=0)
+{
+int open=l.rfind("[",close);int end=l.find(")",close);if(open<0 or end<0)break;
+if(open>0 and l.substr(open-1,1)=="!")open--;
+string label=l.substr(open,close-open);if(label.substr(0,1)=="!")label=label.substr(1);
+l=l.substr(0,open)+label.substr(1)+l.substr(end+1);close=l.find("](");
+}
+if(l.length()>2 and l.substr(0,1)=="_" and l.substr(l.length()-1)=="_")l=l.substr(1,l.length()-2);
+if(l.substr(0,2)=="* ")l="- "+l.substr(2);
+return l;
+}
+// The lines of `text`, keeping blank ones, which separate paragraphs.
+string[] repo_lines(const string &in text)
+{
+string t=string_replace(text,"\r","",true);string[] lines;int start=0;
+while(true){int n=t.find("\n",start);if(n<0){lines.insert_last(t.substr(start));break;}lines.insert_last(t.substr(start,n-start));start=n+1;}
+return lines;
+}
+// A line that starts its own entry: a heading, list item, quote, or a
+// trailer such as "Co-Authored-By: ...".
+bool repo_starts_block(const string &in l)
+{
+string c=l.substr(0,1);
+if(c=="#" or c==">" or l.substr(0,2)=="- " or l.substr(0,2)=="* " or l.substr(0,2)=="+ ")return true;
+uint digits=0;while(digits<l.length() and l.substr(digits,1)>="0" and l.substr(digits,1)<="9")digits++;
+if(digits>0 and l.substr(digits,2)==". ")return true;
+int colon=l.find(": ");return colon>0 and l.substr(0,colon).find(" ")<0;
+}
+string repo_first_line(const string &in text){int n=text.find("\n");return repo_plain(n<0?text:text.substr(0,n));}
+string repo_count(int64 n,const string &in one,const string &in many=""){return n+" "+(n==1?one:(many==""?one+"s":many));}
+string repo_short(const string &in sha){return sha.substr(0,7);}
+
+// ---------------------------------------------------------------------------
+// Time. GitHub gives UTC as 2026-10-06T01:34:05Z; players get their local
+// time and how long ago it was.
+// ---------------------------------------------------------------------------
+int64 repo_days_from_civil(int y,int m,int d)
+{
+y-=m<=2?1:0;int era=(y>=0?y:y-399)/400;int yoe=y-era*400;int doy=(153*(m+(m>2?-3:9))+2)/5+d-1;int doe=yoe*365+yoe/4-yoe/100+doy;
+return int64(era)*146097+doe-719468;
+}
+void repo_civil_from_days(int64 z,int &out y,int &out m,int &out d)
+{
+z+=719468;int64 era=(z>=0?z:z-146096)/146097;int doe=int(z-era*146097);int yoe=(doe-doe/1460+doe/36524-doe/146096)/365;
+int doy=doe-(365*yoe+yoe/4-yoe/100);int mp=(5*doy+2)/153;d=doy-(153*mp+2)/5+1;m=mp<10?mp+3:mp-9;y=int(yoe+era*400)+(m<=2?1:0);
+}
+// Seconds since 1970 in UTC, or -1 if `iso` is not a GitHub time.
+int64 repo_parse_time(const string &in iso)
+{
+if(iso.length()<19 or iso.substr(4,1)!="-" or iso.substr(10,1)!="T")return -1;
+int y=int(string_to_number(iso.substr(0,4))),mo=int(string_to_number(iso.substr(5,2))),d=int(string_to_number(iso.substr(8,2)));
+int h=int(string_to_number(iso.substr(11,2))),mi=int(string_to_number(iso.substr(14,2))),s=int(string_to_number(iso.substr(17,2)));
+if(y<1970 or mo<1 or mo>12 or d<1 or d>31)return -1;
+return repo_days_from_civil(y,mo,d)*86400+h*3600+mi*60+s;
+}
+int64 repo_now(){calendar c;return repo_days_from_civil(c.year,c.month,c.day)*86400+c.hour*3600+c.minute*60+c.second-c.tzd;}
+int repo_utc_offset(){calendar c;return c.tzd;}
+string repo_pad(int n){return n<10?"0"+n:""+n;}
+string[] repo_month_names={"January","February","March","April","May","June","July","August","September","October","November","December"};
+// "6 October 2026, 03:34", in the player's own time zone.
+string repo_local_date(int64 utc)
+{
+int64 local=utc+repo_utc_offset();int64 days=local/86400;int secs=int(local-days*86400);if(secs<0){secs+=86400;days--;}
+int y,m,d;repo_civil_from_days(days,y,m,d);
+return d+" "+repo_month_names[m-1]+" "+y+", "+repo_pad(secs/3600)+":"+repo_pad((secs/60)%60);
+}
+string repo_ago(int64 utc)
+{
+int64 s=repo_now()-utc;
+if(s<0)s=0;
+if(s<60)return "just now";
+if(s<3600)return repo_count(s/60,"minute")+" ago";
+if(s<86400)return repo_count(s/3600,"hour")+" ago";
+if(s<86400*14)return repo_count(s/86400,"day")+" ago";
+if(s<86400*60)return repo_count(s/(86400*7),"week")+" ago";
+if(s<86400*730)return repo_count(s/(86400*30),"month")+" ago";
+return repo_count(s/(86400*365),"year")+" ago";
+}
+// "3 hours ago" for lists; repo_when_full adds the date.
+string repo_when(const string &in iso){int64 t=repo_parse_time(iso);return t<0?"at an unknown time":repo_ago(t);}
+string repo_when_full(const string &in iso){int64 t=repo_parse_time(iso);return t<0?"at an unknown time":repo_ago(t)+", "+repo_local_date(t);}
+
+// ---------------------------------------------------------------------------
+// Views
+// ---------------------------------------------------------------------------
+string repo_home(){return repo_web+"/"+repo_slug;}
+repo_view@ repo_failed(const string &in title){repo_view v;v.title=title;v.add(repo_error==""?"Nothing could be read from GitHub.":repo_error);return v;}
+
+// The repository at a glance; also the headline of the main screen.
+json_object@ repo_info(){return repo_object("/repos/"+repo_slug);}
+string repo_headline()
+{
+json_object@ r=repo_info();if(r is null)return repo_error;
+string latest=repo_file("version.txt").trim_whitespace();
+string text=js(r,"full_name")+" on GitHub: "+repo_count(ji(r,"stargazers_count"),"star")+", "+repo_count(ji(r,"forks_count"),"fork")+", last changed "+repo_when(js(r,"pushed_at"))+".";
+if(latest!="")text+=updater_compare_versions(version_name,latest)<0?" Version "+latest+" is out; you have "+version_name+".":" You have the latest version, "+version_name+".";
+return text;
+}
+repo_view@ repo_overview()
+{
+json_object@ r=repo_info();if(r is null)return repo_failed("Overview");
+repo_view v;v.title="Overview";v.url=js(r,"html_url");
+v.add("Repository: "+js(r,"full_name")+(jb(r,"private")?", private":", public")+(jb(r,"archived")?", archived and read-only":""),v.url);
+if(js(r,"description")!="")v.add("Description: "+js(r,"description"));
+v.add("Default branch: "+js(r,"default_branch"));
+v.add(repo_count(ji(r,"stargazers_count"),"star")+", "+repo_count(ji(r,"subscribers_count"),"watcher")+", "+repo_count(ji(r,"forks_count"),"fork"),repo_home()+"/forks");
+v.add(repo_count(ji(r,"open_issues_count"),"open issue or pull request","open issues and pull requests"),repo_home()+"/issues");
+v.add("Last pushed "+repo_when_full(js(r,"pushed_at")));
+v.add("Created "+repo_when_full(js(r,"created_at")));
+v.add("Size: "+(ji(r,"size")>=1024?(ji(r,"size")/1024)+" MB":ji(r,"size")+" KB"));
+json_object@ lic=jo(r,"license");v.add("Licence: "+(lic is null?"none stated":js(lic,"name")));
+if(js(r,"homepage")!="")v.add("Website: "+js(r,"homepage"),js(r,"homepage"));
+json_array@ topics=ja(r,"topics");
+if(topics !is null and topics.length()>0){string t="";for(uint i=0;i<topics.length();i++){if(i>0)t+=", ";t+=string(topics[i]);}v.add("Topics: "+t);}
+v.add("Clone it with: git clone "+repo_home()+".git",repo_home());
+return v;
+}
+
+// Which commit this copy of the game is. The updater records it after every
+// update; a git checkout knows it anyway.
+string repo_local_commit(string &out source)
+{
+source="";
+string recorded=updater_read_text(repo_root+"/updater/installed_commit.txt");
+if(recorded.length()==40){source="recorded by the updater";return recorded;}
+string head=updater_read_text(repo_root+"/.git/HEAD");if(head=="")return "";
+if(head.length()==40){source="a git checkout, detached";return head;}
+if(head.substr(0,5)!="ref: ")return "";
+string git_ref=head.substr(5).trim_whitespace();
+string sha=updater_read_text(repo_root+"/.git/"+git_ref);
+if(sha==""){string[] packed=string_split(string_replace(updater_read_text(repo_root+"/.git/packed-refs"),"\r","",true),"\n",true);for(uint i=0;i<packed.length();i++)if(packed[i].length()>41 and packed[i].substr(41)==git_ref){sha=packed[i].substr(0,40);break;}}
+if(sha.length()!=40)return "";
+source="a git checkout of "+(git_ref.substr(0,11)=="refs/heads/"?git_ref.substr(11):git_ref);
+return sha;
+}
+repo_view@ repo_your_copy()
+{
+repo_view v;v.title="Your copy";
+v.add("You are running version "+version_name+", build "+build_number+" ("+build_date+"), "+(SCRIPT_COMPILED?"as the compiled game.":"from source with NVGT."));
+string latest=repo_file("version.txt").trim_whitespace();
+if(latest=="")v.add("The version on GitHub could not be read. "+repo_error);
+else
+{
+int c=updater_compare_versions(version_name,latest);
+v.add(c<0?"GitHub has version "+latest+". Check for updates, on the main menu, installs it.":(c==0?"GitHub has the same version, "+latest+".":"GitHub has version "+latest+", older than yours."));
+}
+string source;string sha=repo_local_commit(source);
+if(sha=="")
+{
+v.add("This copy does not record which commit it was built from, so it cannot be compared commit by commit. Updating with Check for updates records it.");
+return v;
+}
+v.add("Your copy is commit "+repo_short(sha)+", "+source+".",repo_home()+"/commit/"+sha,"commit:"+sha);
+json_object@ cmp=repo_object("/repos/"+repo_slug+"/compare/"+sha+"...main");
+if(cmp is null){v.add("It could not be compared with the main branch. "+repo_error);return v;}
+int64 missing=ji(cmp,"ahead_by"),extra=ji(cmp,"behind_by");
+if(missing==0 and extra==0)v.add("It is identical to the main branch.");
+else
+{
+if(missing>0)v.add("The main branch has "+repo_count(missing,"commit")+" you do not have. They are listed below, newest first.",js(cmp,"html_url"));
+if(extra>0)v.add("You have "+repo_count(extra,"commit")+" the main branch does not, from another branch or your own changes.");
+}
+repo_add_commits(v,ja(cmp,"commits"),true);
+return v;
+}
+
+// Commit lists: "Fix the jumping key, by shywolfee, 3 hours ago, 1a2b3c4".
+void repo_add_commit(repo_view@ v,json_object@ c)
+{
+json_object@ commit=jo(c,"commit");json_object@ author=jo(commit,"author");
+string who=js(jo(c,"author"),"login");if(who=="")who=js(author,"name");
+string sha=js(c,"sha");
+v.add(repo_first_line(js(commit,"message"))+", by "+who+", "+repo_when(js(author,"date"))+", "+repo_short(sha),js(c,"html_url"),"commit:"+sha);
+}
+void repo_add_commits(repo_view@ v,json_array@ list,bool newest_first_from_oldest=false)
+{
+if(list is null)return;
+if(newest_first_from_oldest){for(int i=int(list.length())-1;i>=0;i--)repo_add_commit(v,list.get_object(i));}
+else for(uint i=0;i<list.length();i++)repo_add_commit(v,list.get_object(i));
+}
+repo_view@ repo_commits(const string &in branch,int page)
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/commits?sha="+branch+"&per_page="+repo_page_size+"&page="+page);
+if(list is null)return repo_failed("Recent commits");
+repo_view v;v.title="Recent commits on "+branch;v.url=repo_home()+"/commits/"+branch;
+if(list.length()==0)v.add(page==1?"There are no commits on "+branch+".":"There are no older commits.");
+repo_add_commits(v,list);
+if(list.length()==uint(repo_page_size))v.more="commits:"+branch+":"+(page+1);
+return v;
+}
+repo_view@ repo_commit(const string &in sha)
+{
+json_object@ c=repo_object("/repos/"+repo_slug+"/commits/"+sha);if(c is null)return repo_failed("Commit "+repo_short(sha));
+json_object@ commit=jo(c,"commit");json_object@ author=jo(commit,"author");json_object@ stats=jo(c,"stats");json_array@ files=ja(c,"files");
+repo_view v;v.title="Commit "+repo_short(sha)+": "+repo_first_line(js(commit,"message"));v.url=js(c,"html_url");
+string who=js(jo(c,"author"),"login");if(who=="")who=js(author,"name");
+v.add("By "+who+", "+repo_when_full(js(author,"date"))+".",v.url);
+v.add(repo_count(files is null?0:files.length(),"file")+" changed: "+repo_count(ji(stats,"additions"),"line")+" added, "+repo_count(ji(stats,"deletions"),"line")+" removed.");
+v.add_text(js(commit,"message"));
+if(files !is null)for(uint i=0;i<files.length();i++)
+{
+json_object@ f=files.get_object(i);string status=js(f,"status");
+v.add(js(f,"filename")+", "+status+(status=="renamed"?" from "+js(f,"previous_filename"):"")+", plus "+ji(f,"additions")+", minus "+ji(f,"deletions"),js(f,"blob_url"));
+}
+return v;
+}
+
+repo_view@ repo_branches()
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/branches?per_page=100");if(list is null)return repo_failed("Branches");
+repo_view v;v.title="Branches";v.url=repo_home()+"/branches";
+string main_sha="";
+for(uint i=0;i<list.length();i++){json_object@ b=list.get_object(i);if(js(b,"name")=="main")main_sha=js(jo(b,"commit"),"sha");}
+for(uint i=0;i<list.length();i++)
+{
+json_object@ b=list.get_object(i);string name=js(b,"name"),sha=js(jo(b,"commit"),"sha");
+string note=name=="main"?"the main branch":(sha==main_sha?"identical to main":"differs from main; open it to compare");
+v.add(name+", "+note+(jb(b,"protected")?", protected":"")+", at "+repo_short(sha),repo_home()+"/tree/"+name,name=="main"?"commits:main:1":"branch:"+name);
+}
+return v;
+}
+repo_view@ repo_branch(const string &in name)
+{
+json_object@ cmp=repo_object("/repos/"+repo_slug+"/compare/main..."+name);if(cmp is null)return repo_failed("Branch "+name);
+repo_view v;v.title="Branch "+name;v.url=repo_home()+"/tree/"+name;
+int64 ahead=ji(cmp,"ahead_by"),behind=ji(cmp,"behind_by");
+v.add(name+" has "+repo_count(ahead,"commit")+" that main does not, and is missing "+repo_count(behind,"commit")+" from main.",js(cmp,"html_url"));
+if(ahead>0)v.add("Its own commits, newest first:");
+repo_add_commits(v,ja(cmp,"commits"),true);
+v.add("All commits on "+name,"","commits:"+name+":1");
+return v;
+}
+
+// Pull requests and issues share GitHub's issue numbers and comments.
+string repo_pull_state(json_object@ p){if(js(p,"merged_at")!="")return "merged "+repo_when(js(p,"merged_at"));if(js(p,"state")=="closed")return "closed without merging";return jb(p,"draft")?"open, draft":"open";}
+repo_view@ repo_pulls(int page)
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/pulls?state=all&sort=updated&direction=desc&per_page="+repo_page_size+"&page="+page);
+if(list is null)return repo_failed("Pull requests");
+repo_view v;v.title="Pull requests";v.url=repo_home()+"/pulls";
+if(list.length()==0)v.add(page==1?"There are no pull requests.":"There are no more pull requests.");
+for(uint i=0;i<list.length();i++)
+{
+json_object@ p=list.get_object(i);int64 n=ji(p,"number");
+v.add("#"+n+" "+js(p,"title")+", by "+repo_login(p)+", "+repo_pull_state(p)+", from "+js(jo(p,"head"),"ref")+" into "+js(jo(p,"base"),"ref"),js(p,"html_url"),"pull:"+n);
+}
+if(list.length()==uint(repo_page_size))v.more="pulls:"+(page+1);
+return v;
+}
+void repo_add_comments(repo_view@ v,int64 number,int64 count)
+{
+if(count<=0){v.add("No comments.");return;}
+json_array@ list=repo_array("/repos/"+repo_slug+"/issues/"+number+"/comments?per_page=100");
+if(list is null){v.add("The comments could not be read. "+repo_error);return;}
+v.add(repo_count(count,"comment")+":");
+for(uint i=0;i<list.length();i++){json_object@ c=list.get_object(i);v.add(repo_login(c)+" commented "+repo_when(js(c,"created_at"))+":",js(c,"html_url"));v.add_text(js(c,"body"),"  ");}
+}
+repo_view@ repo_pull(int64 number)
+{
+json_object@ p=repo_object("/repos/"+repo_slug+"/pulls/"+number);if(p is null)return repo_failed("Pull request #"+number);
+repo_view v;v.title="Pull request #"+number+": "+js(p,"title");v.url=js(p,"html_url");
+v.add("Opened by "+repo_login(p)+" "+repo_when_full(js(p,"created_at"))+"; "+repo_pull_state(p)+".",v.url);
+v.add("From "+js(jo(p,"head"),"ref")+" into "+js(jo(p,"base"),"ref")+": "+repo_count(ji(p,"commits"),"commit")+", "+repo_count(ji(p,"changed_files"),"file")+" changed, "+repo_count(ji(p,"additions"),"line")+" added, "+repo_count(ji(p,"deletions"),"line")+" removed.",v.url+"/files");
+if(js(p,"state")=="open"){string m=js(p,"mergeable_state");if(m=="clean")v.add("It can be merged.");else if(m=="dirty")v.add("It has merge conflicts.");else if(m=="blocked")v.add("It is waiting on required reviews or checks.");}
+if(js(p,"body")!=""){v.add("Description:");v.add_text(js(p,"body"),"  ");}else v.add("No description.");
+repo_add_comments(v,number,ji(p,"comments"));
+return v;
+}
+repo_view@ repo_issues(int page)
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/issues?state=all&sort=updated&direction=desc&per_page="+repo_page_size+"&page="+page);
+if(list is null)return repo_failed("Issues");
+repo_view v;v.title="Issues";v.url=repo_home()+"/issues";
+for(uint i=0;i<list.length();i++)
+{
+json_object@ it=list.get_object(i);if(it.exists("pull_request"))continue;
+int64 n=ji(it,"number");
+v.add("#"+n+" "+js(it,"title")+", by "+repo_login(it)+", "+(js(it,"state")=="open"?"open":"closed")+", "+repo_count(ji(it,"comments"),"comment")+", updated "+repo_when(js(it,"updated_at")),js(it,"html_url"),"issue:"+n);
+}
+if(v.entries.length()==0)v.add(page==1?"There are no issues. Report a problem with Report a bug in the game, or open one on GitHub.":"There are no more issues.",repo_home()+"/issues/new");
+if(list.length()==uint(repo_page_size))v.more="issues:"+(page+1);
+return v;
+}
+repo_view@ repo_issue(int64 number)
+{
+json_object@ it=repo_object("/repos/"+repo_slug+"/issues/"+number);if(it is null)return repo_failed("Issue #"+number);
+repo_view v;v.title="Issue #"+number+": "+js(it,"title");v.url=js(it,"html_url");
+v.add("Opened by "+repo_login(it)+" "+repo_when_full(js(it,"created_at"))+"; "+(js(it,"state")=="open"?"open":"closed "+repo_when(js(it,"closed_at")))+".",v.url);
+json_array@ labels=ja(it,"labels");
+if(labels !is null and labels.length()>0){string l="";for(uint i=0;i<labels.length();i++){if(i>0)l+=", ";l+=js(labels.get_object(i),"name");}v.add("Labels: "+l);}
+if(js(it,"body")!=""){v.add("Description:");v.add_text(js(it,"body"),"  ");}else v.add("No description.");
+repo_add_comments(v,number,ji(it,"comments"));
+return v;
+}
+
+repo_view@ repo_releases()
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/releases?per_page="+repo_page_size);if(list is null)return repo_failed("Releases and tags");
+repo_view v;v.title="Releases and tags";v.url=repo_home()+"/releases";
+for(uint i=0;i<list.length();i++)
+{
+json_object@ r=list.get_object(i);string name=js(r,"name");if(name=="")name=js(r,"tag_name");
+v.add(name+(jb(r,"prerelease")?", pre-release":"")+", published "+repo_when(js(r,"published_at"))+" by "+repo_login(r,"author"),js(r,"html_url"),"release:"+js(r,"id"));
+}
+if(list.length()==0)
+{
+json_array@ tags=repo_array("/repos/"+repo_slug+"/tags?per_page="+repo_page_size);
+if(tags is null)v.add("There are no GitHub releases, and the tags could not be read. "+repo_error);
+else if(tags.length()==0)v.add("There are no GitHub releases or tags. Versions are published by updating the main branch; What's new on GitHub lists them.");
+else{v.add("There are no GitHub releases. Tags:");for(uint i=0;i<tags.length();i++){json_object@ t=tags.get_object(i);v.add(js(t,"name")+", at "+repo_short(js(jo(t,"commit"),"sha")),repo_home()+"/tree/"+js(t,"name"),"commit:"+js(jo(t,"commit"),"sha"));}}
+}
+return v;
+}
+repo_view@ repo_release(const string &in id)
+{
+json_object@ r=repo_object("/repos/"+repo_slug+"/releases/"+id);if(r is null)return repo_failed("Release");
+string name=js(r,"name");if(name=="")name=js(r,"tag_name");
+repo_view v;v.title="Release "+name;v.url=js(r,"html_url");
+v.add("Tag "+js(r,"tag_name")+", published "+repo_when_full(js(r,"published_at"))+" by "+repo_login(r,"author")+".",v.url);
+json_array@ assets=ja(r,"assets");
+if(assets !is null)for(uint i=0;i<assets.length();i++){json_object@ a=assets.get_object(i);v.add("Download: "+js(a,"name")+", "+(ji(a,"size")/1048576)+" MB, downloaded "+repo_count(ji(a,"download_count"),"time"),js(a,"browser_download_url"));}
+v.add_text(js(r,"body"));
+return v;
+}
+
+repo_view@ repo_contributors()
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/contributors?per_page=100");if(list is null)return repo_failed("Contributors");
+repo_view v;v.title="Contributors";v.url=repo_home()+"/graphs/contributors";
+for(uint i=0;i<list.length();i++){json_object@ c=list.get_object(i);v.add(js(c,"login")+", "+repo_count(ji(c,"contributions"),"commit")+(js(c,"type")=="Bot"?", an automated account":""),js(c,"html_url"));}
+if(list.length()==0)v.add("GitHub lists no contributors yet.");
+return v;
+}
+
+repo_view@ repo_checks()
+{
+json_object@ runs=repo_object("/repos/"+repo_slug+"/actions/runs?per_page="+repo_page_size);if(runs is null)return repo_failed("Automated checks");
+repo_view v;v.title="Automated checks";v.url=repo_home()+"/actions";
+json_array@ list=ja(runs,"workflow_runs");
+if(list is null or list.length()==0){v.add("The repository runs no automated checks on GitHub. Its tests are run by hand; tools/tests/README.md lists them.",repo_home()+"/blob/main/tools/tests/README.md");return v;}
+for(uint i=0;i<list.length();i++)
+{
+json_object@ r=list.get_object(i);string result=js(r,"conclusion");if(result=="")result=js(r,"status");
+v.add(js(r,"name")+" on "+js(r,"head_branch")+": "+string_replace(result,"_"," ",true)+", "+repo_when(js(r,"created_at"))+", for "+repo_first_line(js(r,"display_title")),js(r,"html_url"));
+}
+return v;
+}
+
+repo_view@ repo_languages()
+{
+json_object@ langs=repo_object("/repos/"+repo_slug+"/languages");if(langs is null)return repo_failed("Languages");
+repo_view v;v.title="Languages";v.url=repo_home();
+string[]@ names=langs.get_keys();double total=0;for(uint i=0;i<names.length();i++)total+=double(ji(langs,names[i]));
+// Largest first.
+for(uint i=1;i<names.length();i++)for(uint j=i;j>0 and ji(langs,names[j])>ji(langs,names[j-1]);j--){string t=names[j];names[j]=names[j-1];names[j-1]=t;}
+v.add("GitHub recognises these languages by file extension. The game itself is AngelScript in .nvgt files, which GitHub does not count.");
+for(uint i=0;i<names.length();i++){double b=double(ji(langs,names[i]));v.add(names[i]+": "+round(total>0?b*100/total:0,1)+" percent, "+(int64(b)/1024)+" KB");}
+return v;
+}
+
+// Recent public activity: pushes, branches, pull requests, stars.
+string repo_event_text(json_object@ e)
+{
+string type=js(e,"type"),who=repo_login(e,"actor");json_object@ p=jo(e,"payload");
+string git_ref=js(p,"ref");if(git_ref.substr(0,11)=="refs/heads/")git_ref=git_ref.substr(11);
+if(type=="PushEvent")return who+" pushed to "+git_ref;
+if(type=="CreateEvent")return who+" created "+js(p,"ref_type")+(git_ref!=""?" "+git_ref:"");
+if(type=="DeleteEvent")return who+" deleted "+js(p,"ref_type")+" "+git_ref;
+if(type=="PullRequestEvent"){json_object@ pr=jo(p,"pull_request");string action=js(p,"action");if(action=="closed" and js(pr,"merged_at")!="")action="merged";return who+" "+action+" pull request #"+ji(pr,"number")+(js(pr,"title")!=""?": "+js(pr,"title"):"");}
+if(type=="IssuesEvent"){json_object@ it=jo(p,"issue");return who+" "+js(p,"action")+" issue #"+ji(it,"number")+": "+js(it,"title");}
+if(type=="IssueCommentEvent")return who+" commented on #"+ji(jo(p,"issue"),"number");
+if(type=="PullRequestReviewEvent")return who+" reviewed pull request #"+ji(jo(p,"pull_request"),"number");
+if(type=="WatchEvent")return who+" starred the repository";
+if(type=="ForkEvent")return who+" forked the repository";
+if(type=="ReleaseEvent")return who+" published release "+js(jo(p,"release"),"tag_name");
+return who+": "+string_replace(type,"Event","",false);
+}
+repo_view@ repo_activity()
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/events?per_page="+repo_page_size);if(list is null)return repo_failed("Recent activity");
+repo_view v;v.title="Recent activity";v.url=repo_home()+"/activity";
+for(uint i=0;i<list.length();i++){json_object@ e=list.get_object(i);v.add(repo_event_text(e)+", "+repo_when(js(e,"created_at")));}
+if(list.length()==0)v.add("There has been no public activity in the last 90 days.");
+return v;
+}
+
+// The changelog on GitHub: what the releases newer than yours contain. Read
+// from raw.githubusercontent.com, so it costs no API allowance.
+changelog_release@[] repo_remote_changelog;
+repo_view@ repo_whats_new()
+{
+string text=repo_file("changes.txt");if(text=="")return repo_failed("What's new on GitHub");
+repo_remote_changelog=parse_changelog(text);
+repo_view v;v.title="What's new on GitHub";v.url=repo_home()+"/blob/main/changes.txt";
+int newer=0;
+for(uint i=0;i<repo_remote_changelog.length();i++)
+{
+changelog_release@ r=repo_remote_changelog[i];int b=changelog_release_build(r);
+bool is_newer=b>build_number;if(is_newer)newer++;
+v.add((is_newer?"New to you: ":"")+changelog_release_label(r),"","changelog:"+i);
+}
+v.entries.insert_at(0,repo_entry(newer==0?"You have every release listed here.":repo_count(newer,"release")+" on GitHub "+(newer==1?"is":"are")+" newer than yours. Check for updates installs them.",v.url));
+return v;
+}
+repo_view@ repo_changelog_release(int index)
+{
+repo_view v;
+if(index<0 or index>=int(repo_remote_changelog.length())){v.title="Release";v.add("That release is no longer listed.");return v;}
+changelog_release@ r=repo_remote_changelog[index];v.title="Version "+r.heading;v.url=repo_home()+"/blob/main/changes.txt";
+for(uint i=0;i<r.entries.length();i++)v.add(r.entries[i]);
+return v;
+}
+
+// How many API requests are left this hour. Asking costs nothing.
+repo_view@ repo_allowance()
+{
+string url=repo_api+"/rate_limit";string body=url_get(url);repo_requests++;
+repo_view v;v.title="GitHub request allowance";v.url="https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api";
+json_object@ o=null;
+if(body!="")try{@o=parse_json(body);}catch{@o=null;}
+json_object@ rate=jo(jo(o,"resources"),"core");
+if(rate is null){v.add("GitHub could not be asked. Check your internet connection.");return v;}
+int64 reset=ji(rate,"reset");
+v.add(ji(rate,"remaining")+" of "+ji(rate,"limit")+" requests are left this hour.");
+v.add("The allowance is full again "+(reset>repo_now()?"in "+repo_ago_until(reset)+", on "+repo_local_date(reset):"now")+".");
+v.add("This session has asked GitHub "+repo_count(repo_requests,"time")+". Replies are reused for five minutes; Refresh fetches them again.");
+return v;
+}
+string repo_ago_until(int64 utc){int64 s=utc-repo_now();if(s<60)return "under a minute";if(s<3600)return repo_count(s/60,"minute");return repo_count(s/3600,"hour");}
+
+// Opens whatever an entry's `open` names.
+repo_view@ repo_open(const string &in what)
+{
+string[] p=string_split(what,":",false);
+string kind=p[0],arg=p.length()>1?p[1]:"";
+if(kind=="overview")return repo_overview();
+if(kind=="copy")return repo_your_copy();
+if(kind=="commits")return repo_commits(arg,p.length()>2?int(string_to_number(p[2])):1);
+if(kind=="commit")return repo_commit(arg);
+if(kind=="branches")return repo_branches();
+if(kind=="branch")return repo_branch(what.substr(7));
+if(kind=="pulls")return repo_pulls(arg==""?1:int(string_to_number(arg)));
+if(kind=="pull")return repo_pull(int64(string_to_number(arg)));
+if(kind=="issues")return repo_issues(arg==""?1:int(string_to_number(arg)));
+if(kind=="issue")return repo_issue(int64(string_to_number(arg)));
+if(kind=="releases")return repo_releases();
+if(kind=="release")return repo_release(arg);
+if(kind=="contributors")return repo_contributors();
+if(kind=="checks")return repo_checks();
+if(kind=="languages")return repo_languages();
+if(kind=="activity")return repo_activity();
+if(kind=="whatsnew")return repo_whats_new();
+if(kind=="changelog")return repo_changelog_release(int(string_to_number(arg)));
+if(kind=="allowance")return repo_allowance();
+repo_view v;v.title="Repository status";v.add("Nothing to show.");return v;
+}
+

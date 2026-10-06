@@ -199,16 +199,7 @@ if(b.cloud_ms>0)spawn_cloud(b.payload,x,y,z,map,b.owner,b.label,b.cloud_radius,b
 explosion_depth--;
 }
 
-// EMP: vehicles in range lose their electronics and stall for a while.
-void vehicles_emp(double x,double y,double z,string map,double radius,int ms)
-{
-for(uint vi=0;vi<authoritative_vehicles.length();vi++)
-{
-authoritative_vehicle@ v=authoritative_vehicles[vi];if(v.map!=map or v.health<=0)continue;update_authoritative_vehicle_model(v);
-if(get_3d_distance(x,y,z,v.model_x,v.model_y,v.model_z)>radius+v.body_length*.5)continue;
-v.velocity=0;send_reliable_map(map,"veh_emp "+v.id+" "+ms+" "+map,0);
-}
-}
+// EMP: vehicles_emp, in vehicles.nvgt, stalls vehicles in range.
 
 // ---------------------------------------------------------------------------
 // Clouds: smoke, gas and fire that linger after a charge goes off, drifting

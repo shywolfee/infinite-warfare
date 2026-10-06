@@ -13,6 +13,7 @@
 #include "includes/shop.nvgt"
 #include "includes/world_sound.nvgt"
 #include "includes/dynamic_objects.nvgt"
+#include "includes/vehicles.nvgt"
 #include "includes/provisions.nvgt"
 #include "includes/field_gadgets.nvgt"
 #include "includes/team.nvgt"
@@ -164,9 +165,11 @@ nf.close();
 }
 load_wpn_stats();
 load_dobject_types(dobject_data_directory());
+load_vehicle_kinds();
 init_mapsystem();
 n.setup_server(port, 20, 500);
 spawn_all_map_bunkers();
+spawn_all_map_vehicles();
 load_teams();
 load_moderation();
 load_staff_roles();
@@ -238,6 +241,7 @@ playerloop();
 itemloop();
 maploop();
 dobject_loop();
+vehicle_upkeep_loop();
 chat_maintenance();
 }
 e=n.request();
@@ -2180,25 +2184,8 @@ else if(parsed[1]=="reconnaissance_ring")
 {
 if(players[index].recon_ring_timer.elapsed<10000)send_reliable(players[index].peer_id,"The reconnaissance ring is recovering.",2);else{int friendly=0,hostile=0;double nearest=999999;for(uint target=0;target<players.length();target++){if(int(target)==index or players[target].death or players[target].map!=players[index].map)continue;double d=get_3d_distance(players[index].x,players[index].y,players[index].z,players[target].x,players[target].y,players[target].z);if(d>40)continue;if(same_team(players[index].name,players[target].name))friendly++;else{hostile++;if(d<nearest)nearest=d;}}play("firefight_ring_scan",players[index].x,players[index].y,players[index].z,players[index].map,index);send_reliable(players[index].peer_id,"Ring scan: "+friendly+" friendly and "+hostile+" hostile signature"+(hostile==1?"":"s")+(hostile>0?"; closest hostile "+round(nearest,1)+" tiles.":"."),2);players[index].recon_ring_timer.restart();}
 }
-else if(parsed[1]=="duo_plane_kit")
-{
-int team_index=get_team_index_for_member(players[index].name);
-if (team_index<0) send_reliable(players[index].peer_id, "Only a team member can deploy a Duo Plane Kit.", 2);
-else
-{
-for (uint tm=0; tm<teams[team_index].members.length(); tm++)
-{
-int recipient=get_player_index_from(teams[team_index].members[tm].name);
-if (recipient>-1 and players[recipient].map==players[index].map) send_reliable(players[recipient].peer_id, "team_plane_spawn "+players[index].x+" "+players[index].y+" "+players[index].z, 0);
-}
-send_reliable(players[index].peer_id, "give duo_plane_kit -1", 0);
-team_notice(team_index, players[index].name+" deployed the team's Duo Plane.");
-}
-}
-else if(parsed[1]=="humvee_kit" or parsed[1]=="apc_kit" or parsed[1]=="tank_kit")
-{
-int team_index=get_team_index_for_member(players[index].name);if(team_index<0)send_reliable(players[index].peer_id,"Only a team member can deploy a vehicle kit.",2);else{string vehicle_name=parsed[1]=="humvee_kit"?"Humvee":(parsed[1]=="apc_kit"?"APC":"Tank");for(uint tm=0;tm<teams[team_index].members.length();tm++){int recipient=get_player_index_from(teams[team_index].members[tm].name);if(recipient>-1 and players[recipient].map==players[index].map)send_reliable(players[recipient].peer_id,"team_vehicle_spawn "+vehicle_name+" "+players[index].x+" "+players[index].y+" "+players[index].z,0);}send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);team_notice(team_index,players[index].name+" deployed the team's "+vehicle_name+".");}
-}
+else if(parsed[1]=="duo_plane_kit")deploy_team_vehicle(players[index],"duo_plane_kit","Duo Plane");
+else if(parsed[1]=="humvee_kit" or parsed[1]=="apc_kit" or parsed[1]=="tank_kit")deploy_team_vehicle(players[index],parsed[1],parsed[1]=="humvee_kit"?"Humvee":(parsed[1]=="apc_kit"?"APC":"Tank"));
 else if(parsed[1]=="team_supply_beacon")
 {
 int ti=get_team_index_for_member(players[index].name);
@@ -2952,52 +2939,7 @@ play("supressoroff", players[index].x, players[index].y, players[index].z, playe
 }
 }
 }
-else if(parsed[0]=="veh_register" and parsed.length()>8)
-{
-int index=get_player_index(e.peer_id);if(index>=0 and players[index].map==parsed[8]){register_authoritative_vehicle(string_to_number(parsed[1]),parsed[2],string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[6]),string_to_number(parsed[7]),parsed[8]);int vi=find_authoritative_vehicle(string_to_number(parsed[1]),parsed[8]);if(vi>=0){authoritative_vehicle@ v=authoritative_vehicles[vi];send_reliable(0,"veh_authority "+v.id+" "+v.type+" "+v.x+" "+v.y+" "+v.z+" "+v.health+" "+v.armor+" "+v.map,0);}}
-}
-else if(parsed[0]=="veh_enter" and parsed.length()>3)
-{
-int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant(string_to_number(parsed[1]),parsed[3],players[index].name,string_to_number(parsed[2]));
-}
-else if(parsed[0]=="veh_exit" and parsed.length()>2)
-{
-int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant(string_to_number(parsed[1]),parsed[2],players[index].name,-1);
-}
-else if(parsed[0]=="veh_door" and parsed.length()>2)
-{
-int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map);if(vi>=0){authoritative_vehicles[vi].door_open=parsed[2]=="1";send_reliable_map(players[index].map,"veh_door_sync "+parsed[1]+" "+parsed[2]+" "+players[index].map,0);}}
-}
-else if(parsed[0]=="veh_seat" and parsed.length()>2)
-{
-int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant(string_to_number(parsed[1]),players[index].map,players[index].name,string_to_number(parsed[2]));
-}
-else if(parsed[0]=="veh_repair" and parsed.length()>2)
-{
-int index=get_player_index(e.peer_id);if(index>=0 and players[index].map==parsed[2])authoritative_vehicle_repair(index,string_to_number(parsed[1]));
-}
-else if(parsed[0]=="veh_turn" and parsed.length()>2)
-{
-// Only the vehicle's driver may steer, move or climb it. Any client on the
-// map used to be able to move or spin any vehicle.
-int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map);if(vi>=0 and authoritative_vehicle_driver_is(authoritative_vehicles[vi],players[index].name))authoritative_vehicles[vi].facing=string_to_number(parsed[2]);}
-}
-else if(parsed[0]=="veh_move" and parsed.length()>6)
-{
-int index=get_player_index(e.peer_id);int moved=index>=0?find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map):-1;if(index>=0 and players[index].map==parsed[6] and moved>=0 and authoritative_vehicle_driver_is(authoritative_vehicles[moved],players[index].name))authoritative_vehicle_move(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),parsed[6],players[index].name);
-}
-else if(parsed[0]=="veh_crash" and parsed.length()>1)
-{
-authoritative_vehicle_crash(get_player_index(e.peer_id),string_to_number(parsed[1]));
-}
-else if(parsed[0]=="veh_fire" and parsed.length()>3)
-{
-authoritative_vehicle_fire(get_player_index(e.peer_id),string_to_number(parsed[1]),string_to_number(parsed[2]),parsed[3]);
-}
-else if(parsed[0]=="veh_altitude" and parsed.length()>3)
-{
-int index=get_player_index(e.peer_id);int vi=find_authoritative_vehicle(string_to_number(parsed[1]),parsed[3]);if(index>=0 and vi>=0 and authoritative_vehicle_driver_is(authoritative_vehicles[vi],players[index].name)){authoritative_vehicles[vi].z=string_to_number(parsed[2]);send_reliable(0,"veh_sync_move "+parsed[1]+" "+authoritative_vehicles[vi].x+" "+authoritative_vehicles[vi].y+" "+parsed[2]+" "+authoritative_vehicles[vi].velocity+" "+parsed[3],0);}
-}
+else if(handle_vehicle_request(e.peer_id,parsed)){}
 else if(parsed[0]=="fire" and parsed.length()>1)
 {
 int index=get_player_index(e.peer_id);

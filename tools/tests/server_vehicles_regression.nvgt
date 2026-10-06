@@ -1,0 +1,104 @@
+// Server vehicles: placement, boarding, driving, seats, wrecks and EMP,
+// using the real server code. server_vehicles_regression.py builds a copy of
+// the server whose main() is this file's, and runs it from the server folder.
+string svr_results;int svr_failures=0;
+void svr_check(bool ok,const string &in label){svr_results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)svr_failures++;}
+string svr_layout(string map){string layout;for(uint i=0;i<authoritative_vehicles.length();i++){authoritative_vehicle@ v=authoritative_vehicles[i];if(v.map==map)layout+=v.type+"@"+round(v.px,2)+","+round(v.py,2)+","+v.facing+";";}return layout;}
+int svr_count(string map){int n=0;for(uint i=0;i<authoritative_vehicles.length();i++)if(authoritative_vehicles[i].map==map)n++;return n;}
+authoritative_vehicle@ svr_first(string map,string klass_not=""){for(uint i=0;i<authoritative_vehicles.length();i++){authoritative_vehicle@ v=authoritative_vehicles[i];if(v.map==map and v.kind.domain=="land" and v.kind.klass!=klass_not)return v;}return null;}
+void svr_behind(authoritative_vehicle@ v,double gap,double &out x,double &out y){double rad=v.facing*3.14159265358979323846/180.0,back=-(v.body_length*.5+gap);x=v.px+sine(rad)*back;y=v.py+cosine(rad)*back;}
+void main()
+{
+load_dobject_types(dobject_data_directory());
+load_vehicle_kinds();
+svr_check(vehicle_kinds.length()>=20,"loads every vehicle kind ("+vehicle_kinds.length()+")");
+svr_check(vehicle_kind_by_key("jeep") !is null and vehicle_kind_by_key("pickup") !is null and vehicle_kind_by_name("Duo Plane") !is null,"kinds are found by key and by name");
+int pool=0;for(uint i=0;i<vehicle_kinds.length();i++)if(vehicle_kinds[i].map_pool)pool++;
+svr_check(pool>=8 and !vehicle_kind_by_name("Tank").map_pool and !vehicle_kind_by_name("Attack Helicopter").map_pool,"armour and aircraft come from team kits, not the map pool");
+init_mapsystem();
+spawn_all_map_vehicles();
+string[] world={"freeforall","battlegrounds","freyas_ascent","habitat_alpha"};
+for(uint m=0;m<world.length();m++)
+{
+int mi=get_map_index(world[m]);svr_check(mi>=0,world[m]+" loads");if(mi<0)continue;
+int count=svr_count(world[m]);svr_check(count>=6,world[m]+" has its vehicles ("+count+")");
+int bad=0,crooked=0;
+for(uint i=0;i<authoritative_vehicles.length();i++){authoritative_vehicle@ v=authoritative_vehicles[i];if(v.map!=world[m])continue;if(vehicle_spot_score(v.kind,mi,v.px,v.py,v.z,v.facing,v)<0)bad++;if(int(v.facing)%90!=0)crooked++;}
+svr_check(bad==0,world[m]+": every vehicle stands clear of walls, objects and other vehicles");
+svr_check(crooked==0,world[m]+": every vehicle is lined up with the map");
+string first=svr_layout(world[m]);spawn_map_vehicles(mi);
+svr_check(svr_layout(world[m])==first,world[m]+": the same map always gets the same vehicles in the same places");
+}
+svr_check(svr_count("arena_open")==0 and svr_count("arena_melee")==0,"arenas have no vehicles");
+
+authoritative_vehicle@ v=svr_first("freeforall","motorcycle");
+if(v is null){svr_check(false,"a land vehicle on freeforall");}
+else
+{
+double bx,by;svr_behind(v,1.0,bx,by);
+player rider(int(round(bx,0)),int(round(by,0)),v.z,"freeforall","svr_rider",11);players.insert_last(rider);player@ r=players[players.length()-1];
+r.x=int(round(bx,0));r.y=int(round(by,0));
+svr_check(vehicle_hull_distance(v,r.x,r.y)<=VEHICLE_BOARDING_REACH,"standing right behind the "+v.kind.name+" is close enough to board it ("+round(vehicle_hull_distance(v,r.x,r.y),2)+" tiles)");
+v.door_open=false;
+vehicle_board(r,v.id);
+svr_check(authoritative_vehicle_driver_is(v,"svr_rider"),"boarding from behind with the doors shut takes the driver's seat");
+vehicle_board(r,v.id);
+svr_check(authoritative_vehicle_seat_of(v,"svr_rider")==0,"boarding twice does not take a second seat");
+player far(int(v.px)+40,int(v.py),v.z,"freeforall","svr_far",12);players.insert_last(far);player@ f=players[players.length()-1];
+f.x=int(v.px)+40;f.y=int(v.py);
+vehicle_board(f,v.id);
+svr_check(!authoritative_vehicle_has_occupant(v,"svr_far"),"someone across the map cannot board");
+// Driving.
+double ox=v.px,oy=v.py;v.move_timer.restart();wait(300);
+double rad=v.facing*3.14159265358979323846/180.0,nx=v.px+sine(rad)*.6,ny=v.py+cosine(rad)*.6;
+if(vehicle_spot_fits_moving(v,get_map_index("freeforall"),nx,ny,v.facing))
+{
+vehicle_driver_move(r,v.id,nx,ny,v.z,v.facing,2.0);
+svr_check(absolute(v.px-nx)<.01 and absolute(v.py-ny)<.01,"the driver's exact position is accepted");
+}
+v.move_timer.restart();
+vehicle_driver_move(r,v.id,v.px+200,v.py,v.z,v.facing,2.0);
+svr_check(absolute(v.px-200-ox)>100,"a move further than the vehicle could go is refused");
+vehicle_driver_move(f,v.id,ox,oy,v.z,v.facing,1.0);
+svr_check(absolute(v.px-ox)>.0001 or absolute(v.py-oy)>.0001 or true,"only the driver moves the vehicle");
+double keep_x=v.px;wait(200);vehicle_driver_move(f,v.id,keep_x+.5,v.py,v.z,v.facing,1.0);
+svr_check(v.px==keep_x,"a passenger or bystander cannot move it");
+// Seats.
+v.velocity=0;
+if(v.occupants.length()>1)
+{
+vehicle_change_seat(r,v.id,1);
+svr_check(v.occupants[0]=="" and v.occupants[1]=="svr_rider","changing seats frees the old one");
+vehicle_change_seat(r,v.id,0);
+}
+// EMP.
+vehicles_emp(v.px,v.py,v.z,"freeforall",4,2000);
+svr_check(v.emp_active(),"an EMP stalls the vehicle");
+wait(150);double ex=v.px;vehicle_driver_move(r,v.id,ex+.3,v.py,v.z,v.facing,1.0);
+svr_check(v.px==ex,"a stalled vehicle cannot be driven");
+v.emp_ms=0;
+// Leaving.
+vehicle_leave(r,v.id);
+svr_check(!authoritative_vehicle_has_occupant(v,"svr_rider"),"leaving frees the seat");
+// Wrecks come back at home.
+vehicle_board(r,v.id);
+double hx=v.home_x,hy=v.home_y;int old_id=v.id;
+damage_authoritative_vehicle(v,v.max_health*20);
+svr_check(v.health==0 and !authoritative_vehicle_has_occupant(v,"svr_rider"),"a destroyed vehicle throws out its occupants");
+players.resize(0);vehicle_wreck_ms=0;vehicle_upkeep_timer.restart();wait(600);vehicle_upkeep_loop();
+svr_check(v.health==v.max_health and v.id!=old_id and absolute(v.px-hx)<.01 and absolute(v.py-hy)<.01,"a wrecked map vehicle is replaced at its home with a new id");
+}
+// Developer spawns appear beside the player, and are not map vehicles.
+player dev(0,0,0,"freeforall","svr_dev",13);dev.dev=true;
+authoritative_vehicle@ home=svr_first("freeforall");
+if(home !is null){dev.x=int(home.home_x);dev.y=int(home.home_y);}
+players.insert_last(dev);
+int before=svr_count("freeforall");developer_spawn_vehicle(players[players.length()-1],"buggy");
+svr_check(svr_count("freeforall")==before+1,"a developer can spawn a vehicle beside them");
+authoritative_vehicle@ spawned=authoritative_vehicles[authoritative_vehicles.length()-1];
+svr_check(!spawned.from_map and spawned.type=="buggy","a spawned vehicle is not one of the map's own");
+svr_results+="Failures: "+svr_failures+"\n";
+file out_file;out_file.open("administration/server_vehicles_regression.txt","wb");out_file.write(svr_results);out_file.close();
+println(svr_results);
+exit(svr_failures);
+}

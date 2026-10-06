@@ -1089,44 +1089,13 @@ if(pois.length()==0){speak("No points of interest exist on this map.");return;}
 int[] sorted=get_sorted_poi_indices();iw_form f;f.create_window("Developer POI Teleport",false,true);int list=f.create_list("Point of interest",0,false);for(uint i=0;i<sorted.length();i++)f.add_list_item(list,string_replace(pois[sorted[i]].name,"_"," ",true));int go=f.create_button("Teleport",true),cancel=f.create_button("Cancel",false,true);f.focus(list);
 while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(go)){int pos=f.get_list_position(list);if(pos<0 or pos>=int(sorted.length()))return;int pi=sorted[pos];me.x=pois[pi].x;me.y=pois[pi].y;me.z=pois[pi].z;mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);speak("Teleported to "+string_replace(pois[pi].name,"_"," ",true)+".");return;}}
 }
+// Asks the server to place a vehicle beside you (builders and developers).
 void dev_spawn_vehicle()
 {
-if (vehicle_types.length() == 0) init_vehicle_types();
-iw_form f;
-f.create_window("Spawn Vehicle", false, true);
-int f_list = f.create_list("Select a vehicle type", 0, false);
-for (uint i = 0; i < vehicle_types.length(); i++)
-{
-f.add_list_item(f_list, vehicle_types[i].name);
-}
-int f_spawn = f.create_button("S&pawn", true);
-int f_cancel = f.create_button("&Cancel", false, true);
-f.focus(f_list);
-while(true)
-{
-wait(5);
-f.monitor();
-if (connected==true)
-netloop();
-if (f.is_pressed(f_spawn))
-{
-int sel = f.get_list_position(f_list);
-if (sel >= 0 and sel < int(vehicle_types.length()))
-{
-double rad = facing * 3.1415926535897932 / 180.0;
-int vx = int(round(mr.x + sine(rad) * 2, 0));
-int vy = int(round(mr.y + cosine(rad) * 2, 0));
-int vz = int(me.z);
-map_vehicles.insert_last(vehicle(sel, vx, vy, vz));
-speak(vehicle_types[sel].name + " spawned.");
-}
-break;
-}
-else if (f.is_pressed(f_cancel))
-{
-break;
-}
-}
+if(vehicle_types.length()==0)init_vehicle_types();
+string[] labels,ids;for(uint i=0;i<vehicle_types.length();i++){labels.insert_last(vehicle_types[i].name);ids.insert_last(vehicle_audio_id_from_name(vehicle_types[i].name));}
+string chosen=pick_from_list("Spawn a vehicle",labels,ids);
+if(chosen!="")send_reliable(0,"veh_spawn "+chosen,0);
 }
 
 // ---------------------------------------------------------------------------
@@ -2405,7 +2374,7 @@ else if (item == "repair_kit")
 // The server checks distance and damage and decides the repair.
 int vi=in_vehicle?player_vehicle_index:find_nearest_vehicle(int(mr.x),int(mr.y),int(me.z),3);
 if(vi<0){speak("Stand next to a damaged vehicle, or sit in one, to use a repair kit.");return;}
-send_reliable(0,"veh_repair "+vi+" "+mapname,0);
+send_reliable(0,"veh_repair "+map_vehicles[vi].id,0);
 return;
 }
 else if (item == "biomonitor_bracelet")
@@ -3566,20 +3535,11 @@ can_move=true;
 in_vehicle=false;
 afk_mode=false;
 afk_transitioning=false;
-if (map_vehicles.length() == 0)
-{
-init_vehicle_types();
-spawn_vehicles_on_map();
-}
-register_vehicles_with_server();
+if(vehicle_types.length()==0)init_vehicle_types();
 give_starting_loadout();
 weapons[w]=starting_loadout_weapon;
 apply_weapon_stats(weapons[w]);
 pending_spawn_position=true;send_reliable(1, "spawn_player "+me.x+" "+me.y+" "+me.z+" "+mapname+" "+name, 0);timer spawn_ack_timer;while(pending_spawn_position and connected and spawn_ack_timer.elapsed<2500){wait(5);netloop();}
-// Vehicle registration requires a live server player. The former pre-spawn
-// registration was discarded by server validation, leaving the client and
-// projectile authority with different ideas of which vehicles existed.
-register_vehicles_with_server();
 send_reliable(1, "draw "+weapons[w], 0);
 send_reliable(0, "send_comp "+comp, 0);
 send_reliable(0, "admin", 0);
@@ -4174,11 +4134,8 @@ if (in_vehicle)
 vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
 else
 {
-// Check for nearby vehicle door first; otherwise check chest.
-int nv = find_nearest_vehicle(int(mr.x), int(mr.y), int(me.z), 5);
-if (nv >= 0)
-vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
-else if(use_dobject_in_reach()){}
+// O uses the map object you face; failing that, a nearby chest.
+if(use_dobject_in_reach()){}
 else
 send_reliable(0, "check_chest", 0);
 }
@@ -4973,8 +4930,6 @@ else if(parsed[0]=="mapdata")
 {
 load_map(string_replace(get_event_message(), "mapdata ", "", true));
 we_map_transfer_active=false;
-spawn_vehicles_on_map();
-register_vehicles_with_server();
 }
 else if(parsed[0]=="wallremove" and parsed.length()>3)
 {
@@ -5020,65 +4975,7 @@ int z=string_to_number(parsed[3]);
 string map=parsed[4];
 spawn_ladder(x,y,z,z+10,map,"wallwood");
 }
-else if(parsed[0]=="veh_damage" and parsed.length()>2)
-{
-int vi=string_to_number(parsed[1]);
-int dmg=string_to_number(parsed[2]);
-if (vi>=0 and vi<int(map_vehicles.length()) and (parsed.length()<4 or parsed[3]==mapname))
-{
-bool destroyed=false;
-if(parsed.length()>5){map_vehicles[vi].health=string_to_number(parsed[4]);map_vehicles[vi].armor=string_to_number(parsed[5]);destroyed=map_vehicles[vi].health<=0;map_vehicles[vi].destroyed=destroyed;}
-else destroyed=vehicle_take_damage(vi,dmg);
-if (player_vehicle_index==vi)
-{
-speak("Vehicle hit! " + map_vehicles[vi].health + " health remaining.");
-if (destroyed) vehicle_on_destroy(vi);
-}
-}
-else if(parsed[0]=="veh_sync_move" and parsed.length()>6)
-{
-int vi=string_to_number(parsed[1]);
-if(parsed[6]==mapname and vi>=0 and vi<int(map_vehicles.length()))
-{
-map_vehicles[vi].x=string_to_number(parsed[2]);map_vehicles[vi].y=string_to_number(parsed[3]);map_vehicles[vi].z=string_to_number(parsed[4]);map_vehicles[vi].observed_velocity=string_to_number(parsed[5]);
-}
-}
-else if(parsed[0]=="veh_authority" and parsed.length()>8)
-{
-int vi=string_to_number(parsed[1]);
-if(parsed[8]==mapname and vi>=0)
-{
-int type_index=-1;for(uint vt=0;vt<vehicle_types.length();vt++)if(vehicle_audio_id_from_name(vehicle_types[vt].name)==parsed[2]){type_index=int(vt);break;}
-if(type_index>=0)
-{
-while(int(map_vehicles.length())<=vi)map_vehicles.insert_last(vehicle(type_index,string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5])));
-vehicle@ v=map_vehicles[vi];if(v.type_index!=type_index){v.type_index=type_index;v.passengers.resize(vehicle_types[type_index].max_passengers);v.window_down.resize(vehicle_types[type_index].max_passengers);for(int seat=0;seat<vehicle_types[type_index].max_passengers;seat++){v.passengers[seat]="";v.window_down[seat]=false;}}v.x=string_to_number(parsed[3]);v.y=string_to_number(parsed[4]);v.z=string_to_number(parsed[5]);v.health=string_to_number(parsed[6]);v.armor=string_to_number(parsed[7]);v.destroyed=v.health<=0;
-}
-}
-}
-}
-else if(parsed[0]=="veh_door_sync" and parsed.length()>3)
-{
-int vi=string_to_number(parsed[1]);if(parsed[3]==mapname and vi>=0 and vi<int(map_vehicles.length())){map_vehicles[vi].door_open=parsed[2]=="1";ensure_vehicle_map_element(map_vehicles[vi],vi);}
-}
-else if(parsed[0]=="veh_destroyed" and parsed.length()>1)
-{
-int vi=string_to_number(parsed[1]);
-if (vi>=0 and vi<int(map_vehicles.length()) and !map_vehicles[vi].destroyed)
-{
-map_vehicles[vi].destroyed=true;
-map_vehicles[vi].health=0;
-if (player_vehicle_index==vi) vehicle_on_destroy(vi);
-}
-}
-else if(parsed[0]=="team_plane_spawn" and parsed.length()>3)
-{
-spawn_team_plane_vehicle(string_to_number(parsed[1]), string_to_number(parsed[2]), string_to_number(parsed[3]));
-}
-else if(parsed[0]=="team_vehicle_spawn" and parsed.length()>4)
-{
-spawn_team_vehicle(parsed[1],string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]));
-}
+else if(handle_vehicle_packet(parsed)){}
 else if(parsed[0]=="ping" and pinging==true)
 {
 p.play_stationary("pingstop.ogg", false);

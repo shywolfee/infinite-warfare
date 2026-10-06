@@ -84,11 +84,21 @@ for path in (ROOT / "iwserver/content/weapons").rglob("*.wpn"):
 if "vehicle_weapon_mishap(" not in server:
     problems.append("firing from a vehicle skips vehicle_weapon_mishap")
 
-# Only the driver may move a vehicle.
-for packet in ("veh_turn", "veh_move"):
-    start = server.index(f'parsed[0]=="{packet}"')
-    if "authoritative_vehicle_driver_is" not in server[start:start + 600]:
-        problems.append(f"{packet} is accepted from anyone, not only the driver")
+# Only the driver may move a vehicle, and the server owns where vehicles are.
+vehicles = server_includes["vehicles.nvgt"]
+if "handle_vehicle_request(" not in server:
+    problems.append("vehicle requests are never handed to vehicles.nvgt")
+move = vehicles[vehicles.index("void vehicle_driver_move("):]
+if "authoritative_vehicle_driver_is" not in move[:600]:
+    problems.append("veh_move is accepted from anyone, not only the driver")
+if "veh_register" in server or "spawn_vehicles_on_map" in client:
+    problems.append("clients still place vehicles themselves")
+for call in ("spawn_all_map_vehicles();", "vehicle_upkeep_loop();", "load_vehicle_kinds();"):
+    if call not in server:
+        problems.append(f"the server never calls {call}")
+for include in ("player.nvgt", "arenas.nvgt", "world_editor.nvgt"):
+    if "sync_vehicles(" not in server_includes[include]:
+        problems.append(f"{include} sends a map without its vehicles")
 
 # Every vehicle file describes its drivetrain.
 for path in (ROOT / "iwserver/content/vehicles").rglob("*.vehicle"):

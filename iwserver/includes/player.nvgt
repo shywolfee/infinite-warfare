@@ -529,7 +529,7 @@ p1.last_z=z;
 players.insert_last(p1);
 world_sound_from("spawn",players[players.length()-1]);
 send_reliable(pi,"spawn_position "+x+" "+y+" "+z,0);
-sync_dobjects(pi,map);
+sync_dobjects(pi,map);sync_vehicles(pi,map);
 send_reliable(0, "online "+x+" "+y+" "+z+" "+name+" "+map, 0);
 }
 int get_nearest_player(int px, int py, int pz, string pmap, int pindex=-1)

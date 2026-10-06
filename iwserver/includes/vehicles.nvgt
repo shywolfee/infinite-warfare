@@ -1,0 +1,566 @@
+// Vehicles, owned by the server.
+//
+// Before 0.6 every client spawned the map's vehicles for itself, gave each one
+// a random facing, and told the server about it; the server believed whichever
+// client registered a vehicle first. So the same jeep pointed a different way
+// on every screen, its hull was in a different place for every player's
+// collision, and the server's idea of where it was (used for bullets and
+// explosions) matched at most one of them. Positions were whole tiles, so a
+// moving vehicle jumped about, and its facing was never sent to anyone but
+// the server.
+//
+// Now the server places every vehicle, with an id, an exact position and a
+// facing, and tells everyone on the map. Clients draw what the server says.
+// The driver's client still runs the driving model, because it has the
+// controls, and sends its exact position and facing; the server checks the
+// move is possible and passes it on. Boarding, seats, doors, team vehicles
+// and developer spawns are all requests the server decides.
+//
+// Packets the server sends (maps are %20-encoded):
+//   veh_state <map> <id> <kind> <x> <y> <z> <facing> <health> <armour>
+//             <door 0|1> <flags> <occupants>     flags: 1 destroyed, 2 EMP
+//             occupants: one name per seat joined by commas, "-" for empty
+//   veh_sync <map> <id> <x> <y> <z> <facing> <speed>
+//   veh_remove <map> <id>
+//   veh_occupant <map> <id> <seat> <name|->
+//   veh_door_sync <id> <0|1> <map>
+//   veh_entered <map> <id> <seat>        to the player who boarded
+//   veh_refused <message>                to a player whose request failed
+//   veh_damage <id> <damage> <map> <health> <armour>
+//   veh_destroyed <id> <map>
+//   veh_emp <id> <ms> <map>
+
+// A kind of vehicle, from iwserver/content/vehicles/*/*.vehicle.
+class vehicle_kind
+{
+string key,name,klass,domain,text;
+int seats=1,health=500,armour=0,order=999;
+double length=6,width=4,height=3,top_speed=8;
+bool map_pool=false;
+}
+vehicle_kind@[] vehicle_kinds;
+
+// The id clients and sounds use for a kind: its name in lower case without
+// spaces, and "pickup" for the pickup truck.
+string vehicle_kind_key(string name)
+{
+string n=string_to_lower_case(name);
+if(n=="pickup truck")return "pickup";
+return string_replace(n," ","",true);
+}
+vehicle_kind@ vehicle_kind_by_key(string key){for(uint i=0;i<vehicle_kinds.length();i++)if(vehicle_kinds[i].key==key)return vehicle_kinds[i];return null;}
+vehicle_kind@ vehicle_kind_by_name(string name){string k=vehicle_kind_key(name);for(uint i=0;i<vehicle_kinds.length();i++)if(vehicle_kinds[i].key==k or string_to_lower_case(vehicle_kinds[i].name)==string_to_lower_case(name))return vehicle_kinds[i];return null;}
+
+void load_vehicle_kinds()
+{
+vehicle_kinds.resize(0);
+string[] dirs=find_directories("content/vehicles/*");
+for(uint d=0;d<dirs.length();d++)
+{
+string base="content/vehicles/"+dirs[d];string[] files=find_files(base+"/*.vehicle");
+for(uint i=0;i<files.length();i++)
+{
+file f;if(!f.open(base+"/"+files[i],"rb"))continue;string text=f.read();f.close();
+vehicle_kind k;k.text=text;k.name=server_vehicle_field(text,"name");if(k.name=="")continue;
+k.key=vehicle_kind_key(k.name);k.klass=server_vehicle_field(text,"class","ground");
+k.domain=server_vehicle_field(text,"travel_domain",k.klass=="watercraft"?"water":"land");
+k.seats=int(string_to_number(server_vehicle_field(text,"seats","1")));if(k.seats<1)k.seats=1;if(k.seats>32)k.seats=32;
+k.health=int(string_to_number(server_vehicle_field(text,"health","500")));k.armour=int(string_to_number(server_vehicle_field(text,"armour","0")));
+k.length=string_to_number(server_vehicle_field(text,"length","6"));k.width=string_to_number(server_vehicle_field(text,"width","4"));k.height=string_to_number(server_vehicle_field(text,"height","3"));
+k.top_speed=string_to_number(server_vehicle_field(text,"top_speed","8"));k.order=int(string_to_number(server_vehicle_field(text,"order","999")));
+// Ordinary road vehicles and boats are left about the maps. Armour and
+// aircraft come from team kits.
+string pool=server_vehicle_field(text,"map_spawn","");
+k.map_pool=pool!=""?pool=="true":(k.domain=="water" or k.klass=="ground" or k.klass=="motorcycle" or k.klass=="atv");
+uint at=0;while(at<vehicle_kinds.length() and vehicle_kinds[at].order<=k.order)at++;
+vehicle_kinds.insert_at(at,k);
+}
+}
+}
+
+class authoritative_vehicle
+{
+int id;string type;string map;int x;int y;int z;int health;int max_health;int armor;double velocity;double facing=0;bool door_open=false;string[] occupants;
+double px,py;            // exact position; x and y are the tile it is on
+double body_length=6,body_width=4,body_height=3;string definition_text="";
+double model_x,model_y,model_z,target_x,target_y,target_z;timer model_timer;
+vehicle_kind@ kind;
+bool from_map=false;     // one of the map's own vehicles, which come back
+double home_x,home_y;int home_z;double home_facing;
+string team="";          // the team that deployed it, if any
+timer wreck_timer,emp_timer,move_timer;int emp_ms=0;
+authoritative_vehicle(){velocity=0;}
+bool emp_active(){return emp_ms>0 and emp_timer.elapsed<uint(emp_ms);}
+}
+authoritative_vehicle@[] authoritative_vehicles;
+int next_vehicle_id=1;
+
+int find_authoritative_vehicle(int id,string map){for(uint i=0;i<authoritative_vehicles.length();i++)if(authoritative_vehicles[i].id==id and authoritative_vehicles[i].map==map)return int(i);return -1;}
+bool authoritative_vehicle_driver_is(authoritative_vehicle@ v,string player_name){return v.occupants.length()>0 and v.occupants[0]==player_name;}
+bool authoritative_vehicle_has_occupant(authoritative_vehicle@ v,string player_name){for(uint i=0;i<v.occupants.length();i++)if(v.occupants[i]==player_name)return true;return false;}
+int authoritative_vehicle_seat_of(authoritative_vehicle@ v,string player_name){for(uint i=0;i<v.occupants.length();i++)if(v.occupants[i]==player_name)return int(i);return -1;}
+void authoritative_vehicle_dimensions(authoritative_vehicle@ v,double &out length,double &out width,double &out height){length=v.body_length;width=v.body_width;height=v.body_height;}
+// Positions are exact now, so the model is simply where the vehicle is.
+void update_authoritative_vehicle_model(authoritative_vehicle@ v){v.model_x=v.px;v.model_y=v.py;v.model_z=v.z;v.target_x=v.px;v.target_y=v.py;v.target_z=v.z;}
+void place_authoritative_vehicle(authoritative_vehicle@ v,double x,double y,int z,double facing)
+{
+v.px=x;v.py=y;v.z=z;v.x=int(round(x,0));v.y=int(round(y,0));v.facing=facing;update_authoritative_vehicle_model(v);
+}
+
+// Distance from a point to the vehicle's hull on the ground plane: zero
+// anywhere inside or on it.
+double vehicle_hull_distance(authoritative_vehicle@ v,double wx,double wy)
+{
+double rad=v.facing*3.14159265358979323846/180.0,dx=wx-v.px,dy=wy-v.py;
+double forward=dx*sine(rad)+dy*cosine(rad),side=dx*cosine(rad)-dy*sine(rad);
+double ox=absolute(forward)-v.body_length*.5,oy=absolute(side)-v.body_width*.5;if(ox<0)ox=0;if(oy<0)oy=0;
+return sqrt(ox*ox+oy*oy);
+}
+
+authoritative_vehicle@ create_authoritative_vehicle(vehicle_kind@ k,string map,double x,double y,int z,double facing)
+{
+authoritative_vehicle v;v.id=next_vehicle_id++;@v.kind=k;v.type=k.key;v.map=map;
+v.health=k.health;v.max_health=k.health;v.armor=k.armour;v.definition_text=k.text;
+v.body_length=k.length;v.body_width=k.width;v.body_height=k.height;v.occupants.resize(k.seats);
+for(uint s=0;s<v.occupants.length();s++)v.occupants[s]="";
+v.door_open=k.klass=="motorcycle" or k.klass=="atv" or k.key=="personalwatercraft";
+place_authoritative_vehicle(v,x,y,z,facing);
+v.home_x=x;v.home_y=y;v.home_z=z;v.home_facing=facing;
+authoritative_vehicles.insert_last(v);
+return v;
+}
+
+string vehicle_state_packet(authoritative_vehicle@ v)
+{
+string seats="";for(uint s=0;s<v.occupants.length();s++){if(s>0)seats+=",";seats+=v.occupants[s]==""?"-":v.occupants[s];}
+int flags=(v.health<=0?1:0)+(v.emp_active()?2:0);
+return "veh_state "+world_token(v.map)+" "+v.id+" "+v.type+" "+round(v.px,2)+" "+round(v.py,2)+" "+v.z+" "+round(v.facing,1)+" "+v.health+" "+v.armor+" "+(v.door_open?1:0)+" "+flags+" "+seats;
+}
+void broadcast_vehicle_state(authoritative_vehicle@ v){send_reliable_map(v.map,vehicle_state_packet(v),0);}
+// Every vehicle on a map, for someone arriving on it.
+void sync_vehicles(uint peer,string map)
+{
+for(uint i=0;i<authoritative_vehicles.length();i++)if(authoritative_vehicles[i].map==map)send_reliable(peer,vehicle_state_packet(authoritative_vehicles[i]),0);
+}
+
+// ---------------------------------------------------------------------------
+// Placing vehicles on a map.
+// ---------------------------------------------------------------------------
+bool vehicle_water_tile(string tile){string t=string_to_lower_case(tile);return string_contains(t,"water",1)>=0 or string_contains(t,"sea",1)>=0 or string_contains(t,"river",1)>=0 or string_contains(t,"lake",1)>=0 or string_contains(t,"ocean",1)>=0 or t=="shallow";}
+bool vehicle_road_tile(string tile){string t=string_to_lower_case(tile);return string_contains(t,"road",1)>=0 or string_contains(t,"asphalt",1)>=0 or string_contains(t,"tarmac",1)>=0 or string_contains(t,"street",1)>=0 or string_contains(t,"concrete",1)>=0 or string_contains(t,"cement",1)>=0 or string_contains(t,"gravel",1)>=0 or string_contains(t,"dirt",1)>=0;}
+// How well a vehicle of this kind fits here, facing this way: -1 if it does
+// not fit at all, otherwise the number of its footprint samples on a road
+// (for land vehicles) so parking spots on roads are preferred.
+int vehicle_spot_score(vehicle_kind@ k,int mi,double cx,double cy,int cz,double facing,authoritative_vehicle@ ignore=null)
+{
+mapdata@ m=maps[mi];double rad=facing*3.14159265358979323846/180.0;int road=0;
+dobject_set@ objects=m.objects;
+for(double forward=-k.length*.5;forward<=k.length*.5+.01;forward+=.5)for(double side=-k.width*.5;side<=k.width*.5+.01;side+=.5)
+{
+double wx=cx+sine(rad)*forward+cosine(rad)*side,wy=cy+cosine(rad)*forward-sine(rad)*side;
+int tx=int(round(wx,0)),ty=int(round(wy,0));
+if(tx<0 or ty<0 or (m.size_x>0 and tx>m.size_x) or (m.size_y>0 and ty>m.size_y))return -1;
+string ground=m.return_tile(tx,ty,cz);
+if(ground=="" or ground=="blank" or string_contains(ground,"wall",1)>=0)return -1;
+string above=m.return_tile(tx,ty,cz+1);if(string_contains(above,"wall",1)>=0)return -1;
+bool water=vehicle_water_tile(ground);
+if(k.domain=="water"){if(!water)return -1;}
+else if(water)return -1;
+if(objects.solid_at(wx,wy,cz+.5))return -1;
+if(vehicle_road_tile(ground))road++;
+}
+for(uint i=0;i<authoritative_vehicles.length();i++)
+{
+authoritative_vehicle@ o=authoritative_vehicles[i];if(o is ignore or o.map!=m.name or o.health<=0)continue;
+double reach=(k.length+k.width+o.body_length+o.body_width)*.3;
+if(get_2d_distance(cx,cy,o.px,o.py)<reach)return -1;
+}
+for(uint i=0;i<players.length();i++)if(players[i].map==m.name and get_2d_distance(cx,cy,players[i].x,players[i].y)<(k.length+k.width)*.4)return -1;
+return road+1;
+}
+// The best spot within the radius of a point, and the facing to use there.
+bool find_vehicle_spot(vehicle_kind@ k,int mi,int ox,int oy,int oz,int radius,double &out x,double &out y,double &out facing,int from_radius=0)
+{
+int best=-1;
+for(int r=from_radius;r<=radius;r++)
+{
+for(int dx=-r;dx<=r;dx++)for(int dy=-r;dy<=r;dy++)
+{
+if(absolute(dx)!=r and absolute(dy)!=r)continue;
+for(int turn=0;turn<4;turn++)
+{
+int score=vehicle_spot_score(k,mi,ox+dx,oy+dy,oz,turn*90);
+if(score>best){best=score;x=ox+dx;y=oy+dy;facing=turn*90;}
+}
+}
+// Take the first ring with somewhere to park, preferring a road on it.
+if(best>=0)return true;
+}
+return false;
+}
+
+const int MAP_VEHICLE_COUNT=10;
+// The map's own vehicles: spread over a grid across the map, each parked at
+// the nearest clear spot, on a road where there is one, lined up with it.
+// The same map always gets the same vehicles in the same places.
+void spawn_map_vehicles(int mi)
+{
+if(mi<0 or mi>=int(maps.length()))return;mapdata@ m=maps[mi];
+clear_map_vehicles(m.name);
+if(m.name.find("arena_")==0 or m.size_x<20 or m.size_y<20)return;
+vehicle_kind@[] land,water;
+for(uint i=0;i<vehicle_kinds.length();i++){if(!vehicle_kinds[i].map_pool)continue;if(vehicle_kinds[i].domain=="water")water.insert_last(vehicle_kinds[i]);else land.insert_last(vehicle_kinds[i]);}
+if(land.length()==0)return;
+// Vehicles park on the levels people walk on: ground level and every level
+// the map's spawn points are on.
+int[] levels={0};
+for(uint i=2;i<m.spawn_points.length();i+=3)if(levels.find(m.spawn_points[i])<0)levels.insert_last(m.spawn_points[i]);
+int columns=4,rows=(MAP_VEHICLE_COUNT+columns-1)/columns,placed_water=0;
+for(int i=0;i<MAP_VEHICLE_COUNT;i++)
+{
+int gx=int((double((i%columns)+1)/double(columns+1))*m.size_x),gy=int((double((i/columns)+1)/double(rows+1))*m.size_y);
+double x,y,facing;int level=0;
+// Every fourth spot is a boat if there is water near it.
+if(i%4==3 and water.length()>0)
+{
+vehicle_kind@ boat=water[placed_water%water.length()];
+if(find_vehicle_spot_on_levels(boat,mi,gx,gy,levels,40,x,y,facing,level)){authoritative_vehicle@ v=create_authoritative_vehicle(boat,m.name,x,y,level,facing);v.from_map=true;placed_water++;continue;}
+}
+vehicle_kind@ k=land[i%land.length()];
+if(find_vehicle_spot_on_levels(k,mi,gx,gy,levels,40,x,y,facing,level)){authoritative_vehicle@ v=create_authoritative_vehicle(k,m.name,x,y,level,facing);v.from_map=true;}
+}
+}
+// The nearest spot on any of the levels, searching outwards ring by ring so a
+// spot on another level nearby beats one far away on this one.
+bool find_vehicle_spot_on_levels(vehicle_kind@ k,int mi,int ox,int oy,int[]@ levels,int radius,double &out x,double &out y,double &out facing,int &out found_level)
+{
+for(int r=0;r<=radius;r+=4)
+{
+for(uint l=0;l<levels.length();l++)
+{
+if(find_vehicle_spot(k,mi,ox,oy,levels[l],r+3,x,y,facing,r)){found_level=levels[l];return true;}
+}
+}
+return false;
+}
+void spawn_all_map_vehicles(){for(uint i=0;i<maps.length();i++)spawn_map_vehicles(int(i));}
+void clear_map_vehicles(string map)
+{
+for(int i=int(authoritative_vehicles.length())-1;i>=0;i--)if(authoritative_vehicles[i].map==map)authoritative_vehicles.remove_at(i);
+}
+
+// ---------------------------------------------------------------------------
+// Damage and destruction.
+// ---------------------------------------------------------------------------
+// Every source of vehicle damage goes through here, so a vehicle takes the
+// same damage from the same hit whatever caused it, and every client hears
+// the same result.
+//
+// Armour takes the hit first; a quarter of every hit reaches the hull anyway,
+// and whatever the armour could not absorb reaches it in full.
+void damage_authoritative_vehicle(authoritative_vehicle@ v,int damage,int attacker=-1,string cause="")
+{
+if(v is null or v.health<=0 or damage<=0)return;
+int absorbed=damage;
+if(v.armor>0)
+{
+v.armor-=damage;
+int overflow=v.armor<0?-v.armor:0;
+if(v.armor<0)v.armor=0;
+v.health-=damage/4+overflow;
+}
+else v.health-=damage;
+if(v.health<0)v.health=0;
+if(attacker>=0 and attacker<int(players.length()))
+{
+send_reliable(players[attacker].peer_id,"play_s executioners_rage/hittg.wav",0);
+send_reliable(players[attacker].peer_id,"target_vehicle "+v.health+" "+absorbed+" "+v.armor,0);
+}
+send_reliable_map(v.map,"veh_damage "+v.id+" "+absorbed+" "+v.map+" "+v.health+" "+v.armor,0);
+if(v.health<=0)authoritative_vehicle_destroyed(v,cause);
+}
+// A vehicle blowing up hurts the people in it and throws them out.
+void authoritative_vehicle_destroyed(authoritative_vehicle@ v,string cause)
+{
+v.velocity=0;v.wreck_timer.restart();
+send_reliable_map(v.map,"veh_destroyed "+v.id+" "+v.map,0);
+for(uint s=0;s<v.occupants.length();s++)
+{
+if(v.occupants[s]=="")continue;
+int pi=get_player_index_from(v.occupants[s]);
+v.occupants[s]="";
+send_reliable_map(v.map,"veh_occupant "+world_token(v.map)+" "+v.id+" "+s+" -",0);
+if(pi<0)continue;
+int dealt=apply_player_damage(players[pi],250,"the destruction of their "+v.kind.name+(cause!=""?", "+cause:""));
+if(dealt>0)send_reliable(players[pi].peer_id,"play_s bodyfall.ogg",0);
+}
+}
+// An EMP stops a vehicle's engine and electrics for a while.
+void vehicles_emp(double x,double y,double z,string map,double radius,int ms)
+{
+for(uint vi=0;vi<authoritative_vehicles.length();vi++)
+{
+authoritative_vehicle@ v=authoritative_vehicles[vi];if(v.map!=map or v.health<=0)continue;
+if(vehicle_hull_distance(v,x,y)>radius or absolute(v.z-z)>radius)continue;
+v.emp_ms=ms;v.emp_timer.restart();v.velocity=0;
+send_reliable_map(map,"veh_emp "+v.id+" "+ms+" "+map,0);
+}
+}
+
+// ---------------------------------------------------------------------------
+// Requests from players.
+// ---------------------------------------------------------------------------
+const double VEHICLE_BOARDING_REACH=1.6;
+void vehicle_refuse(player@ p,string message){send_reliable(p.peer_id,"veh_refused "+message,0);}
+authoritative_vehicle@ vehicle_for_request(player@ p,int id)
+{
+int vi=find_authoritative_vehicle(id,p.map);
+if(vi<0){vehicle_refuse(p,"That vehicle is not here any more.");return null;}
+return authoritative_vehicles[vi];
+}
+int vehicle_player_is_in(player@ p){for(uint i=0;i<authoritative_vehicles.length();i++)if(authoritative_vehicles[i].map==p.map and authoritative_vehicle_has_occupant(authoritative_vehicles[i],p.name))return int(i);return -1;}
+
+void set_vehicle_seat(authoritative_vehicle@ v,int seat,string name)
+{
+v.occupants[seat]=name;
+send_reliable_map(v.map,"veh_occupant "+world_token(v.map)+" "+v.id+" "+seat+" "+(name==""?"-":name),0);
+}
+// Boarding: from anywhere close to the hull. A closed door opens for you
+// (and closes behind you); the server picks the driver's seat if it is free,
+// otherwise the first free one, unless the player asked for a seat.
+void vehicle_board(player@ p,int id,int wanted_seat=-1)
+{
+if(p.death){vehicle_refuse(p,"You cannot board a vehicle while down.");return;}
+if(vehicle_player_is_in(p)>=0){vehicle_refuse(p,"You are already in a vehicle.");return;}
+authoritative_vehicle@ v=vehicle_for_request(p,id);if(v is null)return;
+if(v.health<=0){vehicle_refuse(p,"The "+v.kind.name+" is wrecked.");return;}
+if(vehicle_hull_distance(v,p.x,p.y)>VEHICLE_BOARDING_REACH or absolute(double(p.z)-v.z)>2.5){vehicle_refuse(p,"Move closer to the "+v.kind.name+".");return;}
+// A team's vehicle can only be driven by the team; anyone else rides.
+bool may_drive=v.team=="" or vehicle_team_allows(v,p);
+int seat=-1;
+if(wanted_seat>=0 and wanted_seat<int(v.occupants.length()) and v.occupants[wanted_seat]=="")seat=wanted_seat;
+else for(uint s=may_drive?0:1;s<v.occupants.length();s++)if(v.occupants[s]==""){seat=int(s);break;}
+if(seat==0 and !may_drive){vehicle_refuse(p,"Only "+v.team+" can drive their "+v.kind.name+".");return;}
+if(seat<0){vehicle_refuse(p,may_drive?"The "+v.kind.name+" is full.":"Only "+v.team+" can drive their "+v.kind.name+", and its other seats are taken.");return;}
+set_vehicle_seat(v,seat,p.name);
+send_reliable(p.peer_id,"veh_entered "+world_token(v.map)+" "+v.id+" "+seat,0);
+}
+// Team vehicles can be driven by their team; anyone may ride in one.
+bool vehicle_team_allows(authoritative_vehicle@ v,player@ p){int ti=get_team_index_for_member(p.name);return ti>=0 and teams[ti].name==v.team;}
+
+void vehicle_leave(player@ p,int id)
+{
+authoritative_vehicle@ v=vehicle_for_request(p,id);if(v is null)return;
+int seat=authoritative_vehicle_seat_of(v,p.name);if(seat<0)return;
+if(seat==0)v.velocity=0;
+set_vehicle_seat(v,seat,"");
+}
+void vehicle_change_seat(player@ p,int id,int seat)
+{
+authoritative_vehicle@ v=vehicle_for_request(p,id);if(v is null)return;
+int current=authoritative_vehicle_seat_of(v,p.name);if(current<0){vehicle_refuse(p,"You are not in that vehicle.");return;}
+if(seat<0 or seat>=int(v.occupants.length()) or v.occupants[seat]!=""){vehicle_refuse(p,"That seat is taken.");return;}
+if(current==0 and absolute(v.velocity)>.3){vehicle_refuse(p,"Stop before leaving the driver's seat.");return;}
+if(seat==0 and v.team!="" and !vehicle_team_allows(v,p)){vehicle_refuse(p,"Only "+v.team+" can drive their "+v.kind.name+".");return;}
+set_vehicle_seat(v,current,"");set_vehicle_seat(v,seat,p.name);
+send_reliable(p.peer_id,"veh_entered "+world_token(v.map)+" "+v.id+" "+seat,0);
+}
+void vehicle_set_door(player@ p,int id,bool open)
+{
+authoritative_vehicle@ v=vehicle_for_request(p,id);if(v is null)return;
+if(!authoritative_vehicle_has_occupant(v,p.name) and vehicle_hull_distance(v,p.x,p.y)>VEHICLE_BOARDING_REACH){vehicle_refuse(p,"Move closer to the "+v.kind.name+" to reach its door.");return;}
+if(v.door_open==open)return;
+v.door_open=open;send_reliable_map(v.map,"veh_door_sync "+v.id+" "+(open?1:0)+" "+v.map,0);
+}
+
+// The driver's move. The client runs the driving model; the server accepts a
+// move only from the driver, only as far as the vehicle could have gone since
+// the last one, and only somewhere the vehicle fits. Otherwise the driver is
+// put back where the server has it.
+void vehicle_driver_move(player@ p,int id,double x,double y,int z,double facing,double speed)
+{
+authoritative_vehicle@ v=vehicle_for_request(p,id);if(v is null)return;
+if(!authoritative_vehicle_driver_is(v,p.name) or v.health<=0)return;
+int mi=get_map_index(v.map);if(mi<0)return;
+double elapsed=double(v.move_timer.elapsed)/1000.0;if(elapsed>2)elapsed=2;
+double reach=v.kind.top_speed*1.6*elapsed+1.5,moved=get_2d_distance(x,y,v.px,v.py);
+bool ok=!v.emp_active() and moved<=reach and z>=0 and absolute(z-v.z)<=2 and absolute(speed)<=v.kind.top_speed*1.3+.5;
+if(ok and v.kind.domain!="air" and moved>.01)ok=vehicle_spot_fits_moving(v,mi,x,y,facing);
+if(!ok){send_reliable(p.peer_id,vehicle_state_packet(v),0);return;}
+v.move_timer.restart();
+double old_speed=v.velocity;place_authoritative_vehicle(v,x,y,z,facing);v.velocity=speed;
+send_reliable_map(v.map,"veh_sync "+world_token(v.map)+" "+v.id+" "+round(x,2)+" "+round(y,2)+" "+z+" "+round(facing,1)+" "+round(speed,2),0);
+if(absolute(speed)>=1.0 or absolute(old_speed)>=1.0)vehicle_run_over(v,p.name);
+}
+// A move is allowed where the hull is not inside a wall. Other vehicles and
+// players do not block it here: the driver's client stops at them, and the
+// people it hits are hurt below.
+bool vehicle_spot_fits_moving(authoritative_vehicle@ v,int mi,double cx,double cy,double facing)
+{
+mapdata@ m=maps[mi];double rad=facing*3.14159265358979323846/180.0;
+for(double forward=-v.body_length*.45;forward<=v.body_length*.45+.01;forward+=1.0)for(double side=-v.body_width*.45;side<=v.body_width*.45+.01;side+=1.0)
+{
+double wx=cx+sine(rad)*forward+cosine(rad)*side,wy=cy+cosine(rad)*forward-sine(rad)*side;
+string ground=m.return_tile(int(round(wx,0)),int(round(wy,0)),v.z);
+if(string_contains(ground,"wall",1)>=0)return false;
+}
+return true;
+}
+dictionary vehicle_collision_times;
+// People in the way of a moving vehicle are hit, once per vehicle and person
+// every 700 ms, harder the faster it goes.
+void vehicle_run_over(authoritative_vehicle@ v,string driver)
+{
+double speed=absolute(v.velocity);if(speed<1.0)return;
+double rad=v.facing*3.14159265358979323846/180.0;
+for(uint pidx=0;pidx<players.length();pidx++)
+{
+player@ target=players[pidx];if(target.map!=v.map or target.death or player_has_spawn_grace(target) or authoritative_vehicle_has_occupant(v,target.name))continue;
+double dx=target.model_x-v.px,dy=target.model_y-v.py,forward=dx*sine(rad)+dy*cosine(rad),side=dx*cosine(rad)-dy*sine(rad);
+if(absolute(forward)>v.body_length*.5+.28 or absolute(side)>v.body_width*.5+.28 or target.model_z>v.z+v.body_height)continue;
+string impact_key=v.map+":"+v.id+":"+target.name;double last_impact=-100000;if(vehicle_collision_times.get(impact_key,last_impact) and ticks()-last_impact<700)continue;vehicle_collision_times.set(impact_key,double(ticks()));
+int damage=int(speed*32.0);if(damage<20)damage=20;if(damage>500)damage=500;
+damage=apply_player_damage(target,damage,driver+"'s "+v.kind.name);
+int driver_index=get_player_index_from(driver);if(driver_index>=0)send_reliable(players[driver_index].peer_id,"target_hp "+target.health+" "+damage+" vehicle_collision",0);
+send_reliable(target.peer_id,"play_s bodyfall.ogg",0);
+}
+}
+
+// Team kits and developer spawns: the server places the vehicle beside the
+// player, facing the way they face if it fits, and everyone sees the same one.
+authoritative_vehicle@ spawn_vehicle_near(player@ p,vehicle_kind@ k)
+{
+int mi=get_map_index(p.map);if(mi<0 or k is null)return null;
+double rad=double(p.facing)*3.14159265358979323846/180.0,clear=(k.length>k.width?k.length:k.width)*.5+1.5;
+int ox=int(round(p.x+sine(rad)*clear,0)),oy=int(round(p.y+cosine(rad)*clear,0));
+double x,y,facing;
+if(!find_vehicle_spot(k,mi,ox,oy,p.z,25,x,y,facing))return null;
+authoritative_vehicle@ v=create_authoritative_vehicle(k,p.map,x,y,p.z,facing);
+broadcast_vehicle_state(v);
+return v;
+}
+void deploy_team_vehicle(player@ p,string kit,string kind_name)
+{
+int ti=get_team_index_for_member(p.name);
+if(ti<0){send_reliable(p.peer_id,"Only a team member can deploy a vehicle kit.",2);return;}
+vehicle_kind@ k=vehicle_kind_by_name(kind_name);
+if(k is null){send_reliable(p.peer_id,"This server has no "+kind_name+" to deploy.",2);return;}
+authoritative_vehicle@ v=spawn_vehicle_near(p,k);
+if(v is null){send_reliable(p.peer_id,"There is no clear ground near you big enough for a "+k.name+".",2);return;}
+v.team=teams[ti].name;
+send_reliable(p.peer_id,"give "+kit+" -1",0);
+team_notice(ti,p.name+" deployed the team's "+k.name+".");
+}
+void developer_spawn_vehicle(player@ p,string key)
+{
+if(!staff_can(p.name,"build",p.dev,p.admin)){send_reliable(p.peer_id,"Spawning vehicles needs builder permission.",2);return;}
+vehicle_kind@ k=vehicle_kind_by_key(key);if(k is null){send_reliable(p.peer_id,"Unknown vehicle "+key+".",2);return;}
+authoritative_vehicle@ v=spawn_vehicle_near(p,k);
+send_reliable(p.peer_id,v is null?"There is no clear ground near you big enough for a "+k.name+".":k.name+" spawned.",2);
+}
+
+// ---------------------------------------------------------------------------
+// Upkeep, twice a second: people who left or died give up their seats,
+// wrecks are towed away and the map's own vehicles come back.
+// ---------------------------------------------------------------------------
+timer vehicle_upkeep_timer;
+int vehicle_wreck_ms=180000; // how long a wreck stays before it is towed or replaced
+void vehicle_upkeep_loop()
+{
+if(vehicle_upkeep_timer.elapsed<500)return;vehicle_upkeep_timer.restart();
+for(int i=int(authoritative_vehicles.length())-1;i>=0;i--)
+{
+authoritative_vehicle@ v=authoritative_vehicles[i];
+for(uint s=0;s<v.occupants.length();s++)
+{
+if(v.occupants[s]=="")continue;int pi=get_player_index_from(v.occupants[s]);
+if(pi<0 or players[pi].death or players[pi].map!=v.map){if(s==0)v.velocity=0;set_vehicle_seat(v,int(s),"");}
+}
+if(v.health>0 or v.wreck_timer.elapsed<uint(vehicle_wreck_ms))continue;
+if(!v.from_map){send_reliable_map(v.map,"veh_remove "+world_token(v.map)+" "+v.id,0);authoritative_vehicles.remove_at(i);continue;}
+// The replacement arrives at the vehicle's home, once nobody is standing there.
+int mi=get_map_index(v.map);if(mi<0)continue;
+bool blocked=false;for(uint p=0;p<players.length();p++)if(players[p].map==v.map and get_2d_distance(players[p].x,players[p].y,v.home_x,v.home_y)<(v.body_length+v.body_width)*.4){blocked=true;break;}
+if(blocked)continue;
+send_reliable_map(v.map,"veh_remove "+world_token(v.map)+" "+v.id,0);
+v.id=next_vehicle_id++;v.health=v.max_health;v.armor=v.kind.armour;v.velocity=0;v.emp_ms=0;
+v.door_open=v.kind.klass=="motorcycle" or v.kind.klass=="atv" or v.kind.key=="personalwatercraft";
+place_authoritative_vehicle(v,v.home_x,v.home_y,v.home_z,v.home_facing);
+broadcast_vehicle_state(v);
+}
+}
+
+// ---------------------------------------------------------------------------
+// Crashes, repairs and mounted guns.
+// ---------------------------------------------------------------------------
+// The driver reports a crash; the server decides what it costs from the
+// speed it last saw the vehicle doing, not from anything the client says.
+dictionary vehicle_crash_times;
+dictionary vehicle_mounted_fire_times;
+string server_vehicle_field(const string &in text,const string &in key,const string &in fallback=""){string[] lines=string_split(string_replace(text,"\r","",true),"\n",false);for(uint i=0;i<lines.length();i++){int eq=lines[i].find("=");if(eq>0 and lines[i].substr(0,eq).trim_whitespace()==key)return lines[i].substr(eq+1).trim_whitespace();}return fallback;}
+string authoritative_vehicle_seat_weapon(authoritative_vehicle@ v,int seat)
+{
+if(v.definition_text=="")return "";string[] guns=string_split(server_vehicle_field(v.definition_text,"seat_weapons"),",",false);return seat>=0 and seat<int(guns.length())?guns[seat].trim_whitespace():"";
+}
+void authoritative_vehicle_fire(int player_index,int id,int seat,string requested)
+{
+if(player_index<0)return;int vi=find_authoritative_vehicle(id,players[player_index].map);if(vi<0)return;authoritative_vehicle@ v=authoritative_vehicles[vi];
+if(v.health<=0 or v.emp_active())return;
+if(seat<0 or seat>=int(v.occupants.length()) or v.occupants[seat]!=players[player_index].name)return;
+string weapon_name=authoritative_vehicle_seat_weapon(v,seat);if(weapon_name=="" or weapon_name!=requested)return;
+int wi=find_wpn_stats(weapon_name);if(wi<0)return;
+string key=v.map+":"+v.id+":"+seat;double last=-100000;if(vehicle_mounted_fire_times.get(key,last) and ticks()-last<wpn_stats_cache[wi].firetime)return;vehicle_mounted_fire_times.set(key,double(ticks()));
+spawn_weapon(v.px,v.py,v.z+1.0,players[player_index].facing,players[player_index].turn,weapon_name,players[player_index].name,v.map,"","body",1.0,0,true);
+string profile=get_wpn_sound_profile(weapon_name);play(profile+"fire1",v.x,v.y,v.z+1,v.map,player_index);send_distant_sound(v.map,weapon_distant_report(profile,wpn_stats_cache[wi].wclass),v.x,v.y,v.z+1,45);
+}
+void authoritative_vehicle_crash(int player_index,int id)
+{
+if(player_index<0)return;
+int vi=find_authoritative_vehicle(id,players[player_index].map);
+if(vi<0)return;
+authoritative_vehicle@ v=authoritative_vehicles[vi];
+if(!authoritative_vehicle_driver_is(v,players[player_index].name))return;
+string key=v.map+":"+v.id;
+double last=0;
+if(vehicle_crash_times.get(key,last) and ticks()-last<600)return;
+vehicle_crash_times.set(key,double(ticks()));
+double impact=absolute(v.velocity);int damage=int(15+impact*impact*3.5);if(damage>900)damage=900;
+damage_authoritative_vehicle(v,damage,-1,"crashed by "+players[player_index].name);
+if(impact>7)for(uint s=0;s<v.occupants.length();s++){int occupant=get_player_index_from(v.occupants[s]);if(occupant<0)continue;int hurt=apply_player_damage(players[occupant],int((impact-7)*30),"a "+int(impact)+" tile-per-second crash");if(hurt>0)send_reliable(players[occupant].peer_id,"You are thrown against the inside of the "+v.kind.name+".",2);}
+v.velocity=0;
+}
+// A repair kit restores up to 150 hull health to a vehicle its user is in
+// or standing beside. Destroyed vehicles cannot be repaired.
+void authoritative_vehicle_repair(int player_index,int id)
+{
+if(player_index<0)return;player@ p=players[player_index];
+int vi=find_authoritative_vehicle(id,p.map);if(vi<0){send_reliable(p.peer_id,"That vehicle is not here.",2);return;}
+authoritative_vehicle@ v=authoritative_vehicles[vi];
+if(v.health<=0){send_reliable(p.peer_id,"The "+v.kind.name+" is wrecked beyond field repair.",2);return;}
+if(!authoritative_vehicle_has_occupant(v,p.name) and vehicle_hull_distance(v,p.x,p.y)>3){send_reliable(p.peer_id,"Move next to the vehicle to repair it.",2);return;}
+if(v.health>=v.max_health){send_reliable(p.peer_id,"The "+v.kind.name+" has no hull damage to repair.",2);return;}
+int restored=150;if(v.health+restored>v.max_health)restored=v.max_health-v.health;v.health+=restored;
+send_reliable(p.peer_id,"give repair_kit -1",0);play("nanomatic_multitooluse",v.x,v.y,v.z,v.map);
+send_reliable_map(v.map,"veh_damage "+v.id+" 0 "+v.map+" "+v.health+" "+v.armor,0);
+send_reliable(p.peer_id,"Repaired "+restored+" hull damage. The "+v.kind.name+" is at "+v.health+" of "+v.max_health+" health.",2);
+}
+
+// Every vehicle request, from the packet handler. Returns false for packets
+// that are not vehicle requests.
+bool handle_vehicle_request(uint peer,const string[] &in parsed)
+{
+if(parsed.length()==0 or parsed[0].find("veh_")!=0)return false;
+int index=get_player_index(peer);if(index<0)return true;player@ p=players[index];
+string kind=parsed[0];
+int id=parsed.length()>1?int(string_to_number(parsed[1])):-1;
+if(kind=="veh_enter")vehicle_board(p,id,parsed.length()>2?int(string_to_number(parsed[2])):-1);
+else if(kind=="veh_exit")vehicle_leave(p,id);
+else if(kind=="veh_seat" and parsed.length()>2)vehicle_change_seat(p,id,int(string_to_number(parsed[2])));
+else if(kind=="veh_door" and parsed.length()>2)vehicle_set_door(p,id,parsed[2]=="1");
+else if(kind=="veh_move" and parsed.length()>6)vehicle_driver_move(p,id,string_to_number(parsed[2]),string_to_number(parsed[3]),int(string_to_number(parsed[4])),string_to_number(parsed[5]),string_to_number(parsed[6]));
+else if(kind=="veh_crash")authoritative_vehicle_crash(index,id);
+else if(kind=="veh_fire" and parsed.length()>3)authoritative_vehicle_fire(index,id,int(string_to_number(parsed[2])),parsed[3]);
+else if(kind=="veh_repair")authoritative_vehicle_repair(index,id);
+else if(kind=="veh_spawn" and parsed.length()>1)developer_spawn_vehicle(p,parsed[1]);
+return true;
+}

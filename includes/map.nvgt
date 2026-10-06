@@ -162,6 +162,7 @@ void load_map(string mdata)
 p.destroy_all();
 destroy_all_sources();
 acoustics_reset();
+reset_vehicles();
 dynamic_map_elements.resize(0);
 load_client_dobjects(mdata);
 map.resize(0);
@@ -464,20 +465,19 @@ bool near_vehicle=absolute(local_forward)<=vehicle_length*.5+1.1 and absolute(lo
 if(near_vehicle){string zone=obstacle.get_name()+", "+vehicle_zone_at(obstacle,me.x,me.y,me.z);if(zone!=last_vehicle_zone){last_vehicle_zone=zone;speak(zone+".");}}
 if(vehicle_is_roof_position(obstacle,me.x,me.y,me.z))
 {
-vehicle_roof_index=int(vi);vehicle_roof_last_x=obstacle.x;vehicle_roof_last_y=obstacle.y;vehicle_roof_last_z=obstacle.z;
+vehicle_roof_index=int(vi);vehicle_roof_last_x=obstacle.px;vehicle_roof_last_y=obstacle.py;vehicle_roof_last_z=obstacle.z;
 vehicle_local_position(obstacle,me.x,me.y,vehicle_roof_local_forward,vehicle_roof_local_side);
 break;
 }
 if(vehicle_contains_position(obstacle,me.x,me.y,me.z))
 {
 p.play_stationary("metalfall.ogg",false);
-speak(obstacle.get_name()+" body blocking the way. Use the vehicle control beside its open door to enter.");
+speak(obstacle.get_name()+(obstacle.destroyed?" wreck":"")+" in the way."+(obstacle.destroyed?"":" Press the vehicle key to get in."));
 me.x=ox;me.y=oy;mr.x=round(me.x,0);mr.y=round(me.y,0);
 return;
 }
 }
 if(vehicle_roof_index>=0 and (vehicle_roof_index>=int(map_vehicles.length()) or !vehicle_is_roof_position(map_vehicles[vehicle_roof_index],me.x,me.y,me.z))) vehicle_roof_index=-1;
-vehicle_interior_index=-1;
 }
 for(int i=0; i<walls.length(); i++)
 {

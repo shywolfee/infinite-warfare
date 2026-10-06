@@ -55,7 +55,7 @@ for(uint i=0;i<maps[mi].poidefs.length();i++)if(maps[mi].poidefs[i].name=="Spect
 
 void arena_transfer_player(player@ p,string destination,int x,int y,int z)
 {
-string path=indexed_map_path(destination);if(path=="")return;string old=p.map;send_reliable(p.peer_id,"arena_transfer "+destination+" "+x+" "+y+" "+z,0);send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;set_player_model_target(p,x,y,z);send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);sync_dobjects(p.peer_id,destination);send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);
+string path=indexed_map_path(destination);if(path=="")return;string old=p.map;send_reliable(p.peer_id,"arena_transfer "+destination+" "+x+" "+y+" "+z,0);send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;set_player_model_target(p,x,y,z);send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);sync_dobjects(p.peer_id,destination);sync_vehicles(p.peer_id,destination);send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);
 }
 void arena_remember_return(player@ p){if(p.arena_return_map!="")return;p.arena_return_map=p.map;p.arena_return_x=p.x;p.arena_return_y=p.y;p.arena_return_z=p.z;}
 void arena_refresh_body(player@ p){p.death=false;p.health=1000;p.hitby="no one";p.burning=false;p.bleeding=false;}

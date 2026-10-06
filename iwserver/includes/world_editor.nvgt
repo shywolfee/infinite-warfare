@@ -180,7 +180,7 @@ p.map=id;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;
 string path=indexed_map_path(id);
 send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);
 send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);
-sync_dobjects(p.peer_id,id);
+sync_dobjects(p.peer_id,id);sync_vehicles(p.peer_id,id);
 send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+id,0);
 }
 

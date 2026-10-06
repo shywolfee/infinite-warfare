@@ -32,6 +32,7 @@ poidef@[] poidefs;
 int[] spawn_points;
 dobject_set objects;
 string rawdata;
+int size_x=0,size_y=0,size_z=0; // from the maxx, maxy and maxz lines
 mapdata(string loadname)
 {
 internal_load(loadname);
@@ -63,6 +64,10 @@ spawn_points.insert_last(int(string_to_number(parsed[1])));spawn_points.insert_l
 else if(parsed[0]=="mapname")
 {
 name=parsed[1];
+}
+else if((parsed[0]=="maxx" or parsed[0]=="maxy" or parsed[0]=="maxz") and parsed.length()>1)
+{
+int size=int(string_to_number(parsed[1]));if(parsed[0]=="maxx")size_x=size;else if(parsed[0]=="maxy")size_y=size;else size_z=size;
 }
 else if(parsed[0]=="tile" and parsed.length()>7)
 {
@@ -428,6 +433,7 @@ maps.remove_at(mi);
 }
 maps.insert_last(temp);
 spawn_bunkers_for_map(int(maps.length())-1);
+spawn_map_vehicles(int(maps.length())-1);
 file mf;
 mf.open(path, "rb");
 string mdata=mf.read();
@@ -437,6 +443,8 @@ for(uint i=0; i<players.length(); i++)
 if(players[i].map==temp.name)
 send_reliable(players[i].peer_id, "mapdata "+mdata, 0);
 }
-// The reloaded map's objects start fresh, so there is no state to sync; the
-// clients rebuild them from the mapdata they were just sent.
+// The reloaded map's objects start fresh, so the clients rebuild them from
+// the mapdata they were just sent; its vehicles were placed again, and are
+// sent after it.
+for(uint i=0;i<players.length();i++)if(players[i].map==temp.name)sync_vehicles(players[i].peer_id,temp.name);
 }

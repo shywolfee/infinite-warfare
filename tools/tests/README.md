@@ -9,6 +9,7 @@ Run these from source using the same NVGT installation used to build the game:
 & C:/nvgt/nvgt.exe tools/tests/world_objects_regression.nvgt
 python tools/tests/world_editor_regression.py
 python tools/tests/weapon_data_regression.py
+python tools/tests/mechanics_wiring_regression.py
 cd iwserver; & C:/nvgt/nvgt.exe world_editor_regression_runner.nvgt; cd ..
 python tools/build_maps.py
 python tools/validate_maps.py
@@ -48,3 +49,8 @@ requests without permission. It removes what it made and writes its report to
 magazine, belt or launch tube is used by one calibre only, that each calibre
 has one bullet diameter, and that rocket launchers fire rockets over a
 sensible range. It needs no sound pack or NVGT installation.
+
+`mechanics_wiring_regression.py` statically checks mechanics that once looked
+correct but never ran: the collectable-item loop being serviced, corpses being
+filled from the dying client, the ring equipment branch being reachable,
+server-held WireNet charges, and anti-cheat removals disconnecting the peer.

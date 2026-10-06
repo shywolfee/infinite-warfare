@@ -1,3 +1,13 @@
+// Supply chests. A chest is dropped near players who are actually in the
+// world, on a tile someone can stand on, and only that map hears about it.
+// Opening it from the chest's tile or any tile next to it gives contents that
+// suit the person opening it.
+//
+// Chests used to appear only on Battlegrounds, at fixed coordinates from
+// before the map was rebuilt; any that landed inside a wall were deleted
+// right after "there is a chest spawned" was announced to every map. The
+// ammunition chest topped up seven particular guns whoever opened it, and
+// the explosives chest handed out five bomb vests and five decoy items.
 string[] in_chest={"chest_of_rocks","ammunition_chest","grenades_and_bombs_chest"};
 chest@[] chests(0);
 class chest
@@ -7,6 +17,7 @@ int y;
 int z;
 string map;
 timer soundtimer;
+timer age;
 string owner;
 string type;
 chest(int cx,int cy,int cz,string cmap,string ctype)
@@ -18,19 +29,16 @@ z=cz;
 map=cmap;
 }
 }
+const int chest_lifetime_ms=900000;
 void chestloop()
 {
-for(uint i=0; i<chests.length(); i++)
+for(int i=int(chests.length())-1;i>=0;i--)
 {
+if(chests[i].age.elapsed>=chest_lifetime_ms){chests.remove_at(i);continue;}
 if(chests[i].soundtimer.elapsed>=1500)
 {
 chests[i].soundtimer.restart();
 play("chestloop", chests[i].x, chests[i].y, chests[i].z, chests[i].map, -1, true, false, 5);
-}
-if(string_contains(get_tile_at(chests[i].x, chests[i].y, chests[i].z, chests[i].map), "wall", 1)>-1) 
-{
-chests.remove_at(i);
-return;
 }
 }
 }
@@ -38,4 +46,54 @@ void spawn_chest(int x,int y,int z,string map,string type)
 {
 chest e1(x,y,z,map,type);
 chests.insert_last(e1);
+}
+// A living player outside any arena, chosen at random; -1 when nobody is in
+// the open world.
+int random_world_player()
+{
+int[] eligible;for(uint i=0;i<players.length();i++)if(!players[i].death and players[i].arena_id<=0)eligible.insert_last(i);
+return eligible.length()==0?-1:eligible[random(0,eligible.length()-1)];
+}
+// Somewhere 20 to 60 tiles from that player that a person can stand on.
+bool choose_world_drop(int &out x,int &out y,int &out z,string &out map)
+{
+int pi=random_world_player();if(pi<0)return false;
+map=players[pi].map;int dx=random(20,60)*(random(0,1)==0?-1:1),dy=random(20,60)*(random(0,1)==0?-1:1);
+int[] at=nearest_safe_player_spawn(map,players[pi].x+dx,players[pi].y+dy,players[pi].z);
+if(at.length()<3 or spawn_tile_blocked(at[0],at[1],at[2],map))return false;
+x=at[0];y=at[1];z=at[2];return true;
+}
+void drop_supply_chest()
+{
+int x,y,z;string map;if(chests.length()>=10 or !choose_world_drop(x,y,z,map))return;
+spawn_chest(x,y,z,map,in_chest[random(0,in_chest.length()-1)]);
+send_reliable_map(map,"A supply chest has been dropped nearby. Listen for it.",2);
+}
+// Chest contents for whoever opens it.
+void open_chest(int pi,int ci)
+{
+chest@ c=chests[ci];
+play("chestopen", c.x, c.y, c.z, c.map, -1, true, false, 5);
+if(c.type=="ammunition_chest")
+{
+// The client knows which firearms are carried and resupplies those.
+send_reliable(players[pi].peer_id,"chest_resupply",0);
+}
+else if(c.type=="grenades_and_bombs_chest")
+{
+send_reliable(players[pi].peer_id,"give frag_grenade 3",0);
+string[] thrown;for(uint i=0;i<item_catalogue.length();i++)if(item_flag(item_catalogue[i].id,"thrown") and item_catalogue[i].id!="frag_grenade")thrown.insert_last(item_catalogue[i].id);
+for(int pick=0;pick<2 and thrown.length()>0;pick++){int k=random(0,thrown.length()-1);send_reliable(players[pi].peer_id,"give "+thrown[k]+" 2",0);thrown.remove_at(k);}
+}
+else if(c.type=="chest_of_rocks")
+{
+send_reliable(players[pi].peer_id,"give rock 50",0);
+}
+send_reliable(players[pi].peer_id,"You open the "+string_replace(c.type,"_"," ",true)+".",2);
+chests.remove_at(ci);
+}
+bool try_open_chest(int pi)
+{
+for(uint i=0;i<chests.length();i++)if(chests[i].map==players[pi].map and absolute(chests[i].x-players[pi].x)<=1 and absolute(chests[i].y-players[pi].y)<=1 and absolute(chests[i].z-players[pi].z)<=1){open_chest(pi,i);return true;}
+return false;
 }

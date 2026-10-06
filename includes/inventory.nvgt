@@ -277,6 +277,19 @@ amount+=a;
 amount += int(partial_items.length());
 return amount;
 }
+// Hand everything carried and worn to the body the server has just created
+// for this death, before the inventory is wiped on the way back to the lobby.
+// Long inventories are sent in several corpse_inventory parts.
+void report_corpse_inventory()
+{
+string[] entries;string[] keys=inv.get_keys();
+for(uint i=0;i<keys.length();i++){int amount=get_item_count(keys[i]);if(amount>0 and string_contains(keys[i],"corpse_",1)!=0)entries.insert_last(keys[i]+":"+amount);}
+string[] worn={equip_body,equip_bracelet,equip_ring,equip_medical,equip_holster1,equip_holster2};
+for(uint i=0;i<worn.length();i++)if(worn[i]!="")entries.insert_last(worn[i]+":1");
+string packet="";
+for(uint i=0;i<entries.length();i++){if(packet!="" and packet.length()+entries[i].length()>900){send_reliable(0,"corpse_inventory "+packet,0);packet="";}if(packet!="")packet+="|";packet+=entries[i];}
+if(packet!="")send_reliable(0,"corpse_inventory "+packet,0);
+}
 int get_item_count(string item)
 {
 int amount=0;inv.get(item,amount);return amount;

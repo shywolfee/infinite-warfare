@@ -287,6 +287,7 @@ string equip_ring = "";
 
 // WireNet state.
 int wirenet_charges = 0;
+int wirenet_spare_charges = 0; // charges left in a partly used WireNet carried unequipped
 bool wirenet_active = true;
 timer wirenet_cooldown;
 
@@ -353,12 +354,17 @@ else if (slot == "medical")
 equip_medical = item;
 if (item == "wirenet")
 {
-wirenet_charges = 3;
+// A partly used WireNet keeps its charges; only a fresh one has three.
+// Every equip used to refill it, so charges were unlimited.
+wirenet_charges = wirenet_spare_charges>0 ? wirenet_spare_charges : 3;
+wirenet_spare_charges = 0;
 wirenet_active = true;
+send_reliable(0, "wirenet_equip "+wirenet_charges, 0);
 bind_equipment_ability(equipment_ability_for_item(item));
 }
-else if(slot=="ring"){equip_ring=item;bind_equipment_ability(equipment_ability_for_item(item));}
 }
+// This branch used to sit inside the medical slot's, so rings never equipped.
+else if(slot=="ring"){equip_ring=item;bind_equipment_ability(equipment_ability_for_item(item));}
 }
 
 void unequip_item(string slot)
@@ -396,6 +402,7 @@ remove_equipment_ability(equipment_ability_for_item(equip_medical));
 p.play_stationary(equip_medical + "unequip.ogg", false);
 give(equip_medical, 1);
 speak(string_replace(equip_medical, "_", " ", true) + " removed.");
+if(equip_medical=="wirenet" and wirenet_charges<3)wirenet_spare_charges=wirenet_charges;
 equip_medical = "";
 wirenet_charges = 0;
 }
@@ -1517,6 +1524,22 @@ if (diff>0) give(gun_ammos[i].reserve_item, diff);
 }
 }
 
+// An ammunition chest resupplies the firearms actually carried: half of each
+// one's issued reserve, at least one magazine, belt or box, and a reserve
+// shared by two weapons only once. It used to top up seven particular guns
+// whatever the player was holding.
+void chest_resupply()
+{
+dictionary given;string report="";
+for(uint i=0;i<gun_ammos.length();i++)
+{
+gun_ammo@ g=gun_ammos[i];
+if(get_item_count(g.weapon_name)<=0 or g.ammo_display!="rounds" or g.reserve_item=="" or given.exists(g.reserve_item))continue;
+given.set(g.reserve_item,true);int amount=(sane_starting_reserve(g)+1)/2;if(amount<1)amount=1;give(g.reserve_item,amount);
+if(report!="")report+=", ";report+=amount+" "+string_replace(g.reserve_item,"_"," ",true);
+}
+speak(report==""?"The ammunition chest has nothing for the weapons you carry.":"Resupplied: "+report+".");
+}
 string starting_loadout_weapon="";
 int sane_starting_reserve(gun_ammo@ g){int value=g.starting_reserve;if(value<1)value=1;int maximum=g.is_magazine?12:120;if(value>maximum)value=maximum;return value;}
 void initialize_starting_loadout_ammo(string sidearm,string primary)
@@ -1589,6 +1612,7 @@ equipped_armor_head_durability=0;equipped_armor_torso_durability=0;equipped_armo
 equip_bracelet = "";
 equip_medical = "";
 wirenet_charges = 0;
+wirenet_spare_charges = 0;
 wirenet_active = true;
 biomonitor_ready = true;
 equip_holster1="";

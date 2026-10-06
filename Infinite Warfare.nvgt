@@ -2335,7 +2335,12 @@ void on_item_used(string item)
 {
 if (item == "bomb_vest")
 {
+// Equipping takes the vest out of the inventory; removing it gives it back.
+// It used to stay in the inventory as well, so each equip and remove made
+// another vest.
+if(equip_body!=""){speak("You are already wearing "+string_replace(equip_body,"_"," ",true)+". Remove it first.");return;}
 equip_item("bomb_vest", "body");
+give("bomb_vest", -1);
 speak("Bomb vest equipped.");
 }
 else if (item == "translocator")
@@ -2384,14 +2389,16 @@ if (equip_medical != "")
 speak("You already have medical equipment equipped. Remove it first.");
 return;
 }
+equip_item("wirenet", "medical");
+give("wirenet", -1);
+speak("WireNet equipped with "+wirenet_charges+" charge"+(wirenet_charges==1?"":"s")+". Its auto-heal toggle was assigned to an available quickbar slot.");
+return;
+}
+// The ring used to be handled inside the WireNet branch above, where it could
+// never be reached, so the Reconnaissance Signet Ring could not be worn.
 else if(item=="reconnaissance_ring")
 {
 if(equip_ring!=""){speak("You already have a ring equipped. Remove it first.");return;}equip_item(item,"ring");give(item,-1);speak("Reconnaissance Signet Ring equipped. Its scan ability was assigned to an available quickbar slot.");return;
-}
-equip_item("wirenet", "medical");
-give("wirenet", -1);
-speak("WireNet equipped with 3 charges. Its auto-heal toggle was assigned to an available quickbar slot.");
-return;
 }
 else if (item == "c4")
 {
@@ -5252,6 +5259,10 @@ int average=total/int(ping_samples.length());
 speak("Ping "+sample+" milliseconds. Lowest "+lowest+", highest "+highest+", average "+average+" across "+ping_samples.length()+" samples.");
 pinging=false;
 }
+else if(parsed[0]=="chest_resupply")
+{
+chest_resupply();
+}
 else if(parsed[0]=="ammogive" and parsed.length()>2)
 {
 safe_server_ammo_grant(parsed[1],parsed[2]);
@@ -5509,13 +5520,17 @@ pending_vehicle_nearby="";
 }
 else if(parsed[0]=="wirenet_healed" and parsed.length()>1)
 {
-wirenet_charges--;
+// The server owns the charge count and reports what is left.
+if(parsed.length()>2)wirenet_charges=string_to_number(parsed[2]);else wirenet_charges--;
 speak("WireNet activated! Health restored to " + parsed[1] + "%. " + wirenet_charges + " charges remaining.");
 if (wirenet_charges <= 0)
 {
-speak("WireNet depleted.");
+// A spent WireNet is used up. Depletion used to clear the unrelated ring slot
+// as well, leaving its ability bound to nothing.
+speak("WireNet depleted. The spent device has been discarded.");
+remove_equipment_ability(equipment_ability_for_item("wirenet"));
 equip_medical = "";
-equip_ring = "";
+wirenet_charges = 0;
 }
 }
 else
@@ -5815,6 +5830,7 @@ exit();
 }
 void death()
 {
+report_corpse_inventory();
 turn=90;
 plane.stop();
 timer dietimer;

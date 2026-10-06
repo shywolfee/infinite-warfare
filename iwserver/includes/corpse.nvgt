@@ -1,95 +1,73 @@
+// A corpse holds whatever its owner carried when they fell. The client reports
+// its inventory and worn equipment as it dies (corpse_inventory) and the
+// server adds the armour it already tracks. Walking over the body picks up its
+// corpse token; using the token searches the body and takes everything.
+//
+// Corpses used to be built from a server-side inventory that nothing ever
+// filled, so every body in the game was empty, and only four deaths in five
+// left one at all.
 corpse@[] corpses(0);
-string chars="1234567890";
+const int corpse_lifetime_ms=1800000;
+const int corpse_entry_limit=400;
 class corpse
 {
-string id;
+string id,owner,map;
 dictionary inv;
-dictionary ammo;
-int x;int y;int z;string map;
-corpse(dictionary ammo, dictionary inv, int x, int y, int z, string map)
-{
-this.ammo=ammo;
-this.inv=inv;
-this.x=x;
-this.y=y;
-this.z=z;
-this.map=map;
-id=generate_id();
-//end constructor
+int entries=0;
+int x,y,z;
+timer age;
 }
-//end class
+string generate_corpse_id(){string result="c";for(int i=0;i<10;i++)result+=random(0,9);return result;}
+int find_corpse(string id){for(uint i=0;i<corpses.length();i++)if(corpses[i].id==id)return int(i);return -1;}
+void corpse_add(corpse@ c,string item,int amount)
+{
+if(amount<=0 or item=="" or item=="none" or c.entries>=corpse_entry_limit)return;
+int have=0;if(!c.inv.get(item,have))c.entries++;c.inv.set(item,have+amount);
 }
-string generate_id()
+// Every body is a corpse now. Worn armour goes in straight away; the client's
+// own report follows within a moment.
+string spawn_corpse(player@ p)
 {
-string vreturn="c";
-for(uint i=0; i<10; i++)
-{
-if(i==2 or i==5 or i==8)
-vreturn+="-";
-else
-vreturn+=chars[random(0,chars.length()-1)];
+corpse c;c.id=generate_corpse_id();c.owner=p.name;c.x=p.x;c.y=p.y;c.z=p.z;c.map=p.map;
+corpse_add(c,p.armor_head,1);corpse_add(c,p.armor_torso,1);corpse_add(c,p.armor_arms,1);corpse_add(c,p.armor_legs,1);
+corpses.insert_last(c);spawn_citem(p.x,p.y,p.z,p.map,"corpse_"+c.id);return c.id;
 }
-return vreturn;
-}
-void spawn_corpse(int x, int y, int z, string map, dictionary inv, dictionary ammo, int per=80)
+// A corpse_inventory packet is "item:count|item:count|..." and may arrive in
+// several parts. Only the player whose body it is, and only while that body is
+// still waiting for them, can add to it.
+void fill_corpse(player@ p,string data)
 {
-if(random(1,100)<=per)
+if(p.pending_corpse=="")return;int ci=find_corpse(p.pending_corpse);if(ci<0){p.pending_corpse="";return;}
+string[] entries=string_split(data,"|",true);
+for(uint e=0;e<entries.length();e++)
 {
-corpse tc(ammo, inv, x, y, z, map);
-corpses.insert_last(tc);
-spawn_citem(x, y, z, map, "corpse_"+tc.id);
+string[] part=string_split(entries[e],":",false);if(part.length()!=2)continue;
+string item=part[0];int amount=string_to_number(part[1]);
+if(amount<=0 or amount>100000 or item.length()>80 or string_contains(item,"__partial__",1)>=0 or string_contains(item,"corpse_",1)==0 or is_credit_chip(item))continue;
+corpse_add(corpses[ci],item,amount);
 }
 }
-void open_corpse(string id, int index)
+void remove_corpse_token(string id){for(int i=int(citems.length())-1;i>=0;i--)if(citems[i].name=="corpse_"+id)citems.remove_at(i);}
+// A revived player did not die: their body, and everything copied into it,
+// disappears again.
+void withdraw_corpse(player@ p)
 {
-string final="You search the corpse. It carries ";
-for(uint i=0; i<corpses.length(); i++)
-{
-if(corpses[i].id==id)
-{
-er_play_at("collectable/loot_corpse",corpses[i].x,corpses[i].y,corpses[i].z,corpses[i].map);
-string[] keys;
-for(int x=0; x<2; x++)
-{
-if(x==0)
-{
-keys=corpses[i].inv.get_keys();
-final+="the following items: ";
+if(p.pending_corpse=="")return;int ci=find_corpse(p.pending_corpse);if(ci>=0){remove_corpse_token(corpses[ci].id);corpses.remove_at(ci);}p.pending_corpse="";
 }
-if(x==1)
+void corpse_expiry_loop(){for(int i=int(corpses.length())-1;i>=0;i--)if(corpses[i].age.elapsed>=corpse_lifetime_ms){remove_corpse_token(corpses[i].id);corpses.remove_at(i);}}
+void open_corpse(string id,int index)
 {
-keys=corpses[i].ammo.get_keys();
-final+="and the following ammo: ";
-}
-for(uint i2=0; i2<keys.length(); i2++)
-{
-int amount;
-if(x==0)
-{
-corpses[i].inv.get(keys[i2], amount);
-//players[index].give(keys[i2], amount);
-send_reliable(players[index].peer_id, "give "+keys[i2]+" "+amount,0);
-final+=amount+" "+keys[i2];
-if(i2==keys.length()-1)
-final+=". ";
-else
-final+=", ";
-}
-if(x==1)
-{
-corpses[i].ammo.get(keys[i2], amount);
-//players[index].ammogive(keys[i2], amount);
-send_reliable(players[index].peer_id, "ammogive "+keys[i2]+" "+amount,0);
-final+=amount+" "+keys[i2];
-if(i2==keys.length()-1)
-final+=".";
-else
-final+=", ";
-}
-}
-}
-send_reliable(players[index].peer_id, final, 0);
-corpses.remove_at(i);
-}
-}
+int ci=find_corpse(id);
+if(ci<0){send_reliable(players[index].peer_id,"give corpse_"+id+" -1",0);send_reliable(players[index].peer_id,"That body has already been searched or has decayed.",2);return;}
+corpse@ c=corpses[ci];
+// While its owner lies downed they can still be revived, and a revive takes
+// the body back. Searching it now would duplicate everything they carry.
+int owner=get_player_index_from(c.owner);
+if(owner>=0 and players[owner].death and players[owner].pending_corpse==c.id){send_reliable(players[index].peer_id,c.owner+" is down but can still be revived. Search the body once they are gone.",2);return;}
+er_play_at("collectable/loot_corpse",c.x,c.y,c.z,c.map);
+string[] keys=c.inv.get_keys();string listing="";
+for(uint k=0;k<keys.length();k++){int amount=0;c.inv.get(keys[k],amount);if(amount<=0)continue;send_reliable(players[index].peer_id,"give "+keys[k]+" "+amount,0);if(listing!="")listing+=", ";listing+=amount+" "+string_replace(keys[k],"_"," ",true);}
+send_reliable(players[index].peer_id,"give corpse_"+id+" -1",0);
+send_reliable(players[index].peer_id,listing==""?"You search "+c.owner+"'s body and find nothing.":"You search "+c.owner+"'s body and take "+listing+".",2);
+corpses.remove_at(ci);
 }

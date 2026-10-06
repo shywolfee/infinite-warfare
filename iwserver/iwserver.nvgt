@@ -42,7 +42,7 @@ timer spawn_chesttimer;
 timer terminal_storage_spawn_timer;
 // Clients older than this speak a protocol the server no longer agrees with
 // (vehicle damage, spawning and healing all moved to the server in 0.5.2).
-double minversion=0.53;
+double minversion=0.56; // 0.5.6 clients report bodies, WireNet charges and chest resupply
 const int port=1316;
 string adminlist="";
 string[] dev_list = {"velan"};
@@ -202,15 +202,16 @@ server_physics_close();
 run("iwserver.exe", "", false, false);
 exit();
 }
-if(spawn_chesttimer.elapsed>=300000 and chests.length()<=10)
+if(spawn_chesttimer.elapsed>=300000)
 {
 spawn_chesttimer.restart();
-spawn_chest(random(490,550),random(565,585),0,"battlegrounds",in_chest[random(0,in_chest.length()-1)]);
-send_reliable(0, "there is a chest spawned", 2);  
+drop_supply_chest();
 }
+// Terminal storage turns up near players too; it used to be dropped on a
+// random map whether or not anyone was there.
 if(terminal_storage_spawn_timer.elapsed>=240000)
 {
-terminal_storage_spawn_timer.restart();string[] storage={"usb_flash_drive_32","usb_flash_drive_32","memory_card_64","solid_state_module_256","quantum_storage_1tb"};string[] storage_maps={"freeforall","battlegrounds","freyas_ascent","habitat_alpha"};string storage_map=storage_maps[random(0,storage_maps.length()-1)];int[] storage_at=choose_safe_player_spawn(storage_map,0,0,0);spawn_citem(storage_at[0],storage_at[1],storage_at[2],storage_map,storage[random(0,storage.length()-1)]);
+terminal_storage_spawn_timer.restart();string[] storage={"usb_flash_drive_32","usb_flash_drive_32","memory_card_64","solid_state_module_256","quantum_storage_1tb"};int sx,sy,sz;string smap;if(choose_world_drop(sx,sy,sz,smap))spawn_citem(sx,sy,sz,smap,storage[random(0,storage.length()-1)]);
 }
 if(key_pressed(KEY_ESCAPE))
 {
@@ -237,7 +238,10 @@ wallloop();
 bunkerbombloop();
 mortarloop();
 chestloop();
-bombloop();
+// Collectable items (corpse tokens and terminal storage drops) were never
+// serviced: nobody could pick them up and they never expired.
+citemloop();
+corpse_expiry_loop();
 smokebombloop();
 fraggrenadeloop();
 deployable_explosive_loop();
@@ -1789,6 +1793,8 @@ send_reliable(0, "jump "+players[index].name+" "+players[index].x+" "+players[in
 else if(parsed[0]=="check_chest")
 {
 int i2=get_player_index(e.peer_id);
+// A peer outside the world used to crash the server here.
+if(i2>-1)
 {
 for(int i=0; i<planes.length(); i++)
 {
@@ -1820,38 +1826,7 @@ else
 send_reliable(players[i2].peer_id, "you can't start the watertank because it is not full.", 2);
 }
 }
-for(int i=0; i<chests.length(); i++)
-{
-if(players[i2].x==chests[i].x and players[i2].y==chests[i].y and players[i2].z==chests[i].z and players[i2].map==chests[i].map)
-{
-play("chestopen", chests[i].x, chests[i].y, chests[i].z, chests[i].map, -1, true, false, 5);
-if(chests[i].type=="ammunition_chest")
-{
-send_unreliable(players[i2].peer_id, "ammogive benelli_m4_shotgun 30", 0);
-send_unreliable(players[i2].peer_id, "ammogive glock17 30", 0);
-send_unreliable(players[i2].peer_id, "ammogive AK47 30", 0);
-send_unreliable(players[i2].peer_id, "ammogive hk_g36 50", 0);
-send_unreliable(players[i2].peer_id, "ammogive famas_f1_assault_rifle 15", 0);
-send_unreliable(players[i2].peer_id, "ammogive sg08_sniper_rifle 15", 0);
-send_unreliable(players[i2].peer_id, "ammogive m1garantbattle_rifle 15", 0);
-}
-if(chests[i].type=="grenades_and_bombs_chest")
-{
-send_reliable(players[i2].peer_id, "give frag_grenade 5", 0);
-send_reliable(players[i2].peer_id, "give torpedo 5", 0);
-send_reliable(players[i2].peer_id, "give bomb_vest 5", 0);
-send_reliable(players[i2].peer_id, "give semtex_pack 2", 0);
-send_reliable(players[i2].peer_id, "give fake_item 5", 0);
-}
-if(chests[i].type=="chest_of_rocks")
-{
-send_reliable(players[i2].peer_id, "give rock 50", 0);
-}
-send_reliable(players[i2].peer_id, "you opened the "+chests[i].type+"!", 2);
-chests.remove_at(i);
-return;
-} 
-}
+try_open_chest(i2);
 }
 }
 else if(parsed[0]=="i_am_in_plane")
@@ -2047,9 +2022,7 @@ else if(parsed[0]=="speedhacked")
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
-send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-send_reliable(0, players[index].name+" was disconnected: their game clock was running too fast.", 2);
-players.remove_at(index);
+remove_player_for_cheating(index,"their game clock was running too fast");
 }
 }
 else if(parsed[0]=="ping")
@@ -2294,12 +2267,7 @@ play("health_potion", players[index].x, players[index].y, players[index].z, play
 send_reliable(players[index].peer_id, "movestop", 0);
 }
 }
-if(string_contains(parsed[1], "corpse_", 1)>-1)
-{
-open_corpse(string_replace(parsed[1], "corpse_", "", true), index);
-//players[index].give(parsed[1],-1);
-send_reliable(players[index].peer_id, "give parsed[1] -1", 0);
-}
+if(string_contains(parsed[1], "corpse_", 1)==0)open_corpse(string_replace(parsed[1], "corpse_", "", true), index);
 if(parsed[1]=="life_injection")
 {
 int index2=-1;
@@ -2576,9 +2544,7 @@ else if(parsed[0]=="ac_violation")
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
-send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
-send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-players.remove_at(index);
+remove_player_for_cheating(index,"the client reported tampering");
 }
 }
 else if(parsed[0]=="move_to_a" and parsed.length() > 3)
@@ -2602,9 +2568,7 @@ if (dist>15 and elapsed<min_move_interval)
 players[index].teleport_warnings++;
 if (players[index].teleport_warnings>5)
 {
-send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
-send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-players.remove_at(index);
+remove_player_for_cheating(index,"moving faster than possible");
 }
 }
 else
@@ -2631,19 +2595,32 @@ if(hp_pct<0) hp_pct=0;
 send_reliable(e.peer_id,players[index].health+" health: "+hp_pct+"%, last hit by "+players[index].hitby, 0);
 }
 }
+else if(parsed[0]=="wirenet_equip" and parsed.length()>1)
+{
+// The client reports the charges left in the WireNet it just equipped. The
+// server holds the real count and grants at most one device every thirty
+// seconds, so heals can no longer be requested without limit.
+int index=get_player_index(e.peer_id);
+if(index>-1)
+{
+int charges=string_to_number(parsed[1]);if(charges<0)charges=0;if(charges>3)charges=3;
+if(players[index].wirenet_charges<=0 and (!players[index].wirenet_granted or players[index].wirenet_grant_timer.elapsed>=30000)){players[index].wirenet_charges=charges;players[index].wirenet_granted=true;players[index].wirenet_grant_timer.restart();}
+}
+}
 else if(parsed[0]=="wirenet_heal")
 {
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
 int hp_pct=(players[index].health*100)/1000;
-if(hp_pct<20 and players[index].health>0)
+if(hp_pct<20 and players[index].health>0 and !players[index].death and players[index].wirenet_charges>0 and players[index].wirenet_timer.elapsed>=3000)
 {
-int heal_amount=200;
-players[index].health+=heal_amount;
+players[index].wirenet_timer.restart();
+players[index].wirenet_charges--;
+players[index].health+=200;
 if(players[index].health>1000) players[index].health=1000;
 int new_pct=(players[index].health*100)/1000;
-send_reliable(e.peer_id, "wirenet_healed "+new_pct, 0);
+send_reliable(e.peer_id, "wirenet_healed "+new_pct+" "+players[index].wirenet_charges, 0);
 }
 }
 }
@@ -2675,20 +2652,8 @@ else
 send_reliable(e.peer_id, "Bioscan: "+found+" player"+(found>1?"s":"")+". "+result+".", 2);
 }
 }
-else if(parsed[0]=="use_potion")
-{
-int index=get_player_index(e.peer_id);
-if(index > -1)  
-{
-if(players[index].health<=1001 and players[index].health_potiontimer.elapsed>20000)
-{
-players[index].health_potiontimer.restart();
-send_reliable(players[index].peer_id, "give health_potion -1", 0);
-players[index].health+=200;
-play("health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
-}
-}
-}
+// use_potion is gone: no client sends it, and it healed 200 health every
+// twenty seconds with no item and no health check. Potions go through use.
 else if(parsed[0]=="close")
 {
 int index=get_player_index(e.peer_id);
@@ -2970,7 +2935,6 @@ spawn_ladder(x,y,z,z+10,map,1000);
 // Clients used to heal themselves by sending "heal" with any amount up to
 // 2000, as often as they liked. Healing over time is the server's now; the
 // message is accepted and ignored so older clients do not trip anything.
-else if(parsed[0]=="heal"){}
 else if(parsed[0]=="attach" and parsed.length()>2)
 {
 int index=get_player_index(e.peer_id);
@@ -3070,9 +3034,7 @@ if (players[index].fire_timer.elapsed<min_fire_interval)
 players[index].rapid_fire_warnings++;
 if (players[index].rapid_fire_warnings>10)
 {
-send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
-send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-players.remove_at(index);
+remove_player_for_cheating(index,"firing faster than the weapon allows");
 // The removed slot now holds a different player (or nothing at all), so
 // nothing below may use this index. Previously the shot still went off,
 // fired by whoever moved into the slot, or crashed the server.
@@ -3124,6 +3086,13 @@ play(sound_weapon+"fire"+fire_variant, players[index].x, players[index].y, playe
 send_distant_sound(players[index].map,weapon_distant_report(sound_weapon,report_class),players[index].x,players[index].y,players[index].z,35);
 }
 }
+}
+else if(parsed[0]=="corpse_inventory" and parsed.length()>1)
+{
+// Sent by a dying client, possibly in several parts: what it carried and
+// wore. It can only fill that player's own newest body (see corpse.nvgt).
+int index=get_player_index(e.peer_id);
+if(index>-1 and players[index].death)fill_corpse(players[index],string_replace(get_event_message(),"corpse_inventory ","",false));
 }
 else if(parsed[0]=="player_remove")
 {
@@ -3315,9 +3284,7 @@ if (dist>15 and elapsed<min_move_interval)
 players[index].teleport_warnings++;
 if (players[index].teleport_warnings>5)
 {
-send_reliable(0, players[index].name+" was removed by anti-cheat.", 2);
-send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
-players.remove_at(index);
+remove_player_for_cheating(index,"moving faster than possible");
 }
 }
 else

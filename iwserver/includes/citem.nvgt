@@ -22,21 +22,26 @@ void citemloop()
 {
 for(int i=int(citems.length())-1;i>=0;i--)
 {
-if(citems[i].deltimer.elapsed>180000){citems.remove_at(i);continue;}
+// Corpse tokens last as long as their corpse, which removes them itself.
+bool corpse_token=string_contains(citems[i].name,"corpse_",1)==0;
+if(!corpse_token and citems[i].deltimer.elapsed>180000){citems.remove_at(i);continue;}
 if(citems[i].soundtimer.elapsed>2500){citems[i].soundtimer.restart();er_play_at("collectable/loop",citems[i].x,citems[i].y,citems[i].z,citems[i].map);}
 for(uint x=0; x<players.length(); x++)
 {
 if (get_3d_distance(citems[i].x,citems[i].y,citems[i].z,players[x].x,players[x].y,players[x].z)<=2 and players[x].map==citems[i].map and players[x].death==false)
 {
 er_play_at(string_contains(citems[i].name,"corpse_",1)==0?"collectable/pickup_corpse":"collectable/pickerupper",citems[i].x,citems[i].y,citems[i].z,citems[i].map);
-send_unreliable(players[x].peer_id,"give "+citems[i].name+" 1",0);
-send_reliable(players[x].peer_id, string_replace(citems[i].name,"_"," ",true), 2);
+// Reliable: the item leaves the world here, so a lost packet used to destroy it.
+send_reliable(players[x].peer_id,"give "+citems[i].name+" 1",0);
+int ci=corpse_token?find_corpse(string_replace(citems[i].name,"corpse_","",false)):-1;
+send_reliable(players[x].peer_id,ci>=0?"You reach "+corpses[ci].owner+"'s body. Use it from your inventory to search it.":"Picked up "+citem_display_name(citems[i].name)+".",2);
 citems.remove_at(i);
 break;
 }
 }
 }
 }
+string citem_display_name(string id){item_data@ d=item_info(id);return d is null?string_replace(id,"_"," ",true):d.name;}
 void spawn_citem(int x, int y, int z, string map, string name)
 {
 citem i1(x,y,z,map, name);

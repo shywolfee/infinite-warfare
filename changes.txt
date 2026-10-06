@@ -1,3 +1,17 @@
+New in 0.5.9, build 100 (2026-10-06)
+Added Repository status to the main menu. The game is open source, and this shows its public GitHub repository from inside the game, read aloud like any other menu.
+Overview: stars, watchers, forks, open issues and pull requests, size, licence, when it was created and last changed, and how to clone it.
+Your copy: the version you are running against the one on GitHub, and, for a git checkout or a copy updated with Check for updates, the commit you are on and every commit on the main branch you do not have yet.
+What's new on GitHub: the changelog as published, with the releases newer than yours marked; open one to read its changes.
+Recent commits, newest first. Open one for its full message and every file it changed, with lines added and removed. Load more reaches older commits.
+Branches, each compared with the main branch; pull requests and issues, open and closed, each with its description, labels and comments; releases and tags; contributors; automated checks; the languages GitHub counts; and recent activity such as pushes, merges and stars.
+Enter opens a line. Alt+B opens the line, or the screen, on GitHub in your browser; Alt+C copies the line and its link; Alt+M loads more; Alt+R fetches it again; Escape goes back.
+GitHub allows 60 requests an hour from one connection without signing in. Each screen uses one or two, nothing is fetched until you open it, replies are reused for five minutes, and the changelog and version come from a source that does not count. The GitHub request allowance section shows how many requests are left and when the allowance refills, and if it runs out, the game says so instead of showing an empty screen.
+Times are shown in your own time zone, with how long ago they were.
+Check for updates now records which commit it installed, so Repository status can compare your copy with GitHub commit by commit.
+What's new now lists the 0.5.7 hotfix as its own release. Its heading was read as the last change of 0.5.8.
+The game can now be compiled on Linux for checking: tools/compile_check/compile_check.py compiles the client and server with the Linux build of NVGT. A new test runs the repository status screens against recorded GitHub replies.
+
 New in 0.5.8, build 99 (2026-10-06)
 Rebuilt the GitHub updater. Check for updates now downloads only the files that actually changed, instead of the whole game as one 48 MB archive, and checks every downloaded file against GitHub before installing it. When many files have changed it downloads one archive of that exact version instead, which is faster.
 Updates now remove files the game no longer ships. The old updater only ever added and overwrote files, so weapons and items that had been moved or removed stayed in the game folder and kept being loaded; updating 0.5.4 left 81 such files behind, including old launcher and mortar definitions and all the removed weapon-maintenance items. The first time 0.5.8 starts, it removes any files like this that an earlier update left behind, before loading anything.

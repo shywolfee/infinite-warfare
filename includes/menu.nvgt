@@ -1393,7 +1393,7 @@ return true;
 bool copy_player_data(const string &in source,const string &in destination)
 {
 if(!directory_exists(destination) and !directory_create(destination))return false;
-string[] files={"settings.dat","keyconfig.json","gesture_config.json","servers.json"};
+string[] files={"settings.dat","keyconfig.json","gesture_config.json","servers.json","github_sign_in.dat","github_sign_in.key"};
 for(uint i=0;i<files.length();i++)if(file_exists(source+"/"+files[i]) and !file_copy(source+"/"+files[i],destination+"/"+files[i],true))return false;
 string[] folders={"keymaps","crash_logs","builder_exports"};
 for(uint i=0;i<folders.length();i++)if(directory_exists(source+"/"+folders[i]) and !data_copy_tree(source+"/"+folders[i],destination+"/"+folders[i]))return false;

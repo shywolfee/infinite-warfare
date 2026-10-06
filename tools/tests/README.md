@@ -80,7 +80,11 @@ checks that `updater/retired_files.txt` is current, which needs full history.
 (`includes/repo_status.nvgt`) under NVGT against recorded GitHub replies in
 `fixtures/github`, served locally, and checks every view: counts, links,
 drill-downs, the commit comparison of a git checkout, the releases newer than
-yours, time and Markdown handling, caching, and the rate-limit message. Set
+yours, time and Markdown handling, caching, and the rate-limit message. It
+also signs in against the stand-in (a token, and GitHub's device flow),
+checks the token is stored encrypted and only sent to GitHub's API, and runs
+every account action: star, watch, fork, new issue, comment, close, reopen,
+merge and marking notifications read. Set
 `NVGT` to the executable; it skips without one.
 
 `tools/compile_check/compile_check.py` compiles the client and the server on

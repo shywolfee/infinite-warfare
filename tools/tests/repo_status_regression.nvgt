@@ -12,7 +12,8 @@ int build_number=99;
 string build_date="2026-10-06";
 void dlg(string message){println("DIALOG "+message);}
 int question(string title,string message){return 0;}
-string client_data_path(const string &in relative){return "/tmp/"+relative;}
+string repo_test_data="";
+string client_data_path(const string &in relative){return repo_test_data+"/"+relative;}
 
 void dump(const string &in what)
 {
@@ -22,6 +23,7 @@ println("TITLE "+v.title);
 println("URL "+v.url);
 println("MORE "+v.more);
 for(uint i=0;i<v.entries.length();i++)println("LINE "+v.entries[i].text+" | "+v.entries[i].url+" | "+v.entries[i].open);
+for(uint i=0;i<v.action_ids.length();i++)println("ACTION "+v.action_ids[i]+" | "+v.action_labels[i]);
 println("END");
 }
 
@@ -30,8 +32,8 @@ void main()
 file f;string settings="";
 if(f.open("repo_status_regression.txt","rb")){settings=f.read();f.close();}
 string[] lines=string_split(string_replace(settings,"\r","",true),"\n",true);
-if(lines.length()<2){println("ERROR repo_status_regression.txt needs the server base and an install folder");exit(1);}
-repo_api=lines[0]+"/api";repo_raw=lines[0]+"/raw";repo_root=lines[1];
+if(lines.length()<3){println("ERROR repo_status_regression.txt needs the server base, an install folder and a data folder");exit(1);}
+repo_api=lines[0]+"/api";repo_raw=lines[0]+"/raw";repo_root=lines[1];repo_test_data=lines[2];repo_login_base=lines[0]+"/login-site";
 println("TIME "+repo_parse_time("2026-10-06T01:34:05Z")+" "+repo_parse_time("1999-12-31T23:59:59Z")+" "+repo_parse_time("not a time"));
 int y,m,d;repo_civil_from_days(repo_days_from_civil(2024,2,29),y,m,d);println("CIVIL "+y+"-"+m+"-"+d);
 println("PLAIN "+repo_plain("## **Bold** `code` heading")+" / "+repo_plain("* item")+" / ["+repo_plain("---")+"]");
@@ -44,4 +46,44 @@ println("REQUESTS "+repo_requests);
 dump("overview");
 println("CACHED "+repo_requests);
 repo_forget();repo_api=lines[0]+"/limited";dump("pulls");
+repo_api=lines[0]+"/api";repo_forget();
+// The token only ever goes to GitHub's API.
+println("AUTHORIZE "+repo_may_authorize("https://api.github.com/user")+" "+repo_may_authorize("https://raw.githubusercontent.com/x")+" "+repo_may_authorize("https://api.github.com.example.com/x")+" "+repo_may_authorize("http://api.github.com/x"));
+// Signed out: the account view offers sign-in; changes are refused.
+dump("account");
+println("SIGNEDOUT "+repo_do("star"));
+// Signing in through the browser is off without a client ID.
+string dc,uc,vu;int iv;println("NODEVICE "+repo_device_start(dc,uc,vu,iv));
+repo_send_token_anywhere=true;
+println("BADTOKEN "+repo_use_token("wrong-token"));
+println("GOODTOKEN ["+repo_use_token("  good-token \n")+"] "+repo_user);
+// It is stored encrypted and read back on the next start.
+file stored;string raw="";if(stored.open(repo_test_data+"/github_sign_in.dat","rb")){raw=stored.read();stored.close();}
+println("STORED "+(raw!="" and raw.find("good-token")<0));
+repo_token="";repo_user="";repo_token_loaded=false;repo_load_token();println("LOADED "+repo_token+" "+repo_user);
+println("HEADLINE2 "+repo_headline());
+dump("account");
+dump("overview");
+dump("issue:2");
+dump("pull:1");
+dump("notifications");
+dump("myrepos");
+println("DO star: "+repo_do("star"));
+println("DO watch: "+repo_do("watch"));
+println("DO newissue: "+repo_do("newissue","Quotes \"here\" and a back\\slash","Line one\nLine two\twith a tab"));
+println("DO notitle: "+repo_do("newissue","  ",""));
+println("DO comment: "+repo_do("comment:2","","Thanks!"));
+println("DO close: "+repo_do("close:issue:2"));
+println("DO reopen: "+repo_do("reopen:pull:1"));
+println("DO merge: "+repo_do("merge:1"));
+println("DO readall: "+repo_do("readall"));
+println("DO fork: "+repo_do("fork"));
+// Browser sign-in, against the stand-in's device flow.
+repo_client_id="test-client";
+string device,code,url;int interval;
+println("DEVICE ["+repo_device_start(device,code,url,interval)+"] "+code+" "+url+" "+interval);
+println("POLL1 "+repo_device_poll(device));
+println("POLL2 ["+repo_device_poll(device)+"] "+repo_user);
+println("DO signout: "+repo_do("signout"));
+println("AFTER "+repo_token+"|"+file_exists(repo_test_data+"/github_sign_in.dat"));
 }

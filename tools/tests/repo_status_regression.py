@@ -78,6 +78,21 @@ ROUTES = [
 ]
 
 
+# What the game sent: (method, path, Authorization header, body).
+sent: list[tuple[str, str, str, str]] = []
+state = {"starred": False, "polls": 0}
+USER = {"login": "test-player", "name": "Test Player", "html_url": "https://github.com/test-player",
+        "public_repos": 4, "followers": 2, "following": 1}
+SIGNED_IN_REPO = None
+
+
+def signed_in_repo() -> bytes:
+    repo = json.loads(fixture("repo"))
+    repo["permissions"] = {"admin": False, "push": True, "pull": True}
+    repo["owner"] = {"login": "shywolfee"}
+    return json.dumps(repo).encode()
+
+
 class FakeGitHub(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -85,23 +100,89 @@ class FakeGitHub(http.server.BaseHTTPRequestHandler):
     def send(self, body: bytes, code: int = 200):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("X-RateLimit-Limit", "5000" if self.authorized() else "60")
+        self.send_header("X-RateLimit-Remaining", "4990" if self.authorized() else "57")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self):
+    def authorized(self) -> bool:
+        return self.headers.get("Authorization") == "Bearer good-token"
+
+    def record(self, method: str) -> tuple[str, str]:
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length).decode("utf-8") if length else ""
         path = urlsplit(self.path).path
+        sent.append((method, path, self.headers.get("Authorization") or "", body))
         requests.append(path)
+        return path, body
+
+    def do_GET(self):
+        path, _ = self.record("GET")
         if path.startswith("/limited/"):
             return self.send(fixture("rate_limited"), 403)
         if path == f"/raw/{SLUG}/main/version.txt":
             return self.send(b"0.5.9\n")
         if path == f"/raw/{SLUG}/main/changes.txt":
             return self.send(CHANGES.encode())
+        if path == "/api/user":
+            return self.send(json.dumps(USER).encode()) if self.authorized() else self.send(b'{"message":"Bad credentials","documentation_url":"x"}', 401)
+        if self.authorized():
+            if path == f"/api/repos/{SLUG}":
+                return self.send(signed_in_repo())
+            if path == f"/api/user/starred/{SLUG}":
+                return self.send(b"", 204) if state["starred"] else self.send(b'{"message":"Not Found"}', 404)
+            if path == f"/api/repos/{SLUG}/subscription":
+                return self.send(b'{"message":"Not Found"}', 404)
+            if path == f"/api/repos/{SLUG}/notifications":
+                return self.send(json.dumps([
+                    {"unread": True, "reason": "subscribed", "updated_at": "2026-10-05T19:30:00Z",
+                     "subject": {"title": "Grenades thrown from a moving car land behind it", "type": "Issue",
+                                 "url": f"https://api.github.com/repos/{SLUG}/issues/2"}},
+                    {"unread": False, "reason": "review_requested", "updated_at": "2026-07-11T17:45:06Z",
+                     "subject": {"title": "Builds 0.5.0.1 through 0.5.0.4.1", "type": "PullRequest",
+                                 "url": f"https://api.github.com/repos/{SLUG}/pulls/1"}}]).encode())
+            if path == "/api/user/repos":
+                return self.send(json.dumps([{"full_name": "test-player/infinite-warfare", "private": False, "fork": True,
+                                              "stargazers_count": 0, "pushed_at": "2026-10-01T00:00:00Z",
+                                              "html_url": "https://github.com/test-player/infinite-warfare"}]).encode())
         for pattern, name in ROUTES:
             if re.fullmatch(pattern, path):
                 return self.send(b"[]" if name is None else fixture(name))
         self.send(b'{"message":"Not Found","documentation_url":"https://docs.github.com"}', 404)
+
+    def change(self, method: str):
+        path, body = self.record(method)
+        if path == "/login-site/login/device/code":
+            return self.send(b'{"device_code":"dev-123","user_code":"ABCD-1234","verification_uri":"https://github.com/login/device","expires_in":900,"interval":1}')
+        if path == "/login-site/login/oauth/access_token":
+            state["polls"] += 1
+            return self.send(b'{"error":"authorization_pending"}' if state["polls"] == 1 else b'{"access_token":"good-token","token_type":"bearer","scope":"public_repo,notifications"}')
+        if not self.authorized():
+            return self.send(b'{"message":"Requires authentication","documentation_url":"x"}', 401)
+        if path == f"/api/user/starred/{SLUG}":
+            state["starred"] = method == "PUT"
+            return self.send(b"", 204)
+        if path == f"/api/repos/{SLUG}/issues" and method == "POST":
+            json.loads(body)
+            return self.send(b'{"number":3}', 201)
+        if path == f"/api/repos/{SLUG}/forks":
+            return self.send(b'{"message":"Validation Failed","errors":[{"message":"You cannot fork a repository you own"}]}', 422)
+        if path == f"/api/repos/{SLUG}/pulls/1/merge":
+            return self.send(b'{"sha":"abcdef1234567890","merged":true,"message":"Pull Request successfully merged"}')
+        return self.send(b"{}", 201 if method == "POST" else 200)
+
+    def do_POST(self):
+        self.change("POST")
+
+    def do_PUT(self):
+        self.change("PUT")
+
+    def do_PATCH(self):
+        self.change("PATCH")
+
+    def do_DELETE(self):
+        self.change("DELETE")
 
 
 server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeGitHub)
@@ -123,7 +204,9 @@ with tempfile.TemporaryDirectory(prefix="iw-repo-status-") as temp:
     (install / ".git" / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
     (install / ".git" / "packed-refs").write_text(f"# pack-refs with: peeled fully-peeled sorted\n{LOCAL_SHA} refs/heads/main\n", encoding="utf-8")
     # NVGT runs a script from its own folder, so its settings go beside it.
-    (work / "tools" / "tests" / "repo_status_regression.txt").write_text(f"{base}\n{install}\n", encoding="utf-8")
+    data = work / "data"
+    data.mkdir()
+    (work / "tools" / "tests" / "repo_status_regression.txt").write_text(f"{base}\n{install}\n{data}\n", encoding="utf-8")
     runner = work / "tools" / "tests" / "repo_status_regression.nvgt"
     result = subprocess.run([nvgt, str(runner)], cwd=work, capture_output=True, text=True, timeout=300)
     if "Compilation error" in result.stdout + result.stderr:
@@ -230,5 +313,46 @@ check(has("allowance", "57 of 60 requests are left this hour"), "request allowan
 check(value("REQUESTS ") == value("CACHED "), "opening the overview again asked GitHub again instead of using the cache")
 check(has("pulls", "GitHub allows 60 requests an hour", 1), f"a rate-limited reply is not explained: {view('pulls', 1)['lines']}")
 
+# Signing in.
+check(value("AUTHORIZE ") == "true false false false", f"the token could go somewhere other than GitHub's API: {value('AUTHORIZE ')}")
+check(has("account", "You are not signed in") and "ACTION signin" in output, "the signed-out account view does not offer sign-in")
+check(value("SIGNEDOUT ") == "Sign in to GitHub first, from Your GitHub account.", f"a change while signed out: {value('SIGNEDOUT ')}")
+check("not set up for this copy" in value("NODEVICE "), "browser sign-in without a client ID should explain itself")
+check("did not accept that token" in value("BADTOKEN "), f"a bad token: {value('BADTOKEN ')}")
+check(value("GOODTOKEN ") == "[] test-player", f"a good token with spaces around it: {value('GOODTOKEN ')}")
+check(value("STORED ") == "true", "the token is stored readable, or not at all")
+check(value("LOADED ") == "good-token test-player", "the stored sign-in does not load back")
+check("Signed in as test-player." in value("HEADLINE2 "), "the headline does not say who is signed in")
+check(has("account", "Signed in as test-player, Test Player.", 1) and has("account", "4990 of 5000 GitHub requests are left", 1), f"account: {view('account', 1)['lines']}")
+check(has("overview", "You have not starred the repository, and are not watching it.", -1) and has("overview", "You can push to this repository", -1), "signed-in overview")
+ov = output[output.index("VIEW overview", output.index("GOODTOKEN")):]
+ov = ov[:ov.index("END")]
+for action in ("ACTION star |", "ACTION watch |", "ACTION fork |", "ACTION newissue |"):
+    check(action in ov, f"the overview lacks {action}")
+iss = output[output.index("VIEW issue:2", output.index("GOODTOKEN")):]
+check("ACTION comment:2 |" in iss[:iss.index("END")] and "ACTION close:issue:2 |" in iss[:iss.index("END")], "issue actions")
+pr = output[output.index("VIEW pull:1", output.index("GOODTOKEN")):]
+check("ACTION reopen:pull:1" not in pr[:pr.index("END")], "a merged pull request offered reopening")
+check(has("notifications", "Unread: Grenades thrown from a moving car land behind it, subscribed") and "issue:2" in view("notifications")["opens"]
+      and "pull:1" in view("notifications")["opens"] and "ACTION readall" in output, f"notifications: {view('notifications')['lines']}")
+check(has("myrepos", "test-player/infinite-warfare, a fork, 0 stars"), "your repositories")
+expect = {"star": "Starred.", "watch": "You are watching the repository.", "newissue": "Opened issue #3.",
+          "notitle": "An issue needs a title.", "comment": "Comment posted.", "close": "Closed.", "reopen": "Reopened.",
+          "merge": "Merged as commit abcdef1.", "readall": "Marked as read.", "fork": "GitHub could not do that: Validation Failed: You cannot fork a repository you own",
+          "signout": "Signed out."}
+for key, text in expect.items():
+    check(value(f"DO {key}: ").startswith(text), f"{key}: {value(f'DO {key}: ')}")
+bodies = {(m, p): body for m, p, a, body in sent}
+issue_body = bodies.get(("POST", f"/api/repos/{SLUG}/issues"), "")
+check(json.loads(issue_body or "{}") == {"title": 'Quotes "here" and a back\\slash', "body": "Line one\nLine two\twith a tab"}, f"the new issue was sent as {issue_body!r}")
+check(json.loads(bodies.get(("PATCH", f"/api/repos/{SLUG}/issues/2"), "{}")) == {"state": "closed"}, "closing")
+check(json.loads(bodies.get(("PATCH", f"/api/repos/{SLUG}/pulls/1"), "{}")) == {"state": "open"}, "reopening a pull request")
+check(("PUT", f"/api/user/starred/{SLUG}") in bodies and ("PUT", f"/api/repos/{SLUG}/notifications") in bodies, "starring or marking read was not sent")
+check(all(a in ("", "Bearer good-token", "Bearer wrong-token") for m, p, a, body in sent), "an unexpected Authorization header was sent")
+check(not any(a and p.startswith("/login-site/") for m, p, a, body in sent), "the token was sent to the sign-in site")
+check(value("DEVICE ") == "[] ABCD-1234 https://github.com/login/device 1", f"device flow start: {value('DEVICE ')}")
+check(value("POLL1 ") == "pending" and value("POLL2 ") == "[] test-player", f"device flow polling: {value('POLL1 ')} {value('POLL2 ')}")
+check(value("AFTER ") == "|false", "signing out leaves the token behind")
+
 assert not problems, "\n".join(problems)
-print(f"PASS repository status: {len(views)} views from recorded GitHub replies")
+print(f"PASS repository status: {len(views)} views, signing in, and {len(expect)} account actions against a stand-in GitHub")

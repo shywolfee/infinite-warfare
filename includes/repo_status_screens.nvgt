@@ -18,6 +18,7 @@ nv_form_button@ open=f.add_button("Open the selected line","open",true);
 nv_form_button@ browser=f.add_button("Open in the browser; Alt+B","browser");@browser.shortcut=nv_shortcut(KEY_B,alt=true);
 nv_form_button@ copy=f.add_button("Copy the line and its link; Alt+C","copy");@copy.shortcut=nv_shortcut(KEY_C,alt=true);
 nv_form_button@ more=f.add_button("Load more; Alt+M","more");@more.shortcut=nv_shortcut(KEY_M,alt=true);more.hidden=v.more=="";
+nv_form_button@ actions=f.add_button("Actions: "+join(v.action_labels,", ")+"; Alt+A","actions");@actions.shortcut=nv_shortcut(KEY_A,alt=true);actions.hidden=v.action_ids.length()==0;
 nv_form_button@ refresh=f.add_button("Refresh from GitHub; Alt+R","refresh");@refresh.shortcut=nv_shortcut(KEY_R,alt=true);
 nv_form_button@ close=f.add_button("Back; Escape","close",false,true);
 f.focus_control(list);
@@ -56,6 +57,14 @@ else if(f.is_pressed(refresh))
 {
 repo_forget();repo_show(what);return;
 }
+else if(f.is_pressed(actions) and v.action_ids.length()>0)
+{
+string chosen=v.action_ids.length()==1?v.action_ids[0]:pick_from_list("Actions",v.action_labels,v.action_ids);
+if(chosen=="")continue;
+// Anything done changes what this view shows, so it is read again.
+if(repo_run_action(chosen)){repo_show(what);return;}
+f.focus_control(list);
+}
 }
 }
 
@@ -63,13 +72,14 @@ void repo_status_menu()
 {
 speak("Reading the repository from GitHub.");
 string headline=repo_headline();
-string[] labels={"Overview: stars, forks, size, licence and when it last changed","Your copy: how it compares with the version on GitHub","What's new on GitHub: the changelog, and what is newer than your version","Recent commits on the main branch","Branches","Pull requests","Issues","Releases and tags","Contributors","Automated checks","Languages","Recent activity","GitHub request allowance: how many requests are left this hour"};
-string[] ids={"overview","copy","whatsnew","commits:main:1","branches","pulls","issues","releases","contributors","checks","languages","activity","allowance"};
+repo_load_token();
+string[] labels={"Your GitHub account: sign in for 5000 requests an hour, starring, issues and comments","Overview: stars, forks, size, licence and when it last changed","Your copy: how it compares with the version on GitHub","What's new on GitHub: the changelog, and what is newer than your version","Recent commits on the main branch","Branches","Pull requests","Issues","Releases and tags","Contributors","Automated checks","Languages","Recent activity","GitHub request allowance: how many requests are left this hour"};
+string[] ids={"account","overview","copy","whatsnew","commits:main:1","branches","pulls","issues","releases","contributors","checks","languages","activity","allowance"};
 nv_form f;f.create_window("Repository status",false,true);
 nv_form_input@ summary=f.add_input("Summary","summary",headline,"",0,true,true);
 nv_form_list_box@ list=f.add_list("Sections","sections");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
-list.set_pos(0,false);
+list.set_pos(1,false);
 nv_form_button@ open=f.add_button("Open","open",true);
 nv_form_button@ browser=f.add_button("Open the repository in the browser; Alt+B","browser");@browser.shortcut=nv_shortcut(KEY_B,alt=true);
 nv_form_button@ refresh=f.add_button("Refresh from GitHub; Alt+R","refresh");@refresh.shortcut=nv_shortcut(KEY_R,alt=true);
@@ -79,8 +89,120 @@ while(true)
 {
 wait(5);f.monitor();if(connected)netloop(false);
 if(f.is_pressed(close))return;
-if(f.is_pressed(open) and @list.focused_item!=null){repo_show(list.focused_item.id);f.focus_control(list);}
+if(f.is_pressed(open) and @list.focused_item!=null){repo_show(list.focused_item.id);summary.text=repo_headline();f.focus_control(list);}
 else if(f.is_pressed(browser)){urlopen(repo_home());speak("Opened in the browser.");}
 else if(f.is_pressed(refresh)){repo_forget();speak("Reading the repository from GitHub.");summary.text=repo_headline();speak(summary.text);}
 }
+}
+
+// Runs one of a view's actions, asking for whatever it needs first. Returns
+// true when something changed.
+bool repo_run_action(const string &in action)
+{
+string[] p=string_split(action,":",false);string kind=p[0];
+if(kind=="signin")return repo_sign_in_dialog();
+if(kind=="newissue")
+{
+if(repo_token==""){urlopen(repo_home()+"/issues/new");speak("Opened GitHub's new issue page in the browser.");return false;}
+string title,body;if(!repo_text_dialog("Open a new issue","Title","Describe the problem or idea",title,body,true))return false;
+speak("Sending.");speak(repo_do("newissue",title,body));return true;
+}
+if(kind=="comment")
+{
+string unused,body;if(!repo_text_dialog("Comment on #"+p[1],"","Your comment",unused,body,false))return false;
+speak("Sending.");speak(repo_do(action,"",body));return true;
+}
+if(kind=="merge" and question("Merge pull request #"+p[1]+"?","Merge pull request #"+p[1]+" into its base branch on GitHub? This cannot be undone from here.")!=1)return false;
+if(kind=="close" and question("Close #"+p[2]+"?","Close "+(p[1]=="pull"?"pull request":"issue")+" #"+p[2]+" on GitHub?")!=1)return false;
+if(kind=="fork" and question("Fork the repository?","Make your own copy of "+repo_slug+" under your GitHub account?")!=1)return false;
+if(kind=="signout" and question("Sign out of GitHub?","Delete your GitHub sign-in from this computer?")!=1)return false;
+speak("Sending.");speak(repo_do(action));
+return true;
+}
+
+// Asks for a title (optional) and a longer text. Returns false if cancelled.
+bool repo_text_dialog(const string &in heading,const string &in title_label,const string &in body_label,string &out title,string &out body,bool needs_title)
+{
+title="";body="";
+nv_form f;f.create_window(heading,false,true);
+nv_form_input@ t=null;if(title_label!="")@t=f.add_input(title_label,"title");
+nv_form_input@ text=f.add_input(body_label,"body","","",0,false,true);
+nv_form_button@ send=f.add_button("Send; Alt+S","send");@send.shortcut=nv_shortcut(KEY_S,alt=true);
+nv_form_button@ cancel=f.add_button("Cancel; Escape","cancel",false,true);
+f.focus_control(t !is null?t:text);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop(false);
+if(f.is_pressed(cancel))return false;
+if(f.is_pressed(send))
+{
+if(t !is null)title=t.text.trim_whitespace();body=text.text;
+if(needs_title and title==""){speak("Write a title first.");f.focus_control(t);continue;}
+if(!needs_title and body.trim_whitespace()==""){speak("Write something first.");f.focus_control(text);continue;}
+return true;
+}
+}
+return false;
+}
+
+// Signing in: through the browser when the game has an OAuth App client ID,
+// or with a personal access token.
+bool repo_sign_in_dialog()
+{
+string[] labels,ids;
+if(repo_client_id!=""){labels.insert_last("Sign in with GitHub in the browser");ids.insert_last("device");}
+labels.insert_last("Sign in with a personal access token");ids.insert_last("token");
+string how=ids.length()==1?ids[0]:pick_from_list("Sign in to GitHub",labels,ids);
+if(how=="device")return repo_device_dialog();
+if(how=="token")return repo_token_dialog();
+return false;
+}
+bool repo_token_dialog()
+{
+string page="https://github.com/settings/tokens/new?description=Infinite%20Warfare&scopes=public_repo,notifications";
+nv_form f;f.create_window("Sign in with a personal access token",false,true);
+f.add_input("How","how","A personal access token lets the game act as you on GitHub. Open GitHub's token page, which has the right permissions already chosen: public_repo, to star, fork, open issues, comment and merge, and notifications, for your notifications. Choose how long it lasts, generate it, copy it, and paste it below. The token is kept in the game's settings folder and only ever sent to GitHub.","",0,true,true);
+nv_form_button@ open=f.add_button("Open GitHub's token page in the browser; Alt+O","open");@open.shortcut=nv_shortcut(KEY_O,alt=true);
+nv_form_input@ token=f.add_input("Token","token","","*");
+nv_form_button@ use=f.add_button("Sign in; Alt+S","use",true);@use.shortcut=nv_shortcut(KEY_S,alt=true);
+nv_form_button@ cancel=f.add_button("Cancel; Escape","cancel",false,true);
+f.focus_control(open);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop(false);
+if(f.is_pressed(cancel))return false;
+if(f.is_pressed(open)){urlopen(page);speak("Opened in the browser. Paste the token into the token field.");f.focus_control(token);}
+if(f.is_pressed(use))
+{
+speak("Checking the token with GitHub.");
+string why=repo_use_token(token.text);
+if(why==""){token.text="";speak("Signed in as "+repo_user+".");return true;}
+speak(why);f.focus_control(token);
+}
+}
+return false;
+}
+bool repo_device_dialog()
+{
+speak("Asking GitHub for a sign-in code.");
+string device,code,url;int interval;
+string why=repo_device_start(device,code,url,interval);
+if(why!=""){dlg(why);return false;}
+clipboard_set_text(code);urlopen(url);
+speak("Your code is "+code+". It has been copied. Your browser is opening "+url+": paste the code there and approve Infinite Warfare. The game is waiting; Escape cancels.");
+timer since;
+while(true)
+{
+wait(5);if(connected)netloop(false);
+if(key_pressed(KEY_ESCAPE)){speak("Signing in cancelled.");return false;}
+if(key_pressed(KEY_SPACE))speak("Your code is "+code+". Escape cancels.");
+if(since.elapsed<uint(interval*1000))continue;
+since.restart();
+string result=repo_device_poll(device);
+if(result=="pending")continue;
+if(result=="slow"){interval+=5;continue;}
+if(result==""){speak("Signed in as "+repo_user+".");return true;}
+dlg(result);return false;
+}
+return false;
 }

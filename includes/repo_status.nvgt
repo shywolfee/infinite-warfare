@@ -32,6 +32,10 @@ class repo_view
 {
 string title,url,more;
 repo_entry@[] entries;
+// Things the player can do from this view (star, comment, merge...), as
+// labels and the action each one names; see repo_status_screens.nvgt.
+string[] action_labels,action_ids;
+void add_action(const string &in label,const string &in id){action_labels.insert_last(label);action_ids.insert_last(id);}
 void add(const string &in text,const string &in url="",const string &in open=""){entries.insert_last(repo_entry(text,url,open));}
 // Free text (a commit message, a pull request's description) as one entry
 // per paragraph, list item, heading or trailer, with Markdown removed. Lines
@@ -60,7 +64,70 @@ dictionary repo_cache;
 dictionary repo_cache_time;
 string repo_error="";
 int repo_requests=0;
+// What GitHub said about the allowance on its latest reply.
+string repo_remaining="",repo_limit="";
 void repo_forget(){repo_cache.delete_all();repo_cache_time.delete_all();}
+
+class repo_reply
+{
+int status=0;
+string body;
+}
+// The sign-in token is only ever sent to GitHub's API. Tests serve a stand-in
+// GitHub locally and set this to let it through there too.
+bool repo_send_token_anywhere=false;
+bool repo_may_authorize(const string &in url){return repo_send_token_anywhere or url.substr(0,23)=="https://api.github.com/";}
+
+// One HTTP request, waited for. Escape cancels it. status is 0 when nothing
+// came back at all.
+repo_reply@ repo_request(const string &in method,const string &in url,const string &in body="",const string &in content_type="application/json",bool authorize=true)
+{
+repo_reply r;
+http h;
+name_value_collection headers;
+headers.set("Accept","application/vnd.github+json");
+headers.set("X-GitHub-Api-Version","2022-11-28");
+headers.set("User-Agent","Infinite-Warfare/"+version_name);
+if(authorize and repo_token!="" and repo_may_authorize(url))headers.set("Authorization","Bearer "+repo_token);
+if(body!="" or method!="GET")headers.set("Content-Type",content_type);
+spec::uri address(url);
+bool started=false;
+if(method=="GET")started=h.get(address,headers);
+else if(method=="POST")started=h.post(address,body,headers);
+else if(method=="PUT")started=h.put(address,body,headers);
+else if(method=="PATCH")started=h.patch(address,body,headers);
+else if(method=="DELETE")started=h.delete(address,body,headers);
+repo_requests++;
+if(!started)return r;
+timer waited;
+while(!h.complete)
+{
+wait(5);
+if(key_pressed(KEY_ESCAPE)){speak("Cancelled.");r.status=-1;return r;}
+if(waited.elapsed>30000)return r;
+}
+r.status=h.status_code;r.body=h.response_body;
+http_response@ response=h.response_headers;
+if(response !is null and response.exists("X-RateLimit-Remaining")){repo_remaining=response["X-RateLimit-Remaining"];repo_limit=response["X-RateLimit-Limit"];}
+return r;
+}
+
+// What went wrong with a reply, in words a player can act on.
+string repo_explain(repo_reply@ r)
+{
+if(r.status==-1)return "Cancelled.";
+if(r.status==0)return "GitHub could not be reached. Check your internet connection and try again.";
+string message="";
+try{json_object@ o=parse_json(r.body);message=js(o,"message");json_array@ errors=ja(o,"errors");if(errors !is null and errors.length()>0){string m=js(errors.get_object(0),"message");if(m!="")message+=": "+m;}}catch{}
+if(r.status==401)return repo_token==""?"GitHub wants you to sign in for that.":"GitHub no longer accepts your sign-in; it may have expired or been revoked. Sign in again from Your GitHub account.";
+if((r.status==403 or r.status==429) and (repo_remaining=="0" or message.lower().find("rate limit")>=0))
+return repo_token==""?"GitHub allows 60 requests an hour from your connection without signing in, and they have been used. Sign in from Your GitHub account for 5000 an hour, or wait; the request allowance section says when more become available.":"You have used your 5000 GitHub requests for this hour. The request allowance section says when more become available.";
+if(r.status==403)return "GitHub refused: "+(message==""?"your account is not allowed to do that.":message)+(repo_token!=""?" If your token lacks a permission, sign in again with a new one.":"");
+if(r.status==404)return repo_token==""?"GitHub has no such page, or it needs you to sign in.":"GitHub has no such page, or your sign-in is not allowed to see it.";
+if(r.status==422)return "GitHub could not do that: "+(message==""?"the request was not valid.":message);
+if(r.status>=500)return "GitHub is having trouble right now ("+r.status+"). Try again in a little while.";
+return "GitHub answered "+r.status+(message==""?".":": "+message);
+}
 
 // A page from GitHub, from the cache while it is fresh. "" if it failed, with
 // repo_error saying why.
@@ -69,39 +136,137 @@ string repo_fetch(const string &in url)
 repo_error="";
 double fetched=0;string body;
 if(repo_cache.get(url,body) and repo_cache_time.get(url,fetched) and ticks()-fetched<repo_cache_ms)return body;
-body=url_get(url);repo_requests++;
-if(body==""){repo_error="GitHub could not be reached. Check your internet connection and try again.";return "";}
-return body;
+repo_reply@ r=repo_request("GET",url);
+if(r.status<200 or r.status>299){repo_error=repo_explain(r);return "";}
+repo_cache.set(url,r.body);repo_cache_time.set(url,double(ticks()));
+return r.body;
 }
-void repo_remember(const string &in url,const string &in body){repo_cache.set(url,body);repo_cache_time.set(url,double(ticks()));}
 
 // GitHub's reply to an API request, parsed. null if it failed, with
 // repo_error set to something a player can act on.
 var@ repo_json(const string &in path)
 {
-string url=repo_api+path;string body=repo_fetch(url);if(body=="")return null;
+string body=repo_fetch(repo_api+path);if(body=="")return null;
 var@ parsed=null;
-try{@parsed=parse_json(body);}catch{repo_error="GitHub sent a reply the game could not read.";return null;}
-json_object@ o=parsed;
-if(o !is null and o.exists("message") and o.exists("documentation_url"))
-{
-string message=js(o,"message");
-if(message.lower().find("rate limit")>=0)repo_error="GitHub allows 60 requests an hour from your connection without signing in, and they have been used. The request allowance section says when more become available.";
-else if(message=="Not Found")repo_error="GitHub has no such page. It may have been deleted or made private.";
-else repo_error="GitHub refused the request: "+message;
-return null;
-}
-repo_remember(url,body);
+try{@parsed=parse_json(body);}catch{repo_error="GitHub sent a reply the game could not read.";repo_cache.delete(repo_api+path);return null;}
 return parsed;
 }
 json_object@ repo_object(const string &in path){var@ v=repo_json(path);if(v is null)return null;json_object@ o=v;if(o is null and repo_error=="")repo_error="GitHub sent something other than what was asked for.";return o;}
 json_array@ repo_array(const string &in path){var@ v=repo_json(path);if(v is null)return null;json_array@ a=v;if(a is null and repo_error=="")repo_error="GitHub sent something other than what was asked for.";return a;}
 // A file from the main branch, which costs no API allowance.
-string repo_file(const string &in name)
+string repo_file(const string &in name){return repo_fetch(repo_raw+"/"+repo_slug+"/main/"+name);}
+
+// A change made on GitHub (star, comment, merge...). Returns the HTTP status,
+// or 0 with repo_error set. Everything cached is dropped, since the change
+// may show up anywhere.
+int repo_change(const string &in method,const string &in path,const string &in body="")
 {
-string url=repo_raw+"/"+repo_slug+"/main/"+name;string body=repo_fetch(url);
-if(body!="" and body.find("404: Not Found")!=0)repo_remember(url,body);else if(body!=""){repo_error="GitHub has no "+name+".";return "";}
-return body;
+repo_error="";
+if(repo_token==""){repo_error="Sign in to GitHub first, from Your GitHub account.";return 0;}
+repo_reply@ r=repo_request(method,repo_api+path,body);
+repo_forget();
+if(r.status<200 or r.status>299){repo_error=repo_explain(r);return 0;}
+repo_change_body=r.body;
+return r.status;
+}
+string repo_change_body;
+// A JSON string literal.
+string repo_quote(const string &in text)
+{
+string quoted="\"";
+for(uint i=0;i<text.length();i++)
+{
+string c=text.substr(i,1);
+if(c=="\"")quoted+="\\\"";else if(c=="\\")quoted+="\\\\";else if(c=="\n")quoted+="\\n";else if(c=="\r")quoted+="\\r";else if(c=="\t")quoted+="\\t";
+// Any other control character becomes a space.
+else if(c<" ")quoted+=" ";
+else quoted+=c;
+}
+return quoted+"\"";
+}
+
+// ---------------------------------------------------------------------------
+// Signing in. A personal access token works for anyone. "Sign in with GitHub"
+// uses GitHub's device flow, which needs an OAuth App registered for the game
+// (github.com/settings/developers, with Device Flow enabled); put its client
+// ID here. A client ID is public, not a secret.
+// ---------------------------------------------------------------------------
+const string IW_GITHUB_CLIENT_ID="";
+const string IW_GITHUB_SCOPES="public_repo notifications";
+string repo_client_id=IW_GITHUB_CLIENT_ID;
+string repo_login_base="https://github.com";
+string repo_token="",repo_user="";
+bool repo_token_loaded=false;
+string repo_token_file(){return client_data_path("github_sign_in.dat");}
+string repo_token_key_file(){return client_data_path("github_sign_in.key");}
+// The token is kept in the game's settings folder (normally AppData), which
+// Build a release never packages; if that folder is the game folder,
+// .gitignore keeps the files out of git. It is encrypted with a key made on
+// this computer and kept beside it: enough that it is not readable at a
+// glance, not protection from someone with access to your account.
+void repo_load_token()
+{
+if(repo_token_loaded)return;
+repo_token_loaded=true;
+string key=updater_read_text(repo_token_key_file());string stored=updater_read_text(repo_token_file());
+if(key=="" or stored=="")return;
+string[] parts=string_split(string_decrypt(stored,key),"\n",true);
+if(parts.length()>=1)repo_token=parts[0];
+if(parts.length()>=2)repo_user=parts[1];
+}
+void repo_save_token()
+{
+string key=updater_read_text(repo_token_key_file());
+if(key=="")
+{
+string chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+for(int i=0;i<40;i++)key+=chars.substr(random(0,chars.length()-1),1);
+file k;if(k.open(repo_token_key_file(),"wb")){k.write(key);k.close();}
+}
+file f;if(f.open(repo_token_file(),"wb")){f.write(string_encrypt(repo_token+"\n"+repo_user,key));f.close();}
+}
+void repo_sign_out(){repo_token="";repo_user="";file_delete(repo_token_file());repo_forget();}
+// Checks a token with GitHub and keeps it if it works. Returns "" or why not.
+string repo_use_token(string token)
+{
+token=token.trim_whitespace();
+if(token==""){return "No token was entered.";}
+string previous=repo_token;repo_token=token;
+repo_reply@ r=repo_request("GET",repo_api+"/user");
+if(r.status!=200){string why=repo_explain(r);repo_token=previous;return r.status==401?"GitHub did not accept that token. Check that it was copied whole and has not expired.":why;}
+json_object@ user=null;try{@user=parse_json(r.body);}catch{}
+repo_user=js(user,"login");repo_forget();repo_save_token();
+return "";
+}
+
+// GitHub's device flow, step one: a code for the player to enter at
+// github.com/login/device. Fills in the codes and returns "" or why not.
+string repo_device_start(string &out device_code,string &out user_code,string &out verify_url,int &out interval)
+{
+device_code="";user_code="";verify_url="";interval=5;
+if(repo_client_id=="")return "Signing in through the browser is not set up for this copy of the game: it needs an OAuth App client ID. Use a personal access token instead.";
+repo_reply@ r=repo_request("POST",repo_login_base+"/login/device/code","client_id="+repo_client_id+"&scope="+string_replace(IW_GITHUB_SCOPES," ","%20",true),"application/x-www-form-urlencoded",false);
+if(r.status!=200)return repo_explain(r);
+json_object@ o=null;try{@o=parse_json(r.body);}catch{return "GitHub sent a reply the game could not read.";}
+if(js(o,"error")!="")return "GitHub refused to start signing in: "+js(o,"error_description");
+device_code=js(o,"device_code");user_code=js(o,"user_code");verify_url=js(o,"verification_uri");interval=int(ji(o,"interval"));if(interval<1)interval=5;
+return device_code==""?"GitHub did not send a sign-in code.":"";
+}
+// Step two, asked every `interval` seconds: "" when signed in, "pending" to
+// keep waiting, "slow" to wait longer, or why it failed.
+string repo_device_poll(const string &in device_code)
+{
+repo_reply@ r=repo_request("POST",repo_login_base+"/login/oauth/access_token","client_id="+repo_client_id+"&device_code="+device_code+"&grant_type=urn:ietf:params:oauth:grant-type:device_code","application/x-www-form-urlencoded",false);
+if(r.status!=200)return repo_explain(r);
+json_object@ o=null;try{@o=parse_json(r.body);}catch{return "GitHub sent a reply the game could not read.";}
+string error=js(o,"error");
+if(error=="authorization_pending")return "pending";
+if(error=="slow_down")return "slow";
+if(error=="expired_token")return "The code expired before it was entered. Start signing in again.";
+if(error=="access_denied")return "Signing in was cancelled on GitHub.";
+if(error!="")return "GitHub could not sign you in: "+js(o,"error_description");
+string token=js(o,"access_token");if(token=="")return "GitHub did not send a sign-in.";
+return repo_use_token(token);
 }
 
 // JSON fields, with missing and null values as empty.
@@ -220,6 +385,7 @@ string repo_headline()
 json_object@ r=repo_info();if(r is null)return repo_error;
 string latest=repo_file("version.txt").trim_whitespace();
 string text=js(r,"full_name")+" on GitHub: "+repo_count(ji(r,"stargazers_count"),"star")+", "+repo_count(ji(r,"forks_count"),"fork")+", last changed "+repo_when(js(r,"pushed_at"))+".";
+text+=repo_token==""?" You are not signed in to GitHub.":" Signed in as "+repo_user+".";
 if(latest!="")text+=updater_compare_versions(version_name,latest)<0?" Version "+latest+" is out; you have "+version_name+".":" You have the latest version, "+version_name+".";
 return text;
 }
@@ -240,6 +406,7 @@ if(js(r,"homepage")!="")v.add("Website: "+js(r,"homepage"),js(r,"homepage"));
 json_array@ topics=ja(r,"topics");
 if(topics !is null and topics.length()>0){string t="";for(uint i=0;i<topics.length();i++){if(i>0)t+=", ";t+=string(topics[i]);}v.add("Topics: "+t);}
 v.add("Clone it with: git clone "+repo_home()+".git",repo_home());
+repo_add_repo_actions(v,r);
 return v;
 }
 
@@ -391,6 +558,12 @@ v.add("From "+js(jo(p,"head"),"ref")+" into "+js(jo(p,"base"),"ref")+": "+repo_c
 if(js(p,"state")=="open"){string m=js(p,"mergeable_state");if(m=="clean")v.add("It can be merged.");else if(m=="dirty")v.add("It has merge conflicts.");else if(m=="blocked")v.add("It is waiting on required reviews or checks.");}
 if(js(p,"body")!=""){v.add("Description:");v.add_text(js(p,"body"),"  ");}else v.add("No description.");
 repo_add_comments(v,number,ji(p,"comments"));
+v.add_action("Comment","comment:"+number);
+if(repo_can_push())
+{
+if(js(p,"state")=="open"){if(!jb(p,"draft"))v.add_action("Merge this pull request","merge:"+number);v.add_action("Close without merging","close:pull:"+number);}
+else if(js(p,"merged_at")=="")v.add_action("Reopen this pull request","reopen:pull:"+number);
+}
 return v;
 }
 repo_view@ repo_issues(int page)
@@ -406,6 +579,7 @@ v.add("#"+n+" "+js(it,"title")+", by "+repo_login(it)+", "+(js(it,"state")=="ope
 }
 if(v.entries.length()==0)v.add(page==1?"There are no issues. Report a problem with Report a bug in the game, or open one on GitHub.":"There are no more issues.",repo_home()+"/issues/new");
 if(list.length()==uint(repo_page_size))v.more="issues:"+(page+1);
+v.add_action(repo_token==""?"Open a new issue on GitHub in the browser":"Open a new issue","newissue");
 return v;
 }
 repo_view@ repo_issue(int64 number)
@@ -417,6 +591,8 @@ json_array@ labels=ja(it,"labels");
 if(labels !is null and labels.length()>0){string l="";for(uint i=0;i<labels.length();i++){if(i>0)l+=", ";l+=js(labels.get_object(i),"name");}v.add("Labels: "+l);}
 if(js(it,"body")!=""){v.add("Description:");v.add_text(js(it,"body"),"  ");}else v.add("No description.");
 repo_add_comments(v,number,ji(it,"comments"));
+v.add_action("Comment","comment:"+number);
+if(repo_can_push()){if(js(it,"state")=="open")v.add_action("Close this issue","close:issue:"+number);else v.add_action("Reopen this issue","reopen:issue:"+number);}
 return v;
 }
 
@@ -541,19 +717,146 @@ return v;
 // How many API requests are left this hour. Asking costs nothing.
 repo_view@ repo_allowance()
 {
-string url=repo_api+"/rate_limit";string body=url_get(url);repo_requests++;
+repo_reply@ r=repo_request("GET",repo_api+"/rate_limit");
 repo_view v;v.title="GitHub request allowance";v.url="https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api";
 json_object@ o=null;
-if(body!="")try{@o=parse_json(body);}catch{@o=null;}
+if(r.status==200)try{@o=parse_json(r.body);}catch{@o=null;}
 json_object@ rate=jo(jo(o,"resources"),"core");
-if(rate is null){v.add("GitHub could not be asked. Check your internet connection.");return v;}
+if(rate is null){v.add(repo_explain(r));return v;}
 int64 reset=ji(rate,"reset");
-v.add(ji(rate,"remaining")+" of "+ji(rate,"limit")+" requests are left this hour.");
+v.add(ji(rate,"remaining")+" of "+ji(rate,"limit")+" requests are left this hour"+(repo_token==""?", because you are not signed in. Signing in from Your GitHub account raises it to 5000.":", signed in as "+repo_user+"."));
 v.add("The allowance is full again "+(reset>repo_now()?"in "+repo_ago_until(reset)+", on "+repo_local_date(reset):"now")+".");
 v.add("This session has asked GitHub "+repo_count(repo_requests,"time")+". Replies are reused for five minutes; Refresh fetches them again.");
+if(repo_token=="")v.add_action("Sign in to GitHub","signin");
 return v;
 }
 string repo_ago_until(int64 utc){int64 s=utc-repo_now();if(s<60)return "under a minute";if(s<3600)return repo_count(s/60,"minute");return repo_count(s/3600,"hour");}
+
+// ---------------------------------------------------------------------------
+// Your account
+// ---------------------------------------------------------------------------
+// Whether the signed-in account may change this repository (close issues,
+// merge). GitHub only says so to someone signed in.
+bool repo_can_push()
+{
+if(repo_token=="")return false;
+json_object@ r=repo_info();
+return jb(jo(r,"permissions"),"push");
+}
+// Star, watch, fork and new issue, as fits who you are.
+void repo_add_repo_actions(repo_view@ v,json_object@ r)
+{
+if(repo_token=="")
+{
+v.add("Sign in from Your GitHub account to star, watch or fork the repository, open issues and comment.");
+v.add_action("Sign in to GitHub","signin");
+return;
+}
+repo_reply@ star=repo_request("GET",repo_api+"/user/starred/"+repo_slug);
+repo_reply@ watch=repo_request("GET",repo_api+"/repos/"+repo_slug+"/subscription");
+bool starred=star.status==204,watching=watch.status==200;
+v.add("You "+(starred?"have starred":"have not starred")+" the repository, and "+(watching?"are watching":"are not watching")+" it.");
+json_object@ perms=jo(r,"permissions");
+v.add(jb(perms,"admin")?"You administer this repository.":(jb(perms,"push")?"You can push to this repository, merge pull requests and close issues.":"You can read this repository, open issues and comment."));
+v.add_action(starred?"Unstar the repository":"Star the repository",starred?"unstar":"star");
+v.add_action(watching?"Stop watching the repository":"Watch the repository",watching?"unwatch":"watch");
+if(js(jo(r,"owner"),"login").lower()!=repo_user.lower())v.add_action("Fork the repository to your account","fork");
+v.add_action("Open a new issue","newissue");
+}
+repo_view@ repo_account()
+{
+repo_view v;v.title="Your GitHub account";
+if(repo_token=="")
+{
+v.add("You are not signed in. Without signing in, GitHub allows 60 requests an hour and the repository can only be read.");
+v.add("Signed in, you get 5000 requests an hour and can star, watch and fork the repository, open issues, comment, and, if you are allowed to change the repository, close issues and merge pull requests.");
+v.add("Your sign-in is kept in the game's settings folder on this computer and is only ever sent to GitHub.");
+v.add_action("Sign in to GitHub","signin");
+return v;
+}
+json_object@ u=repo_object("/user");
+if(u is null){v.add(repo_error);v.add_action("Sign in again","signin");v.add_action("Sign out","signout");return v;}
+v.url=js(u,"html_url");
+v.add("Signed in as "+js(u,"login")+(js(u,"name")!=""?", "+js(u,"name"):"")+".",v.url);
+v.add(repo_count(ji(u,"public_repos"),"public repository","public repositories")+", "+repo_count(ji(u,"followers"),"follower")+", following "+ji(u,"following")+".");
+if(repo_remaining!="")v.add(repo_remaining+" of "+repo_limit+" GitHub requests are left this hour.");
+v.add("Your repositories","","myrepos");
+v.add("Your notifications about this repository","","notifications");
+v.add("Your sign-in is kept in the game's settings folder on this computer and is only ever sent to GitHub. Signing out deletes it. To withdraw it on GitHub too, revoke it there.","https://github.com/settings/tokens");
+v.add_action("Sign out","signout");
+v.add_action("Sign in as someone else","signin");
+return v;
+}
+repo_view@ repo_my_repos()
+{
+json_array@ list=repo_array("/user/repos?sort=updated&per_page="+repo_page_size);if(list is null)return repo_failed("Your repositories");
+repo_view v;v.title="Your repositories";v.url="https://github.com/"+repo_user+"?tab=repositories";
+for(uint i=0;i<list.length();i++)
+{
+json_object@ r=list.get_object(i);
+v.add(js(r,"full_name")+(jb(r,"private")?", private":"")+(jb(r,"fork")?", a fork":"")+", "+repo_count(ji(r,"stargazers_count"),"star")+", updated "+repo_when(js(r,"pushed_at")),js(r,"html_url"));
+}
+if(list.length()==0)v.add("You have no repositories.");
+return v;
+}
+repo_view@ repo_notifications()
+{
+json_array@ list=repo_array("/repos/"+repo_slug+"/notifications?all=true&per_page="+repo_page_size);if(list is null)return repo_failed("Your notifications");
+repo_view v;v.title="Your notifications about this repository";v.url="https://github.com/notifications";
+int unread=0;
+for(uint i=0;i<list.length();i++)
+{
+json_object@ n=list.get_object(i);json_object@ s=jo(n,"subject");
+string api=js(s,"url");string open="";
+int slash=api.rfind("/");string number=slash>=0?api.substr(slash+1):"";
+if(js(s,"type")=="Issue")open="issue:"+number;else if(js(s,"type")=="PullRequest")open="pull:"+number;
+bool is_unread=jb(n,"unread");if(is_unread)unread++;
+v.add((is_unread?"Unread: ":"")+js(s,"title")+", "+string_replace(js(n,"reason"),"_"," ",true)+", "+repo_when(js(n,"updated_at")),"",open);
+}
+if(list.length()==0)v.add("You have no notifications about this repository. Watching it sends you one for every new issue, pull request and comment.");
+if(unread>0)v.add_action("Mark them all as read","readall");
+return v;
+}
+
+// Does one of a view's actions. Returns what to tell the player. Actions that
+// need words from the player (an issue, a comment) take them as `text` and
+// `title`; the screens ask for them.
+string repo_do(const string &in action,const string &in title="",const string &in text="")
+{
+string[] p=string_split(action,":",false);string kind=p[0];
+string base="/repos/"+repo_slug;
+if(kind=="star")return repo_change("PUT","/user/starred/"+repo_slug)>0?"Starred.":repo_error;
+if(kind=="unstar")return repo_change("DELETE","/user/starred/"+repo_slug)>0?"Star removed.":repo_error;
+if(kind=="watch")return repo_change("PUT",base+"/subscription","{\"subscribed\":true}")>0?"You are watching the repository. GitHub will notify you about its issues, pull requests and comments.":repo_error;
+if(kind=="unwatch")return repo_change("DELETE",base+"/subscription")>0?"You are no longer watching the repository.":repo_error;
+if(kind=="fork"){if(repo_change("POST",base+"/forks","{}")==0)return repo_error;json_object@ f=null;try{@f=parse_json(repo_change_body);}catch{}return "Forked to "+js(f,"full_name")+". GitHub may take a minute to finish copying it.";}
+if(kind=="readall")return repo_change("PUT",base+"/notifications","{}")>0?"Marked as read.":repo_error;
+if(kind=="newissue")
+{
+if(title.trim_whitespace()=="")return "An issue needs a title.";
+if(repo_change("POST",base+"/issues","{\"title\":"+repo_quote(title)+",\"body\":"+repo_quote(text)+"}")==0)return repo_error;
+json_object@ it=null;try{@it=parse_json(repo_change_body);}catch{}
+return "Opened issue #"+ji(it,"number")+".";
+}
+if(kind=="comment" and p.length()>1)
+{
+if(text.trim_whitespace()=="")return "The comment was empty, so nothing was posted.";
+return repo_change("POST",base+"/issues/"+p[1]+"/comments","{\"body\":"+repo_quote(text)+"}")>0?"Comment posted.":repo_error;
+}
+if((kind=="close" or kind=="reopen") and p.length()>2)
+{
+string path=base+(p[1]=="pull"?"/pulls/":"/issues/")+p[2];
+return repo_change("PATCH",path,"{\"state\":\""+(kind=="close"?"closed":"open")+"\"}")>0?(kind=="close"?"Closed.":"Reopened."):repo_error;
+}
+if(kind=="merge" and p.length()>1)
+{
+if(repo_change("PUT",base+"/pulls/"+p[1]+"/merge","{\"merge_method\":\"merge\"}")==0)return repo_error;
+json_object@ m=null;try{@m=parse_json(repo_change_body);}catch{}
+return "Merged as commit "+repo_short(js(m,"sha"))+".";
+}
+if(kind=="signout"){repo_sign_out();return "Signed out. Your sign-in has been deleted from this computer.";}
+return "That cannot be done here.";
+}
 
 // Opens whatever an entry's `open` names.
 repo_view@ repo_open(const string &in what)
@@ -579,6 +882,9 @@ if(kind=="activity")return repo_activity();
 if(kind=="whatsnew")return repo_whats_new();
 if(kind=="changelog")return repo_changelog_release(int(string_to_number(arg)));
 if(kind=="allowance")return repo_allowance();
+if(kind=="account")return repo_account();
+if(kind=="myrepos")return repo_my_repos();
+if(kind=="notifications")return repo_notifications();
 repo_view v;v.title="Repository status";v.add("Nothing to show.");return v;
 }
 

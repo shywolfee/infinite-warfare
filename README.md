@@ -90,7 +90,11 @@ Repository status, on the main menu, reads this repository through GitHub's
 public API: overview, how the running copy compares with `main` commit by
 commit, What's new on GitHub, commits and their files, branches, pull
 requests, issues, releases, contributors, checks, languages, activity and the
-remaining request allowance.
+remaining request allowance. Signing in to GitHub there (a personal access
+token, or the browser once an OAuth App client ID is set in
+`includes/repo_status.nvgt`) raises the limit to 5000 requests an hour and
+lets you star, watch and fork the repository, open issues, comment, read your
+notifications, and, with push access, close issues and merge pull requests.
 
 After deleting or moving a shipped file, run
 `python tools/update_retired_files.py` before committing.

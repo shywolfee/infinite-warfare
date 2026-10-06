@@ -1,0 +1,245 @@
+// The client's copy of the map's dynamic objects (see dynamic_objects_core).
+//
+// The client builds the same objects as the server from the same map file,
+// gives each one collision through a fixed dynamic map element, and applies
+// the state changes the server sends: damage, a door opening, stock, a car
+// burning and becoming a wreck. It never changes an object itself; using one
+// is a request ("dobj_use <id>") the server checks and answers.
+#include "dynamic_objects_core.nvgt"
+
+dobject_set client_dobjects;
+const double DOBJECT_REACH=2.2;
+
+string world_decode(string value){return string_replace(value,"%20"," ",true);}
+
+void load_client_dobjects(const string &in raw)
+{
+if(dobject_types.get_size()==0)load_dobject_types(dobject_data_directory());
+// The map's own name line, since load_map has not read it yet.
+string id=mapname;int at=raw.find("mapname:");
+if(at>=0){int end=raw.find("\n",at);string line=end<0?raw.substr(at+8):raw.substr(at+8,end-at-8);id=line.trim_whitespace();}
+client_dobjects.map=id;
+client_dobjects.list=parse_map_dobjects(raw,id);
+client_dobjects.index();
+for(uint i=0;i<client_dobjects.list.length();i++)dobject_reshape(client_dobjects.list[i]);
+}
+
+// Gives the object's dynamic element the tiles it has now: none when it is
+// destroyed, no door leaf while the door is open, a wreck's shape once it has
+// become one.
+void dobject_reshape(dobject@ o)
+{
+if(o.element<0)
+{
+o.element=dynamic_map_create("object",o.describe(),o.id,o.centre_x(),o.centre_y(),o.bz1,0);
+dynamic_map_elements[o.element].fixed=true;
+}
+dynamic_map_element@ e=dynamic_map_elements[o.element];
+e.clear_tiles();e.name=o.describe();e.active=o.active;
+if(!o.active)return;
+e.x=o.centre_x();e.y=o.centre_y();e.z=o.bz1;
+for(uint i=0;i<o.parts.length();i++)
+{
+dobject_part@ part=o.parts[i];
+if(part.solid and o.open)continue;
+e.add_tile(part.x1-e.x,part.x2-e.x,part.y1-e.y,part.y2-e.y,part.z1-e.z,part.z2-e.z,part.material,o.describe(),part.solid);
+}
+}
+
+void apply_dobject_state(const string &in entry)
+{
+// id,health,flags,stock,type
+string[] f=string_split(entry,",",false);if(f.length()<5)return;
+dobject@ o=client_dobjects.find(int(string_to_number(f[0])));if(o is null)return;
+bool was_active=o.active,was_open=o.open;string was_type=o.type_id;
+o.apply_state(int(string_to_number(f[1])),int(string_to_number(f[2])),int(string_to_number(f[3])),f[4]);
+if(was_type!=o.type_id or was_active!=o.active or was_open!=o.open)dobject_reshape(o);
+}
+
+void play_world_sound(const string &in path,double x,double y,double z)
+{
+p.play_3d(path,me.x,me.y,me.z,x,y,z,calculate_theta(facing),false);
+}
+
+int overdrive_sound=-1;
+bool handle_dynamic_object_packet(const string &in message)
+{
+string[] parsed=string_split(message," ",true);if(parsed.length()==0)return false;
+string kind=parsed[0];
+if(kind=="world_sound")
+{
+if(parsed.length()>5 and world_decode(parsed[5])==mapname)play_world_sound(world_decode(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]));
+return true;
+}
+if(kind=="dobj")
+{
+if(parsed.length()>2 and world_decode(parsed[1])==mapname)apply_dobject_state(parsed[2]);
+return true;
+}
+if(kind=="dobj_batch")
+{
+if(parsed.length()>2 and world_decode(parsed[1])==mapname){string[] entries=string_split(parsed[2],";",false);for(uint i=0;i<entries.length();i++)apply_dobject_state(entries[i]);}
+return true;
+}
+if(kind=="dobj_open")
+{
+if(parsed.length()<3)return true;int id=int(string_to_number(parsed[2]));
+if(parsed[1]=="atm")dobject_atm_screen(id);
+else if(parsed[1]=="vend")dobject_vend_screen(id);
+else if(parsed[1]=="store")online_supply_shop();
+return true;
+}
+if(kind=="overdrive_state")
+{
+bool on=parsed.length()>1 and parsed[1]=="on";
+p.play_stationary(on?"executioners_rage/character/affects/quad_damage/powerup.wav":"executioners_rage/character/affects/quad_damage/powerdown.wav",false);
+return true;
+}
+return false;
+}
+
+// The object you are using: the one you face within reach, or failing that
+// the nearest one within reach.
+dobject@ dobject_in_reach()
+{
+dobject@ best=null;double best_score=1e9;
+for(uint i=0;i<client_dobjects.list.length();i++)
+{
+dobject@ o=client_dobjects.list[i];if(!o.active or o.type.interaction=="" or absolute(o.z-me.z)>2.5)continue;
+double d=o.distance_to(me.x,me.y);if(d>DOBJECT_REACH)continue;
+double angle=calculate_x_y_angle(me.x,me.y,o.centre_x(),o.centre_y(),facing);if(angle>180)angle=360-angle;
+double score=d+(angle>60?2:0);
+if(score<best_score){best_score=score;@best=o;}
+}
+return best;
+}
+bool use_dobject_in_reach()
+{
+dobject@ o=dobject_in_reach();if(o is null)return false;
+send_reliable(0,"dobj_use "+o.id,0);return true;
+}
+
+string dobject_status(dobject@ o)
+{
+string status="";
+if(o.burning)status+=", on fire";
+else if(o.max_health>0 and o.health<o.max_health)status+=", "+int(round(100.0*o.health/o.max_health,0))+" percent intact";
+if(o.type.interaction=="door")status+=o.open?", open":", closed";
+if(o.max_stock>0)status+=", "+o.stock+" of "+o.max_stock+" left";
+return status;
+}
+// Objects within the radius, nearest first, for the nearby-things key.
+string nearby_dobjects(double x,double y,double z,double radius=30)
+{
+dobject@[] found;double[] distances;
+for(uint i=0;i<client_dobjects.list.length();i++)
+{
+dobject@ o=client_dobjects.list[i];if(!o.active or o.type_id=="furniture" or absolute(o.z-z)>4)continue;
+double d=o.distance_to(x,y);if(d>radius)continue;
+uint at=0;while(at<distances.length() and distances[at]<=d)at++;
+found.insert_at(at,o);distances.insert_at(at,d);
+}
+string result="";
+for(uint i=0;i<found.length() and i<12;i++)
+{
+dobject@ o=found[i];
+string direction=clock_direction(calculate_x_y_angle(x,y,o.centre_x(),o.centre_y(),facing));
+if(result!="")result+=" ";
+result+=o.describe()+", "+(distances[i]<1?"beside you":int(round(distances[i],0))+" tiles at "+direction)+dobject_status(o)+".";
+}
+return result;
+}
+
+// Bumping into an object plays its own contact sound. Returns false when
+// there is nothing there, so the wall's sound plays instead.
+bool dobject_collision_sound(double x,double y,double z)
+{
+dobject@ o=client_dobjects.at(x,y,z);if(o is null)return false;
+if(o.type_id=="furniture"){if(o.hit_sound=="")return false;string path=o.hit_sound;if(!path.ends_with(".wav") and !path.ends_with(".ogg"))path+=".ogg";p.play_stationary(path,false);return true;}
+if(o.type.sound=="")return false;
+p.play_stationary("executioners_rage/"+o.type.sound+"/"+o.type.contact_sound+".wav",false);return true;
+}
+
+// The nearest working cash machine within reach, or null.
+dobject@ nearby_cash_machine()
+{
+dobject@ best=null;double nearest=DOBJECT_REACH+.01;
+for(uint i=0;i<client_dobjects.list.length();i++)
+{
+dobject@ o=client_dobjects.list[i];if(!o.active or o.type.interaction!="atm")continue;
+double d=o.distance_to(me.x,me.y);if(d<nearest and absolute(o.z-me.z)<=2.5){nearest=d;@best=o;}
+}
+return best;
+}
+
+int ask_balance()
+{
+send_reliable(0,"market_balance",0);string response;
+if(!wait_for_service_response("market_balance ",response,3000))return -1;
+return int(string_to_number(string_replace(response,"market_balance ","",false)));
+}
+
+void dobject_vend_screen(int id)
+{
+dobject@ o=client_dobjects.find(id);if(o is null)return;
+if(!connected){speak("The machine needs a server connection.");return;}
+int credits=ask_balance();if(credits<0){speak("The machine could not reach your account.");return;}
+string root="executioners_rage/"+o.type.sound+"/";
+nv_form f;f.create_window(o.describe(),false,true);
+nv_form_input@ balance=f.add_input("Your balance","balance",credits+" credits, "+o.stock+" items in the machine","",0,true,true);
+nv_form_list_box@ list=f.add_list("Products","products");
+for(uint i=0;i<o.type.offers.length();i++)
+{
+dobject_offer@ offer=o.type.offers[i];item_data@ info=item_info(offer.item);
+string name=info is null?string_replace(offer.item,"_"," ",true):info.name,detail=info is null?"":info.summary;
+list.add(name+", "+offer.price+" credits. "+detail,offer.item);
+}
+if(list.items.length()>0)list.set_pos(0,false);
+nv_form_button@ buy=f.add_button("Buy","buy",true);nv_form_button@ close=f.add_button("Close","close",false,true);
+f.focus_control(list);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();else return;
+if(f.is_pressed(close))return;
+if(!f.is_pressed(buy))continue;
+int selected=list.list_position;if(selected<0 or selected>=int(o.type.offers.length())){speak("Choose a product first.");continue;}
+p.play_stationary(root+"beep.wav",false);
+send_reliable(0,"dobj_buy "+id+" "+selected,0);string response;
+if(!wait_for_service_response("dobj_buy_",response,3000)){speak("The machine did not answer. You have not been charged.");continue;}
+if(string_contains(response,"dobj_buy_ok ",1)==0)
+{
+string[] fields=string_split(response," ",true);if(fields.length()>1)credits=int(string_to_number(fields[1]));int left=fields.length()>3?int(string_to_number(fields[3])):o.stock;
+balance.default_text=credits+" credits, "+left+" items in the machine";
+speak("Bought. You have "+credits+" credits left.");
+}
+else speak(string_replace(response,"dobj_buy_error ","",false));
+}
+}
+
+uint cash_request=0;
+void dobject_atm_screen(int id)
+{
+dobject@ o=client_dobjects.find(id);if(o is null)return;
+if(!connected){speak("The cash machine needs a server connection.");return;}
+int credits=ask_balance();if(credits<0){speak("The cash machine could not reach your account.");return;}
+string root="executioners_rage/"+o.type.sound+"/";
+nv_form f;f.create_window(o.describe(),false,true);
+nv_form_input@ balance=f.add_input("Your balance","balance",credits+" credits","",0,true,true);
+nv_form_button@ small=f.add_button("Pay in a small credit chip, worth 15 credits","small");
+nv_form_button@ large=f.add_button("Pay in a large credit chip, worth 60 credits","large");
+nv_form_button@ close=f.add_button("Take your card and close","close",false,true);
+f.focus_control(balance);p.play_stationary(root+"insert_card.wav",false);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();else return;
+if(f.is_pressed(close)){p.play_stationary(root+"remove_card.wav",false);p.play_stationary(root+"door_close.wav",false);return;}
+string size="";if(f.is_pressed(small))size="small";else if(f.is_pressed(large))size="large";if(size=="")continue;
+if(get_item_count("credit_chip_"+size)<=0){speak("You have no "+size+" credit chip.");continue;}
+string request=""+(++cash_request),prefix="dobj_redeem_reply "+request+" ";
+send_reliable(0,"dobj_redeem "+id+" "+size+" "+request,0);string reply;
+if(!wait_for_service_response(prefix,reply,5000)){speak("The machine is slow to answer. Check your balance and chips before trying again.");continue;}
+reply=string_replace(reply,prefix,"",false);
+if(string_contains(reply,"ok ",1)==0){credits=int(string_to_number(string_replace(reply,"ok ","",false)));balance.default_text=credits+" credits";speak("Paid in. Your balance is "+credits+" credits.");}
+else speak(string_replace(reply,"error ","",false));
+}
+}

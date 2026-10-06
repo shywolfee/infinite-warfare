@@ -52,12 +52,12 @@ if(user.credits<0 or next<0 or next>2000000000 or !save_player_credits(user.name
 user.credits=int(next);return true;
 }
 
-bool is_credit_chip(string item){return item=="er_small_credit_chip" or item=="er_large_credit_chip";}
-int credit_chip_count(player@ user,string item){return item=="er_small_credit_chip"?user.er_small_chips:(item=="er_large_credit_chip"?user.er_large_chips:0);}
+bool is_credit_chip(string item){return item=="credit_chip_small" or item=="credit_chip_large";}
+int credit_chip_count(player@ user,string item){return item=="credit_chip_small"?user.er_small_chips:(item=="credit_chip_large"?user.er_large_chips:0);}
 bool commit_credit_chip_deposit(player@ user,string item)
 {
 if(!is_credit_chip(item) or credit_chip_count(user,item)<=0)return false;
-if(!change_player_credits(user,item=="er_small_credit_chip"?15:60))return false;
+if(!change_player_credits(user,item=="credit_chip_small"?15:60))return false;
 send_reliable(user.peer_id,"give "+item+" -1",0);return true;
 }
 // Observe only authoritative, targeted inventory grants/removals, not client claims.
@@ -68,5 +68,5 @@ string[] fields=string_split(message," ",true);if(fields.length()!=3 or !is_cred
 int index=get_player_index(peer);if(index<0)return;
 int64 count=int64(credit_chip_count(players[index],fields[1]))+int64(string_to_number(fields[2]));
 if(count<0)count=0;if(count>1000000)count=1000000;
-if(fields[1]=="er_small_credit_chip")players[index].er_small_chips=int(count);else players[index].er_large_chips=int(count);
+if(fields[1]=="credit_chip_small")players[index].er_small_chips=int(count);else players[index].er_large_chips=int(count);
 }

@@ -3,10 +3,12 @@
 // map with every editor builder and needs to know the server would accept
 // all of it. Usage: nvgt map_line_check.nvgt <map file> <map id> <report file>
 #include "bgt_compat.nvgt"
+#include "../../includes/dynamic_objects_core.nvgt"
 #include "../../iwserver/includes/map_validation.nvgt"
 string[] delinear(string a){a=string_replace(a,"\r","",true);return string_split(a,"\n",false);}
 void main()
 {
+load_dobject_types(SCRIPT_MAIN_PATH+"/../../iwserver/content/objects");
 string path=ARGS.length()>1?ARGS[1]:"",id=ARGS.length()>2?ARGS[2]:"",report_path=ARGS.length()>3?ARGS[3]:"map_line_check.txt";
 file f;string data;if(f.open(path,"rb")){data=f.read();f.close();}
 string report;int bad=0;

@@ -3,18 +3,11 @@
 // victim soaks three quarters of what is left, so cover works against
 // explosives as it does against bullets. Launcher and mortar blasts used to
 // deal their full damage everywhere inside the radius, through any wall.
-double blast_falloff(double distance,double radius){if(radius<=0 or distance>radius)return 0;return 1.0-distance/radius*.75;}
-bool blast_occluded(double x,double y,double z,double tx,double ty,double tz,string map)
-{
-double dx=tx-x,dy=ty-y,dz=tz-z,distance=sqrt(dx*dx+dy*dy+dz*dz);if(distance<1.5)return false;
-// Skip the first tile: a shell that burst against a wall sits inside it.
-for(double along=1.0;along<distance-.5;along+=.5){double t=along/distance;if(string_contains(get_tile_at(int(round(x+dx*t,0)),int(round(y+dy*t,0)),int(floor(z+dz*t)),map),"wall",1)>=0)return true;}
-return false;
-}
+// Blasts are worked out by detonate() in explosions.nvgt.
 int blast_damage_to_player(double x,double y,double z,string map,double radius,int damage,player@ target)
 {
-double scale=blast_falloff(get_3d_distance(x,y,z,target.x,target.y,target.z),radius);if(scale<=0)return 0;
-if(blast_occluded(x,y,z+.5,target.x,target.y,target.z+1.0,map))scale*=.25;
+double scale=blast_overpressure(get_3d_distance(x,y,z,target.x,target.y,target.z+1),radius);if(scale<=0)return 0;
+if(blast_line_blocked(x,y,z+.5,target.x,target.y,target.z+1.0,map))scale*=.25;
 int result=int(double(damage)*scale);return result<1?1:result;
 }
 planebomb@[] planebombs(0);
@@ -37,38 +30,15 @@ owner=bowner;
 }
 void planebombloop()
 {
-for (uint i=0; i<planebombs.length(); i++)
+for(int i=int(planebombs.length())-1;i>=0;i--)
 {
-if (planebombs[i].bombtimer.elapsed>=80 and get_tile_at(planebombs[i].x, planebombs[i].y, planebombs[i].z, planebombs[i].map)=="")
-{
-planebombs[i].bombtimer.restart();
-planebombs[i].z-=1;
-}
-if(get_tile_at(planebombs[i].x, planebombs[i].y, planebombs[i].z, planebombs[i].map)!="")
-{
-play("planebombexplode",planebombs[i].x,planebombs[i].y,planebombs[i].z,planebombs[i].map);
-damage_world_objects_blast(planebombs[i].x,planebombs[i].y,planebombs[i].z,planebombs[i].map,20,650);
-send_reliable(0,"distsound planebombdist.ogg "+planebombs[i].x+" "+planebombs[i].y+" "+planebombs[i].z+" "+planebombs[i].map,0);
-for (uint i2=0; i2<players.length(); i2++)
-{
-if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=20 and players[i2].map==planebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
-{
-players[i2].hitby=planebombs[i].owner+"'s planebomb";
-apply_player_damage(players[i2],650);
-play("planebombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-}
-}
-for (uint i2=0; i2<planes.length(); i2++)
-{
-if (get_3d_distance(planebombs[i].x,planebombs[i].y,planebombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==planebombs[i].map)
-{
-planes[i2].health-=650;
-play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
-}
-}
+planebomb@ pb=planebombs[i];
+if(pb.bombtimer.elapsed>=80 and get_tile_at(pb.x,pb.y,pb.z,pb.map)==""){pb.bombtimer.restart();pb.z-=1;}
+if(get_tile_at(pb.x,pb.y,pb.z,pb.map)=="" and pb.z>0)continue;
+// An aircraft bomb: a heavy blast and a steel case that shatters.
+blast_profile@ b=blast_profile_simple(pb.owner,pb.owner+"'s aircraft bomb",950,20,2600,"planebombexplode","planebombdist.ogg","planebombhit");
 planebombs.remove_at(i);
-return;
-}
+detonate(pb.x,pb.y,pb.z+.3,pb.map,b);
 }
 }
 mortarbomb@[] mortarbombs(0);
@@ -105,37 +75,12 @@ if(authored_impact!="")impact_sound=authored_impact;
 }
 void mortarloop()
 {
-for (uint i=0; i<mortarbombs.length(); i++)
+for(int i=int(mortarbombs.length())-1;i>=0;i--)
 {
-if (mortarbombs[i].bombtimer.elapsed>=1)
-{
-mortarbombs[i].bombtimer.restart();
-damage_world_objects_blast(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map,mortarbombs[i].blast_radius,mortarbombs[i].blast_damage);
-string explosion_sound=mortarbombs[i].explosion_sound,explosion_distant=mortarbombs[i].explosion_distant;play(explosion_sound,mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);send_reliable(0,"distsound "+explosion_distant+" "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
-for (uint i2=0; i2<players.length(); i2++)
-{
-player@ target=players[i2];
-if(target.map!=mortarbombs[i].map or target.death or target.in_plane or !player_can_be_damaged_by(target,mortarbombs[i].owner))continue;
-int dealt=blast_damage_to_player(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map,mortarbombs[i].blast_radius,mortarbombs[i].blast_damage,target);if(dealt<=0)continue;
-// Passing the owner as the source enforces arena boundaries and starts the
-// combat-logout timers; blasts used to bypass both.
-dealt=apply_player_damage(target,dealt,mortarbombs[i].owner+"'s "+mortarbombs[i].source_label);if(dealt<=0)continue;
-play(mortarbombs[i].impact_sound,target.x,target.y,target.z,target.map);
-}
-for (uint i2=0; i2<planes.length(); i2++)
-{
-double plane_scale=blast_falloff(get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z),mortarbombs[i].blast_radius);
-if (plane_scale>0 and planes[i2].map==mortarbombs[i].map)
-{
-planes[i2].health-=int(double(mortarbombs[i].blast_damage)*plane_scale);
-play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
-}
-}
-for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=mortarbombs[i].map or vehicle.health<=0)continue;double vd=get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vd>mortarbombs[i].blast_radius)continue;int vehicle_damage=int(double(mortarbombs[i].blast_damage)*(1.0-vd/double(mortarbombs[i].blast_radius)*.55));damage_authoritative_vehicle(vehicle,vehicle_damage,-1,"caught in a "+mortarbombs[i].source_label+" blast");}
-
-}
+mortarbomb@ m=mortarbombs[i];if(m.bombtimer.elapsed<1)continue;
+blast_profile@ b=blast_profile_simple(m.owner,m.owner+"'s "+m.source_label,m.blast_damage,m.blast_radius,1800,m.explosion_sound,m.explosion_distant,m.impact_sound);
 mortarbombs.remove_at(i);
-return;
+detonate(m.x,m.y,m.z+.3,m.map,b);
 }
 }
 bunkerbomb@[] bunkerbombs(0);
@@ -158,46 +103,21 @@ owner=bowner;
 }
 void bunkerbombloop()
 {
-for (uint i=0; i<bunkerbombs.length(); i++)
+for(int i=int(bunkerbombs.length())-1;i>=0;i--)
 {
-if (bunkerbombs[i].bombtimer.elapsed>=14000)
-{
-play("bunkerbombexplode",bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkerbombs[i].map);
-damage_world_objects_blast(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkerbombs[i].map,150,2000);
-send_reliable(0,"distsound bunkerbombdist.ogg "+bunkerbombs[i].x+" "+bunkerbombs[i].y+" "+bunkerbombs[i].z+" "+bunkerbombs[i].map,0);
-for(uint bunker_index=0;bunker_index<bunkers.length();bunker_index++)if(bunkers[bunker_index].map==bunkerbombs[i].map and get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,bunkers[bunker_index].x,bunkers[bunker_index].y,bunkers[bunker_index].z)<=8)
+bunkerbomb@ bb=bunkerbombs[i];if(bb.bombtimer.elapsed<14000)continue;
+for(uint bunker_index=0;bunker_index<bunkers.length();bunker_index++)if(bunkers[bunker_index].map==bb.map and get_3d_distance(bb.x,bb.y,bb.z,bunkers[bunker_index].x,bunkers[bunker_index].y,bunkers[bunker_index].z)<=3)
 {
 string former_owner=bunkers[bunker_index].owner;bunkers[bunker_index].integrity=0;bunkers[bunker_index].owner="";bunkers[bunker_index].power=0;bunkers[bunker_index].medical_charges=0;bunkers[bunker_index].capturing_player="";bunkers[bunker_index].capture_progress=0;
-send_reliable(0,bunkers[bunker_index].name+" has been disabled by "+bunkerbombs[i].owner+". Its control system is neutral and may be captured again.",2);int former_index=get_player_index_from(former_owner);if(former_index>=0)refresh_bunker_owner_count(former_index);
+send_reliable(0,bunkers[bunker_index].name+" has been disabled by "+bb.owner+". Its control system is neutral and may be captured again.",2);int former_index=get_player_index_from(former_owner);if(former_index>=0)refresh_bunker_owner_count(former_index);
 }
-for (uint i2=0; i2<players.length(); i2++)
-{
-if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=150 and players[i2].map==bunkerbombs[i].map and players[i2].death==false and players[i2].in_plane==false)
-
-{
-int index=get_player_index_from(bunkerbombs[i].owner);
-if(index>-1)
-{
-send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
-}
-
-players[i2].hitby=bunkerbombs[i].owner+"'s bunkerbomb";
-apply_player_damage(players[i2],2000);
-play("bunkerbombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-}
-for (uint i2=0; i2<planes.length(); i2++)
-{
-if (get_3d_distance(bunkerbombs[i].x,bunkerbombs[i].y,bunkerbombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==bunkerbombs[i].map)
-{
-planes[i2].health-=2000;
-play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
-}
-}
-}
-
+// A bunker buster is a very large charge, but it is still a charge: it no
+// longer kills everyone within 150 tiles through every wall.
+blast_profile@ b=blast_profile_for("bunker_bomb",bb.owner,bb.owner+"'s bunker bomb");
+if(item_prop("bunker_bomb","blast_damage")==""){b.damage=2000;b.radius=30;b.fragments=3000;b.fragment_damage=90;b.fragment_range=40;}
+b.explode_sound="bunkerbombexplode";b.distant_sound="bunkerbombdist.ogg";b.hit_sound="bunkerbombhit";b.structure_mult=4;
 bunkerbombs.remove_at(i);
-return;
-}
+detonate(bb.x,bb.y,bb.z+.3,bb.map,b);
 }
 }
 void spawn_bunkerbomb(int x,int y, int z, string map,string owner)
@@ -320,41 +240,20 @@ map=smap;
 owner=sowner;
 }
 }
-void explode()
+// Sets off every Semtex charge its owner has placed. The controller used to
+// detonate whichever charge anyone had placed first.
+int detonate_semtex(string owner)
 {
-for (uint i=0; i<samtexs.length(); i++)
+int count=0;
+for(int i=int(samtexs.length())-1;i>=0;i--)
 {
-play("semtexexplode",samtexs[i].x,samtexs[i].y,samtexs[i].z,samtexs[i].map);
-damage_world_objects_blast(samtexs[i].x,samtexs[i].y,samtexs[i].z,samtexs[i].map,30,650);
-send_reliable(0,"distsound semtexdist.ogg "+samtexs[i].x+" "+samtexs[i].y+" "+samtexs[i].z+" "+samtexs[i].map,0);
-for (uint i2=0; i2<players.length(); i2++)
-{
-if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,players[i2].x,players[i2].y,players[i2].z)<=30 and players[i2].map==samtexs[i].map and players[i2].death==false and players[i2].in_plane==false)
-
-{
-int index=get_player_index_from(samtexs[i].owner);
-if(index>-1)
-{
-send_reliable(players[index].peer_id, "play_s weaponping.ogg", 0);
+if(samtexs[i].owner!=owner)continue;samtex@ s=samtexs[i];samtexs.remove_at(i);count++;
+blast_profile@ b=blast_profile_for("semtex",owner,owner+"'s Semtex");
+if(item_prop("semtex","blast_damage")==""){b.damage=850;b.radius=11;b.fragments=0;}
+b.explode_sound="semtexexplode";b.distant_sound="semtexdist.ogg";b.hit_sound="semtexhit";b.structure_mult=3;
+detonate(s.x,s.y,s.z+.2,s.map,b);
 }
-
-players[i2].hitby=samtexs[i].owner+"'s semtex";
-apply_player_damage(players[i2],650);
-play("semtexhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-}
-for (uint i2=0; i2<planes.length(); i2++)
-{
-if (get_3d_distance(samtexs[i].x,samtexs[i].y,samtexs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==samtexs[i].map)
-{
-planes[i2].health-=650;
-play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
-}
-}
-
-}
-samtexs.remove_at(i);
-return;
-}
+return count;
 }
 void spawn_samtex(int x,int y, int z, string map,string owner)
 {
@@ -383,27 +282,13 @@ play("smokebombplace",x,y,z,map);
 }
 void smokebombloop()
 {
-for (uint i=0; i<smokebombs.length(); i++)
+for(int i=int(smokebombs.length())-1;i>=0;i--)
 {
-if (smokebombs[i].bombtimer.elapsed>=1500)
-{
-play("smokebombexplode",smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,smokebombs[i].map);
-send_reliable(0,"distsound smokebombdist.ogg "+smokebombs[i].x+" "+smokebombs[i].y+" "+smokebombs[i].z+" "+smokebombs[i].map,0);
-for (uint i2=0; i2<players.length(); i2++)
-{
-if (get_3d_distance(smokebombs[i].x,smokebombs[i].y,smokebombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==smokebombs[i].map and players[i2].death==false and players[i2].in_plane==false)
-
-{
-players[i2].see=false;
-players[i2].invisible=true;
-players[i2].invisibilitytimer.restart();
-play("smokebombhit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-
-}
-}
+smokebomb@ s=smokebombs[i];if(s.bombtimer.elapsed<1500)continue;
+play("smokebombexplode",s.x,s.y,s.z,s.map);send_distant_sound(s.map,"smokebombdist.ogg",s.x,s.y,s.z,35);
+// The smoke is a cloud that spreads, drifts with the wind and thins out.
+spawn_cloud("smoke",s.x,s.y,s.z+.5,s.map,s.owner,s.owner+"'s smoke",item_prop_number("smoke_bomb","cloud_radius",7),item_prop_int("smoke_bomb","cloud_ms",45000));
 smokebombs.remove_at(i);
-return;
-}
 }
 }
 void spawn_smokebomb(int x,int y,int z,string map,string owner)
@@ -433,35 +318,13 @@ play("bombvesttimer",x,y,z,map);
 }
 void bombloop()
 {
-for (uint i=0; i<bombs.length(); i++)
+for(int i=int(bombs.length())-1;i>=0;i--)
 {
-if (bombs[i].bombtimer.elapsed>=100)
-{
-play("bombvestexplode",bombs[i].x,bombs[i].y,bombs[i].z,bombs[i].map);
-damage_world_objects_blast(bombs[i].x,bombs[i].y,bombs[i].z,bombs[i].map,25,1500);
-send_reliable(0,"distsound bombvestdist.ogg "+bombs[i].x+" "+bombs[i].y+" "+bombs[i].z+" "+bombs[i].map,0);
-for (uint i2=0; i2<players.length(); i2++)
-{
-if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,players[i2].x,players[i2].y,players[i2].z)<=25 and players[i2].map==bombs[i].map and players[i2].death==false and players[i2].in_plane==false)
-
-{
-apply_player_damage(players[i2],1500);
-players[i2].hitby=bombs[i].owner+"'s bombvest";
-play("bombvesthit",players[i2].x,players[i2].y,players[i2].z,players[i2].map);
-}
-for (uint i2=0; i2<planes.length(); i2++)
-{
-if (get_3d_distance(bombs[i].x,bombs[i].y,bombs[i].z,planes[i2].x,planes[i2].y,planes[i2].z)<=20 and planes[i2].map==bombs[i].map)
-{
-planes[i2].health-=1500;
-play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
-}
-}
-
-}
+bomb@ v=bombs[i];if(v.bombtimer.elapsed<100)continue;
+// A suicide vest: several kilograms of explosive packed with steel balls.
+blast_profile@ b=blast_profile_simple(v.owner,v.owner+"'s bomb vest",1500,14,3200,"bombvestexplode","bombvestdist.ogg","bombvesthit");
 bombs.remove_at(i);
-return;
-}
+detonate(v.x,v.y,v.z+1,v.map,b);
 }
 }
 void spawn_bomb(int x,int y, int z, string map,string owner)
@@ -513,26 +376,15 @@ return count;
 void detonate_c4(string owner, int count)
 {
 int detonated=0;
-for(int i=int(c4charges.length())-1; i>=0; i--)
+for(int i=int(c4charges.length())-1;i>=0 and detonated<count;i--)
 {
-if(detonated>=count) break;
-if(c4charges[i].owner!=owner) continue;
-play("semtexexplode",c4charges[i].x,c4charges[i].y,c4charges[i].z,c4charges[i].map);
-damage_world_objects_blast(c4charges[i].x,c4charges[i].y,c4charges[i].z,c4charges[i].map,25,700);
-send_reliable(0,"distsound semtexdist.ogg "+c4charges[i].x+" "+c4charges[i].y+" "+c4charges[i].z+" "+c4charges[i].map,0);
-for(uint p=0; p<players.length(); p++)
-{
-if(get_3d_distance(c4charges[i].x,c4charges[i].y,c4charges[i].z,players[p].x,players[p].y,players[p].z)<=25 and players[p].map==c4charges[i].map and players[p].death==false and players[p].in_plane==false)
-{
-players[p].hitby=c4charges[i].owner+"'s C4";
-apply_player_damage(players[p],700);
-play("semtexhit",players[p].x,players[p].y,players[p].z,players[p].map);
-int ki=get_player_index_from(c4charges[i].owner);
-if(ki>-1) send_reliable(players[ki].peer_id, "play_s weaponping.ogg", 0);
-}
-}
-c4charges.remove_at(i);
-detonated++;
+if(c4charges[i].owner!=owner)continue;c4charge@ c=c4charges[i];c4charges.remove_at(i);detonated++;
+// Plastic explosive with no casing: a sharp blast, few fragments, and very
+// good at breaking things.
+blast_profile@ b=blast_profile_for("c4",owner,owner+"'s C4");
+if(item_prop("c4","blast_damage")==""){b.damage=900;b.radius=12;b.fragments=0;}
+b.explode_sound="semtexexplode";b.distant_sound="semtexdist.ogg";b.hit_sound="semtexhit";b.structure_mult=3;
+detonate(c.x,c.y,c.z+.2,c.map,b);
 }
 }
 bool[] bunker_alarm_active;

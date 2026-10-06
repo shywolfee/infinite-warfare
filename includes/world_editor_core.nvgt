@@ -297,6 +297,7 @@ else if(kind=="turbolift"){f=box;f.insert_last("Name");}
 else if(kind=="poi" or kind=="bunker"){f={"x","y","z","Name"};}
 else if(kind=="spawn"){f={"x","y","z"};}
 else if(kind=="fixture"){f={"Kind","x","y","z","Label"};}
+else if(kind=="dobject"){f={"Type","x","y","z","Facing","Label"};}
 else if(kind=="surface"){f={"Material","Footstep sound family"};}
 else if(kind=="title" or kind=="summary"){f={"Text"};}
 else if(kind=="maxx" or kind=="maxy" or kind=="maxz" or kind=="listed"){f={"Value"};}
@@ -306,7 +307,7 @@ string we_kind_words(const string &in kind)
 {
 if(kind=="tile")return "Surface";if(kind=="zone")return "Zone";if(kind=="space")return "Enclosed acoustic space";if(kind=="openspace")return "Open acoustic space";
 if(kind=="portal")return "Opening";if(kind=="src")return "Ambience";if(kind=="poi")return "Point of interest";if(kind=="poiregion")return "Point of interest area";
-if(kind=="spawn")return "Spawn point";if(kind=="ispawn")return "Item spawn";if(kind=="fixture")return "Fixture";if(kind=="transition")return "Transition";
+if(kind=="spawn")return "Spawn point";if(kind=="ispawn")return "Item spawn";if(kind=="fixture")return "Fixture (older format)";if(kind=="dobject")return "Object";if(kind=="transition")return "Transition";
 if(kind=="turbolift")return "Lift";if(kind=="bunker")return "Bunker";if(kind=="surface")return "Surface sound";if(kind=="object")return "Destructible object";
 if(kind=="objectpart")return "Object part";
 return kind;
@@ -330,10 +331,11 @@ else if((e.kind=="zone" or e.kind=="poiregion" or e.kind=="portal" or e.kind=="s
 else if(e.kind=="src" and e.values.length()>6)name=e.values[6];
 else if((e.kind=="poi" or e.kind=="bunker") and e.values.length()>3)name=e.values[3];
 else if(e.kind=="fixture" and e.values.length()>4)name=e.values[4]+" ("+e.values[0]+")";
+else if(e.kind=="dobject" and e.values.length()>5)name=(e.values[5]!=""?e.values[5]:string_replace(e.values[0],"_"," ",true))+" ("+e.values[0]+")";
 else if(e.kind=="transition" and e.values.length()>9)name=e.values[9];
 string where="";
-if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")where="x "+e.values[0]+" to "+e.values[1]+", y "+e.values[2]+" to "+e.values[3]+", z "+e.values[4]+" to "+e.values[5];
-else if(e.kind=="fixture" and e.values.length()>=4)where=e.values[1]+", "+e.values[2]+", "+e.values[3];
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="dobject" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")where="x "+e.values[0]+" to "+e.values[1]+", y "+e.values[2]+" to "+e.values[3]+", z "+e.values[4]+" to "+e.values[5];
+else if((e.kind=="fixture" or e.kind=="dobject") and e.values.length()>=4)where=e.values[1]+", "+e.values[2]+", "+e.values[3];
 else if(e.values.length()>=3 and (e.kind=="poi" or e.kind=="spawn" or e.kind=="bunker"))where=e.values[0]+", "+e.values[1]+", "+e.values[2];
 else where=join(e.values,", ");
 return we_kind_words(e.kind)+(name==""?"":", "+name)+": "+where;
@@ -341,13 +343,13 @@ return we_kind_words(e.kind)+(name==""?"":", "+name)+": "+where;
 // Does this element cover the point?
 bool we_element_contains(we_element@ e,int x,int y,int z)
 {
-if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="dobject" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")
 {
 int x1=int(string_to_number(e.values[0])),x2=int(string_to_number(e.values[1])),y1=int(string_to_number(e.values[2])),y2=int(string_to_number(e.values[3])),z1=int(string_to_number(e.values[4])),z2=int(string_to_number(e.values[5]));
 return x>=x1 and x<=x2 and y>=y1 and y<=y2 and z>=z1 and z<=z2;
 }
 int px=-1,py=-1,pz=-1;
-if(e.kind=="fixture" and e.values.length()>=4){px=int(string_to_number(e.values[1]));py=int(string_to_number(e.values[2]));pz=int(string_to_number(e.values[3]));}
+if((e.kind=="fixture" or e.kind=="dobject") and e.values.length()>=4){px=int(string_to_number(e.values[1]));py=int(string_to_number(e.values[2]));pz=int(string_to_number(e.values[3]));}
 else if((e.kind=="poi" or e.kind=="spawn" or e.kind=="bunker") and e.values.length()>=3){px=int(string_to_number(e.values[0]));py=int(string_to_number(e.values[1]));pz=int(string_to_number(e.values[2]));}
 else return false;
 return abs(px-x)<=1 and abs(py-y)<=1 and abs(pz-z)<=2;
@@ -356,12 +358,12 @@ return abs(px-x)<=1 and abs(py-y)<=1 and abs(pz-z)<=2;
 int we_element_distance(we_element@ e,int x,int y)
 {
 int cx,cy;
-if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="dobject" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface")
 {
 int x1=int(string_to_number(e.values[0])),x2=int(string_to_number(e.values[1])),y1=int(string_to_number(e.values[2])),y2=int(string_to_number(e.values[3]));
 cx=x<x1?x1:(x>x2?x2:x);cy=y<y1?y1:(y>y2?y2:y);
 }
-else if(e.kind=="fixture" and e.values.length()>=3){cx=int(string_to_number(e.values[1]));cy=int(string_to_number(e.values[2]));}
+else if((e.kind=="fixture" or e.kind=="dobject") and e.values.length()>=3){cx=int(string_to_number(e.values[1]));cy=int(string_to_number(e.values[2]));}
 else if(e.values.length()>=2){cx=int(string_to_number(e.values[0]));cy=int(string_to_number(e.values[1]));}
 else return 1000000;
 return abs(cx-x)+abs(cy-y);

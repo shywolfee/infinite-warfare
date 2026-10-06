@@ -1,0 +1,323 @@
+// Dynamic objects on the server: their state, damage, destruction and use.
+// Types and map parsing are shared with the client; see
+// includes/dynamic_objects_core.nvgt and content/objects/README.txt.
+//
+// Every map's objects live in maps[i].objects (a dobject_set), built from the
+// map file when it loads. The server is the only thing that changes them:
+// clients ask to use an object, and the server checks they are beside it,
+// that it is working, that they can pay, and that it has stock, then tells
+// everyone on the map what changed.
+#include "../../includes/dynamic_objects_core.nvgt"
+
+dictionary dobject_cooldowns;
+
+// A sound from the object's own sound folder, e.g. "dest" or "impact2".
+void dobject_sound(dobject@ o,string action)
+{
+if(o.type_id=="furniture"){string path=action=="dest"?o.break_sound:o.hit_sound;if(path!="")send_world_sound(path,o.centre_x(),o.centre_y(),o.z,o.map);return;}
+if(o.type.sound=="" or action=="")return;
+world_sound_at(o.type.sound+"/"+world_sound_variant(action),o.centre_x(),o.centre_y(),o.z,o.map);
+}
+
+dobject_set@ dobjects_on(string map){int mi=get_map_index(map);if(mi<0)return null;return maps[mi].objects;}
+dobject@ find_dobject(string map,int id){dobject_set@ s=dobjects_on(map);return s is null?null:s.find(id);}
+
+// Builds a map's objects from its file. Called when the map loads and when
+// the world editor reloads it.
+void load_map_dobjects(int mi)
+{
+if(mi<0 or mi>=int(maps.length()))return;
+maps[mi].objects.map=maps[mi].name;
+maps[mi].objects.list=parse_map_dobjects(maps[mi].rawdata,maps[mi].name);
+maps[mi].objects.index();
+}
+void load_all_map_dobjects(){for(uint i=0;i<maps.length();i++)load_map_dobjects(int(i));}
+
+// Tells clients about every object on a map that is not in the state the map
+// file gives it. Objects in their default state need no message at all.
+void sync_dobjects(uint peer,string map)
+{
+dobject_set@ s=dobjects_on(map);if(s is null)return;
+string prefix="dobj_batch "+world_token(map)+" ",packet=prefix;int entries=0;
+for(uint i=0;i<s.list.length();i++)
+{
+dobject@ o=s.list[i];if(o.is_default())continue;
+string entry=o.state();if(entries>0 and packet.length()+entry.length()>900){send_reliable(peer,packet,0);packet=prefix;entries=0;}
+if(entries>0)packet+=";";packet+=entry;entries++;
+}
+if(entries>0)send_reliable(peer,packet,0);
+}
+void send_dobject_state(dobject@ o){send_reliable_map(o.map,"dobj "+world_token(o.map)+" "+o.state(),0);}
+
+// ---------------------------------------------------------------------------
+// Damage
+// ---------------------------------------------------------------------------
+void dobject_damage(dobject@ o,int amount,bool blast,string attacker)
+{
+if(o is null or !o.active or o.max_health<=0 or o.health<=0 or amount<=0)return;
+int damage=int(ceil(double(amount)*(blast?o.blast_factor:o.bullet_factor)));if(damage<1)return;
+o.health-=damage;if(o.health<0)o.health=0;
+if(o.impact_timer.elapsed>=100)
+{
+o.impact_timer.restart();
+if(o.type_id=="furniture")dobject_sound(o,"hit");
+else if(o.type.impact_sounds>0)dobject_sound(o,"impact"+random(1,o.type.impact_sounds));
+else dobject_sound(o,o.type.contact_sound);
+}
+if(o.health<=0)dobject_wrecked(o,attacker);else send_dobject_state(o);
+}
+// A bullet: true if it struck something solid and stops there.
+bool dobject_damage_at(double x,double y,double z,string map,int damage,string attacker)
+{
+dobject_set@ s=dobjects_on(map);if(s is null)return false;
+dobject@ o=s.at(x,y,z);if(o is null)return false;
+dobject_damage(o,damage,false,attacker);
+return o.solid_at(x,y,z) or !o.active;
+}
+// A blast. Objects behind walls are shielded, as people are.
+void damage_dynamic_objects_blast(double x,double y,double z,string map,blast_profile@ b,double confinement)
+{
+dobject_set@ s=dobjects_on(map);if(s is null)return;
+double reach=b.radius;
+for(uint i=0;i<s.list.length();i++)
+{
+dobject@ o=s.list[i];if(!o.active or o.max_health<=0 or o.health<=0)continue;
+double dz=z<o.bz1?o.bz1-z:(z>o.bz2?z-o.bz2:0),flat=o.distance_to(x,y),distance=sqrt(flat*flat+dz*dz);
+if(distance>=reach)continue;
+if(blast_line_blocked(x,y,z+.3,o.centre_x(),o.centre_y(),o.z+.5,map))continue;
+double pressure=blast_overpressure(distance,reach)*confinement;
+dobject_damage(o,int(double(b.damage)*pressure*b.structure_mult),true,b.owner);
+}
+}
+// Out of health. Some things burn first; some explode; some leave debris;
+// some spill what was in them.
+void dobject_wrecked(dobject@ o,string attacker)
+{
+dobject_type@ t=o.type;
+if(t.loot_on_destroy)dobject_spill(o);
+if(t.burn_ms>0 and !o.burning)
+{
+o.burning=true;o.burn_timer.restart();o.health=0;
+send_world_sound("er_molotov_fire_loop",o.centre_x(),o.centre_y(),o.z,o.map);
+send_reliable_map(o.map,"The "+o.describe()+" is on fire.",2);
+dobject_burner.set(o.map+":"+o.id,attacker);
+send_dobject_state(o);return;
+}
+dobject_finish(o,attacker);
+}
+dictionary dobject_burner;
+void dobject_finish(dobject@ o,string attacker)
+{
+dobject_type@ t=o.type;
+dobject_sound(o,o.type_id=="furniture"?"dest":t.destroy_sound);
+string debris=t.debris;
+if(debris!="")o.become(debris);else o.active=false;
+o.burning=false;o.respawn_timer.restart();
+send_dobject_state(o);
+if(t.explode_damage>0)
+{
+string who=attacker==""?"someone":attacker;
+blast_profile@ b=blast_profile_simple(attacker,who+"'s exploding "+t.name,t.explode_damage,t.explode_radius,t.explode_fragments,t.explode_sound,t.explode_distant,"fraggrenadehit");
+b.payload=t.explode_payload;b.cloud_ms=t.explode_cloud_ms;b.cloud_radius=t.explode_cloud_radius;
+detonate(o.centre_x(),o.centre_y(),o.z+.5,o.map,b);
+}
+}
+// Spills a share of whatever the object held onto the ground.
+void dobject_spill(dobject@ o)
+{
+int count=o.stock<3?o.stock:3;
+for(int i=0;i<count;i++)
+{
+string item="";
+if(o.type.offers.length()>0)item=o.type.offers[random(0,o.type.offers.length()-1)].item;
+else if(o.type.loot.length()>0)item=o.type.loot[random(0,o.type.loot.length()-1)].trim_whitespace();
+else if(o.type.item!="")item=o.type.item;
+if(item!="")spawn_citem(int(round(o.centre_x(),0))+random(-1,1),int(round(o.centre_y(),0))+random(-1,1),int(o.z),o.map,item);
+}
+o.stock=0;
+}
+
+// ---------------------------------------------------------------------------
+// Upkeep: burning wrecks, restocking, replacement of destroyed objects, and
+// laptops charging.
+// ---------------------------------------------------------------------------
+timer dobject_tick;
+void dobject_loop()
+{
+if(dobject_tick.elapsed<500)return;dobject_tick.restart();
+for(uint m=0;m<maps.length();m++)
+{
+dobject_set@ s=maps[m].objects;
+for(uint i=0;i<s.list.length();i++)
+{
+dobject@ o=s.list[i];
+if(o.burning)
+{
+// Standing beside a burning wreck sets you alight.
+for(uint p=0;p<players.length();p++){player@ t=players[p];if(t.map!=o.map or t.death or t.burning)continue;if(o.distance_to(t.x,t.y)<=.8 and absolute(double(t.z)-o.z)<2){string burner="";dobject_burner.get(o.map+":"+o.id,burner);t.burning=true;t.burning_owner=burner;t.burning_duration_timer.restart();t.burning_tick_timer.restart();}}
+if(int(o.burn_timer.elapsed)>=o.type.burn_ms){string burner="";dobject_burner.get(o.map+":"+o.id,burner);dobject_burner.delete(o.map+":"+o.id);dobject_finish(o,burner);}
+continue;
+}
+if(o.active and o.max_stock>0 and o.stock<o.max_stock and o.type.restock_ms>0 and int(o.restock_timer.elapsed)>=o.type.restock_ms){o.stock++;o.restock_timer.restart();send_dobject_state(o);}
+bool wrecked=!o.active or o.type_id!=o.origin_type;
+dobject_type@ origin=dobject_type_of(o.origin_type);
+if(wrecked and origin !is null and origin.respawn_ms>0 and int(o.respawn_timer.elapsed)>=origin.respawn_ms)
+{
+// Not while someone is standing where it would reappear.
+bool blocked=false;for(uint p=0;p<players.length();p++)if(players[p].map==o.map and o.distance_to(players[p].x,players[p].y)<.5){blocked=true;break;}
+if(blocked)continue;
+o.become(o.origin_type);o.active=true;send_dobject_state(o);dobject_sound(o,o.type.contact_sound);
+}
+}
+}
+dobject_charge_loop();
+}
+
+// ---------------------------------------------------------------------------
+// Using objects
+// ---------------------------------------------------------------------------
+// The object a player may use: on their map, working, within reach of its edge.
+dobject@ dobject_for_use(player@ p,int id,double reach=2.2)
+{
+dobject@ o=find_dobject(p.map,id);
+if(o is null){send_reliable(p.peer_id,"That is no longer there.",2);return null;}
+if(!o.active or o.burning){send_reliable(p.peer_id,"The "+o.describe()+" is wrecked.",2);return null;}
+if(o.distance_to(p.x,p.y)>reach or absolute(double(p.z)-o.z)>2.5){send_reliable(p.peer_id,"The "+o.describe()+" is out of reach.",2);return null;}
+return o;
+}
+bool dobject_ready(dobject@ o,player@ p,int cooldown_ms,string what)
+{
+string key=string_to_lower_case(p.name)+"|"+o.map+"|"+o.id;double now=double(uptimer.elapsed),last=0;
+if(dobject_cooldowns.get(key,last) and now-last<double(cooldown_ms)){send_reliable(p.peer_id,"The "+o.describe()+" can give you "+what+" again in "+int(ceil((double(cooldown_ms)-(now-last))/1000.0))+" seconds.",2);return false;}
+dobject_cooldowns.set(key,now);return true;
+}
+bool dobject_take_stock(dobject@ o,player@ p)
+{
+if(o.max_stock<=0)return true;
+if(o.stock<=0){send_reliable(p.peer_id,"The "+o.describe()+" is empty. It is refilled over time.",2);return false;}
+o.stock--;o.restock_timer.restart();send_dobject_state(o);return true;
+}
+void dobject_use(uint peer,int id)
+{
+int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
+dobject@ o=dobject_for_use(p,id);if(o is null)return;
+if(o.use_timer.elapsed<600){send_reliable(peer,"The "+o.describe()+" is busy.",2);return;}o.use_timer.restart();
+dobject_type@ t=o.type;string what=t.interaction;
+if(what=="atm"){dobject_sound(o,"door_open");send_reliable(peer,"dobj_open atm "+o.id,0);}
+else if(what=="vend")send_reliable(peer,"dobj_open vend "+o.id+" "+o.stock,0);
+else if(what=="store"){dobject_sound(o,t.contact_sound);send_reliable(peer,"dobj_open store "+o.id,0);}
+else if(what=="door")
+{
+o.open=!o.open;dobject_sound(o,o.open?"open":"close");send_dobject_state(o);
+send_reliable(peer,"The "+o.describe()+(o.open?" opens.":" closes."),2);
+}
+else if(what=="bed")
+{
+if(p.health>=t.heal_ceiling){send_reliable(peer,"The "+o.describe()+" only treats the badly wounded: you are above "+t.heal_ceiling+" health.",2);return;}
+if(!dobject_ready(o,p,t.cooldown_ms,"treatment"))return;
+dobject_sound(o,"lie");int heal=t.heal_ceiling-p.health;if(heal>t.heal)heal=t.heal;p.health+=heal;
+send_reliable(peer,"The "+o.describe()+" stabilises "+heal+" health.",2);dobject_sound(o,"stand");
+}
+else if(what=="dispense")
+{
+if(!dobject_ready(o,p,t.cooldown_ms,"another "+string_replace(t.item,"_"," ",true)) or !dobject_take_stock(o,p))return;
+dobject_sound(o,"open");send_reliable(peer,"give "+t.item+" 1",0);
+send_reliable(peer,"You take a "+string_replace(t.item,"_"," ",true)+" from the "+o.describe()+". "+o.stock+" left.",2);dobject_sound(o,"close");
+}
+else if(what=="search")
+{
+if(o.stock<=0){send_reliable(peer,"The "+o.describe()+" has been searched recently. Nothing left.",2);return;}
+if(!dobject_ready(o,p,t.cooldown_ms,"another search") or !dobject_take_stock(o,p))return;
+string found=t.loot.length()>0?t.loot[random(0,t.loot.length()-1)].trim_whitespace():"repair_kit";
+dobject_sound(o,o.type_id=="crate"?"get_item":(o.type_id=="dumpster"?"place_item":(o.type_id=="wooden_planter"?"search"+random(1,3):t.contact_sound)));
+send_reliable(peer,"give "+found+" 1",0);send_reliable(peer,"You search the "+o.describe()+" and find a "+string_replace(found,"_"," ",true)+".",2);
+}
+else if(what=="report")
+{
+if(!dobject_ready(o,p,t.cooldown_ms,"another report"))return;
+int hostile=0,friendly=0;for(uint i=0;i<players.length();i++)if(players[i].map==p.map and !players[i].death and players[i].name!=p.name){if(same_team(players[i].name,p.name))friendly++;else hostile++;}
+dobject_sound(o,o.type_id=="tv"?(o.on?"off":"on"):"loop");if(o.type_id=="tv"){o.on=!o.on;send_dobject_state(o);}
+send_reliable(peer,"The "+o.describe()+" reports "+friendly+" friendly and "+hostile+" hostile people on this map.",2);
+}
+else if(what=="team")
+{
+if(!dobject_ready(o,p,t.cooldown_ms,"another directory check"))return;
+dobject_sound(o,"open");int ti=get_team_index_for_member(p.name);
+if(ti<0){send_reliable(peer,"The "+o.describe()+" has no team route for you: you are not in a team.",2);return;}
+int online=0;for(uint i=0;i<teams[ti].members.length();i++)if(get_player_index_from(teams[ti].members[i].name)>=0)online++;
+send_reliable(peer,"Team directory: "+online+" of "+teams[ti].members.length()+" members of your team are online.",2);
+}
+else if(what=="light" or what=="toggle")
+{
+o.on=!o.on;dobject_sound(o,what=="light"?(o.on?"loop_night":"loop"):"loop");send_dobject_state(o);
+send_reliable(peer,"The "+o.describe()+" is now "+(o.on?"on.":"off."),2);
+}
+else if(what=="hydrate")
+{
+if(!dobject_ready(o,p,t.cooldown_ms,"another drink"))return;
+dobject_sound(o,o.type_id=="streams"?""+random(1,3):"loop");send_reliable(peer,"stamina_restore "+t.stamina,0);
+send_reliable(peer,"You drink from the "+o.describe()+" and recover "+t.stamina+" stamina.",2);
+}
+else if(what=="charge")dobject_start_charging(p,o);
+else if(what=="flush"){dobject_sound(o,"loop");send_reliable(peer,"The "+o.describe()+" flushes.",2);}
+else send_reliable(peer,o.describe()+(t.description!=""?": "+t.description:"."),2);
+}
+
+// Buying from a vending machine: dobj_buy <id> <offer index>.
+void dobject_buy(uint peer,int id,int offer_index)
+{
+int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
+dobject@ o=dobject_for_use(p,id);if(o is null){send_reliable(peer,"dobj_buy_error You must stay beside the machine.",0);return;}
+dobject_type@ t=o.type;if(t.interaction!="vend" or offer_index<0 or offer_index>=int(t.offers.length())){send_reliable(peer,"dobj_buy_error That is not sold here.",0);return;}
+dobject_offer@ offer=t.offers[offer_index];
+if(p.credits<offer.price){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error Not enough credits: it costs "+offer.price+" and you have "+p.credits+".",0);return;}
+if(o.stock<=0){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error The machine is empty. It is refilled over time.",0);return;}
+if(!dobject_ready(o,p,t.cooldown_ms,"another purchase")){send_reliable(peer,"dobj_buy_error The machine is still dispensing.",0);return;}
+if(!change_player_credits(p,-offer.price)){send_reliable(peer,"dobj_buy_error Your balance could not be saved. Nothing was charged.",0);return;}
+o.stock--;o.restock_timer.restart();send_dobject_state(o);
+dobject_sound(o,"beep");dobject_sound(o,"dispense");if(offer.sound!="")dobject_sound(o,offer.sound);else dobject_sound(o,t.contact_sound);
+send_reliable(peer,"give "+offer.item+" 1",0);send_reliable(peer,"dobj_buy_ok "+p.credits+" "+offer.item+" "+o.stock,0);
+}
+
+// Paying a credit chip in at a cash machine: dobj_redeem <id> small|large <request>.
+void dobject_redeem(uint peer,const string[] &in parsed)
+{
+int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
+string request=parsed.length()>3?parsed[3]:"0";
+string prefix="dobj_redeem_reply "+request+" ";
+if(parsed.length()<3 or (parsed[2]!="small" and parsed[2]!="large")){send_reliable(peer,prefix+"error That is not a credit chip.",0);return;}
+dobject@ o=dobject_for_use(p,int(string_to_number(parsed[1])));
+if(o is null or o.type.interaction!="atm"){send_reliable(peer,prefix+"error You must stay beside the cash machine.",0);return;}
+string item=parsed[2]=="small"?"credit_chip_small":"credit_chip_large";
+if(credit_chip_count(p,item)<=0){send_reliable(peer,prefix+"error You have no "+parsed[2]+" credit chip the server knows about.",0);return;}
+if(!dobject_ready(o,p,1000,"another payment")){send_reliable(peer,prefix+"error The machine is still processing.",0);return;}
+if(!commit_credit_chip_deposit(p,item)){send_reliable(peer,prefix+"error Your balance could not be saved; the chip was not used.",0);return;}
+dobject_sound(o,"keypress");world_sound_from("collectable/pickup_cred_"+parsed[2],p);
+send_reliable(peer,prefix+"ok "+p.credits,0);
+}
+
+// ---------------------------------------------------------------------------
+// Charging a HyperComp at a charging station: while the player stays beside
+// it, the laptop gains charge_rate percent a second.
+// ---------------------------------------------------------------------------
+dictionary dobject_chargers; // player name -> "map:id"
+void dobject_start_charging(player@ p,dobject@ o)
+{
+dobject_chargers.set(string_to_lower_case(p.name),o.map+":"+o.id);dobject_sound(o,o.type.contact_sound);
+send_reliable(p.peer_id,"laptop_charging on",0);send_reliable(p.peer_id,"Your HyperComp is plugged into the "+o.describe()+". Stay beside it to charge.",2);
+}
+void dobject_charge_loop()
+{
+string[]@ names=dobject_chargers.get_keys();
+for(uint i=0;i<names.length();i++)
+{
+string where;dobject_chargers.get(names[i],where);int colon=where.rfind(":");
+int pi=get_player_index_from(names[i]);dobject@ o=pi<0 or colon<0?null:find_dobject(where.substr(0,colon),int(string_to_number(where.substr(colon+1))));
+if(pi<0 or o is null or !o.active or players[pi].death or players[pi].map!=o.map or o.distance_to(players[pi].x,players[pi].y)>2.2)
+{
+dobject_chargers.delete(names[i]);if(pi>=0){send_reliable(players[pi].peer_id,"laptop_charging off",0);send_reliable(players[pi].peer_id,"Your HyperComp is unplugged.",2);}
+continue;
+}
+send_reliable(players[pi].peer_id,"laptop_charge "+(o.type.charge_rate/2),0);
+}
+}

@@ -30,7 +30,7 @@ mapispawn@[] mapispawns;
 bunkerdef@[] bunkerdefs;
 poidef@[] poidefs;
 int[] spawn_points;
-world_object_set objects;
+dobject_set objects;
 string rawdata;
 mapdata(string loadname)
 {
@@ -51,7 +51,6 @@ file f;
 string fpath=find_map_path(loadname);
 f.open(fpath, "rb");
 rawdata=f.read();
-objects.load(rawdata);
 string[] map=delinear(rawdata);
 f.close();
 for(uint i=0; i<map.length(); i++)
@@ -145,6 +144,10 @@ pd.name=pname;
 poidefs.insert_last(pd);
 }
 }
+// Furniture, machines, doors, cars and trees: see dynamic_objects.nvgt.
+objects.map=name;
+objects.list=parse_map_dobjects(rawdata,name);
+objects.index();
 }
 void loop()
 {
@@ -434,9 +437,6 @@ for(uint i=0; i<players.length(); i++)
 if(players[i].map==temp.name)
 send_reliable(players[i].peer_id, "mapdata "+mdata, 0);
 }
-// Send replacement infrastructure only after mapdata. Loading mapdata clears
-// stale dynamic objects client-side, so this ordering prevents fresh fixtures
-// from being created and immediately erased during a live builder reload.
-spawn_fixtures_for_map(temp.name);
-for(uint i=0;i<players.length();i++)if(players[i].map==temp.name)er_sync_fixtures_to(players[i].peer_id,temp.name);
+// The reloaded map's objects start fresh, so there is no state to sync; the
+// clients rebuild them from the mapdata they were just sent.
 }

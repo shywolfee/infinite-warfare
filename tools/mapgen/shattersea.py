@@ -29,14 +29,14 @@ SEA = 0          # the sea floor you end up standing on if you go in
 QUAY = 6         # every island's ground level
 BRIDGE = 6       # bridges are level with the quays, so no ramps
 
-FISH = ["er_fried_pig_skins", "er_electrolyte_water", "er_small_credit_chip"]
-MEDICAL = ["coagulant_serum_bottle", "clotting_tablet_bottle", "er_mini_med_pack"]
+FISH = ["pork_rinds", "electrolyte_water", "credit_chip_small"]
+MEDICAL = ["coagulant_serum_bottle", "clotting_tablet_bottle", "field_dressing"]
 TOOLS = ["repair_kit", "binoculars"]
 SALVAGE = ["wiring_harness_kit", "vehicle_battery",
            "salvage_scanner"]
 AMMO = ["12_gauge_shell_box", "9x19mm_17_round_magazine",
         "7.62x39mm_30_round_magazine"]
-RARE = ["er_large_credit_chip", "er_super_med_pack", "hightech_grapple",
+RARE = ["credit_chip_large", "advanced_trauma_kit", "hightech_grapple",
         "reconnaissance_ring"]
 
 # Each island: identifier -> (x1, x2, y1, y2)

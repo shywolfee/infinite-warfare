@@ -1,0 +1,30 @@
+// Food, drink and medical packs: anything whose item file has a "provision"
+// property. What each one does is read from the item file, so new
+// provisions need no code:
+//   provision=drink|food|medical
+//   provision_heal=N        health restored (capped at full health)
+//   provision_stamina=N     stamina restored
+//   provision_stimulant=N   added to the stimulant load caffeine builds up
+//   provision_sound=path    effect played when used ("#N" picks 1 to N)
+//   provision_sound2=path   a second effect, such as a healing chime
+bool is_provision(string item){return item_prop(item,"provision")!="";}
+
+bool use_provision(player@ user,string item)
+{
+string kind=item_prop(item,"provision");if(kind=="" or user is null)return false;
+if(user.death){send_reliable(user.peer_id,"You cannot use that while dead.",2);return true;}
+int heal=item_prop_int(item,"provision_heal",0),stamina=item_prop_int(item,"provision_stamina",0);
+double stimulant=item_prop_int(item,"provision_stimulant",0);
+if(kind=="medical" and user.health>=1000){send_reliable(user.peer_id,"You are not hurt; save it for when you are.",2);return true;}
+if(heal>1000-user.health)heal=1000-user.health;if(heal<0)heal=0;
+user.health+=heal;user.energy_stimulant_load+=stimulant;
+if(stamina>0)send_reliable(user.peer_id,"stamina_restore "+stamina,0);
+send_reliable(user.peer_id,"give "+item+" -1",0);
+string effect=item_prop(item,"provision_sound"),effect2=item_prop(item,"provision_sound2");
+if(effect!="")world_sound_from(world_sound_variant(effect),user);
+if(effect2!="")world_sound_from(world_sound_variant(effect2),user);
+item_data@ info=item_info(item);string name=info is null?string_replace(item,"_"," ",true):info.name,verb=kind=="drink"?"drink the":(kind=="food"?"eat the":"apply the");
+string gains="";if(heal>0)gains+=heal+" health";if(stamina>0)gains+=(gains!=""?" and ":"")+stamina+" stamina";
+send_reliable(user.peer_id,"You "+verb+" "+string_to_lower_case(name)+(gains!=""?" and recover "+gains+".":"."),2);
+return true;
+}

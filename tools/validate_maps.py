@@ -17,6 +17,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 MAPS = ROOT / "iwserver/content/maps"
 SOUNDS = ROOT / "sounds"
+OBJECT_TYPES = {p.stem for p in (ROOT / "iwserver/content/objects").rglob("*.object")}
 FILES = [
     "freeforall/freeforall.map",
     "battlegrounds/main.map",
@@ -115,6 +116,8 @@ def validate(relative, items):
             regions.append(tuple(int(v) for v in p[1:7]) + (p[7],))
         elif kind == "fixture":
             fixtures.append((*(int(v) for v in p[2:5]), p[1], p[5]))
+        elif kind == "dobject":
+            fixtures.append((*(int(float(v)) for v in p[2:5]), p[1], p[6]))
         elif kind == "portal":
             portals.append(p)
         elif kind == "src":
@@ -219,8 +222,8 @@ def validate(relative, items):
         elif not any(seen[z][(y + dy) * w + x + dx] for dx, dy in
                      ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, 0), (1, 0), (0, -1), (0, 1))):
             errors.append(f"service {label!r} cannot be reached")
-        if not (SOUNDS / "executioners_rage/environment/objects" / kind).is_dir():
-            errors.append(f"unknown service type {kind!r}")
+        if kind not in OBJECT_TYPES:
+            errors.append(f"unknown object type {kind!r}")
     for p in portals:
         a, b, c, d, e, f = (int(v) for v in p[1:7])
         x, y = (a + b) // 2, (c + d) // 2

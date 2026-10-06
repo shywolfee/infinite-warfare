@@ -59,14 +59,14 @@ NAME = {
 }
 ORDER = [LOWREACH, STITCH, MIDDLE, CATARACT, HIGH, CROWN]
 
-MEDICAL = ["coagulant_serum_bottle", "medigel_tonic_bottle", "er_mid_med_pack",
+MEDICAL = ["coagulant_serum_bottle", "medigel_tonic_bottle", "trauma_dressing",
            "loose_clotting_tablet"]
 TOOLS = ["repair_kit", "binoculars"]
 CLIMB_KIT = ["hightech_grapple", "grapple_line_cartridge", "binoculars"]
 AMMO = ["5.56mm_stanag_magazine", "9x19mm_17_round_magazine",
         "7.62x51mm_20_round_magazine"]
-TRADE = ["er_small_credit_chip", "er_snickers_bar", "er_electrolyte_water"]
-RARE = ["er_large_credit_chip", "er_overdrive_amplifier", "salvage_scanner"]
+TRADE = ["credit_chip_small", "chocolate_bar", "electrolyte_water"]
+RARE = ["credit_chip_large", "overdrive_amplifier", "salvage_scanner"]
 
 
 def build():

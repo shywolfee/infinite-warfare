@@ -95,7 +95,7 @@ void we_browse_by_kind()
 {
 if(!we_fetch_map())return;
 we_element@[] all=we_all_elements();
-string[] kinds={"zone","tile","space","openspace","portal","src","poi","poiregion","spawn","ispawn","fixture","transition","turbolift","bunker","object","surface"};
+string[] kinds={"zone","tile","space","openspace","portal","src","poi","poiregion","spawn","ispawn","fixture","dobject","transition","turbolift","bunker","object","surface"};
 string[] labels,ids;
 for(uint k=0;k<kinds.length();k++)
 {
@@ -132,7 +132,7 @@ labels.insert_last("Edit its fields");ids.insert_last("edit");
 labels.insert_last("Move it");ids.insert_last("move");
 labels.insert_last("Make a copy of it here");ids.insert_last("copy_here");
 labels.insert_last("Make a copy beside it");ids.insert_last("copy");
-bool boxed=e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface";
+bool boxed=e.values.length()>=6 and e.kind!="fixture" and e.kind!="dobject" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface";
 if(boxed){labels.insert_last("Go to it");ids.insert_last("go");}
 labels.insert_last("Read the raw line");ids.insert_last("raw");
 labels.insert_last("Delete it");ids.insert_last("delete");
@@ -182,7 +182,7 @@ if(chosen=="copy_here")
 // Keep its size; put its south-west corner (or its point) where you stand.
 int ox=0,oy=0,oz=0;
 if(boxed){ox=int(string_to_number(e.values[0]));oy=int(string_to_number(e.values[2]));oz=int(string_to_number(e.values[4]));}
-else if(e.kind=="fixture"){ox=int(string_to_number(e.values[1]));oy=int(string_to_number(e.values[2]));oz=int(string_to_number(e.values[3]));}
+else if(e.kind=="fixture" or e.kind=="dobject"){ox=int(string_to_number(e.values[1]));oy=int(string_to_number(e.values[2]));oz=int(string_to_number(e.values[3]));}
 else if(e.values.length()>=3){ox=int(string_to_number(e.values[0]));oy=int(string_to_number(e.values[1]));oz=int(string_to_number(e.values[2]));}
 dx=int(mr.x)-ox;dy=int(mr.y)-oy;dz=int(me.z)-oz;
 }
@@ -208,14 +208,14 @@ return "";
 string we_shift_line(we_element@ e,int dx,int dy,int dz)
 {
 string[] v=e.values;
-bool boxed=v.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface";
+bool boxed=v.length()>=6 and e.kind!="fixture" and e.kind!="dobject" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn" and e.kind!="surface";
 if(boxed)
 {
 v[0]=""+(int(string_to_number(v[0]))+dx);v[1]=""+(int(string_to_number(v[1]))+dx);
 v[2]=""+(int(string_to_number(v[2]))+dy);v[3]=""+(int(string_to_number(v[3]))+dy);
 v[4]=""+(int(string_to_number(v[4]))+dz);v[5]=""+(int(string_to_number(v[5]))+dz);
 }
-else if(e.kind=="fixture" and v.length()>=4){v[1]=""+(int(string_to_number(v[1]))+dx);v[2]=""+(int(string_to_number(v[2]))+dy);v[3]=""+(int(string_to_number(v[3]))+dz);}
+else if((e.kind=="fixture" or e.kind=="dobject") and v.length()>=4){v[1]=""+(int(string_to_number(v[1]))+dx);v[2]=""+(int(string_to_number(v[2]))+dy);v[3]=""+(int(string_to_number(v[3]))+dz);}
 else if(v.length()>=3){v[0]=""+(int(string_to_number(v[0]))+dx);v[1]=""+(int(string_to_number(v[1]))+dy);v[2]=""+(int(string_to_number(v[2]))+dz);}
 return e.kind+":"+join(v,":");
 }
@@ -264,7 +264,7 @@ for(uint i=0;i<all.length();i++)
 {
 we_element@ e=all[i];
 if(e.kind=="mapname" or e.kind=="title" or e.kind=="surface" or e.kind.substr(0,3)=="max" or e.kind=="listed" or e.kind=="summary" or e.kind=="fixtures")continue;
-if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn")
+if(e.values.length()>=6 and e.kind!="fixture" and e.kind!="dobject" and e.kind!="poi" and e.kind!="bunker" and e.kind!="spawn")
 {
 int ex1=int(string_to_number(e.values[0])),ex2=int(string_to_number(e.values[1])),ey1=int(string_to_number(e.values[2])),ey2=int(string_to_number(e.values[3]));
 if(chosen=="list"?(ex2>=x1 and ex1<=x2 and ey2>=y1 and ey1<=y2):(ex1>=x1 and ex2<=x2 and ey1>=y1 and ey2<=y2))inside.insert_last(e);
@@ -272,7 +272,7 @@ if(chosen=="list"?(ex2>=x1 and ex1<=x2 and ey2>=y1 and ey1<=y2):(ex1>=x1 and ex2
 else
 {
 int ex=-1,ey=-1;
-if(e.kind=="fixture" and e.values.length()>=3){ex=int(string_to_number(e.values[1]));ey=int(string_to_number(e.values[2]));}
+if((e.kind=="fixture" or e.kind=="dobject") and e.values.length()>=3){ex=int(string_to_number(e.values[1]));ey=int(string_to_number(e.values[2]));}
 else if(e.values.length()>=2){ex=int(string_to_number(e.values[0]));ey=int(string_to_number(e.values[1]));}
 if(ex>=x1 and ex<=x2 and ey>=y1 and ey<=y2)inside.insert_last(e);
 }
@@ -316,7 +316,7 @@ else if(chosen=="surfaces")we_surfaces_menu();
 else if(chosen=="stats")
 {
 we_element@[] all=we_all_elements();
-string[] kinds={"tile","zone","space","openspace","portal","src","poi","poiregion","spawn","ispawn","fixture","transition","turbolift","bunker","object","surface"};
+string[] kinds={"tile","zone","space","openspace","portal","src","poi","poiregion","spawn","ispawn","fixture","dobject","transition","turbolift","bunker","object","surface"};
 string[] lines={"Map "+mapname+", "+we_header("title")+": "+we_lines.length()+" lines."};
 for(uint k=0;k<kinds.length();k++){int n=0;for(uint i=0;i<all.length();i++)if(all[i].kind==kinds[k])n++;if(n>0)lines.insert_last(we_kind_words(kinds[k])+": "+n);}
 show_info_list("Statistics",lines);
@@ -593,7 +593,7 @@ while(true)
 {
 string[] labels={
 "What is here","Build something","Mark an area"+(we_selection_set?" (one is marked)":""),"Browse and edit everything on this map","This map: title, lobby, size, sounds, undo and history","Every map: go to one, or make a new one","Content: items and weapons","Go somewhere",
-"Add a fixture here","Add a destructible object","Add a room, open region, opening or landmark area","Undo the last change","Redo"};
+"Place an object here: a machine, door, car, tree or barrel","Add a custom destructible shape","Add a room, open region, opening or landmark area","Undo the last change","Redo"};
 string[] ids={"here","build","area","browse","map","maps","content","travel","fixture","object","region","undo","redo"};
 string chosen=we_list_keeping("World editor, "+mapname+", at "+int(mr.x)+", "+int(mr.y)+", "+int(me.z),"World editor",labels,ids,pos);
 if(chosen=="")return;

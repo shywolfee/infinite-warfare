@@ -1,0 +1,121 @@
+// Dynamic objects: the type files, the map parser, geometry, doors, state
+// packing and the client's collision copy. Uses the production code shared by
+// the client and server (includes/dynamic_objects_core.nvgt) and the client's
+// dynamic map elements.
+//
+// Usage: nvgt dynamic_objects_regression.nvgt [report file]
+// The report is also printed; the exit code is the number of failures.
+#include "bgt_compat.nvgt"
+#include "../../includes/dynamic_map.nvgt"
+#include "../../includes/dynamic_objects_core.nvgt"
+string results;int failed=0;
+void check(bool ok,string name){results+=(ok?"PASS ":"FAIL ")+name+"\n";if(!ok)failed++;}
+bool near(double a,double b){return absolute(a-b)<.0001;}
+
+// The client's copy: the same shape as includes/dynamic_objects.nvgt's
+// dobject_reshape, which needs the whole client to compile.
+int element_for(dobject@ o)
+{
+int id=dynamic_map_create("object",o.describe(),o.id,o.centre_x(),o.centre_y(),o.bz1,0);dynamic_map_element@ e=dynamic_map_elements[id];e.fixed=true;
+for(uint i=0;i<o.parts.length();i++){dobject_part@ part=o.parts[i];if(part.solid and o.open)continue;e.add_tile(part.x1-e.x,part.x2-e.x,part.y1-e.y,part.y2-e.y,part.z1-e.z,part.z2-e.z,part.material,o.describe(),part.solid);}
+return id;
+}
+
+void main()
+{
+try{
+// NVGT may run a script from its own folder or from where it was started.
+string root="";string[] candidates={"","../../",SCRIPT_MAIN_PATH+"/../../"};
+for(uint i=0;i<candidates.length();i++)if(directory_exists(candidates[i]+"iwserver/content/objects")){root=candidates[i];break;}
+int loaded=load_dobject_types(root+"iwserver/content/objects");
+check(loaded>=40,"loads every object type ("+loaded+")");
+string[] ids=dobject_types.get_keys();int unsound=0,undescribed=0;
+for(uint i=0;i<ids.length();i++){dobject_type@ t=dobject_type_of(ids[i]);if(t.sound=="" and t.id!="furniture")unsound++;if(t.description=="")undescribed++;}
+check(unsound==0,"every type names its sound folder");
+check(undescribed==0,"every type has a description");
+// Types that turn into others must name real types.
+int dangling=0;for(uint i=0;i<ids.length();i++){dobject_type@ t=dobject_type_of(ids[i]);if(t.debris!="" and dobject_type_of(t.debris) is null)dangling++;}
+check(dangling==0,"every debris type exists");
+
+dobject_type@ coke=dobject_type_of("coke_machine");
+check(coke !is null and coke.interaction=="vend" and coke.offers.length()==4 and coke.offers[0].item=="cola_can" and coke.offers[0].price==6,"vending offers parse");
+dobject_type@ car=dobject_type_of("parked_car1");
+check(car !is null and car.debris=="burnt_out_car" and car.burn_ms>0 and car.explode_damage>0,"cars burn, explode and leave a wreck");
+
+// A car facing north is long in y; turned a quarter it is long in x.
+dobject@ north=new_dobject(1,"parked_car1",50,50,0,0,"test","");
+dobject@ east=new_dobject(2,"parked_car1",50,50,0,90,"test","");
+check(near(north.bx2-north.bx1,car.length) and near(north.by2-north.by1,car.width),"facing 0 keeps the type's length along x");
+check(near(east.bx2-east.bx1,car.width) and near(east.by2-east.by1,car.length),"a quarter turn swaps length and width");
+check(north.solid_at(50,50,.5) and !north.solid_at(50,50,car.height+.2),"solid inside, clear above");
+check(near(north.distance_to(50,50),0) and near(north.distance_to(50+car.length*.5+1,50),1),"distance is to the nearest edge");
+
+// Doors: closed blocks, open does not, and the state survives packing.
+dobject@ door=new_dobject(3,"door_room",10,10,0,0,"test","Kitchen door");
+check(door.solid_at(10,10,1) and door.tile_at(10,10,1)!="","a closed door blocks its doorway");
+door.open=true;
+check(!door.solid_at(10,10,1) and door.tile_at(10,10,1)=="","an open door's doorway is passable");
+check(!door.is_default() and door.state()=="3,"+door.health+",7,0,door_room","open door state packs");
+dobject@ copy=new_dobject(3,"door_room",10,10,0,0,"test","Kitchen door");
+string[] f=door.state().split(",");copy.apply_state(int(string_to_number(f[1])),int(string_to_number(f[2])),int(string_to_number(f[3])),f[4]);
+check(copy.open and copy.active and copy.state()==door.state(),"state round-trips");
+check(door.describe()=="Kitchen door","a label names the object");
+
+// Becoming a wreck and back.
+north.become("burnt_out_car");
+check(north.type_id=="burnt_out_car" and north.origin_type=="parked_car1" and !north.is_default(),"a destroyed car becomes a wreck");
+f=north.state().split(",");dobject@ mirror=new_dobject(1,"parked_car1",50,50,0,0,"test","");
+mirror.apply_state(int(string_to_number(f[1])),int(string_to_number(f[2])),int(string_to_number(f[3])),f[4]);
+check(mirror.type_id=="burnt_out_car","the client follows a type change");
+north.become("parked_car1");check(north.is_default(),"and is replaced later");
+
+// The map parser: placed objects, old fixture lines and authored furniture.
+string raw="mapname:test\nobject:7:100:1:1:wallwood:table/dest:Desk\nobjectpart:7:20:22:20:21:0:1:wallwood:1\nobjectpart:7:20:22:20:21:1:1.05:wood:0\n"
++"dobject:coke_machine:30:30:0:180:Hall drinks\nfixture:atm:40:40:0:Bank\ndobject:no_such_type:1:1:0:0:x\nobject:8:100:1:1:wallwood:a:Nothing\n";
+dobject@[] list=parse_map_dobjects(raw,"test");
+check(list.length()==3,"parses furniture, placed and older fixture lines, skipping unknown types and empty furniture");
+dobject_set s;s.list=list;s.index();
+check(s.find(7) !is null and s.find(7).describe()=="Desk","furniture keeps its own id");
+check(s.find(100000) !is null and s.find(100000).type_id=="coke_machine" and s.find(100000).facing==180,"placed objects are numbered from 100000 in order");
+check(s.find(100001) !is null and s.find(100001).type_id=="atm","older fixture lines still load");
+check(s.tile_at(21,20.5,.5)=="wallwood" and s.tile_at(21,20.5,1.02)=="wood","solid body and walkable top");
+check(s.at(30,30,1) !is null and s.at(30,30,1).id==100000,"lookup by position");
+check(s.tile_at(500,500,0)=="","nothing far away");
+
+// The client's collision matches the shared geometry for every object on every
+// real map, including after a door opens or something is destroyed.
+string[] maps={"battlegrounds/main.map","freyas_ascent/freyas_ascent.map","habitat_alpha/habitat_alpha.map","freeforall/freeforall.map"};
+for(uint m=0;m<maps.length();m++)
+{
+file input;if(!input.open(root+"iwserver/content/maps/"+maps[m],"rb")){check(false,"open "+maps[m]);continue;}
+string data=input.read();input.close();
+dobject@[] objects=parse_map_dobjects(data,"m");
+int placed=0;string[] lines=data.split("\n");for(uint i=0;i<lines.length();i++)if(lines[i].starts_with("dobject:"))placed++;
+int typed=0;for(uint i=0;i<objects.length();i++)if(objects[i].type_id!="furniture")typed++;
+check(placed>0 and typed==placed,maps[m]+": every placed object has a known type ("+typed+" of "+placed+")");
+dynamic_map_elements.resize(0);
+int mismatches=0;
+for(uint i=0;i<objects.length();i++)
+{
+dobject@ o=objects[i];int e=element_for(o);
+for(uint pi=0;pi<o.parts.length();pi++)
+{
+dobject_part@ part=o.parts[pi];
+for(int c=0;c<9;c++)
+{
+double x=c==8?(part.x1+part.x2)/2:((c&1)==0?part.x1:part.x2),y=c==8?(part.y1+part.y2)/2:((c&2)==0?part.y1:part.y2),z=c==8?(part.z1+part.z2)/2:((c&4)==0?part.z1:part.z2);
+double lx,ly,lz;dynamic_map_elements[e].world_to_local(x,y,z,lx,ly,lz);
+if(dynamic_map_elements[e].solid_at_local(lx,ly,lz)!=o.solid_at(x,y,z))mismatches++;
+}
+}
+}
+check(mismatches==0,maps[m]+": client collision matches the shared geometry");
+}
+
+}catch{results+="EXCEPTION "+get_exception_info()+" at "+get_exception_line()+"\n";failed++;}
+results+="Failures: "+failed+"\n";
+string report=ARGS.length()>1?ARGS[1]:"";
+if(report!=""){file sink;sink.open(report,"wb");sink.write(results);sink.close();}
+println(results);
+exit(failed);
+}

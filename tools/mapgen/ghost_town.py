@@ -45,14 +45,14 @@ STREETS = [  # east-west, (y1, y2, name)
 ]
 BLOCK = [(43 + 80 * i, 107 + 80 * i) for i in range(5)]
 
-MEDICAL = ["coagulant_serum_bottle", "clotting_tablet_bottle", "er_mini_med_pack",
+MEDICAL = ["coagulant_serum_bottle", "clotting_tablet_bottle", "field_dressing",
            "loose_pain_blocker_capsule"]
 TOOLS = ["repair_kit", "binoculars"]
 AMMO_LIGHT = ["9x19mm_17_round_magazine", "5.56mm_stanag_magazine",
               "45_acp_12_round_magazine"]
 AMMO_HEAVY = ["7.62x51mm_20_round_magazine", "12_gauge_shell_box",
               "7.62x39mm_30_round_magazine"]
-CASH = ["er_small_credit_chip", "er_coke_can", "er_hot_fries"]
+CASH = ["credit_chip_small", "cola_can", "hot_fries"]
 INDUSTRIAL = ["gasoline_can", "engine_oil", "vehicle_battery", "wiring_harness_kit"]
 
 

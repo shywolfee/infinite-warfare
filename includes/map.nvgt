@@ -163,8 +163,7 @@ p.destroy_all();
 destroy_all_sources();
 acoustics_reset();
 dynamic_map_elements.resize(0);
-clear_executioners_fixtures();
-load_client_world_objects(mdata);
+load_client_dobjects(mdata);
 map.resize(0);
 zones.resize(0);
 tile_regions.resize(0);
@@ -491,7 +490,7 @@ me.y=oy;
 }
 if(string_contains(get_tile_at(mr.x, mr.y, me.z), "wall", 1)>-1)  
 {
-if(!executioners_fixture_collision_sound(me.x,me.y,me.z))p.play_stationary(surface_wall_sound(get_tile_at(mr.x, mr.y, me.z)), false);
+if(!dobject_collision_sound(me.x,me.y,me.z))p.play_stationary(surface_wall_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 send_reliable(0, "hitwall "+me.x+" "+me.y+" "+me.z, 0);
 me.x=ox;
 me.y=oy;

@@ -43,15 +43,15 @@ LEVEL = {
     SKYLANE: "the skylanes",
 }
 
-STREET = ["er_small_credit_chip", "er_hot_fries", "loose_pain_blocker_capsule"]
+STREET = ["credit_chip_small", "hot_fries", "loose_pain_blocker_capsule"]
 MEDICAL = ["coagulant_serum_bottle", "trauma_repair_serum_bottle",
-           "er_mid_med_pack"]
+           "trauma_dressing"]
 TECH = ["salvage_scanner", "neural_intrusion_device",
         "wiring_harness_kit"]
 TOOLS = ["repair_kit", "binoculars"]
 AMMO = ["5.7x28mm_50_round_magazine", "9x19mm_17_round_magazine",
         "4.6x30mm_40_round_magazine"]
-RARE = ["er_large_credit_chip", "er_overdrive_amplifier", "hightech_grapple",
+RARE = ["credit_chip_large", "overdrive_amplifier", "hightech_grapple",
         "reconnaissance_ring"]
 
 # Every level is a solid slab with the level above resting on it, so the map

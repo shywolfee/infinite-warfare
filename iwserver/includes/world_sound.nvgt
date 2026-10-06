@@ -1,0 +1,60 @@
+// Positional sounds the server asks clients to play.
+//
+// Every sound goes out as "world_sound <path> <x> <y> <z> <map>", where the
+// path is relative to the client's sounds folder and spaces in the path and
+// map are encoded as %20. Clients only play sounds for the map they are on.
+//
+// Most of the game's recorded effects live in the sound pack's
+// "executioners_rage" folder (the name of the pack they came from); the
+// helpers that take a short effect name, such as world_sound_at, add that
+// folder and the .wav extension for you.
+const string WORLD_SOUND_ROOT="executioners_rage/";
+
+string world_token(string value){return string_replace(value," ","%20",true);}
+
+// Sends a sound by its full path (an extension of .ogg is assumed if none is
+// given) to everyone on the map.
+void send_world_sound(string path,double x,double y,double z,string map)
+{
+if(!path.ends_with(".wav") and !path.ends_with(".ogg"))path+=".ogg";
+send_reliable_map(map,world_sound_packet(path,x,y,z,map),0);
+}
+string world_sound_packet(string path,double x,double y,double z,string map){return "world_sound "+world_token(path)+" "+int(round(x,0))+" "+int(round(y,0))+" "+int(round(z,0))+" "+world_token(map);}
+string world_effect_path(string effect){return WORLD_SOUND_ROOT+effect+".wav";}
+
+// A recorded effect, such as "collectable/loop", at a position.
+void world_sound_at(string effect,double x,double y,double z,string map){send_reliable_map(map,world_sound_packet(world_effect_path(effect),x,y,z,map),0);}
+// A recorded effect where a player stands.
+void world_sound_from(string effect,player@ source){if(source !is null)world_sound_at(effect,source.x,source.y,source.z,source.map);}
+// A recorded effect only living players within the radius hear. Use it for
+// frequent, quiet sounds so distant players are not sent packets they would
+// not hear anyway.
+void world_sound_near(string effect,double x,double y,double z,string map,int radius=35)
+{
+string packet=world_sound_packet(world_effect_path(effect),x,y,z,map);
+for(uint i=0;i<players.length();i++)if(players[i].map==map and !players[i].death and get_3d_distance(x,y,z,players[i].x,players[i].y,players[i].z)<=radius)send_reliable(players[i].peer_id,packet,0);
+}
+
+// A sound name may end in "#N", meaning "pick one of 1 to N": for example
+// "drinks/cans/#5" becomes "drinks/cans/3".
+string world_sound_variant(string effect)
+{
+int hash=effect.rfind("#");if(hash<0)return effect;
+int count=int(string_to_number(effect.substr(hash+1)));if(count<1)count=1;
+return effect.substr(0,hash)+random(1,count);
+}
+
+// The sound of a bullet hitting a wall made of a recognisable material.
+// Returns false for materials without a recording, so the caller can use a
+// generic ricochet instead.
+bool world_sound_wall_impact(string tile,string weapon_class,int x,int y,int z,string map)
+{
+string lower=string_to_lower_case(tile),material="";
+if(string_contains(lower,"fence",1)>=0)material="fence";
+else if(string_contains(lower,"shelf",1)>=0)material="shelf";
+else if(string_contains(lower,"counter",1)>=0)material="counter";
+else if(string_contains(lower,"glass",1)>=0 or string_contains(lower,"window",1)>=0)material=weapon_class=="sniper_rifle" or weapon_class=="light_machine_gun"?"window_large":(weapon_class=="pistol" or weapon_class=="submachine_gun"?"window_small":"window");
+else if(string_contains(lower,"metal",1)<0)material="default";
+if(material=="")return false;
+world_sound_at("environment/walls/"+material+"/hit",x,y,z,map);return true;
+}

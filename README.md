@@ -163,7 +163,7 @@ Use the same NVGT installation that builds the game:
 & C:/nvgt/nvgt.exe tools/tests/wallet_regression.nvgt
 & C:/nvgt/nvgt.exe tools/tests/client_regression_runner.nvgt
 & C:/nvgt/nvgt.exe tools/tests/acoustic_regression_runner.nvgt
-& C:/nvgt/nvgt.exe tools/tests/world_objects_regression.nvgt
+& C:/nvgt/nvgt.exe tools/tests/dynamic_objects_regression.nvgt
 python tools/tests/world_editor_regression.py
 Push-Location iwserver
 & C:/nvgt/nvgt.exe world_editor_regression_runner.nvgt

@@ -56,8 +56,6 @@ def prepare(work: Path, nvgt: Path, stubs: bool) -> None:
     for path in (work / "includes").rglob("*.nvgt"):
         text = path.read_text(encoding="utf-8", errors="surrogateescape")
         new = plugin.sub("", text)
-        if path.name == "world_object_geometry.nvgt":
-            new = re.sub(r"^#define IW_WORLD_OBJECT_GEOMETRY\s*$", "", new, flags=re.M)
         if new != text:
             path.write_text(new, encoding="utf-8", errors="surrogateescape")
     shutil.copy2(HERE / "nvgt_dev_stubs.nvgt", work / "nvgt_dev_stubs.nvgt")

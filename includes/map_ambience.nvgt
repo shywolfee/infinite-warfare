@@ -1,0 +1,10 @@
+// Occasional background ambience for the map you are on: every ninety
+// seconds, one recording chosen to suit the map and the zone you stand in
+// (city streets, a ghost town, open parkland or indoor rooms). The lobby map
+// has none.
+timer ambience_timer;int ambience_sound=-1;string ambience_map="";
+void map_ambience_loop()
+{
+if(mapname=="main"){if(ambience_sound>=0)p.destroy_sound(ambience_sound);ambience_sound=-1;ambience_map="";return;}if(ambience_map!=mapname){if(ambience_sound>=0)p.destroy_sound(ambience_sound);ambience_sound=-1;ambience_map=mapname;ambience_timer.restart();}if(ambience_timer.elapsed<90000)return;ambience_timer.restart();string[] bank;string lower=string_to_lower_case(mapname+" "+get_zone_at(int(mr.x),int(mr.y),int(me.z)));
+if(string_contains(lower,"coruscant",1)>=0 or string_contains(lower,"city",1)>=0)bank={"1st_street","arcasino","bank_atrium","bank_counter","city_day","city_night","franklin","freeway","jasmine_street","office","parking_lot_extra","parking_lot_police","parking_lot_pow","parkway","police_station/armory","police_station/default","post_office","sidewalk_bank","sidewalk_stoner","stoner1","stoner2","train_station"};else if(string_contains(lower,"ghost",1)>=0)bank={"bf_scrap_yard","cave","dark_forest","dead_zone","extra","melee_place","newbie_forest","warehouse","whbathroom","whiskey_well","whiskey_well_patio"};else if(string_contains(lower,"aurelia",1)>=0)bank={"birds","blue_sky","budleaf_park","fountain","grassy","rainforest"};else bank={"bathroom","corridor","eats","hospital","house1","house2","indoor","store1","store2"};if(bank.length()==0)return;if(ambience_sound>=0)p.destroy_sound(ambience_sound);ambience_sound=p.play_stationary("executioners_rage/environment/ambiance/"+bank[random(0,bank.length()-1)]+".wav",false);
+}

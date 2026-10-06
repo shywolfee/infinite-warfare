@@ -41,7 +41,7 @@ content_database.insert_last(content_record(id,name,category,summary,give_amount
 
 void content_ensure_item(string id)
 {
-if(id=="" or id=="waypoint_marker" or string_contains(id,"er_fixture_kit_",1)==0 or id=="field_atm_terminal" or id=="beverage_vending_access" or id=="snack_vending_access" or id=="field_medical_console" or id=="supply_kiosk_access" or content_find(id)>=0) return;
+if(id=="" or retired_item(id) or content_find(id)>=0) return;
 string category="Equipment";
 if(is_weapon(id)) category="Weapons";
 else if(is_ammo_reserve_item(id) or string_contains(id,"ammo",1)>=0 or string_contains(id,"magazine",1)>=0 or string_contains(id,"shell",1)>=0) category="Ammo";

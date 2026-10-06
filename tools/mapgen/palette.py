@@ -7,6 +7,7 @@ a typo that silently becomes concrete on one map and nothing at all on another.
 Only families that actually have a complete step/land/fall set in the pack are
 used. The few that do not (bridge, rope, grasspacked) fall back at runtime.
 """
+from pathlib import Path
 
 # name -> recording family
 SURFACES = {
@@ -225,13 +226,7 @@ PRESET_NAMES = set(PRESETS)
 
 # Interactive services. Each must have a sound directory under
 # sounds/executioners_rage/environment/objects/.
-FIXTURE_KINDS = {
-    "atm", "vending_machine", "hospital_bed", "table", "kiosk", "computer1",
-    "computer2", "post_box", "sink1", "sink2", "toilet1", "toilet2", "fridge",
-    "coke_machine", "tv", "street_light", "sign", "dumpster", "crate",
-    "parked_car1", "parked_car2", "parked_car3", "tree1", "tree2", "tree3",
-    "tree4", "tree5", "wooden_planter", "well_speaker", "atrium_speaker",
-    "security_radio1", "scrap_yard1", "scrap_yard2", "streams",
-    "hospital_coagulator", "hospital_defibolator", "hospital_ventilator",
-    "instrument_prep",
-}
+# Every dynamic object type the game knows: one .object file each under
+# iwserver/content/objects. A map may place any of them.
+OBJECT_TYPES_DIR = Path(__file__).resolve().parents[2] / "iwserver/content/objects"
+FIXTURE_KINDS = {p.stem for p in OBJECT_TYPES_DIR.rglob("*.object")}

@@ -64,7 +64,7 @@ corpse@ c=corpses[ci];
 // the body back. Searching it now would duplicate everything they carry.
 int owner=get_player_index_from(c.owner);
 if(owner>=0 and players[owner].death and players[owner].pending_corpse==c.id){send_reliable(players[index].peer_id,c.owner+" is down but can still be revived. Search the body once they are gone.",2);return;}
-er_play_at("collectable/loot_corpse",c.x,c.y,c.z,c.map);
+world_sound_at("collectable/loot_corpse",c.x,c.y,c.z,c.map);
 string[] keys=c.inv.get_keys();string listing="";
 for(uint k=0;k<keys.length();k++){int amount=0;c.inv.get(keys[k],amount);if(amount<=0)continue;send_reliable(players[index].peer_id,"give "+keys[k]+" "+amount,0);if(listing!="")listing+=", ";listing+=amount+" "+string_replace(keys[k],"_"," ",true);}
 send_reliable(players[index].peer_id,"give corpse_"+id+" -1",0);

@@ -79,7 +79,7 @@ weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
 if(handling_is_manual_bolt(w) or w=="ballista")s.action_ready=false;
 }
 
-bool weapon_can_wall_brace(string weapon){return weapon=="m249_saw" or weapon=="pkm_lmg" or weapon=="mg42" or weapon=="m2_browning" or weapon=="gorgon_lmg" or weapon=="mg4_lmg" or weapon=="mk48_lmg" or weapon=="m60_gpmg" or weapon=="er_machine_gun";}
+bool weapon_can_wall_brace(string weapon){return weapon=="m249_saw" or weapon=="pkm_lmg" or weapon=="mg42" or weapon=="m2_browning" or weapon=="gorgon_lmg" or weapon=="mg4_lmg" or weapon=="mk48_lmg" or weapon=="m60_gpmg" or weapon=="mk3_machine_gun";}
 bool wall_brace_surface_ahead()
 {
 double radians=facing*3.14159265358979323846/180.0;int sx=int(round(sine(radians),0)),sy=int(round(cosine(radians),0));if(sx==0 and sy==0)return false;string chest=get_tile_at(mr.x+sx,mr.y+sy,me.z),upper=get_tile_at(mr.x+sx,mr.y+sy,me.z+1);return string_contains(chest,"wall",1)>=0 or string_contains(upper,"wall",1)>=0;

@@ -29,31 +29,24 @@ detail+="Draw a compatible weapon, select its ammunition with Alt R, then reload
 speak(detail);
 }
 
-int nearby_credit_atm()
-{
-int found=-1;double nearest=3.01;
-for(uint i=0;i<er_client_fixtures.length();i++)
-{er_client_fixture@ f=er_client_fixtures[i];if(f.type!="atm" or f.health<=0 or f.map!=mapname)continue;double distance=get_3d_distance(me.x,me.y,me.z,f.x,f.y,f.z);if(distance<=3 and distance<nearest){nearest=distance;found=int(i);}}
-return found;
-}
 string credit_chip_scan_text(string item)
 {
-int count=get_item_count(item),value=item=="er_small_credit_chip"?15:60;
+int count=get_item_count(item),value=item=="credit_chip_small"?15:60;
 if(count<=0)return "You no longer carry this credit chip.";
-return (item=="er_small_credit_chip"?"Small":"Large")+" credit chip. Scanned value: "+value+" credits per chip. You carry "+count+", total value "+(int64(count)*value)+" credits. "+(nearby_credit_atm()<0?"You are not near an ATM. Stand within three tiles of a map ATM to deposit it.":"An ATM is within reach. Use Deposit at nearby ATM to open its controls.")+" Scanning does not consume or deposit the chip. Type /credits in chat to read your saved balance.";
+return (item=="credit_chip_small"?"Small":"Large")+" credit chip. Scanned value: "+value+" credits per chip. You carry "+count+", total value "+(int64(count)*value)+" credits. "+(nearby_cash_machine() is null?"You are not near a cash machine. Stand beside one to pay it in.":"A cash machine is within reach: choose Pay in at the cash machine.")+" Scanning does not consume or deposit the chip. Type /credits in chat to read your saved balance.";
 }
 void use_credit_chip(string item)
 {
 nv_form f;f.create_window("Scan credit chip",false,true);
 nv_form_input@ info=f.add_input("Chip scan","scan_info",credit_chip_scan_text(item),"",0,true,true);
 nv_form_button@ scan=f.add_button("Scan chip again","scan",true);
-nv_form_button@ deposit=f.add_button("Deposit at nearby ATM","deposit");
+nv_form_button@ deposit=f.add_button("Pay in at the cash machine","deposit");
 nv_form_button@ close=f.add_button("Close","close",false,true);f.focus_control(info);
 while(true)
 {
 wait(5);f.monitor();if(connected)netloop();else return;
 if(f.is_pressed(close))return;
 if(f.is_pressed(scan)){info.default_text=credit_chip_scan_text(item);speak(info.default_text);}
-if(f.is_pressed(deposit)){int index=nearby_credit_atm();if(get_item_count(item)<=0)speak("You no longer carry that chip.");else if(index<0)speak("You are not near an ATM. Move within three tiles of one.");else{executioners_atm(er_client_fixtures[index].id);info.default_text=credit_chip_scan_text(item);}}
+if(f.is_pressed(deposit)){dobject@ atm=nearby_cash_machine();if(get_item_count(item)<=0)speak("You no longer carry that chip.");else if(atm is null)speak("You are not near a cash machine. Stand beside one.");else{send_reliable(0,"dobj_use "+atm.id,0);return;}}
 }
 }

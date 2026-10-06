@@ -33,6 +33,14 @@ from __future__ import annotations
 
 from .palette import AMBIENCE, FIXTURE_KINDS, KINDS, PRESET_NAMES, SURFACES
 
+# Objects placed alongside others: (type, x offset, y offset, label suffix).
+COMPANION_OBJECTS = {
+    "kiosk": ("charging_station", 2, 0, "charging point"),
+    "computer1": ("charging_station", 2, 0, "charging point"),
+    "scrap_yard1": ("fuel_barrel", 0, 3, "fuel drum"),
+    "scrap_yard2": ("fuel_barrel", 0, 3, "fuel drum"),
+}
+
 AIR = "blank"
 
 
@@ -149,10 +157,20 @@ class Map:
             y = int(y1 + (y2 - y1) * fy)
             self.pending.append(("loot", x, y, z, "", (items, seconds, 1)))
 
-    def fixture(self, kind, x, y, z, label):
-        assert kind in FIXTURE_KINDS, f"unknown service {kind!r}"
+    def fixture(self, kind, x, y, z, label, facing=0):
+        """Places a dynamic object (iwserver/content/objects/*/<kind>.object)
+        at the nearest standable spot, turned to face a multiple of 90."""
+        assert kind in FIXTURE_KINDS, f"unknown object type {kind!r}"
+        assert facing % 90 == 0, f"{kind} facing {facing} is not a quarter turn"
         self.fixture_count += 1
-        self.pending.append(("fixture", x, y, z, label, kind))
+        self.pending.append(("fixture", x, y, z, label, (kind, facing % 360)))
+        # Laptops charge at stations beside public terminals, and industrial
+        # yards keep fuel drums, which burn and then explode when shot.
+        companion = COMPANION_OBJECTS.get(kind)
+        if companion:
+            other, dx, dy, suffix = companion
+            self.fixture_count += 1
+            self.pending.append(("fixture", x + dx, y + dy, z, f"{label} {suffix}", (other, 0)))
 
     def bunker(self, x, y, z, name):
         self.emit("bunker", x, y, z, name)
@@ -547,7 +565,8 @@ class Map:
             if kind == "poi":
                 self.emit("poi", sx, sy, sz, label)
             elif kind == "fixture":
-                self.emit("fixture", extra, sx, sy, sz, label)
+                object_type, facing = extra
+                self.emit("dobject", object_type, sx, sy, sz, facing, label)
             elif kind == "spawn":
                 self.spawns.append(spot)
                 self.emit("spawn", sx, sy, sz)

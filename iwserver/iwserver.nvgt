@@ -11,8 +11,10 @@
 #include "includes/map.nvgt"
 #include "includes/player.nvgt"
 #include "includes/shop.nvgt"
-#include "includes/executioners_rage.nvgt"
-#include "includes/world_objects.nvgt"
+#include "includes/world_sound.nvgt"
+#include "includes/dynamic_objects.nvgt"
+#include "includes/provisions.nvgt"
+#include "includes/field_gadgets.nvgt"
 #include "includes/team.nvgt"
 #include "includes/moderation.nvgt"
 #include "includes/chat_system.nvgt"
@@ -26,6 +28,7 @@ void load_vehicle_content_blob(const string &in blob){}
 #include "../includes/item_data.nvgt"
 #include "includes/weapon.nvgt"
 #include "includes/grenade.nvgt"
+#include "includes/explosions.nvgt"
 #include "includes/companions.nvgt"
 #include "includes/corpse.nvgt"
 #include "includes/citem.nvgt"
@@ -160,10 +163,10 @@ next_bug_id=string_to_number(nf.read());
 nf.close();
 }
 load_wpn_stats();
+load_dobject_types(dobject_data_directory());
 init_mapsystem();
 n.setup_server(port, 20, 500);
 spawn_all_map_bunkers();
-spawn_all_map_fixtures();
 load_teams();
 load_moderation();
 load_staff_roles();
@@ -225,7 +228,7 @@ chestloop();
 citemloop();
 corpse_expiry_loop();
 smokebombloop();
-fraggrenadeloop();
+fraggrenadeloop();blast_cloud_loop();
 deployable_explosive_loop();
 torpedoloop();
 weaponloop();
@@ -234,7 +237,7 @@ bodyfallloop();
 playerloop();
 itemloop();
 maploop();
-er_fixture_loop();
+dobject_loop();
 chat_maintenance();
 }
 e=n.request();
@@ -2073,17 +2076,17 @@ else if(string_contains(parsed[0],"arena_",1)==0)
 {
 handle_arena_request(e.peer_id,get_event_message(),parsed);
 }
-else if(parsed[0]=="er_purchase")
+else if(parsed[0]=="dobj_use" and parsed.length()>1)
 {
-er_purchase(e.peer_id,parsed);
+dobject_use(e.peer_id,int(string_to_number(parsed[1])));
 }
-else if(parsed[0]=="er_redeem")
+else if(parsed[0]=="dobj_buy" and parsed.length()>2)
 {
-er_redeem(e.peer_id,parsed);
+dobject_buy(e.peer_id,int(string_to_number(parsed[1])),int(string_to_number(parsed[2])));
 }
-else if(parsed[0]=="er_fixture_interact" and parsed.length()>1)
+else if(parsed[0]=="dobj_redeem")
 {
-interact_er_fixture(e.peer_id,string_to_number(parsed[1]));
+dobject_redeem(e.peer_id,parsed);
 }
 else if(parsed[0]=="draw" and parsed.length()>1)
 {
@@ -2154,7 +2157,8 @@ int capacity=item_prop_int(parsed[1],"storage_gb",0);if(capacity>0){players[inde
 }
 else if(parsed[1]=="companion_command_remote")send_reliable(players[index].peer_id,"companion_remote_open",0);
 else if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1]);
-else if(er_use_item(players[index],parsed[1],1)){return;}
+else if(is_provision(parsed[1]))use_provision(players[index],parsed[1]);
+else if(is_field_gadget(parsed[1]))use_field_gadget(players[index],parsed[1]);
 else if(parsed[1]=="hightech_grapple")
 {
 if(players[index].grapple_timer.elapsed<8000)send_reliable(players[index].peer_id,"The grapple mechanism is recovering for "+((8000-players[index].grapple_timer.elapsed+999)/1000)+" more seconds.",2);
@@ -2201,7 +2205,7 @@ int ti=get_team_index_for_member(players[index].name);
 if (ti<0) send_reliable(players[index].peer_id, "You must be on a team to use this beacon.", 2);
 else
 {
-er_play("ui/beacon",players[index]);
+world_sound_from("ui/beacon",players[index]);
 for (uint tm=0; tm<teams[ti].members.length(); tm++) { int recipient=get_player_index_from(teams[ti].members[tm].name); if (recipient>-1) { send_reliable(players[recipient].peer_id, "play_s executioners_rage/ui/beacon_dest.wav", 0); send_reliable(players[recipient].peer_id, "give nanocyte_solution_bottle 2", 0); send_reliable(players[recipient].peer_id, "give frag_grenade 2", 0); } }
 send_reliable(players[index].peer_id, "give team_supply_beacon -1", 0); team_notice(ti, players[index].name+" deployed a supply beacon. Online members received supplies.");
 }
@@ -2390,16 +2394,8 @@ send_unreliable(players[index].peer_id, "give semtex_pack -1", 0);
 }
 if(parsed[1]=="semtex_controller")
 {
-bool semtex_found=false;
-for (uint i=0; i<samtexs.length(); i++)
-{
-if(samtexs[i].owner==players[index].name)
-{
 play("semtexactivate",players[index].x,players[index].y,players[index].z,players[index].map);
-explode();
-semtex_found=true;
-}
-}
+bool semtex_found=detonate_semtex(players[index].name)>0;
 if(!semtex_found)
 send_reliable(players[index].peer_id, "You have no semtex charges placed.", 2);
 }
@@ -2752,7 +2748,7 @@ else if(index>=0 and target>=0 and index!=target and item_id.length()>0 and item
 else if(parsed[0]=="inventory_drop" and parsed.length()==2)
 {
 int index=get_player_index(e.peer_id);string item_id=parsed[1];if(index>=0 and is_credit_chip(item_id) and credit_chip_count(players[index],item_id)<=0){send_reliable(e.peer_id,"You do not own that credit chip.",2);}
-else if(index>=0 and item_id.length()>0 and item_id.length()<=80 and string_contains(item_id,"__partial__",1)<0){vector destination;destination.x=players[index].x;destination.y=players[index].y;destination.z=players[index].z;for(int step=0;step<7;step++)destination=move(destination.x,destination.y,destination.z,players[index].facing,0);int drop_x=int(round(destination.x,0)),drop_y=int(round(destination.y,0)),drop_z=int(round(destination.z,0));if(spawn_tile_blocked(drop_x,drop_y,drop_z,players[index].map))send_reliable(players[index].peer_id,"There is no clear tile seven spaces ahead on which to drop that item.",2);else{spawn_item(drop_x,drop_y,drop_z,players[index].map,item_id,"");er_play_at("collectable/drop_item",drop_x,drop_y,drop_z,players[index].map);send_reliable(players[index].peer_id,"give "+item_id+" -1",0);send_reliable(players[index].peer_id,"Dropped "+string_replace(item_id,"_"," ",true)+" seven tiles ahead.",2);}}
+else if(index>=0 and item_id.length()>0 and item_id.length()<=80 and string_contains(item_id,"__partial__",1)<0){vector destination;destination.x=players[index].x;destination.y=players[index].y;destination.z=players[index].z;for(int step=0;step<7;step++)destination=move(destination.x,destination.y,destination.z,players[index].facing,0);int drop_x=int(round(destination.x,0)),drop_y=int(round(destination.y,0)),drop_z=int(round(destination.z,0));if(spawn_tile_blocked(drop_x,drop_y,drop_z,players[index].map))send_reliable(players[index].peer_id,"There is no clear tile seven spaces ahead on which to drop that item.",2);else{spawn_item(drop_x,drop_y,drop_z,players[index].map,item_id,"");world_sound_at("collectable/drop_item",drop_x,drop_y,drop_z,players[index].map);send_reliable(players[index].peer_id,"give "+item_id+" -1",0);send_reliable(players[index].peer_id,"Dropped "+string_replace(item_id,"_"," ",true)+" seven tiles ahead.",2);}}
 }
 else if(parsed[0]=="whatnear")
 {
@@ -3043,7 +3039,7 @@ double draw_strength=parsed.length()>5?string_to_number(parsed[5]):1.0;if(draw_s
 int handling_configuration=parsed.length()>6?string_to_number(parsed[6]):0;if(handling_configuration<0 or handling_configuration>2)handling_configuration=0;
 // A shot from inside a vehicle may never leave it (see vehicle_weapon_mishap).
 if(!vehicle_weapon_mishap(index,wname))spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map, fire_mode_str,target_region,draw_strength,handling_configuration);
-if(players[index].er_quad_active)er_play("character/affects/quad_damage/fire",players[index]);
+if(players[index].overdrive_active)world_sound_from("character/affects/quad_damage/fire",players[index]);
 string sound_weapon=get_wpn_sound_profile(wname);
 int report_stats_index=find_wpn_stats(wname);string report_class=report_stats_index>=0?wpn_stats_cache[report_stats_index].wclass:"";
 bool suppressed=false;

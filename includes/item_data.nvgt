@@ -223,3 +223,46 @@ content_database_needs_refresh=true;
 return true;
 }
 bool content_database_needs_refresh=false;
+
+// Items and weapons renamed in 0.6, when the Executioner's Rage pack's
+// items became ordinary ones. Saved inventories and quickbars still name the old ids.
+string current_item_id(const string &in id)
+{
+if(id.substr(0,3)!="er_")return id;
+if(id=="er_bowling_bomb")return "bowling_bomb";
+if(id=="er_coke_can")return "cola_can";
+if(id=="er_directional_claymore")return "directional_mine";
+if(id=="er_doctor_pepper_can")return "pepper_soda_can";
+if(id=="er_dr_bomb")return "disruptor_bomb";
+if(id=="er_electrolyte_water")return "electrolyte_water";
+if(id=="er_frag_grenade")return "field_frag_grenade";
+if(id=="er_fried_pig_skins")return "pork_rinds";
+if(id=="er_fudge_brownie")return "fudge_brownie";
+if(id=="er_ghost_bomb")return "ghost_bomb";
+if(id=="er_hot_fries")return "hot_fries";
+if(id=="er_large_credit_chip")return "credit_chip_large";
+if(id=="er_mega_med_pack")return "reconstruction_pack";
+if(id=="er_mid_med_pack")return "trauma_dressing";
+if(id=="er_mini_med_pack")return "field_dressing";
+if(id=="er_molotov")return "molotov_cocktail";
+if(id=="er_motion_bomb")return "motion_bomb";
+if(id=="er_overdrive_amplifier")return "overdrive_amplifier";
+if(id=="er_proximity_mine")return "pressure_mine";
+if(id=="er_small_credit_chip")return "credit_chip_small";
+if(id=="er_snickers_bar")return "chocolate_bar";
+if(id=="er_sprite_can")return "lemon_lime_soda_can";
+if(id=="er_super_med_pack")return "advanced_trauma_kit";
+if(id=="er_time_bomb")return "countdown_bomb";
+if(id=="er_automatic_rifle")return "arx_automatic_rifle";
+if(id=="er_machine_gun")return "mk3_machine_gun";
+if(id=="er_pump_shotgun")return "riot_pump_shotgun";
+if(id=="er_rocket_launcher")return "m72_guided_rocket_launcher";
+if(id=="er_service_pistol")return "px9_pistol";
+if(id=="er_tactical_sniper")return "vantage_tactical_sniper";
+return id;
+}
+// Items that no longer exist and are dropped from saved inventories.
+bool retired_item(const string &in id)
+{
+return id.find("er_fixture_kit_")==0 or id=="field_atm_terminal" or id=="beverage_vending_access" or id=="snack_vending_access" or id=="field_medical_console" or id=="supply_kiosk_access" or id=="waypoint_marker" or id.find("energetic_potion")==0;
+}

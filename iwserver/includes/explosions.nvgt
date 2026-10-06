@@ -1,0 +1,290 @@
+// Explosions: one model for everything that goes off.
+//
+// Before 0.6 every kind of explosive carried its own copy of "hurt everyone in
+// a circle": Semtex dealt a flat 650 within 30 tiles, C4 700 within 25, the
+// bomb vest 1500 within 25 and the bunker bomb 2000 to anyone within 150 tiles,
+// all straight through walls, ignoring arena boundaries; grenades and mortars
+// had a linear falloff of their own. Now every explosive describes itself
+// (blast_profile, mostly read from its item file) and detonate() works out
+// what happens:
+//
+// - Blast (overpressure) falls off steeply with distance, roughly with the
+//   square of the remaining range, and is reflected and concentrated in
+//   enclosed rooms: a grenade in a small concrete room is far worse than the
+//   same grenade in an open field.
+// - Fragments fly in straight lines. Each person's chance of being hit falls
+//   with the square of the distance (their share of the sphere the fragments
+//   spread over), each hit does less damage the further it has flown, and a
+//   wall stops them completely. Directional charges throw their fragments in
+//   a forward cone only.
+// - Cover: a wall between the blast and a person soaks most of the blast and
+//   all of the fragments.
+// - Water: a charge going off in water hits people in the water hard and
+//   people above it hardly at all, and throws no fragments.
+// - Vehicles, aircraft, and dynamic objects take the blast part, scaled for
+//   how well they resist it. A destroyed fuel barrel or car can set off an
+//   explosion of its own.
+// - Payloads: flash and concussion stun, gas and smoke leave a cloud that
+//   drifts with the wind, incendiaries leave a fire that burns anyone who
+//   stands in it, EMP disables vehicles' electronics for a while.
+//
+// One tile is about a metre.
+
+class blast_profile
+{
+string label;            // "Alice's C4", used for kill credit
+string owner;
+string kind;             // item id, for its sounds
+int damage=0;            // blast damage at the centre, before confinement
+double radius=0;         // the blast reaches no further than this
+int fragments=0;         // number of fragments thrown
+int fragment_damage=0;   // damage of one fragment at close range
+double fragment_range=0; // fragments lose most of their energy over this
+string payload="";       // "", flash, concussion, gas, smoke, incendiary, emp, thermite
+int effect_ms=6000;
+int cloud_ms=0;          // smoke, gas and fire linger this long
+double cloud_radius=0;
+int blast_dir=-1;        // directional charges: the facing they fire towards
+int inside_vehicle=-1;   // closed vehicle the charge is loose inside
+double vehicle_mult=1;   // how much of the blast reaches vehicles
+double structure_mult=1; // how much reaches dynamic objects
+string explode_sound,distant_sound,hit_sound;
+}
+
+// A profile from an explosive's item file. Properties an item does not set
+// fall back to values that suit its payload.
+blast_profile@ blast_profile_for(string kind,string owner,string label="")
+{
+blast_profile b;b.kind=kind;b.owner=owner;b.label=label==""?owner+"'s "+string_replace(kind,"_"," ",true):label;
+b.damage=item_prop_int(kind,"blast_damage",500);b.radius=item_prop_number(kind,"blast_radius",12);
+b.payload=item_prop(kind,"blast_effect");
+string default_fragments=(b.payload=="" or b.payload=="fragmentation")?"600":"0";
+b.fragments=item_prop_int(kind,"fragments",int(string_to_number(default_fragments)));
+b.fragment_damage=item_prop_int(kind,"fragment_damage",70);b.fragment_range=item_prop_number(kind,"fragment_range",b.radius*1.6);
+b.effect_ms=item_prop_int(kind,"effect_duration_ms",6000);
+b.cloud_ms=item_prop_int(kind,"cloud_ms",b.payload=="smoke"?45000:(b.payload=="gas"?25000:((b.payload=="incendiary" or b.payload=="thermite")?9000:0)));
+b.cloud_radius=item_prop_number(kind,"cloud_radius",b.payload=="smoke"?6:(b.payload=="gas"?5:2.5));
+b.vehicle_mult=item_prop_number(kind,"vehicle_damage_mult",1);b.structure_mult=item_prop_number(kind,"structure_damage_mult",1);
+string prefix=explosive_audio_prefix(kind);
+b.explode_sound=item_prop(kind,"explosion_sound",prefix+"_explode");
+b.distant_sound=item_prop(kind,"distant_sound",prefix+"_dist.ogg");
+b.hit_sound=item_prop(kind,"hit_sound","fraggrenadehit");
+return b;
+}
+// A profile for explosives that are not items (bombs from planes, vests,
+// burning fuel): damage and radius given directly.
+blast_profile@ blast_profile_simple(string owner,string label,int damage,double radius,int fragments,string explode,string distant,string hit)
+{
+blast_profile b;b.owner=owner;b.label=label;b.damage=damage;b.radius=radius;b.fragments=fragments;b.fragment_damage=fragments>0?80:0;b.fragment_range=radius*1.6;
+b.explode_sound=explode;b.distant_sound=distant;b.hit_sound=hit;return b;
+}
+
+// ---------------------------------------------------------------------------
+// Surroundings
+// ---------------------------------------------------------------------------
+bool blast_tile_solid(string tile){return string_contains(tile,"wall",1)>=0 or tile=="tree" or tile=="glass";}
+bool blast_tile_water(string tile){return string_contains(tile,"water",1)>=0 or tile=="open sea";}
+// How enclosed the spot is, from 1 (open air) to 1.8 (a small closed room):
+// walls within three tiles in each horizontal direction, and a ceiling.
+double blast_confinement(double x,double y,double z,string map)
+{
+int bx=int(round(x,0)),by=int(round(y,0)),bz=int(floor(z));int closed=0;
+int[] dx={1,-1,0,0},dy={0,0,1,-1};
+for(uint d=0;d<4;d++)for(int step=1;step<=3;step++){if(blast_tile_solid(get_tile_at(bx+dx[d]*step,by+dy[d]*step,bz,map))){closed++;break;}}
+bool ceiling=false;for(int up=2;up<=4 and !ceiling;up++){string t=get_tile_at(bx,by,bz+up,map);if(t!="" and t!="blank")ceiling=true;}
+double factor=1.0+double(closed)*.12;if(ceiling)factor+=.32;if(closed==4 and ceiling)factor+=.0;return factor;
+}
+// Whether a straight line from the charge to a point passes through a wall.
+bool blast_line_blocked(double x,double y,double z,double tx,double ty,double tz,string map)
+{
+double dx=tx-x,dy=ty-y,dz=tz-z,distance=sqrt(dx*dx+dy*dy+dz*dz);if(distance<1.2)return false;
+// The first tile is skipped: a shell that burst against a wall sits inside it.
+for(double along=.9;along<distance-.4;along+=.4){double t=along/distance;if(blast_tile_solid(get_tile_at(int(round(x+dx*t,0)),int(round(y+dy*t,0)),int(floor(z+dz*t)),map)))return true;}
+return false;
+}
+// Blast overpressure share at a distance: 1 at the charge, falling with the
+// square of the remaining range to nothing at the edge.
+double blast_overpressure(double distance,double radius){if(radius<=0 or distance>=radius)return 0;double q=1.0-distance/radius;return q*q;}
+// Kept for code that still asks for the old linear falloff.
+double blast_falloff(double distance,double radius){if(radius<=0 or distance>radius)return 0;return 1.0-distance/radius*.75;}
+
+// Expected fragment hits on a person-sized target, drawn as a Poisson count.
+int blast_fragment_hits(blast_profile@ b,double distance)
+{
+if(b.fragments<=0 or distance>b.fragment_range*2.2)return 0;
+double d=distance<.6?.6:distance;
+// A standing person presents about 0.7 square metres; fragments spread over
+// a hemisphere, or over a forward cone of about a sixth of one.
+double spread=2*3.14159265358979323846*d*d;if(b.blast_dir>=0)spread/=6.0;
+double expected=double(b.fragments)*.7/spread;if(expected>40)expected=40;
+int hits=0;double l=exp(-expected),p=1.0;
+do{hits++;p*=double(random(0,1000000))/1000000.0;}while(p>l and hits<60);
+return hits-1;
+}
+int blast_fragment_damage(blast_profile@ b,double distance,int hits)
+{
+if(hits<=0)return 0;double energy=exp(-distance/(b.fragment_range>0?b.fragment_range:1));
+int total=0;for(int h=0;h<hits;h++)total+=int(double(b.fragment_damage)*energy*(.6+double(random(0,80))/100.0));return total;
+}
+
+// ---------------------------------------------------------------------------
+// Detonation
+// ---------------------------------------------------------------------------
+// Where the last detonation took place; dynamic objects that explode in turn
+// read it to avoid setting themselves off twice.
+int explosion_depth=0;
+void detonate(double x,double y,double z,string map,blast_profile@ b)
+{
+if(b is null)return;
+explosion_depth++;
+if(b.explode_sound!="")play(b.explode_sound,int(x),int(y),int(z),map);
+if(b.distant_sound!="")send_distant_sound(map,b.distant_sound,int(x),int(y),int(z),35);
+bool in_water=blast_tile_water(get_tile_at(int(round(x,0)),int(round(y,0)),int(floor(z)),map));
+double confinement=in_water?1.0:blast_confinement(x,y,z,map);
+bool non_lethal=b.payload=="flash" or b.payload=="smoke" or b.payload=="gas" or b.payload=="emp";
+int owner_index=get_player_index_from(b.owner);bool pinged=false;
+for(uint i=0;i<players.length();i++)
+{
+player@ target=players[i];
+if(target.map!=map or target.death or target.in_plane or !player_can_be_damaged_by(target,b.owner))continue;
+double tx=target.x,ty=target.y,tz=target.z+1.0;
+double distance=get_3d_distance(x,y,z,tx,ty,tz);
+bool occupant=false;
+if(b.inside_vehicle>=0){int iv=find_authoritative_vehicle(b.inside_vehicle,map);occupant=iv>=0 and authoritative_vehicle_has_occupant(authoritative_vehicles[iv],target.name);}
+if(!occupant and distance>(b.radius>b.fragment_range*2.2?b.radius:b.fragment_range*2.2) and distance>b.cloud_radius+b.radius)continue;
+// Directional charges are harmless behind them.
+if(b.blast_dir>=0 and !occupant){double r=double(b.blast_dir)*3.14159265358979323846/180.0;if((tx-x)*sine(r)+(ty-y)*cosine(r)<-.5)continue;}
+bool covered=!occupant and blast_line_blocked(x,y,z+.4,tx,ty,tz,map);
+bool target_in_water=blast_tile_water(get_tile_at(int(round(tx,0)),int(round(ty,0)),int(target.z),map));
+int dealt=0;
+if(!non_lethal)
+{
+double pressure=occupant?1.0:blast_overpressure(distance,b.radius)*confinement;
+if(b.inside_vehicle>=0 and !occupant)pressure*=.5;
+if(in_water)pressure*=target_in_water?1.6:.25;
+if(covered)pressure*=.25;
+dealt=int(double(b.damage)*pressure);
+if(!covered and !in_water)dealt+=blast_fragment_damage(b,distance,occupant?blast_fragment_hits(b,.6):blast_fragment_hits(b,distance));
+}
+// Payload effects reach anyone the blast reaches, through cover for
+// concussion, not for a flash.
+bool reached=distance<=b.radius or occupant;
+if(reached and b.payload=="flash" and !covered){send_reliable(target.peer_id,"play_s flashbang_effect.ogg",0);send_reliable(target.peer_id,"combat_slow "+b.effect_ms,0);}
+else if(reached and (b.payload=="concussion" or b.payload=="emp"))send_reliable(target.peer_id,"combat_slow "+(covered?b.effect_ms/2:b.effect_ms),0);
+else if(reached and (b.payload=="incendiary" or b.payload=="thermite") and !covered){target.burning=true;target.burning_owner=b.owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
+if(dealt<=0)continue;
+dealt=apply_player_damage(target,dealt,b.label);if(dealt<=0)continue;
+if(owner_index>=0 and !pinged){pinged=true;send_reliable(players[owner_index].peer_id,"play_s weaponping.ogg",0);}
+if(b.hit_sound!="")play(b.hit_sound,target.x,target.y,target.z,target.map);
+play("playerhit"+random(1,6),target.x,target.y,target.z,target.map);
+}
+if(!non_lethal)
+{
+for(uint i=0;i<planes.length();i++)
+{
+if(planes[i].map!=map)continue;double pressure=blast_overpressure(get_3d_distance(x,y,z,planes[i].x,planes[i].y,planes[i].z),b.radius);if(pressure<=0)continue;
+planes[i].health-=int(double(b.damage)*pressure*b.vehicle_mult);play("duoplanebombhit",planes[i].x,planes[i].y,planes[i].z,planes[i].map);
+}
+for(uint vi=0;vi<authoritative_vehicles.length();vi++)
+{
+authoritative_vehicle@ v=authoritative_vehicles[vi];if(v.map!=map or v.health<=0)continue;update_authoritative_vehicle_model(v);
+double pressure=v.id==b.inside_vehicle?2.0:blast_overpressure(get_3d_distance(x,y,z,v.model_x,v.model_y,v.model_z+1),b.radius+v.body_length*.4)*confinement;
+if(pressure<=0)continue;int damage=int(double(b.damage)*pressure*b.vehicle_mult);
+damage_authoritative_vehicle(v,damage,owner_index,b.label);
+}
+if(explosion_depth<6)damage_dynamic_objects_blast(x,y,z,map,b,confinement);
+}
+if(b.payload=="emp")vehicles_emp(x,y,z,map,b.radius,b.effect_ms);
+if(b.cloud_ms>0)spawn_cloud(b.payload,x,y,z,map,b.owner,b.label,b.cloud_radius,b.cloud_ms);
+explosion_depth--;
+}
+
+// EMP: vehicles in range lose their electronics and stall for a while.
+void vehicles_emp(double x,double y,double z,string map,double radius,int ms)
+{
+for(uint vi=0;vi<authoritative_vehicles.length();vi++)
+{
+authoritative_vehicle@ v=authoritative_vehicles[vi];if(v.map!=map or v.health<=0)continue;update_authoritative_vehicle_model(v);
+if(get_3d_distance(x,y,z,v.model_x,v.model_y,v.model_z)>radius+v.body_length*.5)continue;
+v.velocity=0;send_reliable_map(map,"veh_emp "+v.id+" "+ms+" "+map,0);
+}
+}
+
+// ---------------------------------------------------------------------------
+// Clouds: smoke, gas and fire that linger after a charge goes off, drifting
+// with the map's wind. Smoke hides the people inside it; gas chokes them;
+// fire sets them alight.
+// ---------------------------------------------------------------------------
+class blast_cloud
+{
+string kind,map,owner,label;double x,y,z,radius,max_radius;int lifetime;timer age,tick,sound;
+}
+blast_cloud@[] blast_clouds;
+void spawn_cloud(string kind,double x,double y,double z,string map,string owner,string label,double radius,int ms)
+{
+if(kind!="smoke" and kind!="gas" and kind!="incendiary" and kind!="thermite")return;
+blast_cloud c;c.kind=kind=="thermite"?"incendiary":kind;c.x=x;c.y=y;c.z=z;c.map=map;c.owner=owner;c.label=label;c.max_radius=radius;c.radius=radius*.4;c.lifetime=ms;
+blast_clouds.insert_last(c);
+}
+// How thick a cloud is at a point, from 0 to 1.
+double cloud_density(blast_cloud@ c,double x,double y,double z)
+{
+double d=get_3d_distance(c.x,c.y,c.z,x,y,z);if(d>c.radius)return 0;
+double fade=1.0-double(c.age.elapsed)/double(c.lifetime);if(fade<0)fade=0;
+return (1.0-d/c.radius*.6)*fade;
+}
+void blast_cloud_loop()
+{
+for(int i=int(blast_clouds.length())-1;i>=0;i--)
+{
+blast_cloud@ c=blast_clouds[i];
+if(int(c.age.elapsed)>=c.lifetime){blast_clouds.remove_at(i);continue;}
+if(c.tick.elapsed<500)continue;
+double dt=double(c.tick.elapsed)/1000.0;c.tick.restart();
+// Clouds spread to full size in a few seconds; fire stays where it fell.
+if(c.radius<c.max_radius){c.radius+=c.max_radius*.18*dt;if(c.radius>c.max_radius)c.radius=c.max_radius;}
+if(c.kind!="incendiary"){map_wind@ w=wind_for(c.map);double nx=c.x+w.x*dt*.6,ny=c.y+w.y*dt*.6;if(!blast_tile_solid(get_tile_at(int(round(nx,0)),int(round(ny,0)),int(c.z),c.map))){c.x=nx;c.y=ny;}}
+if(c.sound.elapsed>=3000){c.sound.restart();play(c.kind=="incendiary"?"er_molotov_fire_loop":"smokebombhit",int(c.x),int(c.y),int(c.z),c.map);}
+for(uint p=0;p<players.length();p++)
+{
+player@ t=players[p];if(t.map!=c.map or t.death or t.in_plane)continue;
+double density=cloud_density(c,t.x,t.y,t.z+1);if(density<=0)continue;
+if(c.kind=="smoke"){t.see=false;t.invisible=true;t.invisibilitytimer.restart();}
+else if(c.kind=="gas"){if(!player_can_be_damaged_by(t,c.owner))continue;send_reliable(t.peer_id,"combat_slow 1500",0);apply_player_damage(t,int(18*density*dt*2),c.label);}
+else if(c.kind=="incendiary"){if(!player_can_be_damaged_by(t,c.owner))continue;if(!t.burning){t.burning=true;t.burning_owner=c.owner;t.burning_duration_timer.restart();t.burning_tick_timer.restart();}}
+}
+}
+}
+// Whether smoke stands between two points, for anything that wants to know
+// whether one person can see another.
+bool smoke_between(double x,double y,double z,double tx,double ty,double tz,string map)
+{
+for(uint i=0;i<blast_clouds.length();i++)
+{
+blast_cloud@ c=blast_clouds[i];if(c.map!=map or c.kind!="smoke")continue;
+for(double t=.2;t<1.0;t+=.2)if(cloud_density(c,x+(tx-x)*t,y+(ty-y)*t,z+(tz-z)*t)>.35)return true;
+}
+return false;
+}
+
+// ---------------------------------------------------------------------------
+// Flight surfaces. How a thrown or launched explosive bounces and rolls on
+// what it lands on.
+// ---------------------------------------------------------------------------
+class surface_physics
+{
+double restitution,friction;string sound;bool water=false;
+surface_physics(double r,double f,string s,bool w=false){restitution=r;friction=f;sound=s;water=w;}
+}
+surface_physics@ surface_of(string tile)
+{
+string t=tile.lower();
+if(blast_tile_water(t))return surface_physics(0,4,"water",true);
+if(string_contains(t,"sand",1)>=0 or string_contains(t,"snow",1)>=0 or string_contains(t,"mud",1)>=0 or string_contains(t,"scree",1)>=0 or string_contains(t,"shingle",1)>=0)return surface_physics(.08,.9,"soft");
+if(string_contains(t,"grass",1)>=0 or string_contains(t,"lawn",1)>=0 or string_contains(t,"weeds",1)>=0 or string_contains(t,"earth",1)>=0 or string_contains(t,"dirt",1)>=0 or string_contains(t,"clay",1)>=0 or string_contains(t,"gravel",1)>=0 or string_contains(t,"ballast",1)>=0)return surface_physics(.18,.6,"soft");
+if(string_contains(t,"carpet",1)>=0 or string_contains(t,"matting",1)>=0)return surface_physics(.15,.7,"soft");
+if(string_contains(t,"wood",1)>=0 or string_contains(t,"timber",1)>=0 or string_contains(t,"board",1)>=0 or string_contains(t,"parquet",1)>=0 or string_contains(t,"deck",1)>=0)return surface_physics(.34,.4,"wood");
+if(string_contains(t,"steel",1)>=0 or string_contains(t,"metal",1)>=0 or string_contains(t,"plate",1)>=0 or string_contains(t,"grating",1)>=0 or string_contains(t,"hull",1)>=0 or string_contains(t,"catwalk",1)>=0)return surface_physics(.5,.3,"metal");
+if(string_contains(t,"glass",1)>=0 or string_contains(t,"window",1)>=0)return surface_physics(.4,.2,"glass");
+return surface_physics(.42,.35,"hard");
+}

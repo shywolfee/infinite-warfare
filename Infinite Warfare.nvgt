@@ -17,7 +17,7 @@
 #include "includes/iw_form.nvgt"
 #include "includes/ammo.nvgt"
 #include "includes/weapon_handling.nvgt"
-#include "includes/executioners_rage.nvgt"
+#include "includes/map_ambience.nvgt"
 #include "includes/item_mechanics.nvgt"
 #include "includes/smart_terminal.nvgt"
 #include "includes/arenas.nvgt"
@@ -30,7 +30,7 @@
 #include "includes/dlgplayer.nvgt"
 #include "includes/m_pro.nvgt"
 #include "includes/dynamic_map.nvgt"
-#include "includes/world_objects.nvgt"
+#include "includes/dynamic_objects.nvgt"
 #include "includes/map.nvgt"
 #include "includes/spatial_index.nvgt"
 #include "includes/waypoint.nvgt"
@@ -156,7 +156,7 @@ timer lockout_timer;
 bool lockout_active=false;
 bool capture_service_response(string message)
 {
-string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","er_purchase_","er_credit_","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_overview ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
+string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","dobj_buy_","dobj_redeem_reply ","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_overview ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
 }
 bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000)
 {
@@ -691,17 +691,17 @@ updater_remove_retired_files();
 // Weapon stats loaded from .wpn files
 load_all_weapons();
 // --- Attachment registrations ---
-string[] compat_pistol_sup = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "select_fire_machine_pistol", "er_service_pistol"};
+string[] compat_pistol_sup = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "select_fire_machine_pistol", "px9_pistol"};
 register_attachment("pistol_suppressor", "Compact Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_pistol_sup);
 string[] compat_smg_sup = {"mp5", "uzi", "mp7", "p90_mp", "m1921a1_thompson", "awds_uzi", "m17_viper_uzi", "mlk_tech9", "mpk20"};
 register_attachment("smg_suppressor", "Tactical Suppressor", "silenced", "muzzle", true, 1.05, 1.0, compat_smg_sup);
-string[] compat_rifle_sup = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle", "m16a4", "m8a7", "bullpup_marksman_rifle", "sks_carbine", "mg4_lmg", "mk48_lmg", "ak74m", "er_automatic_rifle", "mlk247_combat_rifle"};
+string[] compat_rifle_sup = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle", "m16a4", "m8a7", "bullpup_marksman_rifle", "sks_carbine", "mg4_lmg", "mk48_lmg", "ak74m", "arx_automatic_rifle", "mlk247_combat_rifle"};
 register_attachment("rifle_suppressor", "Rifle Suppressor", "silenced", "muzzle", true, 1.1, 1.0, compat_rifle_sup);
-string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd", "barrett_mrad", "dragunov_psl", "mosin_1891", "er_tactical_sniper"};
+string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd", "barrett_mrad", "dragunov_psl", "mosin_1891", "vantage_tactical_sniper"};
 register_attachment("sniper_suppressor", "Precision Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
 register_expanded_combat_attachments();
 // --- Holster registrations ---
-string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "select_fire_machine_pistol", "er_service_pistol"};
+string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "select_fire_machine_pistol", "px9_pistol"};
 register_holster("pistol_holster", "Pistol Holster", h_pistol, false, 0, "");
 string[] h_357 = {"taurus_model66_revolver"};
 register_holster("gun_belt_357", ".357 Gun Belt", h_357, true, 24, ".357_magnum_ammo_belt");
@@ -709,11 +709,11 @@ string[] h_44 = {"magnum_revolver"};
 register_holster("gun_belt_44", ".44 Gun Belt", h_44, true, 24, ".44_magnum_ammo_belt");
 string[] h_smg = {"mp5", "uzi", "mp7", "p90_mp", "m1921a1_thompson", "awds_uzi", "m17_viper_uzi", "mlk_tech9", "mpk20"};
 register_holster("smg_sling", "SMG Sling", h_smg, false, 0, "");
-string[] h_rifle = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle", "m16a4", "m8a7", "bullpup_marksman_rifle", "sks_carbine", "mg4_lmg", "mk48_lmg", "dingo_lmg", "gorgon_lmg", "m2_browning", "ak74m", "er_automatic_rifle", "mlk247_combat_rifle", "m60_gpmg", "er_machine_gun"};
+string[] h_rifle = {"hk_g36", "AK47", "tar_21_assault_rifle", "famas_f1_assault_rifle", "m4a1_carbine", "scar_h_battle_rifle", "fn_fal_battle_rifle", "m16a4", "m8a7", "bullpup_marksman_rifle", "sks_carbine", "mg4_lmg", "mk48_lmg", "dingo_lmg", "gorgon_lmg", "m2_browning", "ak74m", "arx_automatic_rifle", "mlk247_combat_rifle", "m60_gpmg", "mk3_machine_gun"};
 register_holster("rifle_strap", "Rifle Strap", h_rifle, false, 0, "");
-string[] h_sniper = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd", "barrett_mrad", "dragunov_psl", "mosin_1891", "er_tactical_sniper"};
+string[] h_sniper = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd", "barrett_mrad", "dragunov_psl", "mosin_1891", "vantage_tactical_sniper"};
 register_holster("sniper_carry_case", "Sniper Carry Case", h_sniper, false, 0, "");
-string[] h_shotgun = {"benelli_m4_shotgun", "spas_12_shotgun", "mossberg_500", "double_barrel_shotgun", "mlk870_maverick", "sgx12", "sgx13", "er_pump_shotgun"};
+string[] h_shotgun = {"benelli_m4_shotgun", "spas_12_shotgun", "mossberg_500", "double_barrel_shotgun", "mlk870_maverick", "sgx12", "sgx13", "riot_pump_shotgun"};
 register_holster("shotgun_bandoleer", "Shotgun Bandoleer", h_shotgun, true, 16, "12_gauge_shell_box");
 string[] h_knife = {"combatknife", "tiger_claw_knife", "piranha_blade", "barracuda_blade", "glass_bottle"};
 register_holster("knife_sheath", "Knife Sheath", h_knife, false, 0, "");
@@ -1050,7 +1050,7 @@ string[] stats=item_stats_lines(id);
 for(uint s=0;s<stats.length();s++)lines.insert_last(stats[s]);
 int held=get_item_count(id);
 lines.insert_last(held>0?"You have "+held+".":"You have none.");
-if(id=="er_small_credit_chip" or id=="er_large_credit_chip")lines.insert_last("Credit chips are granted by the server and need administrator or developer permission.");
+if(id=="credit_chip_small" or id=="credit_chip_large")lines.insert_last("Credit chips are granted by the server and need administrator or developer permission.");
 about.default_text=join(lines," ");
 item_data@ d=item_info(id);
 int amount=(d is null or d.give_amount<1)?1:d.give_amount;
@@ -1071,7 +1071,7 @@ if(id==""){speak("Choose an item first.");continue;}
 int count=int(quantity.output);
 if(count<1)count=1;
 give_developer_item(id,count);
-if(id!="er_small_credit_chip" and id!="er_large_credit_chip")
+if(id!="credit_chip_small" and id!="credit_chip_large")
 {
 int ci=content_find(id);
 speak("Gave "+count+" "+(ci>=0?content_database[ci].display_name:id)+". You now have "+get_item_count(id)+".");
@@ -1622,11 +1622,26 @@ void builder_append_current(string line,string label)
 
 void builder_add_spawn_here(){builder_append_current("spawn:"+int(mr.x)+":"+int(mr.y)+":"+int(round(me.z,0)),"Player spawn at your current position");}
 
+// Places a dynamic object (see content/objects) where you stand, facing the
+// way you face, rounded to the nearest quarter turn.
 void builder_add_fixture_here()
 {
-string[] types={"atm","vending_machine","coke_machine","kiosk","hospital_bed","hospital_coagulator","hospital_defibolator","hospital_ventilator","instrument_prep","table","computer1","crate","dumpster","fridge","sink1","sink2","security_radio1","tv","street_light","tree1","tree2","tree3","parked_car1","door_wood","door_metal"};
-nv_form f;f.create_window("Add fixture here",false,true);nv_form_list_box@ list=f.add_list("Fixture preset","fixture");for(uint i=0;i<types.length();i++)list.add(string_replace(types[i],"_"," ",true),types[i]);nv_form_input@ label=f.add_input("Landmark label","label",get_location());nv_form_button@ add=f.add_button("Add at current position","add",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);f.focus_control(list);
-while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(add)){int selected=list.list_position;if(selected<0 or selected>=int(types.length())){speak("Select a fixture preset.");continue;}string landmark=label.text.trim_whitespace();if(!builder_valid_text_field(landmark)){speak("Enter a landmark label without colons or line breaks.");continue;}builder_append_current("fixture:"+types[selected]+":"+int(mr.x)+":"+int(mr.y)+":"+int(round(me.z,0))+":"+landmark,"Fixture");return;}}
+if(dobject_types.get_size()==0)load_dobject_types(dobject_data_directory());
+string[] ids=dobject_types.get_keys();ids.sort_ascending();
+dobject_type@[] types;for(uint i=0;i<ids.length();i++){dobject_type@ t=dobject_type_of(ids[i]);if(t !is null and t.id!="furniture")types.insert_last(t);}
+if(types.length()==0){speak("No object types were found in content/objects.");return;}
+nv_form f;f.create_window("Place an object here",false,true);nv_form_list_box@ list=f.add_list("Object","object");
+for(uint i=0;i<types.length();i++)list.add(types[i].name+" ("+types[i].category+")"+(types[i].description!=""?": "+types[i].description:""),types[i].id);
+list.set_pos(0,false);
+nv_form_input@ label=f.add_input("Label, such as where it is","label",get_location());nv_form_button@ add=f.add_button("Place it","add",true);nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);f.focus_control(list);
+while(true)
+{
+wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(!f.is_pressed(add))continue;
+int selected=list.list_position;if(selected<0 or selected>=int(types.length())){speak("Choose an object first.");continue;}
+string landmark=label.text.trim_whitespace();if(landmark!="" and !builder_valid_text_field(landmark)){speak("Labels cannot contain colons or line breaks.");continue;}
+int turn=int(round(double(facing)/90.0,0))*90%360;
+builder_append_current("dobject:"+types[selected].id+":"+int(mr.x)+":"+int(mr.y)+":"+int(round(me.z,0))+":"+turn+":"+landmark,types[selected].name);return;
+}
 }
 
 void builder_add_navigation_region()
@@ -2343,7 +2358,7 @@ void inventory_menu_legacy()
 // list used to be copied into three places, and one copy had drifted.
 bool item_handled_on_client(string item)
 {
-if(executioners_handles_item(item) or is_attachment_item(item) or is_holster_item(item) or is_ammo_reserve_item(item))return true;
+if(item=="credit_chip_small" or item=="credit_chip_large" or is_attachment_item(item) or is_holster_item(item) or is_ammo_reserve_item(item))return true;
 if(item_is_thrown_explosive(item) or item_is_deployable_explosive(item) or item_is_launched_explosive(item))return true;
 string[] client_items={"bomb_vest","translocator","translocator_cell","adrenaline_syringe","biomonitor_bracelet","wirenet","c4","hypercomp","repair_kit"};
 return client_items.find(item)>=0;
@@ -2438,7 +2453,7 @@ else if(item=="portable_auction_terminal")
 give("portable_auction_terminal",-1);give("hypercomp",1);speak("The legacy Portable Auction Terminal has been upgraded into a HyperComp Smart Terminal with Marketplace, App Store and commerce applications.");smart_terminal_menu();
 return;
 }
-else if(executioners_item_use(item))return;
+else if(item=="credit_chip_small" or item=="credit_chip_large"){use_credit_chip(item);return;}
 else if(item=="hightech_grapple" or item=="anti_personnel_security_camera" or item=="neural_intrusion_device" or item=="field_restraints" or item=="carrier_missile" or item=="conventional_guided_missile" or item=="cannon_ball")
 {
 send_reliable(0,item_use_command(item),0);
@@ -3714,7 +3729,7 @@ if (!item_shortcut_alt and !item_inspect_pressed and action_pressed("nearby_item
 {
 p.play_stationary("executioners_rage/ui/nearby.wav",false);
 pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x), int(mr.y), int(me.z));
-string fixture_nearby=nearby_executioners_fixtures(mr.x,mr.y,me.z);if(fixture_nearby!=""){if(pending_vehicle_nearby!="")pending_vehicle_nearby+=" ";pending_vehicle_nearby+=fixture_nearby;}
+string fixture_nearby=nearby_dobjects(mr.x,mr.y,me.z);if(fixture_nearby!=""){if(pending_vehicle_nearby!="")pending_vehicle_nearby+=" ";pending_vehicle_nearby+=fixture_nearby;}
 send_reliable(0,"whatnear",0);
 }
 if (action_pressed("nearby_players"))
@@ -4163,7 +4178,7 @@ else
 int nv = find_nearest_vehicle(int(mr.x), int(mr.y), int(me.z), 5);
 if (nv >= 0)
 vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
-else if(interact_nearest_executioners_fixture()){}
+else if(use_dobject_in_reach()){}
 else
 send_reliable(0, "check_chest", 0);
 }
@@ -4814,10 +4829,7 @@ else if(parsed[0]=="item_usage" and parsed.length()>1)
 {
 explain_indirect_item(parsed[1]);
 }
-else if(handle_world_object_packet(full_msg)){}
-else if(handle_executioners_packet(full_msg))
-{
-}
+else if(handle_dynamic_object_packet(full_msg)){}
 else if(parsed[0]=="builder_data" or parsed[0]=="builder_error")
 {
 receive_builder_map_response(full_msg);
@@ -5559,7 +5571,7 @@ grenade_cook_loop();
 effects_loop();
 update_all_listeners();
 acoustics_loop();
-executioners_ambience_loop();
+map_ambience_loop();
 mr.x=round(me.x,0);
 mr.y=round(me.y,0);
 movetime=walktime;

@@ -78,9 +78,16 @@ Keep the complete release together. The client executable needs the matching
 3. Create or select an account.
 4. Select a server if necessary, then connect.
 
-The in-game updater compares the local `version.txt` with the main branch on
-GitHub, downloads the repository archive, replaces the installation after the
-client exits, and restarts it. It does not require Git to be installed.
+Check for updates compares the running client's version with `version.txt`
+on GitHub's main branch. If a newer version is published, the game closes and
+`updater/iw-update.ps1` takes over: it downloads only the files that differ
+(by git SHA-1), verifies them, deletes files the game no longer ships
+(`updater/retired_files.txt`), and restarts the game. If anything fails, it
+restores every file it touched. The result is announced on the next start and
+logged in `updater/last_update.log`. Git is not required.
+
+After deleting or moving a shipped file, run
+`python tools/update_retired_files.py` before committing.
 
 ### Essential default controls
 
@@ -174,6 +181,7 @@ where its report is written.
 | `changes.txt` | Detailed player-facing release history |
 | `readme.html` | Complete game manual |
 | `version.txt` | Version checked by the GitHub updater |
+| `updater/` | The updater script and the list of retired files it deletes |
 
 Runtime accounts, server logs, administrator files, MOTD changes, and other
 live server state do not belong in source-control commits. See

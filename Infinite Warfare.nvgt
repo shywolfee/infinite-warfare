@@ -683,6 +683,8 @@ p.behind_pitch_decrease=6;
 distpool.pan_step=0.2;
 distpool.volume_step=0.1;
 weapons.insert_last("empty");
+// Before any content loads, so a stale file an old update left behind is never read.
+updater_remove_retired_files();
 // Weapon stats loaded from .wpn files
 load_all_weapons();
 // --- Attachment registrations ---
@@ -781,7 +783,7 @@ game_window@ startup_window=show_window(game_window_title(),fullscreen_enabled?W
 if(@startup_window==null)show_game_window(game_window_title());
 if (screen_reader_is_running(1))
 install_keyhook();
-//cfu("iw","iw.zip",true);
+updater_report_last_result();
 if (!sd.d.exists("first_run_done"))
 {
 first_run_welcome();

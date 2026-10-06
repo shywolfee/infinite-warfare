@@ -10,6 +10,7 @@ Run these from source using the same NVGT installation used to build the game:
 python tools/tests/world_editor_regression.py
 python tools/tests/weapon_data_regression.py
 python tools/tests/mechanics_wiring_regression.py
+python tools/tests/updater_regression.py
 cd iwserver; & C:/nvgt/nvgt.exe world_editor_regression_runner.nvgt; cd ..
 python tools/build_maps.py
 python tools/validate_maps.py
@@ -63,3 +64,12 @@ gallery, and that every player removal also releases arena membership.
 The server test also starts an arena with a single combatant and checks that
 it runs as practice, that a practice death respawns the player, and that the
 host leaving closes the arena.
+
+`updater_regression.py` runs the GitHub updater (`updater/iw-update.ps1`)
+against a local stand-in for GitHub that serves this working tree. It updates
+a 0.5.4 source install and a release folder and checks that every file then
+matches, that retired files are deleted, that the server's own files are left
+alone, that a second update downloads only what changed (CRLF line endings
+do not count), and that a failed download changes nothing. It needs PowerShell
+(`pwsh`, or set `IW_PWSH`); without it only its static checks run. It also
+checks that `updater/retired_files.txt` is current, which needs full history.

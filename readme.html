@@ -233,7 +233,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <h2>13. Source builds, sound packs, and releases</h2>
 <p>The project targets NVGT 0.90. The server is <code>iwserver.exe</code>.</p>
 <p>When running <code>Infinite Warfare.nvgt</code> from source, the Administrator Panel exposes <strong>Compress a release build</strong>. It asks before replacement, compiles the client, verifies or optionally builds <code>sounds.dat</code>, stages the executable, sound pack, recursive <code>lib</code> directory, changelog, and README, then creates <code>release.zip</code> with progress and a final result.</p>
-<p>Check for updates compares your <code>version.txt</code> with the one on GitHub. If a newer version is published it downloads the release as a zip with PowerShell (Git is not needed), replaces the game files after the game closes, and starts the game again. Keep client and server versions synchronized when protocols or persistent formats change.</p>
+<p>Check for updates compares the version you are running with the one on GitHub. If a newer version is published, the game closes and its updater downloads only the files that changed (Git is not needed), checks each one, removes files the game no longer uses, and starts the game again. If anything goes wrong, every file is put back as it was, and the game tells you what happened when it next starts; the details are in <code>updater/last_update.log</code>. Keep client and server versions synchronized when protocols or persistent formats change.</p>
 </section>
 
 <section id="files">

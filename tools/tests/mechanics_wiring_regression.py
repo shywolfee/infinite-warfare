@@ -109,5 +109,15 @@ gone = server.count("arena_player_gone(players[")
 if gone < removals:
     problems.append(f"{removals - gone} player removals in iwserver.nvgt leave arena membership behind")
 
+# 0.5.7 shipped calling vehicle_fire_mounted_weapon() after its definition
+# was lost in the driving rewrite, so the client would not compile. Every
+# vehicle function the game calls must be defined somewhere in the client.
+client_sources = client + "".join(p.read_text(encoding="utf-8", errors="replace") for p in (ROOT / "includes").glob("*.nvgt"))
+defined = set(re.findall(r"^\s*[\w@\[\]]+\s+(vehicle_\w+|distract_driver)\s*\(", client_sources, re.M))
+called = set(re.findall(r"\b(vehicle_\w+|distract_driver)\s*\(", re.sub(r'"(\\.|[^"\\\n])*"', '""', client_sources)))
+defined |= set(re.findall(r"\bclass\s+(\w+)", client_sources))
+for name in sorted(called - defined):
+    problems.append(f"the client calls {name}() but never defines it")
+
 assert not problems, "\n".join(problems)
 print("PASS mechanics wiring: corpses, collectables, equipment, healing, anti-cheat, ammunition, vehicles and arenas")

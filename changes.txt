@@ -1,3 +1,7 @@
+Hotfix for 0.5.7, build 98 (2026-10-06)
+Fixed the 0.5.7 client failing to compile with "No matching symbol 'vehicle_fire_mounted_weapon'". The function that fires a seat's mounted weapon was lost while vehicle driving was rewritten, although the game still called it. It is back: Control fires the gun on your seat at the rate set in that gun's own weapon file, which is the same limit the server enforces, rather than the old fixed rates for the 20 mm and 30 mm cannons. Nothing else changes; the server does not need updating.
+The mechanics wiring regression test now fails if the client calls a vehicle function that it never defines, so this kind of mistake is caught without NVGT.
+
 New in 0.5.7, build 97 (2026-10-06)
 Vehicles drive like vehicles. Hold Up to accelerate and Down to brake; let go of both and you coast and slow down by yourself. Acceleration, braking and top speed come from each vehicle, so a motorbike leaps away and a cargo truck or tank takes its time. Left and Right steer only while you are moving, and steer more sharply at low speed than at high speed, so you cannot spin on the spot at a standstill. Tracked vehicles, such as the tank, can still pivot in place. Movement is continuous instead of the old tile-by-tile steps, and the speed you hear and see in the vehicle status is your actual speed.
 Vehicles reverse. With an automatic gearbox, hold Down at a standstill for half a second to engage reverse, then Down drives you backwards and Up brakes. Vehicles without a reverse gear, such as aircraft, say so.

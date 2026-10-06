@@ -707,6 +707,23 @@ if(!v.window_down[player_seat])return "Roll your window down first.";
 return "";
 }
 bool vehicle_can_fire(){return vehicle_fire_block_reason(weapons[w])=="";}
+// Mounted weapons. Control fires the gun on your seat, if it has one, at
+// the rate in that gun's own weapon file; the server holds the same limit.
+// Returns true while you sit at a mounted gun, so the trigger never also
+// fires whatever you are holding.
+timer vehicle_mounted_fire_timer;
+bool vehicle_has_mounted_weapon()
+{
+if(!in_vehicle or player_vehicle_index<0 or player_seat<0)return false;vehicle_type@ t=vehicle_types[map_vehicles[player_vehicle_index].type_index];return player_seat<int(t.seat_weapons.length()) and t.seat_weapons[player_seat]!="";
+}
+int vehicle_mounted_interval(string gun){for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==gun)return wpn_cache[i].firetime>0?wpn_cache[i].firetime:500;return 500;}
+bool vehicle_fire_mounted_weapon(bool trigger)
+{
+if(!vehicle_has_mounted_weapon())return false;if(!trigger)return true;
+vehicle_type@ t=vehicle_types[map_vehicles[player_vehicle_index].type_index];string gun=t.seat_weapons[player_seat];
+if(vehicle_mounted_fire_timer.elapsed<vehicle_mounted_interval(gun))return true;vehicle_mounted_fire_timer.restart();
+send_reliable(0,"veh_fire "+player_vehicle_index+" "+player_seat+" "+gun,0);return true;
+}
 
 // ---------------------------------------------------------------------------
 // Driving. Hold Up to accelerate and Down to brake; let go of both and the

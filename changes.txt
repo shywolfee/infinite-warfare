@@ -1,3 +1,12 @@
+New in 0.5.9.1, build 101 (2026-10-06)
+You can sign in to GitHub from Repository status, under Your GitHub account at the top of its list. Signed in, GitHub allows 5000 requests an hour instead of 60, and the screen works with your account.
+Sign in with a personal access token: the game opens GitHub's token page with the permissions it needs already chosen (public_repo and notifications), you generate the token, paste it in, and the game checks it with GitHub. Signing in through the browser, with a code instead of a token, is built in too and switches on once the game has a GitHub OAuth App client ID.
+Your GitHub account shows who you are signed in as, your repositories, your notifications about this repository, and how many requests you have left. Signing out deletes the sign-in from your computer.
+Alt+A lists what you can do on the current screen. On the overview: star or unstar the repository, watch or stop watching it, fork it to your account, or open a new issue. On an issue or pull request: comment. If you can change the repository: close or reopen issues and pull requests, and merge pull requests, each after a confirmation. On your notifications: mark them all as read, or open the issue or pull request each one is about.
+The overview tells you whether you have starred and are watching the repository, and what you are allowed to do in it.
+Your sign-in is kept in the game's settings folder on your computer, encrypted, and is only ever sent to GitHub's API; it is never part of a release build and is kept out of git.
+Repository status now understands GitHub's replies properly: it tells you when your sign-in has expired, when your account is not allowed to do something, when something needs signing in, and when GitHub itself is having trouble, rather than one general failure. A slow request can be cancelled with Escape.
+
 New in 0.5.9, build 100 (2026-10-06)
 Added Repository status to the main menu. The game is open source, and this shows its public GitHub repository from inside the game, read aloud like any other menu.
 Overview: stars, watchers, forks, open issues and pull requests, size, licence, when it was created and last changed, and how to clone it.

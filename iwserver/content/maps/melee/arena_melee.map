@@ -1,29 +1,312 @@
 mapname:arena_melee
 title:Close Quarters
-maxx:80
-maxy:80
+maxx:48
+maxy:48
 maxz:16
 listed:false
 fixtures:authored
-surface:floorboards:hardwood2
-surface:arena wall:wallmetal
-tile:0:80:0:80:0:0:floorboards
-tile:0:80:0:0:1:5:arena wall
-tile:0:80:80:80:1:5:arena wall
-tile:0:0:0:80:1:5:arena wall
-tile:80:80:0:80:1:5:arena wall
-zone:1:79:1:79:0:8:Close Quarters
-openspace:1:79:1:79:0:8:Close Quarters:hardwood2:open
-poi:40:40:0:Central objective
-spawn:8:8:0
-spawn:72:72:0
-spawn:8:72:0
-spawn:72:8:0
-spawn:40:8:0
-spawn:40:72:0
-spawn:8:40:0
-spawn:72:40:0
-spawn:20:20:0
-spawn:60:60:0
-spawn:20:60:0
-spawn:60:20:0
+surface:concrete pavement:concrete5
+surface:concrete wall:wallstone
+surface:linoleum:linoleum
+surface:railing wall:wallfence
+surface:rock wall:wallrock
+surface:steel grating:grate
+surface:steel stairs:metal3
+surface:steel wall:wallmetal
+surface:warehouse floor:warehouse
+tile:1:47:1:47:0:0:warehouse floor
+zone:1:47:1:47:0:7:Close Quarters corridors
+openspace:1:47:1:47:0:7:Close Quarters corridors:warehouse floor:corridor
+tile:3:13:3:13:0:4:blank
+tile:3:13:3:13:0:0:linoleum
+tile:3:3:3:13:0:3:concrete wall
+tile:13:13:3:13:0:3:concrete wall
+tile:3:13:3:3:0:3:concrete wall
+tile:3:13:13:13:0:3:concrete wall
+tile:3:13:3:13:4:4:concrete pavement
+zone:4:12:4:12:0:3:Locker room
+space:4:12:4:12:0:3:Locker room:concrete:room
+zone:3:13:3:13:4:8:Locker room, roof
+tile:17:27:3:13:0:4:blank
+tile:17:27:3:13:0:0:linoleum
+tile:17:17:3:13:0:3:concrete wall
+tile:27:27:3:13:0:3:concrete wall
+tile:17:27:3:3:0:3:concrete wall
+tile:17:27:13:13:0:3:concrete wall
+tile:17:27:3:13:4:4:concrete pavement
+zone:18:26:4:12:0:3:Armoury
+space:18:26:4:12:0:3:Armoury:concrete:room
+zone:17:27:3:13:4:8:Armoury, roof
+tile:31:41:3:13:0:4:blank
+tile:31:41:3:13:0:0:linoleum
+tile:31:31:3:13:0:3:concrete wall
+tile:41:41:3:13:0:3:concrete wall
+tile:31:41:3:3:0:3:concrete wall
+tile:31:41:13:13:0:3:concrete wall
+tile:31:41:3:13:4:4:concrete pavement
+zone:32:40:4:12:0:3:Mess hall
+space:32:40:4:12:0:3:Mess hall:concrete:room
+zone:31:41:3:13:4:8:Mess hall, roof
+tile:3:13:17:27:0:4:blank
+tile:3:13:17:27:0:0:linoleum
+tile:3:3:17:27:0:3:concrete wall
+tile:13:13:17:27:0:3:concrete wall
+tile:3:13:17:17:0:3:concrete wall
+tile:3:13:27:27:0:3:concrete wall
+tile:3:13:17:27:4:4:concrete pavement
+zone:4:12:18:26:0:3:Office
+space:4:12:18:26:0:3:Office:concrete:room
+zone:3:13:17:27:4:8:Office, roof
+tile:17:27:17:27:0:4:blank
+tile:17:27:17:27:0:0:linoleum
+tile:17:17:17:27:0:3:concrete wall
+tile:27:27:17:27:0:3:concrete wall
+tile:17:27:17:17:0:3:concrete wall
+tile:17:27:27:27:0:3:concrete wall
+tile:17:27:17:27:4:4:concrete pavement
+zone:18:26:18:26:0:3:Training hall
+space:18:26:18:26:0:3:Training hall:concrete:room
+zone:17:27:17:27:4:8:Training hall, roof
+tile:31:41:17:27:0:4:blank
+tile:31:41:17:27:0:0:linoleum
+tile:31:31:17:27:0:3:concrete wall
+tile:41:41:17:27:0:3:concrete wall
+tile:31:41:17:17:0:3:concrete wall
+tile:31:41:27:27:0:3:concrete wall
+tile:31:41:17:27:4:4:concrete pavement
+zone:32:40:18:26:0:3:Showers
+space:32:40:18:26:0:3:Showers:concrete:room
+zone:31:41:17:27:4:8:Showers, roof
+tile:3:13:31:37:0:4:blank
+tile:3:13:31:37:0:0:linoleum
+tile:3:3:31:37:0:3:concrete wall
+tile:13:13:31:37:0:3:concrete wall
+tile:3:13:31:31:0:3:concrete wall
+tile:3:13:37:37:0:3:concrete wall
+tile:3:13:31:37:4:4:concrete pavement
+zone:4:12:32:36:0:3:Storage
+space:4:12:32:36:0:3:Storage:concrete:room
+zone:3:13:31:37:4:8:Storage, roof
+tile:17:27:31:37:0:4:blank
+tile:17:27:31:37:0:0:linoleum
+tile:17:17:31:37:0:3:concrete wall
+tile:27:27:31:37:0:3:concrete wall
+tile:17:27:31:31:0:3:concrete wall
+tile:17:27:37:37:0:3:concrete wall
+tile:17:27:31:37:4:4:concrete pavement
+zone:18:26:32:36:0:3:Workshop
+space:18:26:32:36:0:3:Workshop:concrete:room
+zone:17:27:31:37:4:8:Workshop, roof
+tile:31:41:31:37:0:4:blank
+tile:31:41:31:37:0:0:linoleum
+tile:31:31:31:37:0:3:concrete wall
+tile:41:41:31:37:0:3:concrete wall
+tile:31:41:31:31:0:3:concrete wall
+tile:31:41:37:37:0:3:concrete wall
+tile:31:41:31:37:4:4:concrete pavement
+zone:32:40:32:36:0:3:Briefing room
+space:32:40:32:36:0:3:Briefing room:concrete:room
+zone:31:41:31:37:4:8:Briefing room, roof
+tile:28:46:40:46:5:5:steel grating
+tile:28:46:40:46:6:11:blank
+zone:28:46:40:46:5:11:Spectator gallery
+openspace:28:46:40:46:5:11:Spectator gallery:metal:platform
+tile:44:45:31:31:1:6:blank
+tile:44:45:31:31:0:0:steel stairs
+tile:44:45:32:32:2:7:blank
+tile:44:45:32:32:0:0:steel wall
+tile:44:45:32:32:1:1:steel stairs
+tile:44:45:33:33:2:7:blank
+tile:44:45:33:33:0:0:steel wall
+tile:44:45:33:33:1:1:steel stairs
+tile:44:45:34:34:3:8:blank
+tile:44:45:34:34:0:1:steel wall
+tile:44:45:34:34:2:2:steel stairs
+tile:44:45:35:35:3:8:blank
+tile:44:45:35:35:0:1:steel wall
+tile:44:45:35:35:2:2:steel stairs
+tile:44:45:36:36:4:9:blank
+tile:44:45:36:36:0:2:steel wall
+tile:44:45:36:36:3:3:steel stairs
+tile:44:45:37:37:5:10:blank
+tile:44:45:37:37:0:3:steel wall
+tile:44:45:37:37:4:4:steel stairs
+tile:44:45:38:38:5:10:blank
+tile:44:45:38:38:0:3:steel wall
+tile:44:45:38:38:4:4:steel stairs
+tile:44:45:39:39:6:11:blank
+tile:44:45:39:39:0:4:steel wall
+tile:44:45:39:39:5:5:steel stairs
+zone:44:45:31:39:0:11:Gallery stair
+space:44:45:31:39:0:11:Gallery stair:metal:stairwell
+tile:28:43:40:40:6:7:railing wall
+tile:7:8:3:3:0:3:blank
+tile:7:8:3:3:0:0:linoleum
+zone:7:8:3:3:0:3:Locker room, south door
+portal:7:8:3:3:0:3:Locker room, south door:opening
+tile:7:8:13:13:0:3:blank
+tile:7:8:13:13:0:0:linoleum
+zone:7:8:13:13:0:3:Locker room, north door
+portal:7:8:13:13:0:3:Locker room, north door:opening
+tile:3:3:7:8:0:3:blank
+tile:3:3:7:8:0:0:linoleum
+zone:3:3:7:8:0:3:Locker room, west door
+portal:3:3:7:8:0:3:Locker room, west door:opening
+tile:13:13:7:8:0:3:blank
+tile:13:13:7:8:0:0:linoleum
+zone:13:13:7:8:0:3:Locker room, east door
+portal:13:13:7:8:0:3:Locker room, east door:opening
+tile:21:22:3:3:0:3:blank
+tile:21:22:3:3:0:0:linoleum
+zone:21:22:3:3:0:3:Armoury, south door
+portal:21:22:3:3:0:3:Armoury, south door:opening
+tile:21:22:13:13:0:3:blank
+tile:21:22:13:13:0:0:linoleum
+zone:21:22:13:13:0:3:Armoury, north door
+portal:21:22:13:13:0:3:Armoury, north door:opening
+tile:17:17:7:8:0:3:blank
+tile:17:17:7:8:0:0:linoleum
+zone:17:17:7:8:0:3:Armoury, west door
+portal:17:17:7:8:0:3:Armoury, west door:opening
+tile:27:27:7:8:0:3:blank
+tile:27:27:7:8:0:0:linoleum
+zone:27:27:7:8:0:3:Armoury, east door
+portal:27:27:7:8:0:3:Armoury, east door:opening
+tile:35:36:3:3:0:3:blank
+tile:35:36:3:3:0:0:linoleum
+zone:35:36:3:3:0:3:Mess hall, south door
+portal:35:36:3:3:0:3:Mess hall, south door:opening
+tile:35:36:13:13:0:3:blank
+tile:35:36:13:13:0:0:linoleum
+zone:35:36:13:13:0:3:Mess hall, north door
+portal:35:36:13:13:0:3:Mess hall, north door:opening
+tile:31:31:7:8:0:3:blank
+tile:31:31:7:8:0:0:linoleum
+zone:31:31:7:8:0:3:Mess hall, west door
+portal:31:31:7:8:0:3:Mess hall, west door:opening
+tile:41:41:7:8:0:3:blank
+tile:41:41:7:8:0:0:linoleum
+zone:41:41:7:8:0:3:Mess hall, east door
+portal:41:41:7:8:0:3:Mess hall, east door:opening
+tile:7:8:17:17:0:3:blank
+tile:7:8:17:17:0:0:linoleum
+zone:7:8:17:17:0:3:Office, south door
+portal:7:8:17:17:0:3:Office, south door:opening
+tile:7:8:27:27:0:3:blank
+tile:7:8:27:27:0:0:linoleum
+zone:7:8:27:27:0:3:Office, north door
+portal:7:8:27:27:0:3:Office, north door:opening
+tile:3:3:21:22:0:3:blank
+tile:3:3:21:22:0:0:linoleum
+zone:3:3:21:22:0:3:Office, west door
+portal:3:3:21:22:0:3:Office, west door:opening
+tile:13:13:21:22:0:3:blank
+tile:13:13:21:22:0:0:linoleum
+zone:13:13:21:22:0:3:Office, east door
+portal:13:13:21:22:0:3:Office, east door:opening
+tile:21:22:17:17:0:3:blank
+tile:21:22:17:17:0:0:linoleum
+zone:21:22:17:17:0:3:Training hall, south door
+portal:21:22:17:17:0:3:Training hall, south door:opening
+tile:21:22:27:27:0:3:blank
+tile:21:22:27:27:0:0:linoleum
+zone:21:22:27:27:0:3:Training hall, north door
+portal:21:22:27:27:0:3:Training hall, north door:opening
+tile:17:17:21:22:0:3:blank
+tile:17:17:21:22:0:0:linoleum
+zone:17:17:21:22:0:3:Training hall, west door
+portal:17:17:21:22:0:3:Training hall, west door:opening
+tile:27:27:21:22:0:3:blank
+tile:27:27:21:22:0:0:linoleum
+zone:27:27:21:22:0:3:Training hall, east door
+portal:27:27:21:22:0:3:Training hall, east door:opening
+tile:35:36:17:17:0:3:blank
+tile:35:36:17:17:0:0:linoleum
+zone:35:36:17:17:0:3:Showers, south door
+portal:35:36:17:17:0:3:Showers, south door:opening
+tile:35:36:27:27:0:3:blank
+tile:35:36:27:27:0:0:linoleum
+zone:35:36:27:27:0:3:Showers, north door
+portal:35:36:27:27:0:3:Showers, north door:opening
+tile:31:31:21:22:0:3:blank
+tile:31:31:21:22:0:0:linoleum
+zone:31:31:21:22:0:3:Showers, west door
+portal:31:31:21:22:0:3:Showers, west door:opening
+tile:41:41:21:22:0:3:blank
+tile:41:41:21:22:0:0:linoleum
+zone:41:41:21:22:0:3:Showers, east door
+portal:41:41:21:22:0:3:Showers, east door:opening
+tile:7:8:31:31:0:3:blank
+tile:7:8:31:31:0:0:linoleum
+zone:7:8:31:31:0:3:Storage, south door
+portal:7:8:31:31:0:3:Storage, south door:opening
+tile:7:8:37:37:0:3:blank
+tile:7:8:37:37:0:0:linoleum
+zone:7:8:37:37:0:3:Storage, north door
+portal:7:8:37:37:0:3:Storage, north door:opening
+tile:3:3:33:34:0:3:blank
+tile:3:3:33:34:0:0:linoleum
+zone:3:3:33:34:0:3:Storage, west door
+portal:3:3:33:34:0:3:Storage, west door:opening
+tile:13:13:33:34:0:3:blank
+tile:13:13:33:34:0:0:linoleum
+zone:13:13:33:34:0:3:Storage, east door
+portal:13:13:33:34:0:3:Storage, east door:opening
+tile:21:22:31:31:0:3:blank
+tile:21:22:31:31:0:0:linoleum
+zone:21:22:31:31:0:3:Workshop, south door
+portal:21:22:31:31:0:3:Workshop, south door:opening
+tile:21:22:37:37:0:3:blank
+tile:21:22:37:37:0:0:linoleum
+zone:21:22:37:37:0:3:Workshop, north door
+portal:21:22:37:37:0:3:Workshop, north door:opening
+tile:17:17:33:34:0:3:blank
+tile:17:17:33:34:0:0:linoleum
+zone:17:17:33:34:0:3:Workshop, west door
+portal:17:17:33:34:0:3:Workshop, west door:opening
+tile:27:27:33:34:0:3:blank
+tile:27:27:33:34:0:0:linoleum
+zone:27:27:33:34:0:3:Workshop, east door
+portal:27:27:33:34:0:3:Workshop, east door:opening
+tile:35:36:31:31:0:3:blank
+tile:35:36:31:31:0:0:linoleum
+zone:35:36:31:31:0:3:Briefing room, south door
+portal:35:36:31:31:0:3:Briefing room, south door:opening
+tile:35:36:37:37:0:3:blank
+tile:35:36:37:37:0:0:linoleum
+zone:35:36:37:37:0:3:Briefing room, north door
+portal:35:36:37:37:0:3:Briefing room, north door:opening
+tile:31:31:33:34:0:3:blank
+tile:31:31:33:34:0:0:linoleum
+zone:31:31:33:34:0:3:Briefing room, west door
+portal:31:31:33:34:0:3:Briefing room, west door:opening
+tile:41:41:33:34:0:3:blank
+tile:41:41:33:34:0:0:linoleum
+zone:41:41:33:34:0:3:Briefing room, east door
+portal:41:41:33:34:0:3:Briefing room, east door:opening
+spawn:5:5:0
+spawn:11:11:0
+spawn:19:5:0
+spawn:25:11:0
+spawn:33:5:0
+spawn:39:11:0
+spawn:5:19:0
+spawn:39:25:0
+spawn:5:33:0
+spawn:39:35:0
+spawn:15:15:0
+spawn:29:29:0
+poi:8:8:0:Locker room
+poi:22:8:0:Armoury
+poi:36:8:0:Mess hall
+poi:8:22:0:Office
+poi:22:22:0:Training hall
+poi:36:22:0:Showers
+poi:8:34:0:Storage
+poi:22:34:0:Workshop
+poi:36:34:0:Briefing room
+poi:37:43:5:Spectator gallery
+tile:0:0:0:48:0:16:rock wall
+tile:48:48:0:48:0:16:rock wall
+tile:0:48:0:0:0:16:rock wall
+tile:0:48:48:48:0:16:rock wall

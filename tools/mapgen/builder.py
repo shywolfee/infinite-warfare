@@ -43,8 +43,11 @@ def _rect(r):
 
 
 class Map:
-    def __init__(self, ident, title, width, depth, height=64):
+    def __init__(self, ident, title, width, depth, height=64, listed=True):
         self.ident = ident
+        # Unlisted maps (the arenas) are loaded only by the server, never
+        # offered as somewhere to deploy.
+        self.listed = listed
         self.title = title
         self.width = width
         self.depth = depth
@@ -599,6 +602,10 @@ class Map:
             f"maxx:{self.width}",
             f"maxy:{self.depth}",
             f"maxz:{self.height}",
+        ]
+        if not self.listed:
+            header.append("listed:false")
+        header += [
             "fixtures:authored",
         ]
         header += [f"surface:{m}:{SURFACES[m]}" for m in sorted(self.used_surfaces)]

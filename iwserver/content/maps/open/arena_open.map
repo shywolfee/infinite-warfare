@@ -1,29 +1,217 @@
 mapname:arena_open
 title:Open Arsenal
-maxx:80
-maxy:80
+maxx:120
+maxy:120
 maxz:16
 listed:false
 fixtures:authored
+surface:brick wall:wallbrick
 surface:concrete floor:concrete5
-surface:arena wall:wallmetal
-tile:0:80:0:80:0:0:concrete floor
-tile:0:80:0:0:1:5:arena wall
-tile:0:80:80:80:1:5:arena wall
-tile:0:0:0:80:1:5:arena wall
-tile:80:80:0:80:1:5:arena wall
-zone:1:79:1:79:0:8:Open Arsenal
-openspace:1:79:1:79:0:8:Open Arsenal:concrete5:open
-poi:40:40:0:Central objective
-spawn:8:8:0
-spawn:72:72:0
-spawn:8:72:0
-spawn:72:8:0
-spawn:40:8:0
-spawn:40:72:0
-spawn:8:40:0
-spawn:72:40:0
-spawn:20:20:0
-spawn:60:60:0
-spawn:20:60:0
-spawn:60:20:0
+surface:concrete pavement:concrete5
+surface:concrete stairs:stairs
+surface:concrete wall:wallstone
+surface:floorboards:hardwood2
+surface:packed dirt:dirt2
+surface:railing wall:wallfence
+surface:rock wall:wallrock
+surface:steel grating:grate
+surface:steel plate:metal4
+surface:steel stairs:metal3
+surface:steel wall:wallmetal
+surface:warehouse floor:warehouse
+tile:1:119:1:119:0:0:packed dirt
+zone:1:119:1:119:0:7:Open Arsenal yard
+openspace:1:119:1:119:0:7:Open Arsenal yard:packed dirt:open
+zone:1:39:1:39:0:7:Open Arsenal yard, south-west quarter
+zone:1:39:40:79:0:7:Open Arsenal yard, west quarter
+zone:1:39:80:119:0:7:Open Arsenal yard, north-west quarter
+zone:40:79:1:39:0:7:Open Arsenal yard, south quarter
+zone:40:79:40:79:0:7:Open Arsenal yard, the middle
+zone:40:79:80:119:0:7:Open Arsenal yard, north quarter
+zone:80:119:1:39:0:7:Open Arsenal yard, south-east quarter
+zone:80:119:40:79:0:7:Open Arsenal yard, east quarter
+zone:80:119:80:119:0:7:Open Arsenal yard, north-east quarter
+tile:50:70:50:70:0:5:blank
+tile:50:70:50:70:0:0:concrete floor
+tile:50:50:50:70:0:4:concrete wall
+tile:70:70:50:70:0:4:concrete wall
+tile:50:70:50:50:0:4:concrete wall
+tile:50:70:70:70:0:4:concrete wall
+tile:50:70:50:70:5:5:concrete pavement
+zone:51:69:51:69:0:4:Command post
+space:51:69:51:69:0:4:Command post:concrete:room
+zone:50:70:50:70:5:9:Command post, roof
+tile:71:72:52:52:1:6:blank
+tile:71:72:52:52:0:0:concrete stairs
+tile:71:72:53:53:2:7:blank
+tile:71:72:53:53:0:0:concrete wall
+tile:71:72:53:53:1:1:concrete stairs
+tile:71:72:54:54:3:8:blank
+tile:71:72:54:54:0:1:concrete wall
+tile:71:72:54:54:2:2:concrete stairs
+tile:71:72:55:55:3:8:blank
+tile:71:72:55:55:0:1:concrete wall
+tile:71:72:55:55:2:2:concrete stairs
+tile:71:72:56:56:4:9:blank
+tile:71:72:56:56:0:2:concrete wall
+tile:71:72:56:56:3:3:concrete stairs
+tile:71:72:57:57:5:10:blank
+tile:71:72:57:57:0:3:concrete wall
+tile:71:72:57:57:4:4:concrete stairs
+tile:71:72:58:58:6:11:blank
+tile:71:72:58:58:0:4:concrete wall
+tile:71:72:58:58:5:5:concrete stairs
+zone:71:72:52:58:0:11:Command post roof stair
+space:71:72:52:58:0:11:Command post roof stair:concrete:stairwell
+tile:10:30:45:75:0:4:blank
+tile:10:30:45:75:0:0:floorboards
+tile:10:10:45:75:0:3:brick wall
+tile:30:30:45:75:0:3:brick wall
+tile:10:30:45:45:0:3:brick wall
+tile:10:30:75:75:0:3:brick wall
+tile:10:30:45:75:4:4:concrete pavement
+zone:11:29:46:74:0:3:Barracks
+space:11:29:46:74:0:3:Barracks:concrete:room
+zone:10:30:45:75:4:8:Barracks, roof
+tile:90:110:45:75:0:6:blank
+tile:90:110:45:75:0:0:warehouse floor
+tile:90:90:45:75:0:5:steel wall
+tile:110:110:45:75:0:5:steel wall
+tile:90:110:45:45:0:5:steel wall
+tile:90:110:75:75:0:5:steel wall
+tile:90:110:45:75:6:6:concrete pavement
+zone:91:109:46:74:0:5:Warehouse
+space:91:109:46:74:0:5:Warehouse:metal:warehouse
+zone:90:110:45:75:6:10:Warehouse, roof
+tile:35:40:20:21:0:1:concrete wall
+tile:35:40:20:21:2:2:concrete pavement
+zone:35:40:20:21:2:6:Cover wall 1, roof
+tile:80:85:20:21:0:1:concrete wall
+tile:80:85:20:21:2:2:concrete pavement
+zone:80:85:20:21:2:6:Cover wall 2, roof
+tile:20:21:30:35:0:1:concrete wall
+tile:20:21:30:35:2:2:concrete pavement
+zone:20:21:30:35:2:6:Cover wall 3, roof
+tile:98:99:30:35:0:1:concrete wall
+tile:98:99:30:35:2:2:concrete pavement
+zone:98:99:30:35:2:6:Cover wall 4, roof
+tile:35:40:98:99:0:1:concrete wall
+tile:35:40:98:99:2:2:concrete pavement
+zone:35:40:98:99:2:6:Cover wall 5, roof
+tile:80:85:98:99:0:1:concrete wall
+tile:80:85:98:99:2:2:concrete pavement
+zone:80:85:98:99:2:6:Cover wall 6, roof
+tile:56:64:35:36:0:1:concrete wall
+tile:56:64:35:36:2:2:concrete pavement
+zone:56:64:35:36:2:6:Cover wall 7, roof
+tile:56:64:84:85:0:1:concrete wall
+tile:56:64:84:85:2:2:concrete pavement
+zone:56:64:84:85:2:6:Cover wall 8, roof
+tile:38:39:55:65:0:1:concrete wall
+tile:38:39:55:65:2:2:concrete pavement
+zone:38:39:55:65:2:6:Cover wall 9, roof
+tile:81:82:55:65:0:1:concrete wall
+tile:81:82:55:65:2:2:concrete pavement
+zone:81:82:55:65:2:6:Cover wall 10, roof
+tile:14:18:12:15:0:2:steel wall
+tile:14:18:12:15:3:3:steel plate
+zone:14:18:12:15:3:7:Container stack 1, roof
+tile:102:106:12:15:0:2:steel wall
+tile:102:106:12:15:3:3:steel plate
+zone:102:106:12:15:3:7:Container stack 2, roof
+tile:14:18:104:107:0:2:steel wall
+tile:14:18:104:107:3:3:steel plate
+zone:14:18:104:107:3:7:Container stack 3, roof
+tile:102:106:104:107:0:2:steel wall
+tile:102:106:104:107:3:3:steel plate
+zone:102:106:104:107:3:7:Container stack 4, roof
+tile:40:85:112:118:6:6:steel grating
+tile:40:85:112:118:7:12:blank
+zone:40:85:112:118:6:12:Spectator gallery
+openspace:40:85:112:118:6:12:Spectator gallery:metal:platform
+tile:84:85:104:104:1:6:blank
+tile:84:85:104:104:0:0:steel stairs
+tile:84:85:105:105:2:7:blank
+tile:84:85:105:105:0:0:steel wall
+tile:84:85:105:105:1:1:steel stairs
+tile:84:85:106:106:3:8:blank
+tile:84:85:106:106:0:1:steel wall
+tile:84:85:106:106:2:2:steel stairs
+tile:84:85:107:107:4:9:blank
+tile:84:85:107:107:0:2:steel wall
+tile:84:85:107:107:3:3:steel stairs
+tile:84:85:108:108:4:9:blank
+tile:84:85:108:108:0:2:steel wall
+tile:84:85:108:108:3:3:steel stairs
+tile:84:85:109:109:5:10:blank
+tile:84:85:109:109:0:3:steel wall
+tile:84:85:109:109:4:4:steel stairs
+tile:84:85:110:110:6:11:blank
+tile:84:85:110:110:0:4:steel wall
+tile:84:85:110:110:5:5:steel stairs
+tile:84:85:111:111:7:12:blank
+tile:84:85:111:111:0:5:steel wall
+tile:84:85:111:111:6:6:steel stairs
+zone:84:85:104:111:0:12:Gallery stair
+space:84:85:104:111:0:12:Gallery stair:metal:stairwell
+tile:40:83:112:112:7:8:railing wall
+tile:59:61:50:50:0:3:blank
+tile:59:61:50:50:0:0:concrete floor
+zone:59:61:50:50:0:3:Command post, south door
+portal:59:61:50:50:0:3:Command post, south door:opening
+tile:59:61:70:70:0:3:blank
+tile:59:61:70:70:0:0:concrete floor
+zone:59:61:70:70:0:3:Command post, north door
+portal:59:61:70:70:0:3:Command post, north door:opening
+tile:50:50:59:61:0:3:blank
+tile:50:50:59:61:0:0:concrete floor
+zone:50:50:59:61:0:3:Command post, west door
+portal:50:50:59:61:0:3:Command post, west door:opening
+tile:70:70:59:61:0:3:blank
+tile:70:70:59:61:0:0:concrete floor
+zone:70:70:59:61:0:3:Command post, east door
+portal:70:70:59:61:0:3:Command post, east door:opening
+tile:30:30:58:61:0:3:blank
+tile:30:30:58:61:0:0:floorboards
+zone:30:30:58:61:0:3:Barracks, east door
+portal:30:30:58:61:0:3:Barracks, east door:opening
+tile:10:10:58:61:0:3:blank
+tile:10:10:58:61:0:0:floorboards
+zone:10:10:58:61:0:3:Barracks, west door
+portal:10:10:58:61:0:3:Barracks, west door:opening
+tile:18:21:75:75:0:3:blank
+tile:18:21:75:75:0:0:floorboards
+zone:18:21:75:75:0:3:Barracks, north door
+portal:18:21:75:75:0:3:Barracks, north door:opening
+tile:90:90:57:62:0:3:blank
+tile:90:90:57:62:0:0:warehouse floor
+zone:90:90:57:62:0:3:Warehouse, loading door
+portal:90:90:57:62:0:3:Warehouse, loading door:opening
+tile:110:110:58:61:0:3:blank
+tile:110:110:58:61:0:0:warehouse floor
+zone:110:110:58:61:0:3:Warehouse, east door
+portal:110:110:58:61:0:3:Warehouse, east door:opening
+tile:98:101:45:45:0:3:blank
+tile:98:101:45:45:0:0:warehouse floor
+zone:98:101:45:45:0:3:Warehouse, south door
+portal:98:101:45:45:0:3:Warehouse, south door:opening
+spawn:6:6:0
+spawn:60:6:0
+spawn:114:6:0
+spawn:6:40:0
+spawn:114:40:0
+spawn:6:80:0
+spawn:114:80:0
+spawn:6:106:0
+spawn:40:104:0
+spawn:80:104:0
+spawn:30:25:0
+spawn:90:25:0
+poi:60:60:0:Command post
+poi:14:11:0:South-west containers
+poi:102:108:0:North-east containers
+poi:62:115:6:Spectator gallery
+tile:0:0:0:120:0:16:rock wall
+tile:120:120:0:120:0:16:rock wall
+tile:0:120:0:0:0:16:rock wall
+tile:0:120:120:120:0:16:rock wall

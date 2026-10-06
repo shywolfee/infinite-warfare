@@ -27,6 +27,8 @@ def _load():
         TARGETS["habitat_alpha/habitat_alpha.map"] = coruscant.build
     except ImportError:
         pass
+    from mapgen import arenas
+    TARGETS.update(arenas.TARGETS)
 
 
 if __name__ == "__main__":

@@ -372,8 +372,6 @@ speak(next==0?"Menu music off":"Menu music "+next+" percent");
 menu_music_dirty=true;
 menu_music_save_timer.restart();
 }
-dictionary weapon_durability;
-int multitool_uses=0;
 // `version` stays a bare number because it travels inside the space-delimited
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
@@ -506,6 +504,8 @@ int spread;
 string projectile_kind;
 string sound_profile;
 string fire_sound_variants;
+string manual_action; // "bolt" for weapons cycled by hand after each shot
+string vehicle_use; // forbidden, backblast, cabin_detonation or cabin_fire; empty for ordinary use from a window
 double muzzle_velocity;
 double projectile_gravity;
 double projectile_drag;
@@ -579,6 +579,10 @@ if (props.get("sound_profile", tmp)) ws.sound_profile=tmp;
 else ws.sound_profile=wid;
 if (props.get("fire_sound_variants", tmp)) ws.fire_sound_variants=tmp;
 else ws.fire_sound_variants="";
+if (props.get("manual_action", tmp)) ws.manual_action=tmp;
+else ws.manual_action="";
+if (props.get("vehicle_use", tmp)) ws.vehicle_use=tmp;
+else ws.vehicle_use="";
 if (props.get("firetime", tmp)) ws.firetime=string_to_number(tmp);
 else ws.firetime=500;
 if (props.get("walktime", tmp)) ws.walktime=string_to_number(tmp);
@@ -691,7 +695,6 @@ register_attachment("rifle_suppressor", "Rifle Suppressor", "silenced", "muzzle"
 string[] compat_sniper_sup = {"sg08_sniper_rifle", "awp_sniper_rifle", "dragunov_svd", "barrett_mrad", "dragunov_psl", "mosin_1891", "er_tactical_sniper"};
 register_attachment("sniper_suppressor", "Precision Suppressor", "silenced", "muzzle", true, 1.15, 1.0, compat_sniper_sup);
 register_expanded_combat_attachments();
-initialize_ammunition_loads();
 // --- Holster registrations ---
 string[] h_pistol = {"glock17", "beretta92fs_pistol", "desert_eagle", "colt_m1911", "target_pistol_22", "select_fire_machine_pistol", "er_service_pistol"};
 register_holster("pistol_holster", "Pistol Holster", h_pistol, false, 0, "");
@@ -1829,8 +1832,7 @@ if(record.category=="Ammo")
 {
 string[] fed_weapons;
 for(uint i=0;i<gun_ammos.length();i++)if(gun_ammos[i].reserve_item==entry_name)fed_weapons.insert_last(get_weapon_display_name(gun_ammos[i].weapon_name));
-for(uint i=0;i<ammunition_loads.length();i++)if(ammunition_loads[i].reserve_item==entry_name){for(uint w=0;w<ammunition_loads[i].weapons.length();w++)fed_weapons.insert_last(get_weapon_display_name(ammunition_loads[i].weapons[w]));result+="\nAmmunition behavior: "+ammunition_loads[i].description;}
-result+="\nCompatible weapons: "+content_join(fed_weapons)+". Use Alt+R with a weapon drawn to select a compatible load for its next reload.";
+result+="\nCompatible weapons: "+content_join(fed_weapons)+".";
 }
 else if(record.category=="Attachments")result+="\nMechanical effect: "+attachment_effect_description(entry_name);
 return result;
@@ -1946,7 +1948,7 @@ int quickbar_item_score(string item)
 int amount=0;inv.get(item,amount);int score=amount;
 if(item=="time_bomb")score+=1100;else if(item=="c4")score+=1050;else if(item=="frag_grenade")score+=1000;else if(item=="impact_grenade")score+=980;else if(item=="incendiary_grenade")score+=950;else if(item=="gas_grenade")score+=920;else if(item=="proximity_mine" or item=="claymore")score+=880;else if(item=="concussion_grenade" or item=="flashbang")score+=820;
 else if(item=="trauma_repair_serum_bottle")score+=1000;else if(item=="nanocyte_solution_bottle")score+=970;else if(item=="medigel_tonic_bottle")score+=940;else if(item=="coagulant_serum_bottle")score+=920;else if(item=="regenex_tablet_bottle")score+=900;else if(item=="life_injection")score+=850;else if(item=="adrenaline_syringe")score+=800;
-else if(item=="translocator")score+=1000;else if(item=="biomonitor_bracelet" or item=="wirenet")score+=950;else if(item=="hypercomp")score+=900;else if(item=="binoculars")score+=850;else if(item=="nanomatic_multitool")score+=800;else if(string_contains(item,"team_",1)==0)score+=700;else score+=100;
+else if(item=="translocator")score+=1000;else if(item=="biomonitor_bracelet" or item=="wirenet")score+=950;else if(item=="hypercomp")score+=900;else if(item=="binoculars")score+=850;else if(string_contains(item,"team_",1)==0)score+=700;else score+=100;
 return score;
 }
 
@@ -2068,7 +2070,7 @@ string inv_menu_label(const string[] &in keys, int pos)
 		if (pidx >= 0 and pidx < int(partial_items.length()))
 		{
 			string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
-			string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity)+", "+ammunition_display_name(partial_items[pidx].ammunition);
+			string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity);
 			return base_name + " (" + amt + "). " + (pos+1) + " of " + total;
 		}
 		return "unknown item. " + (pos+1) + " of " + total;
@@ -2124,7 +2126,7 @@ void inv_menu_use(string key)
 	else
 	{
 		on_item_used(key);
-		if (!executioners_handles_item(key) and key != "bomb_vest" and key != "translocator" and key != "translocator_cell" and key != "adrenaline_syringe" and key != "biomonitor_bracelet" and key != "wirenet" and key != "c4" and key != "hypercomp" and key != "nanomatic_multitool" and key != "nanomatic_components" and !is_attachment_item(key) and !is_holster_item(key) and !is_ammo_reserve_item(key))
+		if (!item_handled_on_client(key))
 			send_reliable(0,item_use_command(key),0);
 	}
 }
@@ -2331,8 +2333,25 @@ void inventory_menu_legacy()
 // Item use side effects — apply buffs/effects on the client when items are used.
 // Called from use_quickbar_slot and Enter key use path.
 // ---------------------------------------------------------------------------
+// Items whose use is carried out entirely by the client (or by its own
+// dedicated message) rather than by a generic "use" sent to the server. This
+// list used to be copied into three places, and one copy had drifted.
+bool item_handled_on_client(string item)
+{
+if(executioners_handles_item(item) or is_attachment_item(item) or is_holster_item(item) or is_ammo_reserve_item(item))return true;
+if(item_is_thrown_explosive(item) or item_is_deployable_explosive(item) or item_is_launched_explosive(item))return true;
+string[] client_items={"bomb_vest","translocator","translocator_cell","adrenaline_syringe","biomonitor_bracelet","wirenet","c4","hypercomp","repair_kit"};
+return client_items.find(item)>=0;
+}
 void on_item_used(string item)
 {
+// Every explosive goes through here, whichever key or menu used it: thrown
+// ones are cooked and thrown along the vertical aim, placed and launched ones
+// are sent with the same aim and the vehicle cabin state. Grenades used from
+// the quickbar or inventory list used to skip cooking entirely.
+if(item_is_thrown_explosive(item)){if(cooked_grenade!="" or confirm_explosive_in_vehicle(item,false))grenade_pin_or_throw(item);return;}
+if(item_is_deployable_explosive(item)){if(confirm_explosive_in_vehicle(item,true))send_reliable(0,explosive_use_command(item),0);return;}
+if(item_is_launched_explosive(item)){if(confirm_explosive_in_vehicle(item,false))send_reliable(0,explosive_use_command(item),0);return;}
 if (item == "bomb_vest")
 {
 // Equipping takes the vest out of the inventory; removing it gives it back.
@@ -2360,14 +2379,13 @@ give("adrenaline_syringe", -1);
 speak("Adrenaline rush! Movement speed doubled for 30 seconds.");
 return;
 }
-else if (item == "nanomatic_multitool")
+else if (item == "repair_kit")
 {
-use_nanomatic_multitool();
-return;
-}
-else if (item == "nanomatic_components")
-{
-use_nanomatic_components();
+// A repair kit patches the hull of the vehicle you are in or standing by.
+// The server checks distance and damage and decides the repair.
+int vi=in_vehicle?player_vehicle_index:find_nearest_vehicle(int(mr.x),int(mr.y),int(me.z),3);
+if(vi<0){speak("Stand next to a damaged vehicle, or sit in one, to use a repair kit.");return;}
+send_reliable(0,"veh_repair "+vi+" "+mapname,0);
 return;
 }
 else if (item == "biomonitor_bracelet")
@@ -2517,8 +2535,7 @@ apply_weapon_stats(current_weapon);
 p.play_stationary("attachment_" + item + "_attach.ogg", false);
 speak(attachment_defs[def_idx].display_name+" attached to "+get_weapon_display_name(current_weapon)+".");
 send_reliable(0, "attach "+item+" "+current_weapon, 0);
-if(attachment_defs[def_idx].slot=="ammunition")speak(ammunition_display_name(item)+" selected. Existing loaded rounds remain unchanged; the new type is loaded on the next reload.");
-else if(attachment_defs[def_idx].slot=="magazine")speak("New capacity: "+effective_magazine_capacity(current_weapon)+" rounds.");
+if(attachment_defs[def_idx].slot=="magazine")speak("New capacity: "+effective_magazine_capacity(current_weapon)+" rounds.");
 }
 }
 void equip_holster_item(string item)
@@ -2713,38 +2730,25 @@ string a=attached[i];
 if(a=="long_barrel")velocity*=1.12;else if(a=="short_barrel")velocity*=.9;else if(a=="match_grade_barrel")velocity*=1.05;else if(a=="heavy_barrel")velocity*=1.04;else if(string_contains(a,"suppressor",1)>=0){velocity*=.94;drag*=1.03;retention*=.97;}
 if(a=="red_dot_sight")accuracy*=.92;else if(a=="holographic_sight")accuracy*=.9;else if(a=="two_power_optic")accuracy*=.86;else if(a=="four_power_optic")accuracy*=.75;else if(a=="eight_power_scope")accuracy*=.62;else if(a=="thermal_scope")accuracy*=.72;else if(a=="vertical_grip")accuracy*=.88;else if(a=="angled_grip")accuracy*=.82;else if(a=="bipod")accuracy*=.65;else if(a=="laser_aiming_module")accuracy*=.9;else if(a=="weapon_light")accuracy*=.96;else if(a=="lightweight_stock")accuracy*=1.08;else if(a=="precision_stock")accuracy*=.78;else if(a=="recoil_buffer_stock")accuracy*=.86;else if(a=="muzzle_brake")accuracy*=.9;else if(a=="compensator")accuracy*=.86;else if(a=="choke_full")accuracy*=.92;else if(a=="choke_improved")accuracy*=.96;
 }
-int gi=find_gun(wname);string loaded=gi>=0?gun_ammos[gi].loaded_ammunition:"standard_ammunition";
+int gi=find_gun(wname);
 string active_mode=has_fire_modes(wname)?fire_mode_name(get_fire_mode(wname)):"fixed";
 if(active_mode=="scattershot"){pellets=base.wclass=="shotgun"?base.pellet_count+4:5;spread*=1.65;}
 else if(active_mode=="focused"){pellets=1;spread*=.25;}
-if(string_contains(loaded,"plus_p",1)>=0){velocity*=1.1;min_damage*=1.08;max_damage*=1.08;}
-if(string_contains(loaded,"subsonic",1)>=0){velocity*=.76;drag*=1.18;min_damage*=.9;max_damage*=.9;}
-if(string_contains(loaded,"match",1)>=0){velocity*=1.06;retention*=1.08;accuracy*=.7;}
-if(string_contains(loaded,"_ap",1)>=0 or string_contains(loaded,"m855a1",1)>=0 or string_contains(loaded,"bodkin",1)>=0 or string_contains(loaded,"barrikada",1)>=0 or string_contains(loaded,"flechette",1)>=0 or string_contains(loaded,"_ion",1)>=0){velocity*=1.04;penetration+=2;min_damage*=.94;max_damage*=.94;}
-if(string_contains(loaded,"jhp",1)>=0 or string_contains(loaded,"expanding",1)>=0 or string_contains(loaded,"softpoint",1)>=0 or string_contains(loaded,"broadhead",1)>=0){min_damage*=1.2;max_damage*=1.2;penetration=0;retention*=.84;}
-if(string_contains(loaded,"hardcast",1)>=0){penetration+=2;retention*=1.12;}
-if(string_contains(loaded,"frangible",1)>=0 or string_contains(loaded,"wadcutter",1)>=0){min_damage*=1.12;max_damage*=1.12;penetration=0;drag*=1.25;}
-if(string_contains(loaded,"breaching",1)>=0){min_damage*=1.3;max_damage*=1.3;range*=.55;drag*=1.4;}
-if(string_contains(loaded,"overcharge",1)>=0){velocity*=1.22;min_damage*=1.28;max_damage*=1.28;}
-if(loaded=="12g_slug" or loaded=="23mm_barrikada"){pellets=1;accuracy*=.24;penetration+=2;}else if(loaded=="12g_number4_buck"){pellets=18;accuracy*=1.3;}else if(loaded=="12g_flechette"){pellets=12;accuracy*=.72;}else if(string_contains(loaded,"shotshell",1)>=0){pellets=7;spread=5.2;}else if(string_contains(loaded,"_scatter",1)>=0){pellets=5;spread=2.4;}
 if(active_mode=="focused"){min_damage*=1.5;max_damage*=1.5;range*=1.3;velocity*=1.15;}
 weapon_handling_state@ live_handling=handling_state(wname);string live_class=get_weapon_class(wname);
-double condition_output=(.65+.35*double(live_handling.mechanical_condition)/100.0)*(1.0-double(live_handling.permanent_damage)/180.0);min_damage*=condition_output;max_damage*=condition_output;velocity*=.75+.25*double(live_handling.mechanical_condition)/100.0;spread*=1.0+double(100-live_handling.alignment+live_handling.permanent_damage)/100.0;range*=.8+.2*double(live_handling.alignment)/100.0;
 if(live_handling.configuration==1 and (live_class=="submachine_gun" or live_class=="battle_rifle" or live_class=="sniper_rifle" or live_class=="light_machine_gun" or live_class=="archery"))accuracy*=.62;
 if(live_class=="light_machine_gun" and live_handling.configuration==2 and live_handling.wall_braced)accuracy*=.68;
-if(live_class=="assault_rifle"){if(live_handling.configuration==1)accuracy*=1.12;else if(live_handling.configuration==2)accuracy*=.82;}
 if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_class=="melee_blunt") and live_handling.configuration==1){min_damage*=1.42;max_damage*=1.42;}else if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_class=="melee_blunt") and live_handling.configuration==2){min_damage*=.76;max_damage*=.76;penetration++;}
 spread*=accuracy;
 int attached_fire_interval=int(double(base.firetime)*get_attachment_firetime_mult(wname));
-string report="Live loaded configuration\nFire mode: "+active_mode+"\nAmmunition: "+ammunition_display_name(loaded)+"\nDamage: "+int(min_damage)+(int(min_damage)!=int(max_damage)?" to "+int(max_damage):"")+"\nRange: "+int(range)+" tiles\nDispersion: "+round(spread,2)+" degrees\nMuzzle velocity: "+round(velocity,2)+" tiles per second\nDrag: "+round(drag,4)+"\nDamage retention: "+int(retention*100)+" percent\nPenetration: "+penetration+"\nProjectiles per shot: "+pellets+"\nFire interval: "+handling_fire_interval(wname,attached_fire_interval)+" milliseconds\nMovement interval: "+int(double(base.walktime)*get_attachment_walktime_mult(wname)*handling_movement_penalty(wname))+" milliseconds\nHandling: "+weapon_handling_status(wname);
-if(gi>=0)report+="\nLoaded: "+gun_ammos[gi].mag_loaded+" of "+gun_ammos[gi].mag_capacity+"\nSelected for next reload: "+ammunition_display_name(selected_ammunition_for_weapon(wname));
+string report="Live loaded configuration\nFire mode: "+active_mode+"\nAmmunition: "+(gi>=0?gun_ammos[gi].ammo_type:"none")+"\nDamage: "+int(min_damage)+(int(min_damage)!=int(max_damage)?" to "+int(max_damage):"")+"\nRange: "+int(range)+" tiles\nDispersion: "+round(spread,2)+" degrees\nMuzzle velocity: "+round(velocity,2)+" tiles per second\nDrag: "+round(drag,4)+"\nDamage retention: "+int(retention*100)+" percent\nPenetration: "+penetration+"\nProjectiles per shot: "+pellets+"\nFire interval: "+handling_fire_interval(wname,attached_fire_interval)+" milliseconds\nMovement interval: "+int(double(base.walktime)*get_attachment_walktime_mult(wname)*handling_movement_penalty(wname))+" milliseconds\nHandling: "+weapon_handling_status(wname);
+if(gi>=0)report+="\nLoaded: "+gun_ammos[gi].mag_loaded+" of "+gun_ammos[gi].mag_capacity;
 return report;
 }
 
 void show_weapon_info_form(string wname)
 {
 int gi=find_gun(wname);string stats=live_weapon_statistics(wname);
-if(is_energy_weapon(wname)) stats+="\nDurability: "+get_durability(wname)+"%";
 stats+="\n\nBase weapon reference:\n"+content_weapon_details(wname);
 string[] attached=get_weapon_attachments(wname);
 nv_form f; f.create_window(get_weapon_display_name(wname)+" Weapon Panel",false,true);
@@ -3377,7 +3381,7 @@ speak("Inserted "+amount+" cells. Battery: "+translocator_cells+" cells ("+get_t
 }
 
 // ---------------------------------------------------------------------------
-// Weapon durability system — energy weapons can be damaged and repaired.
+// Weapon class lookups.
 // ---------------------------------------------------------------------------
 string get_weapon_class(string wname)
 {
@@ -3401,156 +3405,6 @@ p.play_stationary("recoil_"+c+random(1,3)+".ogg",false);send_reliable(0,"turn "+
 bool is_energy_weapon(string wname)
 {
 return (get_weapon_class(wname)=="energy");
-}
-
-int get_durability(string wname)
-{
-int dur=100;
-if (weapon_durability.exists(wname))
-weapon_durability.get(wname, dur);
-else
-{
-weapon_durability.set(wname, 100);
-}
-return dur;
-}
-
-void set_durability(string wname, int val)
-{
-if (val<0) val=0;
-if (val>100) val=100;
-weapon_durability.set(wname, val);
-}
-
-void on_weapon_break(string wname)
-{
-p.play_stationary("itembreak.ogg",false);
-int components=random(1, 5);
-int broken_gun=find_gun(wname);
-if(broken_gun>=0)
-{
-gun_ammos[broken_gun].reloading=false;
-gun_ammos[broken_gun].reload_audio_manual=false;
-gun_ammos[broken_gun].reload_cycle_pending=false;
-}
-give(wname, -1);
-weapon_durability.delete(wname);
-give("nanomatic_components", components);
-for (uint i=0; i<weapons.length(); i++)
-{
-if (weapons[i]==wname)
-{
-weapons[i]="empty";
-break;
-}
-}
-speak(get_weapon_display_name(wname)+" has broken! Salvaged "+components+" nanomatic component"+(components>1 ? "s" : "")+".");
-}
-
-void apply_focused_durability_damage(string wname)
-{
-if (!is_energy_weapon(wname)) return;
-if (random(1, 100)<=20)
-{
-int dmg_pct=random(1, 10);
-int cur=get_durability(wname);
-cur-=dmg_pct;
-if (cur<=0)
-{
-set_durability(wname, 0);
-on_weapon_break(wname);
-return;
-}
-set_durability(wname, cur);
-p.play_stationary("alarm2.ogg",false);
-speak("Warning: weapon durability at "+cur+"%.");
-}
-}
-
-// ---------------------------------------------------------------------------
-// Nanomatic Multitool — repairs energy weapon durability.
-// ---------------------------------------------------------------------------
-void use_nanomatic_multitool()
-{
-string[] damaged;
-for (uint i=0; i<weapons.length(); i++)
-{
-if (weapons[i]!="empty" and is_energy_weapon(weapons[i]) and get_durability(weapons[i])<100)
-damaged.insert_last(weapons[i]);
-}
-if (damaged.length()==0)
-{
-speak("No energy weapons need repair.");
-return;
-}
-if (multitool_uses<=0) multitool_uses=5;
-iw_form f;
-f.create_window("Nanomatic Multitool", false, true);
-int f_list=f.create_list("Select a weapon to repair ("+multitool_uses+" uses remaining)", 0, false);
-for (uint i=0; i<damaged.length(); i++)
-{
-int dur=get_durability(damaged[i]);
-f.add_list_item(f_list, get_weapon_display_name(damaged[i])+" ("+dur+"% durability)");
-}
-int f_repair=f.create_button("&Repair", true);
-int f_close=f.create_button("&Close", false, true);
-f.focus(f_list);
-while(true)
-{
-wait(5);
-f.monitor();
-if (connected==true)
-netloop();
-if (f.is_pressed(f_repair))
-{
-int sel=f.get_list_position(f_list);
-if (sel>=0 and sel<int(damaged.length()))
-{
-int repair_amount=random(5, 15);
-int cur=get_durability(damaged[sel]);
-int new_dur=cur+repair_amount;
-if (new_dur>100) new_dur=100;
-set_durability(damaged[sel], new_dur);
-multitool_uses--;
-p.play_stationary("nanomatic_multitooluse.ogg",false);
-speak("Repaired "+get_weapon_display_name(damaged[sel])+" to "+new_dur+"% durability. "+multitool_uses+" uses remaining.");
-if (multitool_uses<=0)
-{
-give("nanomatic_multitool", -1);
-p.play_stationary("itembreak.ogg",false);
-speak("Multitool spent.");
-multitool_uses=0;
-}
-}
-break;
-}
-else if (f.is_pressed(f_close))
-break;
-}
-}
-
-// ---------------------------------------------------------------------------
-// Nanomatic Components — add a use to a multitool.
-// ---------------------------------------------------------------------------
-void use_nanomatic_components()
-{
-int comp_count=get_item_count("nanomatic_components");
-if (comp_count<5)
-{
-speak("You need 5 nanomatic components. You have "+comp_count+".");
-return;
-}
-int tool_count=get_item_count("nanomatic_multitool");
-if (tool_count<=0)
-{
-speak("You need a nanomatic multitool to add uses to.");
-return;
-}
-if (multitool_uses<=0) multitool_uses=5;
-give("nanomatic_components", -5);
-multitool_uses++;
-p.play_stationary("nanomatic_multitooluse.ogg",false);
-speak("Added 1 use to multitool. Now has "+multitool_uses+" uses.");
 }
 
 // ---------------------------------------------------------------------------
@@ -3625,7 +3479,7 @@ if (usetimer.elapsed<=n.get_peer_average_round_trip_time(1)+100) return;
 usetimer.restart();
 on_item_used(item);
 // Client-owned utility items and attachments are handled locally; others go to server.
-if (!executioners_handles_item(item) and item != "bomb_vest" and item != "translocator" and item != "translocator_cell" and item != "adrenaline_syringe" and item != "biomonitor_bracelet" and item != "wirenet" and item != "nanomatic_multitool" and item != "nanomatic_components" and !is_attachment_item(item) and !is_holster_item(item) and !is_ammo_reserve_item(item))
+if (!item_handled_on_client(item))
 send_reliable(0,item_use_command(item),0);
 }
 }
@@ -3836,16 +3690,14 @@ show_poi_list();
 // before the plain K/M actions that share their physical default keys.
 bool item_shortcut_alt=(key_down(KEY_LMENU) or key_down(KEY_RMENU));
 bool item_shortcut_shift=(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
-bool item_configuration_pressed=false,item_inspect_pressed=false;
+bool item_inspect_pressed=false;
 if(item_shortcut_alt and item_shortcut_shift)
 {
-item_configuration_pressed=action_pressed("item_configuration");
 item_inspect_pressed=action_pressed("item_inspect");
-if(item_configuration_pressed)cycle_selected_item_configuration();
 if(item_inspect_pressed){string inspect_item=get_selected_item();if(inspect_item=="" or is_weapon(inspect_item))speak("Select an inventory item first.");else speak(item_mechanic_description(inspect_item));}
 if(action_pressed("extract_pill")){string pill_item=get_selected_item();if(!item_is_pill_bottle(pill_item))speak("Select a pill bottle first.");else send_reliable(0,"extract_pill "+pill_item,0);}
 }
-if (!item_shortcut_alt and !item_configuration_pressed and !item_inspect_pressed and action_pressed("next_category"))
+if (!item_shortcut_alt and !item_inspect_pressed and action_pressed("next_category"))
 {
 if (shift_is_down())
 cycle_category(0);
@@ -3853,7 +3705,7 @@ else
 cycle_category(1);
 p.play_stationary("invmove.ogg", false);
 }
-if (!item_shortcut_alt and !item_configuration_pressed and !item_inspect_pressed and action_pressed("nearby_items"))
+if (!item_shortcut_alt and !item_inspect_pressed and action_pressed("nearby_items"))
 {
 p.play_stationary("executioners_rage/ui/nearby.wav",false);
 pending_vehicle_nearby=get_nearby_vehicles_string(int(mr.x), int(mr.y), int(me.z));
@@ -3904,21 +3756,10 @@ burst_rounds_remaining = 0;
 // movement-start packet is delayed or lost. Reload state is the weapon gate.
 if(!is_reloading(weapons[w]))
 {
-// Vehicle fire restrictions: no melee, must have window down.
-if (in_vehicle and !vehicle_can_fire())
-{
-if (physical_fire_pressed)
-{
-if (melee)
-speak("You can't use melee weapons from a vehicle.");
-else
-speak("Roll your window down first.");
-}
-}
-if (in_vehicle and melee and physical_fire_pressed)
-{
-speak("You can't use melee weapons from a vehicle.");
-}
+// Vehicle fire restrictions (see vehicle_fire_block_reason): some weapons
+// cannot be used from a seat at all, and most need the window down.
+if (in_vehicle and !vehicle_can_fire() and physical_fire_pressed)
+speak(vehicle_fire_block_reason(weapons[w]));
 bool fire_now = false;
 bool tension_weapon=(weapons[w]=="crossbow");
 if(crossbow_charging and !tension_weapon){if(crossbow_charge_sound>=0)p.destroy_sound(crossbow_charge_sound);crossbow_charging=false;crossbow_charge_sound=-1;}
@@ -3929,7 +3770,7 @@ crossbow_charging=true;crossbow_full_tension_reported=false;crossbow_charge_time
 if(crossbow_charging and !crossbow_full_tension_reported and crossbow_charge_timer.elapsed>=1800){crossbow_full_tension_reported=true;p.play_stationary("crossbow_full_tension.ogg",false);}
 if (sitting and walktime>=300 and (physical_fire_pressed or gk_fire))
 speak("Stand before using this heavy weapon.");
-if (firetimer.elapsed>=handling_fire_interval(weapons[w],firetime) and (!in_vehicle or (vehicle_can_fire() and !melee)) and (!sitting or walktime<300))
+if (firetimer.elapsed>=handling_fire_interval(weapons[w],firetime) and (!in_vehicle or vehicle_can_fire()) and (!sitting or walktime<300))
 {
 if(tension_weapon and crossbow_charging and !physical_fire_down)
 {
@@ -3967,12 +3808,10 @@ string sound_mode="normal";
 if (cur_fm==FIREMODE_SCATTERSHOT) sound_mode="scattershot";
 else if (cur_fm==FIREMODE_FOCUSED) sound_mode="focused";
 if(tension_weapon){if(crossbow_release_strength<.45)sound_mode="lowtension";else if(crossbow_release_strength>=.9)sound_mode="maxtension";else sound_mode="normaltension";}
-int fire_gun_index=find_gun(weapons[w]);string fired_ammunition=fire_gun_index>=0?gun_ammos[fire_gun_index].loaded_ammunition:"standard_ammunition";
-fire_cmd+=" "+sound_mode+" "+choose_fire_sound_index(weapons[w],sound_mode)+" "+string_replace(target_regions[target_region_index],"whole body","body",false)+" "+crossbow_release_strength+" "+fired_ammunition;
-fire_cmd+=" "+handling_state(weapons[w]).configuration+" "+handling_state(weapons[w]).mechanical_condition+" "+handling_state(weapons[w]).alignment+" "+handling_state(weapons[w]).permanent_damage;
+fire_cmd+=" "+sound_mode+" "+choose_fire_sound_index(weapons[w],sound_mode)+" "+string_replace(target_regions[target_region_index],"whole body","body",false)+" "+crossbow_release_strength+" "+handling_state(weapons[w]).configuration;
 send_reliable(0,fire_cmd,0);
+distract_driver();
 apply_weapon_recoil(weapons[w]);
-if (cur_fm==FIREMODE_FOCUSED) apply_focused_durability_damage(weapons[w]);
 if (melee) stamina_on_melee(weapons[w]);
 if (cur_fm == FIREMODE_BURST and burst_firing)
 {
@@ -4019,28 +3858,24 @@ if(manual_alt and !manual_shift and action_pressed("manual_insert"))manual_inser
 if(manual_alt and manual_shift and action_pressed("manual_cycle"))manual_cycle_weapon(weapons[w]);
 if(manual_alt and manual_shift and action_pressed("manual_eject"))manual_eject_ammunition(weapons[w]);
 if(manual_alt and !manual_shift and action_pressed("weapon_operation"))operate_weapon(weapons[w]);
-if(manual_alt and manual_shift and action_pressed("weapon_maintenance"))maintain_weapon(weapons[w]);
+
 if(manual_alt and manual_shift and action_pressed("vehicle_service")){int service_vehicle=in_vehicle?player_vehicle_index:find_nearest_vehicle(int(mr.x),int(mr.y),int(me.z),5);if(service_vehicle<0)speak("No vehicle is close enough to inspect.");else map_vehicles[service_vehicle].vehicle_service_panel(int(mr.x),int(mr.y),int(me.z));}
 bool reload_pressed=action_pressed("reload");
 if(reload_pressed or gk_reload)
 {
-if(MENU_is_down() and reload_pressed)cycle_weapon_ammunition(weapons[w]);
-else if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
+if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
 unload_mag(weapons[w]);
 else if (needs_reload_menu(weapons[w]))
 {
 // Show menu to choose between full and partial ammo items.
 int gi=find_gun(weapons[w]);
 gun_ammo@ rg=gun_ammos[gi];
-string selected_load=selected_ammunition_for_weapon(weapons[w]);
-string selected_reserve=ammunition_reserve_item(weapons[w],selected_load);
+string selected_reserve=rg.reserve_item;
 int full_count=get_item_count(selected_reserve);
 string[] reload_labels,reload_ids;
 if (full_count>0)
 {
-if(selected_load!="standard_ammunition")
-{reload_labels.insert_last(ammunition_display_name(selected_load)+" ("+full_count+" rounds available)");reload_ids.insert_last("full");}
-else if (rg.ammo_display=="charge")
+if (rg.ammo_display=="charge")
 {reload_labels.insert_last("Full "+rg.reserve_label+" ("+full_count+" available)");reload_ids.insert_last("full");}
 else if (rg.ammo_display=="fuel")
 {reload_labels.insert_last("Full fuel canister ("+full_count+" available)");reload_ids.insert_last("full");}
@@ -4051,7 +3886,7 @@ int[] pindices=get_partial_indices_for(rg.reserve_item);
 for (uint pi=0; pi<pindices.length(); pi++)
 {
 string amt=partial_amount_label(rg.reserve_item, partial_items[pindices[pi]].remaining, partial_items[pindices[pi]].max_capacity);
-reload_labels.insert_last("Partial "+rg.reserve_label+" ("+amt+", "+ammunition_display_name(partial_items[pindices[pi]].ammunition)+")");reload_ids.insert_last("partial_"+pindices[pi]);
+reload_labels.insert_last("Partial "+rg.reserve_label+" ("+amt+")");reload_ids.insert_last("partial_"+pindices[pi]);
 }
 string choice=pick_from_list("Select ammunition to load",reload_labels,reload_ids);
 if (choice=="full")
@@ -4308,7 +4143,7 @@ draw_weapon(sel_item);
 else
 {
 on_item_used(sel_item);
-if (!executioners_handles_item(sel_item) and sel_item != "bomb_vest" and sel_item != "translocator" and sel_item != "translocator_cell" and sel_item != "adrenaline_syringe" and sel_item != "biomonitor_bracelet" and sel_item != "wirenet" and sel_item != "c4" and sel_item != "hypercomp" and sel_item != "nanomatic_multitool" and sel_item != "nanomatic_components" and !is_attachment_item(sel_item) and !is_holster_item(sel_item) and !is_ammo_reserve_item(sel_item))
+if (!item_handled_on_client(sel_item))
 send_reliable(0,item_use_command(sel_item),0);
 }
 }
@@ -4507,36 +4342,22 @@ if(action_down("move_right"))
 facing=turnright(facing, 1);
 }
 }
+// Pedals and steering are released unless the driving keys below say
+// otherwise this frame, so opening a menu never leaves the throttle held.
+vehicle_drive_input(false,false,0);
 if(!MENU_is_down() and key_up(KEY_G) and can_move==true)
 {
 if (in_vehicle)
 {
-// Vehicle controls: arrows control vehicle, not player movement.
+// Vehicle controls: hold Up to accelerate, Down to brake (or to reverse at a
+// standstill), Left and Right to steer; Shift+Up and Shift+Down change gear.
 if (current_vehicle_can_fly() and key_pressed(KEY_PAGEUP)) vehicle_change_altitude(1);
 if (current_vehicle_can_fly() and key_pressed(KEY_PAGEDOWN)) vehicle_change_altitude(-1);
-if (action_pressed("move_forward"))
-vehicle_speed_up();
-else if (action_pressed("move_backward"))
-{
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
-vehicle_decelerate_gradual();
-else
-vehicle_speed_down();
-}
-if (action_pressed("move_left"))
-{
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
-vehicle_turn_fine(-1);
-else
-vehicle_turn(-1);
-}
-else if (action_pressed("move_right"))
-{
-if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT))
-vehicle_turn_fine(1);
-else
-vehicle_turn(1);
-}
+bool gear_shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
+if(gear_shift and action_pressed("move_forward"))vehicle_shift(1);
+else if(gear_shift and action_pressed("move_backward"))vehicle_shift(-1);
+int steer=(action_down("move_left")?-1:0)+(action_down("move_right")?1:0);
+vehicle_drive_input(!gear_shift and action_down("move_forward"),!gear_shift and action_down("move_backward"),steer);
 }
 else
 {

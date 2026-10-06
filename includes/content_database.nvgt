@@ -31,12 +31,11 @@ if(category=="Equipment")
 if(id=="bomb_vest")category="Armour";
 else if(string_contains(id,"grenade",1)>=0 or string_contains(id,"bomb",1)>=0 or string_contains(id,"semtex",1)>=0 or id=="c4" or id=="claymore" or id=="proximity_mine" or id=="torpedo")category="Explosives";
 else if(string_contains(id,"team_",1)==0 or id=="duo_plane_kit")category="Team";
-else if(id=="translocator" or id=="nanomatic_multitool" or id=="nanomatic_components" or id=="binoculars" or id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Utility";
+else if(id=="translocator" or id=="binoculars" or id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Utility";
 }
-if(item_is_weapon_maintenance(id))category="Weapon Maintenance";
 if(string_contains(id,"armor_patch",1)>=0 or string_contains(id,"armour_patch",1)>=0 or string_contains(id,"plate_patch",1)>=0 or string_contains(id,"helmet_patch",1)>=0)category="Armour Repair";
-if(!item_is_weapon_maintenance(id) and (string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can"))category="Vehicle Supplies";
-if(id=="nanomatic_multitool" or id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bucket" or id=="empty_bucket")category="Containers";
+if((string_contains(id,"vehicle_",1)==0 or string_contains(id,"fuel_",1)==0 or id=="diesel_can" or id=="gasoline_can" or id=="aviation_fuel_can"))category="Vehicle Supplies";
+if(id=="binoculars")category="Tools";else if(id=="hypercomp" or id=="wirenet" or id=="biomonitor_bracelet")category="Electronics";else if(id=="bucket" or id=="empty_bucket")category="Containers";
 content_database.insert_last(content_record(id,name,category,summary,give_amount));content_database_index.set(id,int(content_database.length())-1);
 }
 
@@ -109,13 +108,6 @@ content_register(g.reserve_item,string_replace(g.reserve_item,"_"," ",true),"Amm
 }
 for(uint i=0;i<attachment_defs.length();i++)
 content_register(attachment_defs[i].id,attachment_defs[i].display_name,"Attachments",attachment_defs[i].slot+" attachment compatible with "+attachment_defs[i].compatible_weapons.length()+" weapons. "+attachment_effect_description(attachment_defs[i].id),1);
-for(uint i=0;i<ammunition_loads.length();i++)
-{
-string reserve_name=ammunition_loads[i].display_name+" Reserve";
-if(string_contains(ammunition_loads[i].reserve_item,"_box",1)>=0)reserve_name="Box of "+ammunition_loads[i].display_name;
-else if(string_contains(ammunition_loads[i].reserve_item,"_quiver",1)>=0)reserve_name=ammunition_loads[i].display_name+" Quiver";
-content_register(ammunition_loads[i].reserve_item,reserve_name,"Ammo",ammunition_loads[i].description+" Compatible with "+ammunition_loads[i].weapons.length()+" registered weapons.",ammunition_loads[i].give_amount);
-}
 for(uint i=0;i<holster_defs.length();i++)
 content_register(holster_defs[i].id,holster_defs[i].display_name,"Holsters","Supports "+holster_defs[i].compatible_weapons.length()+" weapons"+(holster_defs[i].has_ammo_storage ? " and stores "+holster_defs[i].ammo_capacity+" rounds." : "."),1);
 if(vehicle_types.length()==0)init_vehicle_types();
@@ -157,7 +149,7 @@ result+="\nCompatible attachments: "+content_join(attachment_names)+".";
 string[] holster_names;
 for(uint i=0;i<holster_defs.length();i++) if(holster_supports_weapon(holster_defs[i].id,id)) holster_names.insert_last(holster_defs[i].display_name);
 result+="\nCompatible holsters: "+content_join(holster_names)+".";
-string[] load_ids=compatible_ammunition_for_weapon(id),load_names;for(uint li=0;li<load_ids.length();li++)load_names.insert_last(ammunition_display_name(load_ids[li]));result+="\nCompatible ammunition loads: "+content_join(load_names)+".";
+
 return result;
 }
 
@@ -200,7 +192,7 @@ return result;
 // Each list comes back to where you were when you return to it. It used to be
 // one crowded form: two lists, a text box and a sound list side by side,
 // with every sound test-loaded from the pack each time you moved.
-string[] armoury_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment","Vehicles"};
+string[] armoury_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment","Vehicles"};
 
 string[] armoury_entry_ids(const string &in category)
 {

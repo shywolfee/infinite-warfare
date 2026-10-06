@@ -28,7 +28,6 @@ string executable=string_replace(SCRIPT_EXECUTABLE,"\\","/",true);string[] parts
 }
 void release_stage_current_plugins(string release,nv_form@ form,nv_form_input@ status,nv_form_progress_bar@ progress)
 {
-#if_not IW_REACTPHYSICS_RUNTIME
 // The executable declares nvgt_curl explicitly. Always take that plugin from
 // the compiler which produced this build, never from a potentially stale game
 // lib folder left by an older NVGT release.
@@ -37,13 +36,6 @@ release_status(form,status,progress,"Validating runtime plugins",0,"Locating the
 if(!file_exists(compiler_plugin))throw("The active NVGT installation does not provide lib/nvgt_curl.dll at "+compiler_plugin);
 if(!file_copy(compiler_plugin,staged_plugin,true))throw("Could not stage the current nvgt_curl plugin");
 release_status(form,status,progress,"Validating runtime plugins",100,"Replaced the staged curl plugin with "+compiler_plugin+".");
-#endif
-#if IW_REACTPHYSICS_RUNTIME
-// The pinned native-physics runtime provides url_get in its core HTTP API.
-// Do not ship an older compiler's curl plugin beside this executable.
-if(file_exists(release+"/lib/nvgt_curl.dll"))file_delete(release+"/lib/nvgt_curl.dll");
-release_status(form,status,progress,"Validating runtime plugins",100,"Using the pinned runtime's built-in HTTP implementation; obsolete curl plugin excluded.");
-#endif
 string[] helper_plugins={"notifications.dll","nvgt_app_volume.dll","voice_command.dll"};for(uint i=0;i<helper_plugins.length();i++){string source=SCRIPT_MAIN_PATH+"/lib/"+helper_plugins[i],destination=release+"/lib/"+helper_plugins[i];if(!file_exists(source))throw("Missing integrated helper runtime "+source);if(!file_copy(source,destination,true))throw("Could not stage helper runtime "+helper_plugins[i]);}
 release_status(form,status,progress,"Validating runtime plugins",100,"Staged notifications, application-volume, and voice-command runtimes. Graphics use the NVGT 0.90-integrated graphics helper and require no legacy plugin.");
 }

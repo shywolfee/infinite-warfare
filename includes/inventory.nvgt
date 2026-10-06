@@ -14,7 +14,7 @@ bool inventory_transfer_targets_received=false;
 string[] quickbar = {"", "", "", "", "", "", "", "", "", ""};
 
 // Inventory category system.
-string[] inv_categories = {"All", "Weapons", "Ammo", "Explosives", "Healing", "Armour", "Armour Repair", "Weapon Maintenance", "Vehicle Supplies", "Attachments", "Holsters", "Team", "Tools", "Utility", "Electronics", "Containers", "Equipment"};
+string[] inv_categories = {"All", "Weapons", "Ammo", "Explosives", "Healing", "Armour", "Armour Repair", "Vehicle Supplies", "Attachments", "Holsters", "Team", "Tools", "Utility", "Electronics", "Containers", "Equipment"};
 int inv_category_index = 0;
 
 string get_item_category(string item)
@@ -23,7 +23,7 @@ int database_index=content_find(item);
 if(database_index>=0)
 {
 string database_category=content_database[database_index].category;
-string[] visible_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Weapon Maintenance","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment"};
+string[] visible_categories={"Weapons","Ammo","Explosives","Healing","Armour","Armour Repair","Vehicle Supplies","Attachments","Holsters","Team","Tools","Utility","Electronics","Containers","Equipment"};
 for(uint c=0;c<visible_categories.length();c++)if(database_category==visible_categories[c])return database_category;
 return "Equipment";
 }
@@ -37,7 +37,7 @@ if(string_contains(item,"grenade",1)>=0 or string_contains(item,"bomb",1)>=0 or 
 if(string_contains(item,"armor",1)>=0 or string_contains(item,"armour",1)>=0 or string_contains(item,"helmet",1)>=0 or string_contains(item,"vest",1)>=0 or string_contains(item,"greaves",1)>=0)return "Armour";
 if(find_attachment_def(item)>=0)return "Attachments";
 if(string_contains(item,"team_",1)==0 or item=="duo_plane_kit")return "Team";
-if(item=="nanomatic_multitool" or item=="nanomatic_components" or item=="translocator" or item=="binoculars" or item=="hypercomp")return "Utility";
+if(item=="translocator" or item=="binoculars" or item=="hypercomp")return "Utility";
 return "Equipment";
 }
 
@@ -235,7 +235,7 @@ if (pidx >= 0 and pidx < int(partial_items.length()))
 {
 string base_name = string_replace(partial_items[pidx].base_item, "_", " ", true);
 string amt = partial_amount_label(partial_items[pidx].base_item, partial_items[pidx].remaining, partial_items[pidx].max_capacity);
-speak(base_name + " (" + amt + ", " + ammunition_display_name(partial_items[pidx].ammunition) + "). " + (invpos+1) + " of " + filtered.length());
+speak(base_name + " (" + amt + "). " + (invpos+1) + " of " + filtered.length());
 }
 }
 else

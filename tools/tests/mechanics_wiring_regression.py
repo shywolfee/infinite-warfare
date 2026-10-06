@@ -1,4 +1,4 @@
-"""Static checks for game mechanics that 0.5.6 found wired up wrongly.
+"""Static checks for game mechanics that 0.5.6 and 0.5.7 found wired up wrongly.
 
 Each of these looked fine in review and silently never worked: a service loop
 that was never called, a variable name inside a string literal, a branch
@@ -57,5 +57,57 @@ if 'parsed[0]=="use_potion"' in server:
 if server.count("players.remove_at(index);\n}\n}\nelse") and "was removed by anti-cheat" in server:
     problems.append("an anti-cheat removal leaves the peer connected")
 
+# 0.5.7: one ammunition per calibre, no maintenance, no physics server.
+handling = (ROOT / "includes/weapon_handling.nvgt").read_text(encoding="utf-8")
+for word in ("ammunition_loads", "cycle_weapon_ammunition"):
+    if word in ammo or word in client:
+        problems.append(f"alternate ammunition ({word}) is back")
+for word in ("heat", "fouling", "maintain_weapon", "jam_chance"):
+    if re.search(rf"\b{word}", handling):
+        problems.append(f"weapon_handling.nvgt still models {word}")
+if list((ROOT / "iwserver/content/items").glob("weapon_maintenance/*.item")):
+    problems.append("weapon maintenance items are back")
+for name, text in {"iwserver.nvgt": server, **server_includes}.items():
+    if "server_physics" in text:
+        problems.append(f"{name}: calls the removed physics server")
+
+# Vehicle use of weapons is data: every value must be one the server knows.
+allowed = {"", "normal", "forbidden", "cabin_detonation", "cabin_fire", "backblast"}
+grenade = server_includes["grenade.nvgt"]
+for path in (ROOT / "iwserver/content/weapons").rglob("*.wpn"):
+    props = dict(line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines() if "=" in line)
+    use = props.get("vehicle_use", "").strip()
+    if use not in allowed:
+        problems.append(f"{path.name}: unknown vehicle_use {use!r}")
+    if use and use != "normal" and f'"{use}"' not in grenade:
+        problems.append(f"{path.name}: vehicle_use {use} has no server handling")
+if "vehicle_weapon_mishap(" not in server:
+    problems.append("firing from a vehicle skips vehicle_weapon_mishap")
+
+# Only the driver may move a vehicle.
+for packet in ("veh_turn", "veh_move"):
+    start = server.index(f'parsed[0]=="{packet}"')
+    if "authoritative_vehicle_driver_is" not in server[start:start + 600]:
+        problems.append(f"{packet} is accepted from anyone, not only the driver")
+
+# Every vehicle file describes its drivetrain.
+for path in (ROOT / "iwserver/content/vehicles").rglob("*.vehicle"):
+    text = path.read_text(encoding="utf-8")
+    for key in ("transmission=", "gears=", "turning_radius=", "reverse_speed="):
+        if key not in text:
+            problems.append(f"{path.name}: missing {key}")
+
+# Arena maps are unlisted and have a spectator gallery; arenas leave cleanly.
+for path in (ROOT / "iwserver/content/maps").glob("*/arena_*.map"):
+    text = path.read_text(encoding="utf-8")
+    if "listed:false" not in text:
+        problems.append(f"{path.name} is listed as an ordinary map")
+    if "Spectator gallery" not in text:
+        problems.append(f"{path.name} has no spectator gallery")
+removals = server.count("players.remove_at(")
+gone = server.count("arena_player_gone(players[")
+if gone < removals:
+    problems.append(f"{removals - gone} player removals in iwserver.nvgt leave arena membership behind")
+
 assert not problems, "\n".join(problems)
-print("PASS mechanics wiring: corpses, collectables, equipment, healing and anti-cheat")
+print("PASS mechanics wiring: corpses, collectables, equipment, healing, anti-cheat, ammunition, vehicles and arenas")

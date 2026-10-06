@@ -95,13 +95,6 @@ z=bz;
 map=bmap;
 owner=bowner;
 payload=bpayload;
-if(string_contains(payload,"fragmentation",1)>=0){blast_radius=25;blast_damage=430;}
-else if(string_contains(payload,"thermobaric",1)>=0){blast_radius=28;blast_damage=620;}
-else if(string_contains(payload,"incendiary",1)>=0){blast_radius=18;blast_damage=280;}
-else if(payload=="40mm_hedp"){blast_radius=9;blast_damage=300;}
-else if(payload=="50mm_ap"){blast_radius=6;blast_damage=360;}
-else if(payload=="75mm_ap"){blast_radius=8;blast_damage=440;}
-else if(payload=="throwing_blade_explosive"){blast_radius=6;blast_damage=260;}
 if(authored_radius>0)blast_radius=authored_radius;
 if(authored_damage>0)blast_damage=authored_damage;
 if(authored_label!="")source_label=authored_label;
@@ -118,7 +111,7 @@ if (mortarbombs[i].bombtimer.elapsed>=1)
 {
 mortarbombs[i].bombtimer.restart();
 damage_world_objects_blast(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map,mortarbombs[i].blast_radius,mortarbombs[i].blast_damage);
-string explosion_sound=mortarbombs[i].explosion_sound,explosion_distant=mortarbombs[i].explosion_distant;if(explosion_sound=="120mm_mortarexplode" and string_contains(mortarbombs[i].payload,"thermobaric",1)>=0){explosion_sound="firefight_carrier_missile_explode";explosion_distant="firefight_carrier_missile_dist.ogg";}else if(explosion_sound=="120mm_mortarexplode" and (string_contains(mortarbombs[i].payload,"fragmentation",1)>=0 or string_contains(mortarbombs[i].payload,"hedp",1)>=0)){explosion_sound="firefight_conventional_missile_explode";explosion_distant="firefight_conventional_missile_dist.ogg";}else if(explosion_sound=="120mm_mortarexplode" and string_contains(mortarbombs[i].payload,"_ap",1)>=0){explosion_sound="firefight_cannon_ball_explode";explosion_distant="firefight_cannon_ball_dist.ogg";}else if(explosion_sound=="120mm_mortarexplode" and string_contains(mortarbombs[i].payload,"incendiary",1)>=0){explosion_sound="firefight_grenade_explode";explosion_distant="firefight_grenade_dist.ogg";}play(explosion_sound,mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);send_reliable(0,"distsound "+explosion_distant+" "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
+string explosion_sound=mortarbombs[i].explosion_sound,explosion_distant=mortarbombs[i].explosion_distant;play(explosion_sound,mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,mortarbombs[i].map);send_reliable(0,"distsound "+explosion_distant+" "+mortarbombs[i].x+" "+mortarbombs[i].y+" "+mortarbombs[i].z+" "+mortarbombs[i].map,0);
 for (uint i2=0; i2<players.length(); i2++)
 {
 player@ target=players[i2];
@@ -127,7 +120,6 @@ int dealt=blast_damage_to_player(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i
 // Passing the owner as the source enforces arena boundaries and starts the
 // combat-logout timers; blasts used to bypass both.
 dealt=apply_player_damage(target,dealt,mortarbombs[i].owner+"'s "+mortarbombs[i].source_label);if(dealt<=0)continue;
-if(string_contains(mortarbombs[i].payload,"incendiary",1)>=0){target.burning=true;target.burning_owner=mortarbombs[i].owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
 play(mortarbombs[i].impact_sound,target.x,target.y,target.z,target.map);
 }
 for (uint i2=0; i2<planes.length(); i2++)
@@ -139,7 +131,7 @@ planes[i2].health-=int(double(mortarbombs[i].blast_damage)*plane_scale);
 play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 }
-for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=mortarbombs[i].map or vehicle.health<=0)continue;double vd=get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vd>mortarbombs[i].blast_radius)continue;int vehicle_damage=int(double(mortarbombs[i].blast_damage)*(1.0-vd/double(mortarbombs[i].blast_radius)*.55));if(string_contains(mortarbombs[i].payload,"_ap",1)>=0)vehicle_damage=int(vehicle_damage*1.65);damage_authoritative_vehicle(vehicle,vehicle_damage,-1,"caught in a "+mortarbombs[i].source_label+" blast");}
+for(uint vi=0;vi<authoritative_vehicles.length();vi++){authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=mortarbombs[i].map or vehicle.health<=0)continue;double vd=get_3d_distance(mortarbombs[i].x,mortarbombs[i].y,mortarbombs[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vd>mortarbombs[i].blast_radius)continue;int vehicle_damage=int(double(mortarbombs[i].blast_damage)*(1.0-vd/double(mortarbombs[i].blast_radius)*.55));damage_authoritative_vehicle(vehicle,vehicle_damage,-1,"caught in a "+mortarbombs[i].source_label+" blast");}
 
 }
 mortarbombs.remove_at(i);

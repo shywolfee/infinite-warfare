@@ -83,21 +83,6 @@ if(itemgrabs>itemcount) break;
 }
 }
 
-void give_random_weapon_maintenance_bundle(int player_index)
-{
-if(player_index<0 or player_index>=int(players.length()))return;int kind=random(0,8);string[] grants;
-if(kind==0)grants={"handgun_cleaning_kit 1","chamber_brush 3","action_lubricant 3"};
-else if(kind==1)grants={"rifle_field_tool 1","carbon_scraper 3","action_lubricant 3"};
-else if(kind==2)grants={"precision_bore_guide 1","copper_fouling_solvent 3","precision_cleaning_patches 5"};
-else if(kind==3)grants={"shotgun_cleaning_rod 1","shotgun_bore_swab 4","action_lubricant 3"};
-else if(kind==4)grants={"barrel_wrench 1","heat_resistant_gloves 1","spare_machine_gun_barrel 2"};
-else if(kind==5)grants={"emitter_service_key 1","thermal_vent_cartridge 3","dielectric_coolant 3"};
-else if(kind==6)grants={"fuel_system_wrench 1","burner_nozzle_cleaner 3","pressure_seal_kit 3"};
-else if(kind==7)grants={"drive_service_tool 1","chain_lubricant 3","motor_coolant 3"};
-else grants={"field_honing_stone 1","blade_oil 3","rust_remover 3","weapon_inspection_gauge 1","grip_repair_wrap 3","fastener_compound 3"};
-for(uint i=0;i<grants.length();i++)send_reliable(players[player_index].peer_id,"give "+grants[i],0);
-send_reliable(players[player_index].peer_id,"The container included a "+(kind==0?"handgun":kind==1?"rifle":kind==2?"precision rifle":kind==3?"shotgun":kind==4?"machine gun":kind==5?"energy weapon":kind==6?"fuel weapon":kind==7?"powered tool":"melee weapon")+" maintenance bundle.",2);
-}
 
 void give_random_equipment_service_bundle(int player_index)
 {

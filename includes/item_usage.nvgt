@@ -6,10 +6,8 @@ int ci=content_find(item);
 string title=ci>=0?content_database[ci].display_name:string_replace(item,"_"," ",true);
 string detail=ci>=0?content_database[ci].summary:"No direct action is registered for this item.";
 string category=ci>=0?content_database[ci].category:"Item";
-if(item_is_weapon_maintenance(item))detail+=" Draw the weapon to service and press "+kb_binding_label("weapon_maintenance")+". The maintenance action checks and uses the required supplies.";
-else if(item_is_vehicle_supply(item))detail+=" Stand beside the vehicle and open its workshop with Alt Shift V to choose the matching service or refit.";
+if(item_is_vehicle_supply(item))detail+=" Stand beside the vehicle and open its workshop with Alt Shift V to choose the matching service or refit.";
 else if(item=="bunker_key" or item=="locker_access_module")detail+=" Keep this access credential in your inventory and interact with the matching lock.";
-else if(item=="nanomatic_components" or item=="repair_kit")detail+=" Use the Nanomatic Multitool and select compatible damaged equipment.";
 else detail+=" Select it and press Alt Enter for its full database help and usage details.";
 speak(title+". "+category+". This item is not used directly. "+detail);
 }
@@ -23,7 +21,6 @@ for(uint gi=0;gi<gun_ammos.length();gi++)
 string gun=gun_ammos[gi].weapon_name;
 if(get_item_count(gun)<=0 and weapons.find(gun)<0 and holster1_weapon!=gun and holster2_weapon!=gun)continue;
 bool accepts=gun_ammos[gi].reserve_item==item;
-for(uint ai=0;ai<ammunition_loads.length() and !accepts;ai++)if(ammunition_loads[ai].reserve_item==item and ammunition_loads[ai].weapons.find(gun)>=0)accepts=true;
 if(accepts){string display=get_weapon_display_name(gun);if(compatible.find(display)<0)compatible.insert_last(display);}
 }
 string detail=title+" is ammunition and cannot be used directly. ";

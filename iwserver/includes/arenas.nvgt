@@ -1,34 +1,182 @@
+// Automatic PK arenas.
+//
+// An arena is created by a host, joined by combatants and spectators, and
+// started by the host. Combatants are moved to the arena map's spawn points
+// with the arena's temporary loadout; spectators watch from its spectator
+// gallery and can neither deal nor take damage. The last combatant standing
+// wins, and everyone is returned to exactly where they were.
+//
+// A host may start an arena with only themselves as a combatant to practise.
+// A practice arena behaves exactly like a real one -- the loadout, the map and
+// every source of damage, your own explosives included -- except that dying
+// puts you back at a spawn point with a fresh loadout instead of ending the
+// match. Anyone can watch a practice arena, or any running arena, from the
+// gallery.
+//
+// 0.5.7 rewrote this module. Arenas used to need two combatants to start,
+// could only be watched if you joined before the start, and could never
+// finish if a combatant left or disconnected; spectators were handed the
+// combat loadout and placed on the combatants' spawn points.
 class arena_member{string name,role;bool alive=true;arena_member(string n,string r){name=n;role=r;alive=r=="combatant";}}
-class arena_instance{int id;string host,type,map,state="waiting";arena_member@[] members;arena_instance(int i,string h,string t){id=i;host=h;type=t;map=arena_map(t);members.insert_last(arena_member(h,"combatant"));}}
+class arena_instance
+{
+int id;string host,type,map,state="waiting";bool practice=false;arena_member@[] members;
+arena_instance(int i,string h,string t){id=i;host=h;type=t;map=arena_map(t);members.insert_last(arena_member(h,"combatant"));}
+}
 arena_instance@[] arenas;int next_arena_id=1;
 string arena_type_name(string t){if(t=="sidearms")return "Sidearm Showdown";if(t=="melee")return "Close Quarters";if(t=="explosives")return "Demolition Ring";return "Open Arsenal";}
 string arena_map(string t){if(t=="sidearms")return "arena_sidearms";if(t=="melee")return "arena_melee";if(t=="explosives")return "arena_explosives";return "arena_open";}
-string arena_rules(string t){if(t=="sidearms")return "Last combatant standing; sidearm and ammunition loadout.";if(t=="melee")return "Last combatant standing; melee weapons only.";if(t=="explosives")return "Last combatant standing; grenades and defensive equipment.";return "Last combatant standing with a balanced rifle, sidearm, medical and explosive loadout.";}
-string arena_loadout(string t){if(t=="sidearms")return "glock17,9x19mm_17_round_magazine,9x19mm_17_round_magazine,er_mini_med_pack";if(t=="melee")return "combatknife,baseball_bat,er_mini_med_pack";if(t=="explosives")return "frag_grenade,frag_grenade,smoke_bomb,flashbang,combatknife";return "m4a1_carbine,5.56mm_stanag_magazine,5.56mm_stanag_magazine,glock17,9x19mm_17_round_magazine,frag_grenade,er_mini_med_pack";}
+string arena_rules(string t){if(t=="sidearms")return "Last combatant standing; pistols and ammunition in a frontier street.";if(t=="melee")return "Last combatant standing; melee weapons only, in tight rooms and corridors.";if(t=="explosives")return "Last combatant standing; grenades, mines and a combat knife, around a ring of broken walls.";return "Last combatant standing with a rifle, a sidearm, a grenade and a medical kit, in a walled yard.";}
+string arena_loadout(string t){if(t=="sidearms")return "glock17,9x19mm_17_round_magazine,9x19mm_17_round_magazine,9x19mm_17_round_magazine,er_mini_med_pack";if(t=="melee")return "combatknife,machete,baseball_bat,er_mini_med_pack";if(t=="explosives")return "frag_grenade,frag_grenade,frag_grenade,concussion_grenade,smoke_bomb,proximity_mine,combatknife,er_mini_med_pack";return "m4a1_carbine,5.56mm_stanag_magazine,5.56mm_stanag_magazine,5.56mm_stanag_magazine,glock17,9x19mm_17_round_magazine,frag_grenade,er_mini_med_pack";}
 int arena_index(int id){for(uint i=0;i<arenas.length();i++)if(arenas[i].id==id)return int(i);return -1;}
 int arena_member_index(arena_instance@ a,string name){for(uint i=0;i<a.members.length();i++)if(string_to_lower_case(a.members[i].name)==string_to_lower_case(name))return int(i);return -1;}
-string arena_listing(){string result="arena_list ";for(uint i=0;i<arenas.length();i++){if(i>0)result+=";";result+=arenas[i].id+"~"+arena_type_name(arenas[i].type)+"~"+arenas[i].host+"~"+arenas[i].state+"~"+arenas[i].members.length()+"~"+map_display_title(arenas[i].map)+"~"+arena_rules(arenas[i].type);}return result;}
+int arena_count(arena_instance@ a,string role,bool living_only=false){int n=0;for(uint i=0;i<a.members.length();i++)if(a.members[i].role==role and (!living_only or a.members[i].alive))n++;return n;}
+string arena_state_text(arena_instance@ a){return a.state=="active"?(a.practice?"practice":"active"):"waiting";}
+string arena_listing(){string result="arena_list ";for(uint i=0;i<arenas.length();i++){if(i>0)result+=";";result+=arenas[i].id+"~"+arena_type_name(arenas[i].type)+"~"+arenas[i].host+"~"+arena_state_text(arenas[i])+"~"+arenas[i].members.length()+"~"+map_display_title(arenas[i].map)+"~"+arena_rules(arenas[i].type);}return result;}
 string arena_overview(player@ p)
 {
-int ai=arena_index(p.arena_id);if(ai<0)return "arena_overview none";arena_instance@ a=arenas[ai];int combatants=0,spectators=0;for(uint i=0;i<a.members.length();i++){if(a.members[i].role=="combatant")combatants++;else spectators++;}return "arena_overview "+a.id+"~"+a.state+"~"+p.arena_role+"~"+a.host+"~"+arena_type_name(a.type)+"~"+map_display_title(a.map)+"~"+combatants+"~"+spectators+"~"+arena_rules(a.type);
+int ai=arena_index(p.arena_id);if(ai<0)return "arena_overview none";arena_instance@ a=arenas[ai];
+return "arena_overview "+a.id+"~"+arena_state_text(a)+"~"+p.arena_role+"~"+a.host+"~"+arena_type_name(a.type)+"~"+map_display_title(a.map)+"~"+arena_count(a,"combatant")+"~"+arena_count(a,"spectator")+"~"+arena_rules(a.type);
 }
+void arena_tell(arena_instance@ a,string text){for(uint i=0;i<a.members.length();i++){int pi=get_player_index_from(a.members[i].name);if(pi>=0)send_reliable(players[pi].peer_id,text,2);}}
+
+// Where people go on an arena map: combatants each to their own spawn point,
+// spectators to the gallery.
+void arena_spawn_point(arena_instance@ a,int slot,int &out x,int &out y,int &out z)
+{
+x=10;y=10;z=0;int mi=get_map_index(a.map);if(mi<0)return;int points=int(maps[mi].spawn_points.length()/3);if(points<=0)return;
+int base=(slot%points)*3;x=maps[mi].spawn_points[base];y=maps[mi].spawn_points[base+1];z=maps[mi].spawn_points[base+2];
+}
+void arena_gallery_point(arena_instance@ a,int &out x,int &out y,int &out z)
+{
+arena_spawn_point(a,0,x,y,z);int mi=get_map_index(a.map);if(mi<0)return;
+for(uint i=0;i<maps[mi].poidefs.length();i++)if(maps[mi].poidefs[i].name=="Spectator gallery"){x=maps[mi].poidefs[i].x;y=maps[mi].poidefs[i].y;z=maps[mi].poidefs[i].z;return;}
+}
+
 void arena_transfer_player(player@ p,string destination,int x,int y,int z)
 {
-string path=indexed_map_path(destination);if(path=="")return;string old=p.map;send_reliable(p.peer_id,"arena_transfer "+destination+" "+x+" "+y+" "+z,0);send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;set_player_model_target(p,x,y,z);server_physics_sync_players();send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);er_sync_fixtures_to(p.peer_id,destination);send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);
+string path=indexed_map_path(destination);if(path=="")return;string old=p.map;send_reliable(p.peer_id,"arena_transfer "+destination+" "+x+" "+y+" "+z,0);send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;set_player_model_target(p,x,y,z);send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);er_sync_fixtures_to(p.peer_id,destination);send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);
 }
 void arena_remember_return(player@ p){if(p.arena_return_map!="")return;p.arena_return_map=p.map;p.arena_return_x=p.x;p.arena_return_y=p.y;p.arena_return_z=p.z;}
-void arena_return_player(player@ p){if(p.arena_return_map!=""){string destination=p.arena_return_map;int x=p.arena_return_x,y=p.arena_return_y,z=p.arena_return_z;p.arena_return_map="";arena_transfer_player(p,destination,x,y,z);}p.arena_id=0;p.arena_role="none";p.death=false;p.health=1000;p.hitby="no one";}
-void arena_sync_member(arena_instance@ a,arena_member@ m){int pi=get_player_index_from(m.name);if(pi>=0){players[pi].arena_id=a.id;players[pi].arena_role=m.role;send_reliable(players[pi].peer_id,"arena_status "+a.id+"|"+a.state+"|"+m.role+"|"+arena_type_name(a.type)+"|"+arena_rules(a.type),0);}}
-void arena_close(int ai,string winner=""){if(ai<0 or ai>=int(arenas.length()))return;arena_instance@ a=arenas[ai];for(uint i=0;i<a.members.length();i++){int pi=get_player_index_from(a.members[i].name);if(pi>=0){send_reliable(players[pi].peer_id,"arena_finished "+a.id+" "+winner,0);arena_return_player(players[pi]);}}arenas.remove_at(ai);}
+void arena_refresh_body(player@ p){p.death=false;p.health=1000;p.hitby="no one";p.burning=false;p.bleeding=false;}
+void arena_return_player(player@ p){if(p.arena_return_map!=""){string destination=p.arena_return_map;int x=p.arena_return_x,y=p.arena_return_y,z=p.arena_return_z;p.arena_return_map="";arena_transfer_player(p,destination,x,y,z);}p.arena_id=0;p.arena_role="none";arena_refresh_body(p);}
+void arena_sync_member(arena_instance@ a,arena_member@ m){int pi=get_player_index_from(m.name);if(pi>=0){players[pi].arena_id=a.id;players[pi].arena_role=m.role;send_reliable(players[pi].peer_id,"arena_status "+a.id+"|"+arena_state_text(a)+"|"+m.role+"|"+arena_type_name(a.type)+"|"+arena_rules(a.type),0);}}
+
+// Put one member into a running arena: combatants at their spawn with the
+// loadout, spectators in the gallery with nothing.
+void arena_place_member(arena_instance@ a,int member_index,int combatant_slot)
+{
+arena_member@ m=a.members[member_index];int pi=get_player_index_from(m.name);if(pi<0)return;player@ p=players[pi];
+arena_remember_return(p);p.arena_id=a.id;p.arena_role=m.role;arena_refresh_body(p);
+int x,y,z;if(m.role=="combatant")arena_spawn_point(a,combatant_slot,x,y,z);else arena_gallery_point(a,x,y,z);
+arena_transfer_player(p,a.map,x,y,z);
+send_reliable(p.peer_id,"arena_begin "+a.id+" "+m.role+" "+a.type+" "+(m.role=="combatant"?arena_loadout(a.type):"none")+" "+(a.practice?"practice":"match"),0);
+}
+void arena_close(int ai,string winner="")
+{
+if(ai<0 or ai>=int(arenas.length()))return;arena_instance@ a=arenas[ai];
+for(uint i=0;i<a.members.length();i++){int pi=get_player_index_from(a.members[i].name);if(pi>=0){send_reliable(players[pi].peer_id,"arena_finished "+a.id+" "+winner,0);arena_return_player(players[pi]);}}
+arenas.remove_at(ai);
+}
 void arena_start(arena_instance@ a)
 {
-int combatants=0;for(uint i=0;i<a.members.length();i++)if(a.members[i].role=="combatant")combatants++;if(combatants<2)return;int map_index=get_map_index(a.map);if(map_index<0){int host=get_player_index_from(a.host);if(host>=0)send_reliable(players[host].peer_id,"arena_error Arena map data is unavailable.",0);return;}a.state="active";for(uint i=0;i<a.members.length();i++){arena_member@ m=a.members[i];m.alive=m.role=="combatant";int pi=get_player_index_from(m.name);if(pi<0)continue;player@ p=players[pi];arena_remember_return(p);p.arena_id=a.id;p.arena_role=m.role;p.death=false;p.health=1000;p.hitby="no one";int sp=int(i)*3;if(sp+2>=int(maps[map_index].spawn_points.length()))sp=0;int sx=maps[map_index].spawn_points.length()>=3?maps[map_index].spawn_points[sp]:10,sy=maps[map_index].spawn_points.length()>=3?maps[map_index].spawn_points[sp+1]:10,sz=maps[map_index].spawn_points.length()>=3?maps[map_index].spawn_points[sp+2]:0;arena_transfer_player(p,a.map,sx,sy,sz);send_reliable(p.peer_id,"arena_begin "+a.id+" "+m.role+" "+a.type+" "+arena_loadout(a.type),0);}send_reliable(0,"Arena "+a.id+", "+arena_type_name(a.type)+", has begun with "+combatants+" combatants.",2);int host=get_player_index_from(a.host);if(host>=0)send_reliable(players[host].peer_id,"arena_ok Arena started.",0);
+int combatants=arena_count(a,"combatant");if(combatants<1)return;
+int map_index=get_map_index(a.map);if(map_index<0){int host=get_player_index_from(a.host);if(host>=0)send_reliable(players[host].peer_id,"arena_error Arena map data is unavailable.",0);return;}
+a.state="active";a.practice=combatants==1;
+// Spread combatants across the spawn points from a random starting point.
+int slot=random(0,11);for(uint i=0;i<a.members.length();i++){a.members[i].alive=a.members[i].role=="combatant";arena_place_member(a,i,a.members[i].role=="combatant"?slot++:0);}
+send_reliable(0,a.practice?a.host+" is practising in arena "+a.id+", "+arena_type_name(a.type)+". Anyone may watch from the gallery.":"Arena "+a.id+", "+arena_type_name(a.type)+", has begun with "+combatants+" combatants.",2);
+int host=get_player_index_from(a.host);if(host>=0)send_reliable(players[host].peer_id,"arena_ok "+(a.practice?"Practice started. You are the only combatant; dying puts you back at a spawn point.":"Arena started."),0);
 }
+// Ends a real match once at most one combatant is left standing.
+void arena_check_victory(int ai)
+{
+if(ai<0 or ai>=int(arenas.length()))return;arena_instance@ a=arenas[ai];if(a.state!="active" or a.practice)return;
+int alive=0;string winner="";for(uint i=0;i<a.members.length();i++)if(a.members[i].role=="combatant" and a.members[i].alive){alive++;winner=a.members[i].name;}
+if(alive>1)return;
+send_reliable(0,alive==1?winner+" wins arena "+a.id+", "+arena_type_name(a.type)+"!":"Arena "+a.id+" ended with no surviving combatant.",2);
+arena_close(ai,alive==1?winner:"");
+}
+// Called when a combatant's health reaches zero. Returns true when the arena
+// handled the death, so no ordinary death, body or kill penalty follows.
 bool arena_on_death(player@ p)
 {
-if(p.arena_id<=0 or p.arena_role!="combatant")return false;int ai=arena_index(p.arena_id);if(ai<0)return false;arena_instance@ a=arenas[ai];int mi=arena_member_index(a,p.name);if(mi>=0){a.members[mi].alive=false;a.members[mi].role="spectator";}p.arena_role="spectator";p.health=1000;p.hitby="no one";int alive=0;string winner="";for(uint i=0;i<a.members.length();i++)if(a.members[i].role=="combatant" and a.members[i].alive){alive++;winner=a.members[i].name;}send_reliable(p.peer_id,"arena_eliminated "+a.id,0);if(alive<=1){send_reliable(0,alive==1?winner+" wins arena "+a.id+", "+arena_type_name(a.type)+"!":"Arena "+a.id+" ended with no surviving combatant.",2);arena_close(ai,winner);}return true;
+if(p.arena_id<=0 or p.arena_role!="combatant")return false;int ai=arena_index(p.arena_id);if(ai<0)return false;arena_instance@ a=arenas[ai];if(a.state!="active")return false;
+int mi=arena_member_index(a,p.name);
+if(a.practice)
+{
+int x,y,z;arena_spawn_point(a,random(0,11),x,y,z);arena_refresh_body(p);arena_transfer_player(p,a.map,x,y,z);
+send_reliable(p.peer_id,"arena_respawn "+a.id+" "+arena_loadout(a.type),0);return true;
 }
+if(mi>=0){a.members[mi].alive=false;a.members[mi].role="spectator";}
+p.arena_role="spectator";arena_refresh_body(p);
+int x,y,z;arena_gallery_point(a,x,y,z);arena_transfer_player(p,a.map,x,y,z);
+send_reliable(p.peer_id,"arena_eliminated "+a.id,0);
+arena_tell(a,p.name+" has been eliminated. "+arena_count(a,"combatant",true)+" combatants remain.");
+arena_check_victory(ai);return true;
+}
+// A member is leaving: on purpose, by disconnecting or by being removed. A
+// host leaving closes the arena for everyone; a combatant leaving a match may
+// decide it.
+void arena_member_leaves(player@ p,bool present)
+{
+int ai=arena_index(p.arena_id);if(ai<0){p.arena_id=0;p.arena_role="none";return;}arena_instance@ a=arenas[ai];
+if(string_to_lower_case(a.host)==string_to_lower_case(p.name))
+{
+arena_tell(a,"The host, "+p.name+", closed arena "+a.id+".");
+int mi=arena_member_index(a,p.name);if(mi>=0)a.members.remove_at(mi);
+if(present){send_reliable(p.peer_id,"arena_finished "+a.id+" ",0);arena_return_player(p);}else{p.arena_id=0;p.arena_role="none";}
+arena_close(ai);return;
+}
+int mi=arena_member_index(a,p.name);if(mi>=0)a.members.remove_at(mi);
+if(present){send_reliable(p.peer_id,"arena_finished "+a.id+" ",0);arena_return_player(p);}else{p.arena_id=0;p.arena_role="none";}
+arena_check_victory(ai);
+}
+// For the disconnect and removal paths: the player is going away entirely.
+void arena_player_gone(player@ p){if(p.arena_id>0)arena_member_leaves(p,false);}
+
 void handle_arena_request(uint peer,const string &in raw,const string[] &in f)
 {
-int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];string cmd=f[0];if(cmd=="arena_list"){send_reliable(peer,arena_listing(),0);return;}if(cmd=="arena_overview"){send_reliable(peer,arena_overview(p),0);return;}if(cmd=="arena_resync"){int ai=arena_index(p.arena_id);if(ai<0 or arenas[ai].state!="active"){send_reliable(peer,"arena_error No active arena is available to synchronize.",0);return;}int mi=arena_member_index(arenas[ai],p.name);if(mi<0)return;int map_index=get_map_index(arenas[ai].map),sp=mi*3;if(map_index<0)return;if(sp+2>=int(maps[map_index].spawn_points.length()))sp=0;int sx=maps[map_index].spawn_points.length()>=3?maps[map_index].spawn_points[sp]:10,sy=maps[map_index].spawn_points.length()>=3?maps[map_index].spawn_points[sp+1]:10,sz=maps[map_index].spawn_points.length()>=3?maps[map_index].spawn_points[sp+2]:0;arena_transfer_player(p,arenas[ai].map,sx,sy,sz);send_reliable(peer,"arena_begin "+arenas[ai].id+" "+arenas[ai].members[mi].role+" "+arenas[ai].type+" "+arena_loadout(arenas[ai].type),0);return;}if(cmd=="arena_create" and f.length()>2){if(p.arena_id>0){send_reliable(peer,"arena_error Leave your current arena first.",0);return;}string type=f[1],role=f[2];arena_instance a(next_arena_id++,p.name,type);if(role=="spectator"){a.members[0].role="spectator";a.members[0].alive=false;}arenas.insert_last(a);p.arena_id=a.id;p.arena_role=role;send_reliable(peer,"arena_ok Created arena "+a.id+" on "+map_display_title(a.map)+".",0);return;}if(cmd=="arena_join" and f.length()>2){int ai=arena_index(string_to_number(f[1]));if(ai<0 or arenas[ai].state!="waiting"){send_reliable(peer,"arena_error That arena is not accepting players.",0);return;}if(p.arena_id>0){send_reliable(peer,"arena_error Leave your current arena first.",0);return;}string role=f[2]=="spectator"?"spectator":"combatant";arenas[ai].members.insert_last(arena_member(p.name,role));p.arena_id=arenas[ai].id;p.arena_role=role;send_reliable(peer,"arena_ok Joined arena "+arenas[ai].id+" as "+role+". You will transfer when the host starts it.",0);return;}if(cmd=="arena_start"){int ai=arena_index(p.arena_id);if(ai<0 or arenas[ai].host!=p.name){send_reliable(peer,"arena_error Only the host can start this arena.",0);return;}int count=0;for(uint i=0;i<arenas[ai].members.length();i++)if(arenas[ai].members[i].role=="combatant")count++;if(count<2){send_reliable(peer,"arena_error At least two combatants are required.",0);return;}arena_start(arenas[ai]);return;}if(cmd=="arena_leave"){int ai=arena_index(p.arena_id);if(ai>=0 and arenas[ai].host==p.name){for(uint m=0;m<arenas[ai].members.length();m++){int member=get_player_index_from(arenas[ai].members[m].name);if(member>=0){send_reliable(players[member].peer_id,"arena_finished "+arenas[ai].id+" ",0);arena_return_player(players[member]);}}arenas.remove_at(ai);send_reliable(peer,"arena_ok Closed the hosted arena and returned all participants.",0);return;}if(ai>=0){int mi=arena_member_index(arenas[ai],p.name);if(mi>=0)arenas[ai].members.remove_at(mi);}arena_return_player(p);send_reliable(peer,"arena_ok Left the arena and returned to your previous position.",0);return;}if(cmd=="arena_status"){int ai=arena_index(p.arena_id);if(ai<0)send_reliable(peer,"arena_error You are not in an arena.",0);else{int mi=arena_member_index(arenas[ai],p.name);if(mi>=0)arena_sync_member(arenas[ai],arenas[ai].members[mi]);}}
+int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];string cmd=f[0];
+if(cmd=="arena_list"){send_reliable(peer,arena_listing(),0);return;}
+if(cmd=="arena_overview"){send_reliable(peer,arena_overview(p),0);return;}
+if(cmd=="arena_resync")
+{
+int ai=arena_index(p.arena_id);if(ai<0 or arenas[ai].state!="active"){send_reliable(peer,"arena_error No active arena is available to synchronize.",0);return;}
+int mi=arena_member_index(arenas[ai],p.name);if(mi<0)return;arena_place_member(arenas[ai],mi,random(0,11));return;
+}
+if(cmd=="arena_create" and f.length()>2)
+{
+if(p.arena_id>0){send_reliable(peer,"arena_error Leave your current arena first.",0);return;}
+string type=f[1];if(type!="open" and type!="sidearms" and type!="melee" and type!="explosives")type="open";
+arena_instance a(next_arena_id++,p.name,type);if(f[2]=="spectator"){a.members[0].role="spectator";a.members[0].alive=false;}
+arenas.insert_last(a);p.arena_id=a.id;p.arena_role=a.members[0].role;
+send_reliable(peer,"arena_ok Created arena "+a.id+" on "+map_display_title(a.map)+". Start it when you are ready; you can start it alone to practise.",0);return;
+}
+if(cmd=="arena_join" and f.length()>2)
+{
+int ai=arena_index(string_to_number(f[1]));if(ai<0){send_reliable(peer,"arena_error That arena no longer exists.",0);return;}
+if(p.arena_id>0){send_reliable(peer,"arena_error Leave your current arena first.",0);return;}
+arena_instance@ a=arenas[ai];string role=f[2]=="spectator"?"spectator":"combatant";
+// A running arena can always be watched, but no longer joined as a fighter.
+if(a.state=="active" and role=="combatant"){send_reliable(peer,"arena_error That arena has already started. You can watch it from the gallery instead.",0);return;}
+a.members.insert_last(arena_member(p.name,role));p.arena_id=a.id;p.arena_role=role;
+if(a.state=="active"){arena_place_member(a,int(a.members.length())-1,0);send_reliable(peer,"arena_ok Watching arena "+a.id+" from the spectator gallery.",0);arena_tell(a,p.name+" is watching from the gallery.");return;}
+send_reliable(peer,"arena_ok Joined arena "+a.id+" as a "+role+". You will be moved there when the host starts it.",0);return;
+}
+if(cmd=="arena_start")
+{
+int ai=arena_index(p.arena_id);if(ai<0 or string_to_lower_case(arenas[ai].host)!=string_to_lower_case(p.name)){send_reliable(peer,"arena_error Only the host can start this arena.",0);return;}
+if(arenas[ai].state!="waiting"){send_reliable(peer,"arena_error This arena is already running.",0);return;}
+if(arena_count(arenas[ai],"combatant")<1){send_reliable(peer,"arena_error At least one combatant is needed. Join as a combatant to practise alone.",0);return;}
+arena_start(arenas[ai]);return;
+}
+if(cmd=="arena_leave")
+{
+if(p.arena_id<=0){send_reliable(peer,"arena_error You are not in an arena.",0);return;}
+bool hosting=arena_index(p.arena_id)>=0 and string_to_lower_case(arenas[arena_index(p.arena_id)].host)==string_to_lower_case(p.name);
+arena_member_leaves(p,true);
+send_reliable(peer,"arena_ok "+(hosting?"Closed the arena and returned everyone to where they were.":"Left the arena and returned to where you were."),0);return;
+}
+if(cmd=="arena_status"){int ai=arena_index(p.arena_id);if(ai<0)send_reliable(peer,"arena_error You are not in an arena.",0);else{int mi=arena_member_index(arenas[ai],p.name);if(mi>=0)arena_sync_member(arenas[ai],arenas[ai].members[mi]);}}
 }

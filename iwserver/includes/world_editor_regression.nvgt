@@ -28,6 +28,10 @@ wer_check(arena_overview(players[idx]).find("arena_overview 9000~active~combatan
 arena_return_player(players[idx]);arena_return_player(players[guest_idx]);
 wer_check(players[idx].map=="freeforall" and int(players[idx].x)==50 and players[guest_idx].map=="freeforall" and int(players[guest_idx].x)==55,"arena exit restores exact maps and coordinates");
 arenas.remove_last();players.remove_at(guest_idx);
+arena_instance solo(9001,players[idx].name,"melee");arenas.insert_last(solo);players[idx].arena_id=9001;players[idx].arena_role="combatant";arena_start(arenas[arenas.length()-1]);
+wer_check(arenas[arenas.length()-1].state=="active" and arenas[arenas.length()-1].practice and players[idx].map=="arena_melee","a lone combatant can start an arena to practise");
+wer_check(arena_on_death(players[idx]) and arenas[arenas.length()-1].state=="active" and players[idx].arena_role=="combatant" and !players[idx].death,"a practice death respawns the combatant instead of ending the arena");
+arena_player_gone(players[idx]);wer_check(arena_index(9001)<0 and players[idx].arena_id==0,"the host leaving closes their arena");arena_return_player(players[idx]);
 // A new map.
 if(indexed_map_path("wer_test")!=""){file_delete(indexed_map_path("wer_test"));index_map_files();}
 handle_world_editor_request(1,"we_create|wer_test|Regression Town|80|60|20|grass|grass");

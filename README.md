@@ -21,9 +21,9 @@ Current source release: **0.5.2, build 86**
 - Firearms, energy weapons, bows, launchers, explosives, melee weapons, and
   heavy weapons with class-specific operation rather than one shared firing
   model.
-- Manual actions, individual-round loading, ammunition selection, magazines,
-  attachments, heat, fouling, maintenance, failures, recoil, and wall bracing
-  where the weapon supports them.
+- Manual actions, individual-round loading, one ammunition per calibre,
+  magazines, attachments, recoil, and wall bracing where the weapon supports
+  them.
 - Armour by body location, durability, equipment weight, medication doses,
   toxicity, persistent credits, quickbars, and equipment abilities.
 
@@ -91,7 +91,6 @@ client exits, and restarts it. It does not require Git to be installed.
 | Fire | Left Control |
 | Reload / unload | R / Shift+R |
 | Ammunition report / fire mode | A / Shift+A |
-| Select ammunition | Alt+R |
 | Drawn weapon panel | Alt+A |
 | Inventory / quickbar | I / Shift+I |
 | Global / map / team chat | Slash / Backslash / Shift+Backslash |
@@ -125,9 +124,8 @@ Compile release-mode client and server binaries with:
 & C:/nvgt/nvgt.exe -c "iwserver/iwserver.nvgt"
 ```
 
-The normal server builds as `iwserver/iwserver.exe`. The repository also
-contains `iwserver/iwserver_physics.exe`, the ReactPhysics-enabled server
-variant. Keep their matching runtime libraries with the executable being run.
+The server builds as `iwserver/iwserver.exe`. The separate ReactPhysics server
+was removed in 0.5.7; there is one server.
 
 To rebuild the sound archive after changing source audio:
 

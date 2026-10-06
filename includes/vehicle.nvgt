@@ -25,6 +25,14 @@ string cargo_kind="none";
 int cargo_capacity=0;
 string[] seat_roles;
 string[] seat_weapons;
+// Drivetrain: a manual gearbox has `gears` forward gears changed by the
+// driver; an automatic chooses for itself. Turning follows the turning
+// circle; pivot_turn lets tracked vehicles and hovering helicopters turn on
+// the spot. A reverse_speed of zero means it cannot reverse under its own power.
+string transmission="automatic";
+int gears=0;
+double turning_radius=0,reverse_speed=0;
+bool pivot_turn=false;
 vehicle_type() {}
 vehicle_type(string n, int hp, int ar, int mp, double maximum_speed, double accel, double brake, bool[] windows)
 {
@@ -92,6 +100,7 @@ string[] window_values=string_split(vehicle_setting(text,"windows","false"),",",
 vehicle_type@ v=vehicle_type(display,int(string_to_number(vehicle_setting(text,"health","500"))),int(string_to_number(vehicle_setting(text,"armour","0"))),seats,string_to_number(vehicle_setting(text,"top_speed","8")),string_to_number(vehicle_setting(text,"acceleration","2")),string_to_number(vehicle_setting(text,"braking","4")),windows);
 v.fuel_type=vehicle_setting(text,"fuel_type",v.fuel_type);v.fuel_capacity=string_to_number(vehicle_setting(text,"fuel_capacity","70"));v.fuel_per_tile=string_to_number(vehicle_setting(text,"fuel_per_tile","0.11"));
 v.vehicle_class=vehicle_setting(text,"class","ground");v.travel_domain=vehicle_setting(text,"travel_domain",v.vehicle_class=="water"?"water":(v.vehicle_class=="amphibious"?"amphibious":"land"));v.body_length=string_to_number(vehicle_setting(text,"length","6"));v.body_width=string_to_number(vehicle_setting(text,"width","4"));v.body_height=string_to_number(vehicle_setting(text,"height","3"));v.cargo_kind=vehicle_setting(text,"cargo_kind","none");v.cargo_capacity=int(string_to_number(vehicle_setting(text,"cargo_capacity","0")));
+v.transmission=vehicle_setting(text,"transmission","automatic");v.gears=int(string_to_number(vehicle_setting(text,"gears","0")));v.turning_radius=string_to_number(vehicle_setting(text,"turning_radius","0"));v.reverse_speed=string_to_number(vehicle_setting(text,"reverse_speed",v.vehicle_class=="fixed_wing"?"0":"2.5"));v.pivot_turn=vehicle_setting(text,"pivot_turn","false")=="true";
 string[] roles=string_split(vehicle_setting(text,"seat_roles",""),",",false),guns=string_split(vehicle_setting(text,"seat_weapons",""),",",false);for(int s=0;s<seats;s++){v.seat_roles[s]=s<int(roles.length()) and roles[s].trim_whitespace()!=""?roles[s].trim_whitespace():(s==0?"driver":"passenger");v.seat_weapons[s]=s<int(guns.length())?guns[s].trim_whitespace():"";}
 int order=int(string_to_number(vehicle_setting(text,"order","999"))),at=int(loaded_order.length());for(uint oi=0;oi<loaded_order.length();oi++)if(order<loaded_order[oi]){at=int(oi);break;}loaded.insert_at(at,v);loaded_order.insert_at(at,order);
 }
@@ -112,6 +121,7 @@ double facing; // direction vehicle faces
 bool door_open;
 bool destroyed;
 double observed_velocity;
+double px=0,py=0; // exact position; x and y are the tile it occupies
 string[] passengers; // player names in seats, "" = empty
 bool[] window_down; // per seat
 string[] cargo_items;
@@ -127,6 +137,8 @@ type_index = ti;
 x = px;
 y = py;
 z = pz;
+this.px = px;
+this.py = py;
 health = vehicle_types[ti].max_health;
 armor = vehicle_types[ti].armor;
 facing = double(random(0, 7) * 45);
@@ -218,6 +230,8 @@ return -1;
 }
 string seat_label(int seat)
 {
+string gun=seat>=0 and seat<int(vehicle_types[type_index].seat_weapons.length())?vehicle_types[type_index].seat_weapons[seat]:"";
+if(gun!="" and seat<int(vehicle_types[type_index].seat_roles.length()))return vehicle_types[type_index].seat_roles[seat]+" seat, operating the "+get_weapon_display_name(gun)+"; Control fires it";
 if(seat>=0 and seat<int(vehicle_types[type_index].seat_roles.length()))return vehicle_types[type_index].seat_roles[seat]+" seat";
 return seat==0?"driver's seat":"passenger seat "+seat;
 }
@@ -563,9 +577,11 @@ vehicle_decelerating = false;
 vehicle_move_timer.restart();
 vehicle_stamina_timer.restart();
 vehicle_accel_timer.restart();
+vehicle_gear=1;vehicle_throttle=false;vehicle_brake=false;vehicle_prev_throttle=false;vehicle_prev_brake=false;vehicle_steer=0;vehicle_reverse_hold=false;driver_distracted=false;
+map_vehicles[vi].px=map_vehicles[vi].x;map_vehicles[vi].py=map_vehicles[vi].y;vehicle_sent_facing=map_vehicles[vi].facing;
 play_vehicle_audio(map_vehicles[vi], "enter");
 if(vehicle_was_empty) play_vehicle_audio(map_vehicles[vi], "start");
-speak("Entered " + map_vehicles[vi].get_name() + ", " + map_vehicles[vi].seat_label(seat) + ".");
+speak("Entered " + map_vehicles[vi].get_name() + ", " + map_vehicles[vi].seat_label(seat) + "."+(seat==0?" "+vehicle_driving_hint(map_vehicles[vi]):""));
 send_reliable(0, "veh_enter " + vi + " " + seat+" "+mapname, 0);
 }
 
@@ -577,7 +593,7 @@ if (!in_vehicle or player_vehicle_index < 0)
 speak("You are not in a vehicle.");
 return;
 }
-if (vehicle_current_velocity > 0.05)
+if (absolute(vehicle_current_velocity) > 0.3)
 {
 speak("Stop the vehicle first.");
 return;
@@ -661,115 +677,90 @@ speak("Window up.");
 }
 }
 
-// Check if the player can fire from a vehicle.
-bool vehicle_can_fire()
+// ---------------------------------------------------------------------------
+// Weapons in vehicles. A weapon's file can say how it behaves inside one
+// (vehicle_use): forbidden weapons cannot be brought to bear from a seat at
+// all; a mortar fired inside detonates against the roof (cabin_detonation);
+// a rocket's backblast fills the cabin (backblast); a flamethrower sets the
+// cabin alight (cabin_fire). Melee weapons and powered tools have no room.
+// Everything else needs your window down, and the server makes it far less
+// accurate, especially from the driver's seat and at speed.
+// ---------------------------------------------------------------------------
+string weapon_vehicle_use(string weapon){for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==weapon)return wpn_cache[i].vehicle_use;return "";}
+string vehicle_weapon_refusal(string weapon)
 {
-if (!in_vehicle) return true; // not in vehicle, normal fire
-if (player_vehicle_index < 0) return true;
-vehicle@ v = map_vehicles[player_vehicle_index];
-if (!v.has_seat_window(player_seat))
-return false;
-if (!v.window_down[player_seat])
-return false;
-return true;
+string c=get_weapon_class(weapon),name=get_weapon_display_name(weapon);
+if(string_contains(c,"melee",1)==0)return "There is no room to swing a "+name+" inside a vehicle.";
+if(c=="tool")return "There is no room to run a "+name+" inside a vehicle.";
+if(weapon_vehicle_use(weapon)=="forbidden")return "The "+name+" is too big and heavy to bring to bear from a vehicle seat.";
+return "";
 }
-
-timer vehicle_mounted_fire_timer;
-bool vehicle_has_mounted_weapon()
+// Why the current weapon cannot fire from this seat right now; empty if it can.
+string vehicle_fire_block_reason(string weapon)
 {
-if(!in_vehicle or player_vehicle_index<0 or player_seat<0)return false;vehicle_type@ t=vehicle_types[map_vehicles[player_vehicle_index].type_index];return player_seat<int(t.seat_weapons.length()) and t.seat_weapons[player_seat]!="";
-}
-bool vehicle_fire_mounted_weapon(bool trigger)
-{
-if(!vehicle_has_mounted_weapon())return false;if(!trigger)return true;vehicle_type@ t=vehicle_types[map_vehicles[player_vehicle_index].type_index];string gun=t.seat_weapons[player_seat];int interval=gun=="vehicle_20mm_cannon"?70:(gun=="vehicle_30mm_autocannon"?180:118);if(vehicle_mounted_fire_timer.elapsed<interval)return true;vehicle_mounted_fire_timer.restart();send_reliable(0,"veh_fire "+player_vehicle_index+" "+player_seat+" "+gun,0);return true;
-}
-
-// Check if weapon is melee (can't use from vehicle).
-bool vehicle_blocks_melee()
-{
-return in_vehicle;
-}
-
-int vehicle_speed_percent(vehicle@ v)
-{
-if(v.vehicle_effective_top_speed(v)<=0) return 0;
-return int(round((vehicle_target_velocity/v.vehicle_effective_top_speed(v))*100.0,0));
-}
-
-// Increase the cruise target. Actual speed approaches it using the vehicle's
-// acceleration curve rather than snapping between interval presets.
-void vehicle_speed_up()
-{
-if (!in_vehicle or player_vehicle_index < 0) return;
-if (player_seat != 0)
-{
-speak("Only the driver can control the vehicle.");
-return;
-}
-vehicle_decelerating = false;
-vehicle@ v = map_vehicles[player_vehicle_index];
-bool starting_engine=vehicle_target_velocity<=0;
-if(vehicle_target_velocity>=v.vehicle_effective_top_speed(v))
-{
-speak("Already at maximum speed.");
-return;
-}
-vehicle_target_velocity+=v.vehicle_effective_top_speed(v)*0.1;
-if(vehicle_target_velocity>v.vehicle_effective_top_speed(v)) vehicle_target_velocity=v.vehicle_effective_top_speed(v);
-speak("Target speed "+vehicle_speed_percent(v)+" percent.");
-play_vehicle_audio(v, "accelerate");
-if(starting_engine)play_vehicle_audio(v, "engine");
-}
-
-// Decrease speed (DOWN arrow in vehicle).
-void vehicle_speed_down()
-{
-if (!in_vehicle or player_vehicle_index < 0) return;
-if (player_seat != 0)
-{
-speak("Only the driver can control the vehicle.");
-return;
-}
-vehicle_decelerating = false;
+if(!in_vehicle or player_vehicle_index<0)return "";
+string refusal=vehicle_weapon_refusal(weapon);if(refusal!="")return refusal;
+string use=weapon_vehicle_use(weapon);if(use=="cabin_detonation" or use=="backblast" or use=="cabin_fire")return "";
 vehicle@ v=map_vehicles[player_vehicle_index];
-if(vehicle_target_velocity<=0)
-{
-speak("Already stopped.");
-return;
+if(!v.has_seat_window(player_seat))return "This seat has no window to fire from.";
+if(!v.window_down[player_seat])return "Roll your window down first.";
+return "";
 }
-vehicle_target_velocity-=v.vehicle_effective_top_speed(v)*0.1;
-if(vehicle_target_velocity<=0)
+bool vehicle_can_fire(){return vehicle_fire_block_reason(weapons[w])=="";}
+
+// ---------------------------------------------------------------------------
+// Driving. Hold Up to accelerate and Down to brake; let go of both and the
+// vehicle coasts down. Steering turns it at a rate set by its speed and
+// turning circle, so a parked car cannot turn and steering reverses when you
+// back up; tracked vehicles and hovering helicopters can also turn on the
+// spot. Manual gearboxes change gear on Shift+Up and Shift+Down, through
+// neutral to reverse; automatics engage reverse when Down is held at a stop.
+//
+// This replaced a cruise control in which Up and Down set a target speed in
+// ten percent steps and Left and Right snapped the vehicle round 45 degrees
+// even when it was standing still.
+// ---------------------------------------------------------------------------
+int vehicle_gear=1; // -1 reverse, 0 neutral, 1 and up forward gears
+bool vehicle_throttle=false,vehicle_brake=false,vehicle_prev_throttle=false,vehicle_prev_brake=false;int vehicle_steer=0;
+bool vehicle_reverse_hold=false;timer vehicle_reverse_hold_timer;
+timer vehicle_net_timer,vehicle_turn_cue_timer,vehicle_gear_warning_timer,vehicle_still_turn_timer;
+double vehicle_sent_facing=-1000;
+// Firing a weapon from the driver's seat takes your eyes off the road for a
+// moment; see vehicle_drive_step.
+timer driver_distraction_timer;bool driver_distracted=false;
+void distract_driver(){if(in_vehicle and player_seat==0){driver_distracted=true;driver_distraction_timer.restart();}}
+
+bool vehicle_manual(vehicle@ v){vehicle_type@ t=vehicle_types[v.type_index];return t.transmission=="manual" and t.gears>0;}
+int vehicle_gear_count(vehicle@ v){vehicle_type@ t=vehicle_types[v.type_index];return t.gears>0?t.gears:4;}
+double vehicle_reverse_top(vehicle@ v){return vehicle_types[v.type_index].reverse_speed;}
+double vehicle_turning_radius(vehicle@ v){vehicle_type@ t=vehicle_types[v.type_index];return t.turning_radius>0?t.turning_radius:t.body_length*1.6;}
+// Forward gear n of N tops out at n/N of the vehicle's top speed, and low gears pull hardest.
+double vehicle_gear_top(vehicle@ v,int gear){if(gear<=0)return 0;return v.vehicle_effective_top_speed(v)*double(gear)/double(vehicle_gear_count(v));}
+double vehicle_gear_pull(vehicle@ v,int gear){int n=vehicle_gear_count(v);if(n<=1)return 1.0;return 1.5-.8*double(gear-1)/double(n-1);}
+int vehicle_auto_gear(vehicle@ v,double speed){int n=vehicle_gear_count(v);for(int g=1;g<=n;g++)if(absolute(speed)<=vehicle_gear_top(v,g)*.92)return g;return n;}
+string vehicle_gear_name(int gear){if(gear<0)return "reverse";if(gear==0)return "neutral";return "gear "+gear;}
+string vehicle_driving_hint(vehicle@ v){return vehicle_manual(v)?"Manual gearbox, "+vehicle_gear_count(v)+" gears, in first. Shift with Shift Up and Shift Down.":"Automatic gearbox."+(vehicle_reverse_top(v)>0?" Hold Down at a stop to reverse.":"");}
+bool vehicle_is_driver(){return in_vehicle and player_vehicle_index>=0 and player_seat==0;}
+
+// Pedal and steering state for this frame, read from held keys.
+void vehicle_drive_input(bool throttle,bool brake,int steer)
 {
-vehicle_target_velocity=0;
-speak("Target speed zero. Braking to a stop.");
-play_vehicle_audio(v,"stop");
-}
-else
-{
-speak("Target speed "+vehicle_speed_percent(v)+" percent.");
-play_vehicle_audio(v, "decelerate");
-}
+if(!vehicle_is_driver()){vehicle_throttle=false;vehicle_brake=false;vehicle_steer=0;return;}
+vehicle_throttle=throttle;vehicle_brake=brake;vehicle_steer=steer;
 }
 
-// Gradual deceleration (Shift+DOWN in vehicle).
-void vehicle_decelerate_gradual()
+void vehicle_shift(int direction)
 {
-if (!in_vehicle or player_vehicle_index < 0) return;
-if (player_seat != 0)
-{
-speak("Only the driver can control the vehicle.");
-return;
-}
-if (vehicle_current_velocity<=0 and vehicle_target_velocity<=0)
-{
-speak("Already stopped.");
-return;
-}
-vehicle_decelerating = true;
-vehicle_target_velocity=0;
-vehicle_decel_timer.restart();
-play_vehicle_audio(map_vehicles[player_vehicle_index], "decelerate");
-speak("Decelerating.");
+if(!in_vehicle or player_vehicle_index<0)return;
+if(player_seat!=0){speak("Only the driver can change gear.");return;}
+vehicle@ v=map_vehicles[player_vehicle_index];
+if(!vehicle_manual(v)){speak(v.get_name()+" has an automatic transmission."+(vehicle_reverse_top(v)>0?" Hold Down at a standstill to reverse.":""));return;}
+int next=vehicle_gear+direction;
+if(next>vehicle_gear_count(v)){speak("Already in top gear.");return;}
+if(next<-1 or (next==-1 and vehicle_reverse_top(v)<=0)){speak(next<-1?"Already in reverse.":"The "+v.get_name()+" has no reverse gear.");return;}
+// Reverse is selected at a standstill; doing it while rolling grinds the gearbox.
+if(next==-1 and vehicle_current_velocity>.6){p.play_stationary("ammo_cycle.ogg",false);speak("The gearbox grinds. Stop before selecting reverse.");return;}
+vehicle_gear=next;p.play_stationary(direction>0?"modeenter.ogg":"modeleave.ogg",false);speak(vehicle_gear_name(vehicle_gear)+".");
 }
 
 void vehicle_horn()
@@ -777,46 +768,105 @@ void vehicle_horn()
 if(!in_vehicle or player_vehicle_index<0)return;if(player_seat!=0){speak("Only the driver can use the horn.");return;}play_vehicle_audio(map_vehicles[player_vehicle_index],"horn");
 }
 
-// Turn vehicle 90 degrees (LEFT/RIGHT arrow in vehicle).
-void vehicle_turn(int dir)
+// One step of the drive model for the driver's vehicle.
+void vehicle_drive_step(vehicle@ v)
 {
-if (!in_vehicle or player_vehicle_index < 0) return;
-if (player_seat != 0)
+double dt=double(vehicle_accel_timer.elapsed)/1000.0;if(dt<.02)return;if(dt>.1)dt=.1;vehicle_accel_timer.restart();
+// Something else (a network sync, a respawn) moved the vehicle: start from there.
+if(int(round(v.px,0))!=v.x or int(round(v.py,0))!=v.y){v.px=v.x;v.py=v.y;}
+vehicle_type@ t=vehicle_types[v.type_index];bool manual=vehicle_manual(v);
+bool throttle=vehicle_throttle,brake=vehicle_brake;int steer=vehicle_steer;
+if(driver_distracted and driver_distraction_timer.elapsed>1500)driver_distracted=false;
+// A distracted driver's feet and hands are not doing what they should.
+if(driver_distracted){if(random(1,100)<=35)throttle=!throttle;if(random(1,100)<=25)steer=random(-1,1);}
+double speed=vehicle_current_velocity,top=v.vehicle_effective_top_speed(v),reverse_top=vehicle_reverse_top(v);
+if(!manual)
 {
-speak("Only the driver can control the vehicle.");
-return;
+if(vehicle_gear>=0 and brake and absolute(speed)<.15 and reverse_top>0)
+{
+if(!vehicle_reverse_hold){vehicle_reverse_hold=true;vehicle_reverse_hold_timer.restart();}
+else if(vehicle_reverse_hold_timer.elapsed>=500){vehicle_gear=-1;vehicle_reverse_hold=false;speak("Reverse.");}
 }
-vehicle@ v = map_vehicles[player_vehicle_index];
-if (dir < 0)
-v.facing = snapleft(v.facing, int(getdir(v.facing)));
+else if(vehicle_gear<0 and throttle and absolute(speed)<.15){vehicle_gear=1;speak("Drive.");}
+else if(!brake)vehicle_reverse_hold=false;
+// In reverse, Down drives backwards and Up brakes.
+if(vehicle_gear<0){bool swap=brake;brake=throttle;throttle=swap;}
+}
+int gear=manual?vehicle_gear:(vehicle_gear<0?-1:vehicle_auto_gear(v,speed));
+bool can_drive=v.fuel>0 and v.engine_condition>0 and v.transmission_condition>0;
+double accel=0;
+if(throttle and can_drive and gear!=0)
+{
+if(gear<0)accel=speed>-reverse_top?-t.acceleration*.7:0;
 else
-v.facing = snapright(v.facing, int(getdir(v.facing)));
-facing = v.facing; // sync player facing
-play_vehicle_audio(v, "turn");
-speak(dir_to_string(int(getdir(v.facing))));
-send_reliable(0, "veh_turn " + player_vehicle_index + " " + v.facing, 0);
-send_reliable(0, "turn " + facing, 0);
-}
-
-// Turn vehicle 1 degree (Shift+LEFT/RIGHT in vehicle).
-void vehicle_turn_fine(int dir)
 {
-if (!in_vehicle or player_vehicle_index < 0) return;
-if (player_seat != 0)
-{
-speak("Only the driver can control the vehicle.");
-return;
+double gear_top=vehicle_gear_top(v,gear),lug=gear>1?vehicle_gear_top(v,gear-1)*.45:0,pull=vehicle_gear_pull(v,gear);
+if(speed<lug){pull*=.3;if(manual and vehicle_gear_warning_timer.elapsed>2500){vehicle_gear_warning_timer.restart();speak("The engine labours. Shift down.");}}
+accel=speed<gear_top?t.acceleration*pull:0;
 }
-vehicle@ v = map_vehicles[player_vehicle_index];
-if (dir < 0)
-v.facing = turnleft(v.facing, 1);
-else
-v.facing = turnright(v.facing, 1);
-facing = v.facing;
-play_vehicle_audio(v, "turn");
-speak(int(v.facing) + " degrees.");
-send_reliable(0, "veh_turn " + player_vehicle_index + " " + v.facing, 0);
-send_reliable(0, "turn " + facing, 0);
+}
+if(throttle and !can_drive and !vehicle_prev_throttle)speak(v.fuel<=0?"The vehicle is out of "+t.fuel_type+".":(v.engine_condition<=0?"The engine is mechanically disabled.":"The transmission can no longer transfer power."));
+double before=speed;
+if(brake and absolute(speed)>.01)accel-=(speed>0?1.0:-1.0)*t.braking;
+speed+=accel*dt;
+// Brakes stop a vehicle; they do not drive it the other way.
+if(brake and ((before>0 and speed<0) or (before<0 and speed>0)))speed=0;
+// Rolling resistance and engine braking slow a coasting vehicle.
+if(!throttle or gear==0 or !can_drive){double coast=(.6+absolute(speed)*.05)*dt;if(absolute(speed)<=coast)speed=0;else speed-=(speed>0?1.0:-1.0)*coast;}
+// A gear held past its limit over-revs and holds the vehicle back.
+if(gear>0){double gear_top=vehicle_gear_top(v,gear);if(speed>gear_top+.3){speed-=((speed-gear_top)*.9+.8)*dt;if(manual and vehicle_gear_warning_timer.elapsed>2500){vehicle_gear_warning_timer.restart();speak("The engine is over-revving. Shift up.");}}}
+if(speed>top)speed=top;if(speed<-reverse_top)speed=-reverse_top;
+// Cues on pedal changes rather than continuously.
+if(throttle and !vehicle_prev_throttle and can_drive)play_vehicle_audio(v,"accelerate");
+if(brake and !vehicle_prev_brake and absolute(speed)>1)play_vehicle_audio(v,"decelerate");
+if(absolute(before)>.3 and speed==0){play_vehicle_audio(v,"stop");speak("Stopped.");}
+vehicle_prev_throttle=throttle;vehicle_prev_brake=brake;
+// Steering.
+bool flying=t.travel_domain=="air" and v.z>0;double yaw=0;
+if(steer!=0)
+{
+if(t.pivot_turn and absolute(speed)<1.0 and (t.vehicle_class!="rotary_wing" or flying))yaw=(t.vehicle_class=="rotary_wing"?45.0:22.0)*double(steer);
+else{yaw=speed/vehicle_turning_radius(v)*57.2958*double(steer);if(yaw>110)yaw=110;if(yaw<-110)yaw=-110;}
+if(yaw==0 and vehicle_still_turn_timer.elapsed>3000){vehicle_still_turn_timer.restart();speak("The wheels turn, but the vehicle has to be moving to change direction.");}
+else if(yaw!=0 and vehicle_turn_cue_timer.elapsed>1500){vehicle_turn_cue_timer.restart();play_vehicle_audio(v,"turn");}
+}
+if(driver_distracted and absolute(speed)>1)yaw+=double(random(-25,25))*absolute(speed)/top;
+if(yaw!=0){v.facing+=yaw*dt;while(v.facing<0)v.facing+=360;while(v.facing>=360)v.facing-=360;facing=v.facing;}
+double turned=absolute(v.facing-vehicle_sent_facing);if(turned>180)turned=360-turned;
+if(turned>=2 and vehicle_net_timer.elapsed>=100){vehicle_sent_facing=v.facing;send_reliable(0,"veh_turn "+player_vehicle_index+" "+v.facing,0);send_reliable(0,"turn "+facing,0);}
+vehicle_current_velocity=speed;
+if(speed==0)return;
+// Movement. The exact position moves continuously; the tile it occupies is
+// checked whenever it changes.
+double rad=v.facing*3.14159265358979323846/180.0,nx=v.px+sine(rad)*speed*dt,ny=v.py+cosine(rad)*speed*dt;
+int inx=int(round(nx,0)),iny=int(round(ny,0));
+if(inx!=v.x or iny!=v.y)
+{
+if(inx<0 or inx>int(max.x) or iny<0 or iny>int(max.y)){vehicle_current_velocity=0;speak("Edge of map. Stopped.");return;}
+string terrain=string_to_lower_case(get_tile_at(inx,iny,v.z));bool water_terrain=string_contains(terrain,"water",1)>=0 or string_contains(terrain,"sea",1)>=0 or string_contains(terrain,"river",1)>=0 or string_contains(terrain,"lake",1)>=0 or string_contains(terrain,"ocean",1)>=0;
+if(!flying and t.travel_domain=="water" and !water_terrain){vehicle_current_velocity=0;speak("This watercraft cannot travel onto land.");return;}
+if(!flying and t.travel_domain=="land" and water_terrain){vehicle_current_velocity=0;speak("This land vehicle cannot enter navigable water.");return;}
+if(!flying and !vehicle_footprint_clear(v,inx,iny,v.z))
+{
+// The server decides what the crash costs from the speed it last saw.
+send_reliable(0,"veh_crash "+player_vehicle_index,0);
+vehicle_current_velocity=0;speak("Crashed! Stopped.");play_vehicle_audio(v,"crash");return;
+}
+double fuel_use=t.fuel_per_tile*(1.0+double(100-v.engine_condition)/180.0+double(v.fuel_contamination)/100.0);if(v.performance_tune)fuel_use*=1.12;if(v.turbocharger)fuel_use*=1.18;if(v.auxiliary_armor)fuel_use*=1.1;v.fuel-=fuel_use;if(v.fuel<0)v.fuel=0;
+if(random(1,700)==1)v.transmission_condition--;if(random(1,v.offroad_tires?1400:850)==1)v.tire_condition--;if(random(1,1100)==1)v.cooling_condition--;if(v.transmission_condition<0)v.transmission_condition=0;if(v.tire_condition<0)v.tire_condition=0;if(v.cooling_condition<0)v.cooling_condition=0;
+}
+bool moved_tile=inx!=v.x or iny!=v.y;
+v.px=nx;v.py=ny;v.x=inx;v.y=iny;
+dynamic_map_move(v.map_element_id,v.px,v.py,v.z,v.facing);
+double seated_forward,seated_side,seated_height;vehicle_seat_local_position(v,player_seat,seated_forward,seated_side,seated_height);double seated_rad=v.facing*3.14159265358979323846/180.0;
+me.x=v.px+sine(seated_rad)*seated_forward+cosine(seated_rad)*seated_side;me.y=v.py+cosine(seated_rad)*seated_forward-sine(seated_rad)*seated_side;me.z=v.z+seated_height;mr.x=round(me.x,0);mr.y=round(me.y,0);
+if(moved_tile or vehicle_net_timer.elapsed>=250)
+{
+vehicle_net_timer.restart();
+send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);
+send_reliable(0,"veh_move "+player_vehicle_index+" "+v.x+" "+v.y+" "+v.z+" "+speed+" "+mapname,0);
+if(moved_tile)checkzone();
+}
 }
 
 // Apply damage to a vehicle. Returns true if destroyed.
@@ -882,7 +932,7 @@ string s = v.get_name() + ": ";
 s += "Health " + v.health + " of " + vehicle_types[v.type_index].max_health + ".";
 if (vehicle_types[v.type_index].armor > 0)
 s += " Armor " + v.armor + " of " + vehicle_types[v.type_index].armor + ".";
-s += " Current speed "+round(vehicle_current_velocity,1)+" of "+round(v.vehicle_effective_top_speed(v),1)+" tiles per second. Target "+vehicle_speed_percent(v)+" percent. Fuel "+round(v.fuel,1)+" of "+round(v.vehicle_effective_capacity(v),1)+" litres of "+vehicle_types[v.type_index].fuel_type+".";
+s += " Speed "+round(absolute(vehicle_current_velocity),1)+(vehicle_current_velocity<0?" in reverse":"")+" of "+round(v.vehicle_effective_top_speed(v),1)+" tiles per second, "+(vehicle_manual(v)?vehicle_gear_name(vehicle_gear):(vehicle_gear<0?"reverse":"drive"))+". Fuel "+round(v.fuel,1)+" of "+round(v.vehicle_effective_capacity(v),1)+" litres of "+vehicle_types[v.type_index].fuel_type+".";
 s += " " + v.seat_label(player_seat) + ".";
 if (v.has_seat_window(player_seat))
 {
@@ -930,82 +980,7 @@ vehicle_on_destroy(player_vehicle_index);
 return;
 }
 
-// Integrate acceleration and braking continuously in real time.
-if (vehicle_accel_timer.elapsed >= 50)
-{
-double dt=double(vehicle_accel_timer.elapsed)/1000.0;
-vehicle_accel_timer.restart();
-if(vehicle_current_velocity<vehicle_target_velocity)
-{
-vehicle_current_velocity+=vehicle_types[v.type_index].acceleration*dt;
-if(vehicle_current_velocity>vehicle_target_velocity) vehicle_current_velocity=vehicle_target_velocity;
-}
-else if(vehicle_current_velocity>vehicle_target_velocity)
-{
-vehicle_current_velocity-=vehicle_types[v.type_index].braking*dt;
-if(vehicle_current_velocity<vehicle_target_velocity) vehicle_current_velocity=vehicle_target_velocity;
-}
-if(vehicle_decelerating and vehicle_current_velocity<=0) { vehicle_current_velocity=0; vehicle_decelerating=false; speak("Stopped."); }
-}
-
-// Move vehicle if driving.
-int tile_interval=vehicle_current_velocity>0 ? int(1000.0/vehicle_current_velocity) : 0;
-if (player_seat == 0 and tile_interval>0 and vehicle_move_timer.elapsed >= tile_interval)
-{
-vehicle_move_timer.restart();
-if(v.fuel<=0){vehicle_current_velocity=0;vehicle_target_velocity=0;speak("The vehicle is out of "+vehicle_types[v.type_index].fuel_type+".");play_vehicle_audio(v,"stop");return;}
-if(v.engine_condition<=0 or v.transmission_condition<=0){vehicle_current_velocity=0;vehicle_target_velocity=0;speak(v.engine_condition<=0?"The engine is mechanically disabled.":"The transmission can no longer transfer power.");play_vehicle_audio(v,"stop");return;}
-// Calculate next position based on vehicle facing.
-double rad = v.facing * 3.1415926535897932 / 180.0;
-double nx = double(v.x) + sine(rad);
-double ny = double(v.y) + cosine(rad);
-int inx = int(round(nx, 0));
-int iny = int(round(ny, 0));
-// Boundary check.
-if (inx < 0 or inx > int(max.x) or iny < 0 or iny > int(max.y))
-{
-vehicle_current_velocity=0;
-vehicle_target_velocity=0;
-speak("Edge of map. Stopped.");
-return;
-}
-// Wall check.
-string tile = get_tile_at(inx, iny, v.z);
-vehicle_type@ movement_type=vehicle_types[v.type_index];bool flying=(movement_type.travel_domain=="air" and v.z>0);string terrain=string_to_lower_case(tile);bool water_terrain=string_contains(terrain,"water",1)>=0 or string_contains(terrain,"sea",1)>=0 or string_contains(terrain,"ocean",1)>=0;
-if(!flying and movement_type.travel_domain=="water" and !water_terrain){vehicle_current_velocity=0;vehicle_target_velocity=0;speak("This watercraft cannot travel onto land.");return;}
-if(!flying and movement_type.travel_domain=="land" and water_terrain){vehicle_current_velocity=0;vehicle_target_velocity=0;speak("This land vehicle cannot enter navigable water.");return;}
-if (!flying and !vehicle_footprint_clear(v,inx,iny,v.z))
-{
-// Hit a wall. The server decides the damage and tells everyone, so the
-// vehicle does not have one health on this screen and another on theirs.
-send_reliable(0,"veh_crash "+player_vehicle_index,0);
-vehicle_current_velocity=0;
-vehicle_target_velocity=0;
-speak("Crashed into a wall! Stopped.");
-play_vehicle_audio(v, "crash");
-return;
-}
-// Move vehicle.
-v.x = inx;
-v.y = iny;
-dynamic_map_move(v.map_element_id,v.x,v.y,v.z,v.facing);
-double fuel_use=vehicle_types[v.type_index].fuel_per_tile*(1.0+double(100-v.engine_condition)/180.0+double(v.fuel_contamination)/100.0);if(v.performance_tune)fuel_use*=1.12;if(v.turbocharger)fuel_use*=1.18;if(v.auxiliary_armor)fuel_use*=1.1;v.fuel-=fuel_use;if(v.fuel<0)v.fuel=0;if(random(1,400)<=v.fuel_contamination){v.engine_condition-=random(1,3);if(v.engine_condition<0)v.engine_condition=0;}if(random(1,900)>v.cooling_condition+800){v.engine_condition--;if(v.engine_condition<0)v.engine_condition=0;}
-if(random(1,700)==1)v.transmission_condition--;if(random(1,v.offroad_tires?1400:850)==1)v.tire_condition--;if(random(1,1100)==1)v.cooling_condition--;if(v.transmission_condition<0)v.transmission_condition=0;if(v.tire_condition<0)v.tire_condition=0;if(v.cooling_condition<0)v.cooling_condition=0;
-// The seated player occupies the actual seat in the movable local map.  The
-// vehicle transform changes; the seat-local coordinate does not.
-double seated_forward,seated_side,seated_height;vehicle_seat_local_position(v,player_seat,seated_forward,seated_side,seated_height);double seated_rad=v.facing*3.14159265358979323846/180.0;
-me.x=v.x+sine(seated_rad)*seated_forward+cosine(seated_rad)*seated_side;
-me.y=v.y+cosine(seated_rad)*seated_forward-sine(seated_rad)*seated_side;
-me.z=v.z+seated_height;
-mr.x = round(me.x, 0);
-mr.y = round(me.y, 0);
-// Engine and acceleration cues are state transitions, not footsteps. Playing
-// one on every occupied map tile stacked long vehicle clips and made terrain
-// collisions sound like engines.
-send_reliable(1, "move_to " + mr.x + " " + mr.y + " " + me.z, 0);
-send_reliable(0, "veh_move " + player_vehicle_index + " " + v.x + " " + v.y+" "+v.z+" "+vehicle_current_velocity+" "+mapname, 0);
-checkzone();
-}
+if(player_seat==0)vehicle_drive_step(v);
 
 // Stamina restoration while in vehicle - every 15 seconds.
 if (vehicle_stamina_timer.elapsed >= 15000)

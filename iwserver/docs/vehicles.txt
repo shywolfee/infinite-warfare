@@ -5,11 +5,18 @@ Vehicles are physical world objects with type-specific health, armour, passenger
 Controls:
   Press O within 5 tiles to open or close the vehicle door.
   Press V to enter or exit the vehicle.
-  UP/DOWN arrows apply acceleration or braking through the vehicle's continuous speed model.
-  LEFT/RIGHT arrows turn 90 degrees. Shift+LEFT/RIGHT turns 1 degree.
+  Hold UP to accelerate and DOWN to brake. Release both to coast; the vehicle slows by itself.
+  In an automatic, hold DOWN at a standstill for half a second to engage reverse; then DOWN drives backwards and UP brakes.
+  Shift+UP and Shift+DOWN change gear in a vehicle with a manual gearbox, such as the motorbike. You start in first; select reverse at a standstill.
+  LEFT/RIGHT steer only while moving, and steer more sharply at low speed than at high speed. Tracked vehicles can pivot at a standstill.
+  Control fires the mounted weapon of your seat, if it has one.
   Alt+LEFT/RIGHT switches between driver and passenger seats. Only the driver controls movement.
   Press U to roll the window down or up at your seat. The action can be rebound as Vehicle Window.
 
-You can only fire weapons with the window down. Melee weapons cannot be used from vehicles. Press H in a vehicle to see vehicle health, armor, speed level, seat, and window status.
+You can only fire weapons with the window down. Melee weapons cannot be used from vehicles. Press H in a vehicle to see vehicle health, armor, speed, gear, seat, and window status.
+
+Each gear has its own top speed and pull. A gear too high for your speed labours, and a gear held past its limit over-revs; the game tells you to shift either way. Crashes damage the vehicle in proportion to the square of its speed, and a crash faster than walking pace injures the people inside. Only the driver can move a vehicle. A repair kit restores up to 150 health to the vehicle you are in or beside.
+
+Firing a hand-held weapon from a moving vehicle spreads your shots, and firing while driving distracts you so the vehicle wanders. Heavy weapons cannot be fired from inside at all, rocket backblast hits everyone in the cabin, a flamethrower sets it alight, and a mortar fired inside goes off inside. A grenade thrown with the window open goes out of the window carrying the vehicle's speed; with it closed, it goes off in the cabin, after you confirm by pressing Enter again within three seconds.
 
 Stamina restores while seated. Vehicles take damage from projectile impacts and collisions, including shots fired by their owner. Armour mitigates damage until depleted. When destroyed, occupants are ejected and injured. Every vehicle type has independent door, window, seat, engine, motion, impact and destruction audio where available.

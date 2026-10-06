@@ -175,7 +175,7 @@ send_reliable(0,players[index].name+" was removed from the game: "+reason+".",2)
 send_reliable(peer,"You have been removed from the game: "+reason+".",2);
 send_reliable(0,"offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map,0);
 voice_rooms.delete(string_to_lower_case(players[index].name));
-players.remove_at(index);
+arena_player_gone(players[index]);players.remove_at(index);
 n.disconnect_peer(peer);
 }
 bool player_has_spawn_grace(player@ p){if(!p.spawn_grace_active)return false;if(p.spawn_grace_timer.elapsed>=5000){p.spawn_grace_active=false;return false;}return true;}
@@ -231,9 +231,27 @@ p.health+=immediate;
 // top-up used to slow a larger course already in progress.
 if(total>0){p.medication_heal_remaining+=total;p.medication_tick_amount=p.medication_heal_remaining/(duration>0?duration:1);if(p.medication_tick_amount<1)p.medication_tick_amount=1;p.medication_tick_interval=1000;p.medication_tick_timer.restart();}p.medication_toxicity+=toxicity;p.medication_toxicity_timer.restart();if(p.medication_toxicity>100){int harm=(p.medication_toxicity-90)*4;p.health-=harm;p.hitby="a medication overdose";send_reliable(p.peer_id,"Medication overdose. Toxicity "+p.medication_toxicity+" percent; immediate damage "+harm+".",2);}else if(p.medication_toxicity>70)send_reliable(p.peer_id,"Warning: medication toxicity is "+p.medication_toxicity+" percent. Further dosing may cause a fatal overdose.",2);
 }
-void use_server_medication(player@ p,string item,int mode)
+// Taking medication takes the recommended dose: that many fluid ounces from a
+// bottle, that many pills from a pill bottle, or the single loose pill. If
+// the open container holds less, you take what is left. Doses used to be
+// picked with the shared item-mode switch, where "emergency" was just a
+// bigger dose of the same thing.
+void use_server_medication(player@ p,string item)
 {
-bool liquid=server_liquid_medication(item),bottle=server_pill_bottle(item);double recommended=server_medication_recommended(item),dose=1;if(liquid)dose=recommended*(mode==0?.5:(mode==2?2.0:1.0));else if(bottle)dose=mode==0?1:(mode==1?recommended:recommended+1);double remaining=1;if(liquid or bottle){if(!p.medication_remaining.get(item,remaining))remaining=server_medication_capacity(item);if(dose>remaining)dose=remaining;remaining-=dose;if(remaining<=.001){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);}else p.medication_remaining.set(item,remaining);send_reliable(p.peer_id,"medication_remaining "+item+" "+remaining,0);}else send_reliable(p.peer_id,"give "+item+" -1",0);server_medication_effect(p,item,dose);play("health_potion",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"Dose taken: "+dose+(liquid?" fluid ounces":" pill"+(dose==1?"":"s"))+". "+(liquid or bottle?remaining+" remain in the container. ":"")+"Medication toxicity "+p.medication_toxicity+" percent.",2);
+bool liquid=server_liquid_medication(item),bottle=server_pill_bottle(item);double dose=liquid or bottle?server_medication_recommended(item):1;if(dose<=0)dose=1;
+double remaining=1;
+if(liquid or bottle)
+{
+if(!p.medication_remaining.get(item,remaining))remaining=server_medication_capacity(item);
+if(dose>remaining)dose=remaining;remaining-=dose;
+if(remaining<=.001){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);}else p.medication_remaining.set(item,remaining);
+send_reliable(p.peer_id,"medication_remaining "+item+" "+remaining,0);
+}
+else send_reliable(p.peer_id,"give "+item+" -1",0);
+server_medication_effect(p,item,dose);play("health_potion",p.x,p.y,p.z,p.map);
+string amount=liquid?dose+" fluid ounce"+(dose==1?"":"s"):int(dose)+" pill"+(dose==1?"":"s");
+string left=liquid?(remaining>.001?" "+remaining+" fluid ounces left in the bottle.":" The bottle is empty."):(bottle?(remaining>=1?" "+int(remaining)+" pills left in the bottle.":" The bottle is empty."):"");
+send_reliable(p.peer_id,"Took "+amount+"."+left+" Medication toxicity "+p.medication_toxicity+" percent.",2);
 }
 void extract_server_pill(player@ p,string item)
 {
@@ -287,19 +305,17 @@ if(!compatible){send_reliable(p.peer_id,"That patch is not compatible with "+str
 }
 void set_player_model_target(player@ p,int nx,int ny,int nz)
 {
-if(server_physics_has_player(p)){p.model_target_x=nx;p.model_target_y=ny;p.model_target_z=nz;return;}
 double dx=double(nx)-p.model_x,dy=double(ny)-p.model_y,dz=double(nz)-p.model_z;
 if(sqrt(dx*dx+dy*dy+dz*dz)>2.25){p.model_x=nx;p.model_y=ny;p.model_z=nz;p.model_vx=0;p.model_vy=0;p.model_vz=0;}
 p.model_target_x=nx;p.model_target_y=ny;p.model_target_z=nz;
 }
 void update_player_physical_model(player@ p)
 {
-if(server_physics_has_player(p))return; // The fixed-step native world owns this model.
 double dt=double(p.model_motion_timer.elapsed)/1000.0;if(dt<.005)return;if(dt>.08)dt=.08;p.model_motion_timer.restart();double dx=p.model_target_x-p.model_x,dy=p.model_target_y-p.model_y,dz=p.model_target_z-p.model_z;double distance=sqrt(dx*dx+dy*dy+dz*dz);if(distance<.002){p.model_x=p.model_target_x;p.model_y=p.model_target_y;p.model_z=p.model_target_z;p.model_vx=0;p.model_vy=0;p.model_vz=0;return;}double speed=1000.0/double(p.server_walktime>0?p.server_walktime:200);double desired_x=dx/distance*speed,desired_y=dy/distance*speed,desired_z=dz/distance*speed;double response=dt*18.0;if(response>1)response=1;p.model_vx+=(desired_x-p.model_vx)*response;p.model_vy+=(desired_y-p.model_vy)*response;p.model_vz+=(desired_z-p.model_vz)*response;double step=sqrt(p.model_vx*p.model_vx+p.model_vy*p.model_vy+p.model_vz*p.model_vz)*dt;if(step>=distance){p.model_x=p.model_target_x;p.model_y=p.model_target_y;p.model_z=p.model_target_z;p.model_vx=0;p.model_vy=0;p.model_vz=0;}else{p.model_x+=p.model_vx*dt;p.model_y+=p.model_vy*dt;p.model_z+=p.model_vz*dt;}
 }
 void playerloop()
 {
-for(int ghost=int(players.length())-1;ghost>=0;ghost--)if(players[ghost].combat_logout_ghost and combat_logout_remaining(players[ghost])<=0){send_reliable(0,"offline "+players[ghost].x+" "+players[ghost].y+" "+players[ghost].z+" "+players[ghost].name+" "+players[ghost].map,0);voice_rooms.delete(string_to_lower_case(players[ghost].name));players.remove_at(ghost);}
+for(int ghost=int(players.length())-1;ghost>=0;ghost--)if(players[ghost].combat_logout_ghost and combat_logout_remaining(players[ghost])<=0){send_reliable(0,"offline "+players[ghost].x+" "+players[ghost].y+" "+players[ghost].z+" "+players[ghost].name+" "+players[ghost].map,0);voice_rooms.delete(string_to_lower_case(players[ghost].name));arena_player_gone(players[ghost]);players.remove_at(ghost);}
 for(uint i=0; i<players.length(); i++)
 {
 update_player_physical_model(players[i]);
@@ -471,8 +487,14 @@ send_reliable(players[p].peer_id, "+" + kill_credits + " credits for the kill! T
 
 int dead_team=get_team_index_for_member(players[i].name);
 if (dead_team>-1) team_notice(dead_team, players[i].name+" was downed. A nearby teammate can use a life injection or Team Revive Kit.");
+// Arena deaths, practice ones above all, are told to the arena, not the server.
+int death_arena=players[i].arena_id>0?arena_index(players[i].arena_id):-1;
+if(death_arena>=0)arena_tell(arenas[death_arena],killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone));
+else
+{
 send_reliable(0,killmsg(players[i].name,players[i].hitby,players[i].map,players[i].zone),2);
 send_reliable(0, "play_s killalert.ogg", 0);
+}
 bool arena_elimination=arena_on_death(players[i]);
 if(!arena_elimination)
 {
@@ -505,7 +527,6 @@ p1.last_x=x;
 p1.last_y=y;
 p1.last_z=z;
 players.insert_last(p1);
-server_physics_sync_players();
 er_play("spawn",players[players.length()-1]);
 send_reliable(pi,"spawn_position "+x+" "+y+" "+z,0);
 er_sync_fixtures_to(pi,map);

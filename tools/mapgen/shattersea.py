@@ -31,8 +31,8 @@ BRIDGE = 6       # bridges are level with the quays, so no ramps
 
 FISH = ["er_fried_pig_skins", "er_electrolyte_water", "er_small_credit_chip"]
 MEDICAL = ["coagulant_serum_bottle", "clotting_tablet_bottle", "er_mini_med_pack"]
-TOOLS = ["cleaning_patches", "repair_kit", "rust_remover", "chain_lubricant"]
-SALVAGE = ["nanomatic_components", "wiring_harness_kit", "vehicle_battery",
+TOOLS = ["repair_kit", "binoculars"]
+SALVAGE = ["wiring_harness_kit", "vehicle_battery",
            "salvage_scanner"]
 AMMO = ["12_gauge_shell_box", "9x19mm_17_round_magazine",
         "7.62x39mm_30_round_magazine"]

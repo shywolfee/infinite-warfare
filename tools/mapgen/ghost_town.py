@@ -47,7 +47,7 @@ BLOCK = [(43 + 80 * i, 107 + 80 * i) for i in range(5)]
 
 MEDICAL = ["coagulant_serum_bottle", "clotting_tablet_bottle", "er_mini_med_pack",
            "loose_pain_blocker_capsule"]
-TOOLS = ["cleaning_patches", "bore_solvent", "gun_cleaning_kit", "repair_kit"]
+TOOLS = ["repair_kit", "binoculars"]
 AMMO_LIGHT = ["9x19mm_17_round_magazine", "5.56mm_stanag_magazine",
               "45_acp_12_round_magazine"]
 AMMO_HEAVY = ["7.62x51mm_20_round_magazine", "12_gauge_shell_box",

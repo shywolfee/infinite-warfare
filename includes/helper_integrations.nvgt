@@ -434,7 +434,7 @@ for(uint i=0;i<sources.length();i++)if(sources[i].id>=0 and sources[i].lx==sourc
 string weapon_id=(w>=0 and w<int(weapons.length()))?weapons[w]:"";
 frame.weapon=weapon_id!="" and weapon_id!="empty"?get_weapon_display_name(weapon_id):"Unarmed";
 int gun=find_gun(weapon_id);
-if(gun>=0)frame.ammo=gun_ammos[gun].mag_loaded+" / "+gun_ammos[gun].mag_capacity+"  "+ammunition_display_name(gun_ammos[gun].loaded_ammunition);
+if(gun>=0)frame.ammo=gun_ammos[gun].mag_loaded+" / "+gun_ammos[gun].mag_capacity+"  "+gun_ammos[gun].ammo_type;
 else frame.ammo=get_weapon_class(weapon_id)==""?"No ammunition":"Ready";
 string mode=has_fire_modes(weapon_id)?fire_mode_name(get_fire_mode(weapon_id)):"fixed";
 frame.status="Fire mode: "+mode+"\nVertical aim: "+turn+" degrees\nElevation: "+int(me.z)+"\n"+get_effects_string();

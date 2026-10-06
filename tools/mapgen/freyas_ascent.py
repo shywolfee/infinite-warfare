@@ -61,7 +61,7 @@ ORDER = [LOWREACH, STITCH, MIDDLE, CATARACT, HIGH, CROWN]
 
 MEDICAL = ["coagulant_serum_bottle", "medigel_tonic_bottle", "er_mid_med_pack",
            "loose_clotting_tablet"]
-TOOLS = ["repair_kit", "cleaning_patches", "nanomatic_components", "blade_oil"]
+TOOLS = ["repair_kit", "binoculars"]
 CLIMB_KIT = ["hightech_grapple", "grapple_line_cartridge", "binoculars"]
 AMMO = ["5.56mm_stanag_magazine", "9x19mm_17_round_magazine",
         "7.62x51mm_20_round_magazine"]

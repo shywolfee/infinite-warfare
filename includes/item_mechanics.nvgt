@@ -1,10 +1,11 @@
-// Persistent per-item operating configuration. Inventory quantity remains in
-// the authoritative inventory; this stores how the player intends to use it.
-dictionary item_configurations;
+// Items have no operating "modes" any more. 0.5.7 removed the generic
+// three-way configuration (Alt+Shift+M) that every explosive, medicine, decoy
+// and smoke bomb shared: for healing items the top setting was simply better,
+// for decoys and smoke it did nothing at all, and a throw's strength belongs
+// to how you aim it. Throws now follow your vertical aim, and medication
+// takes its recommended dose.
 dictionary client_medication_remaining;
 string cooked_grenade="";timer cooked_grenade_timer;int cooked_grenade_warning_stage=0;
-int item_configuration(string item){int value=1;if(item_configurations.exists(item))item_configurations.get(item,value);return value;}
-void set_item_configuration(string item,int value){if(value<0)value=0;if(value>2)value=2;item_configurations.set(item,value);}
 // item_is_thrown_explosive() reads the item's "thrown" flag (item_data.nvgt).
 string armour_names_list(string[]@ ids)
 {
@@ -19,9 +20,9 @@ bool grenade_pin_or_throw(string item)
 if(!item_is_thrown_explosive(item))return false;
 if(cooked_grenade==""){cooked_grenade=item;cooked_grenade_warning_stage=0;cooked_grenade_timer.restart();p.play_stationary("ammo_cycle.ogg",false);speak("Pin pulled from "+string_replace(item,"_"," ",true)+". Press enter again to throw. The fuse is running.");return true;}
 if(cooked_grenade!=item){speak("You are already cooking a "+string_replace(cooked_grenade,"_"," ",true)+". Return to it before selecting another grenade.");return true;}
-int cooked=int(cooked_grenade_timer.elapsed);send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);cooked_grenade="";cooked_grenade_warning_stage=0;speak("Grenade thrown after "+round(double(cooked)/1000.0,2)+" seconds of cooking.");return true;
+int cooked=int(cooked_grenade_timer.elapsed);send_reliable(0,explosive_use_command(item,cooked),0);cooked_grenade="";cooked_grenade_warning_stage=0;speak(explosive_release_report(item,cooked));return true;
 }
-void grenade_cook_loop(){if(cooked_grenade=="")return;int remaining=grenade_fuse_ms(cooked_grenade)-int(cooked_grenade_timer.elapsed);if(remaining<=1000 and cooked_grenade_warning_stage<1){cooked_grenade_warning_stage=1;p.play_stationary("clock1.ogg",false);}if(remaining<=500 and cooked_grenade_warning_stage<2){cooked_grenade_warning_stage=2;p.play_stationary("clock2.ogg",false);}if(remaining>0)return;string item=cooked_grenade;int cooked=int(cooked_grenade_timer.elapsed);cooked_grenade="";cooked_grenade_warning_stage=0;send_reliable(0,"use "+item+" "+item_configuration(item)+" "+cooked,0);speak("The cooked grenade detonates as it leaves your hand!");}
+void grenade_cook_loop(){if(cooked_grenade=="")return;int remaining=grenade_fuse_ms(cooked_grenade)-int(cooked_grenade_timer.elapsed);if(remaining<=1000 and cooked_grenade_warning_stage<1){cooked_grenade_warning_stage=1;p.play_stationary("clock1.ogg",false);}if(remaining<=500 and cooked_grenade_warning_stage<2){cooked_grenade_warning_stage=2;p.play_stationary("clock2.ogg",false);}if(remaining>0)return;string item=cooked_grenade;int cooked=int(cooked_grenade_timer.elapsed);cooked_grenade="";cooked_grenade_warning_stage=0;send_reliable(0,explosive_use_command(item,cooked),0);speak("The cooked grenade detonates as it leaves your hand!");}
 bool item_is_liquid_medication(string i){return medication_form(i)=="liquid";}
 bool item_is_pill_bottle(string i){return medication_form(i)=="pills";}
 bool item_is_loose_pill(string i){return medication_form(i)=="loose_pill";}
@@ -29,54 +30,32 @@ bool item_is_medication(string i){return item_is_liquid_medication(i) or item_is
 double medication_container_capacity(string i){return medication_capacity(i);}
 double medication_amount_remaining(string i){double amount;if(client_medication_remaining.get(i,amount))return amount;return medication_container_capacity(i);}
 bool item_is_medical(string i){return item_is_medication(i) or i=="life_injection" or i=="adrenaline_syringe";}
-double medication_liquid_dose(string i,int mode){return medication_recommended(i)*(mode==0?.5:(mode==2?2.0:1.0));}
-int medication_pill_dose(string i,int mode){int recommended=int(medication_recommended(i));return mode==0?1:(mode==1?recommended:recommended+1);}
-string medication_recommended_dose(string i){if(item_is_liquid_medication(i))return "Recommended dose: "+medication_liquid_dose(i,1)+" fluid ounces";if(item_is_pill_bottle(i) or item_is_loose_pill(i)){int n=int(medication_recommended(i));return "Recommended dose: "+n+" pill"+(n==1?"":"s");}return "";}
+string medication_recommended_dose(string i){if(item_is_liquid_medication(i))return "Recommended dose: "+medication_recommended(i)+" fluid ounces";if(item_is_pill_bottle(i) or item_is_loose_pill(i)){int n=int(medication_recommended(i));return "Recommended dose: "+n+" pill"+(n==1?"":"s");}return "";}
 bool item_category_is(string i,string category){item_data@ d=item_info(i);return d !is null and string_to_lower_case(d.category)==string_to_lower_case(category);}
-bool item_is_weapon_maintenance(string i){return item_category_is(i,"Weapon Maintenance");}
 bool item_is_vehicle_supply(string i){return item_category_is(i,"Vehicle Supplies");}
-bool item_has_configuration(string i){return item_is_thrown_explosive(i) or item_is_launched_explosive(i) or item_is_deployable_explosive(i) or item_is_medical(i) or i=="fake_item" or i=="smoke_bomb" or i=="rock";}
-string item_configuration_name(string i,int value)
-{
-if(item_is_thrown_explosive(i) or item_is_launched_explosive(i) or i=="rock")return value==0?"controlled lob":(value==1?"standard launch":"forceful long launch");
-if(item_is_deployable_explosive(i))return value==0?"rapid arming":(value==1?"balanced arming":"concealed arming");
-if(item_is_liquid_medication(i))return medication_liquid_dose(i,value)+" fluid ounces";
-if(item_is_pill_bottle(i))return medication_pill_dose(i,value)+" pills";
-if(item_is_medical(i))return value==0?"conservative dose":(value==1?"standard dose":"emergency dose");
-if(i=="fake_item")return value==0?"quiet decoy":(value==1?"ordinary decoy":"attention decoy");
-if(i=="smoke_bomb")return value==0?"fast screen":(value==1?"balanced screen":"long screen");
-return "standard use";
-}
-void cycle_selected_item_configuration()
-{
-string item=get_selected_item();if(item=="" or is_weapon(item)){speak("Select a configurable inventory item first.");return;}
-if(!item_has_configuration(item)){speak(string_replace(item,"_"," ",true)+" has no alternate operating configuration. Its contextual use is fixed by its physical function.");return;}
-int next=(item_configuration(item)+1)%3;set_item_configuration(item,next);p.play_stationary("ammo_cycle.ogg",false);speak(item_configuration_name(item,next)+" selected for "+string_replace(item,"_"," ",true)+".");
-}
 string item_mechanic_description(string i)
 {
 string detail="";
-if(item_is_thrown_explosive(i))detail="Uses continuous three-dimensional throw physics, bounce, drag, gravity, a payload-specific fuse and distance-scaled effects. Its controlled, standard and forceful throws trade arc height against horizontal velocity.";
-else if(item_is_launched_explosive(i))detail="Uses a dedicated heavy three-dimensional flight profile with continuous positional loop audio, physical bounce, drag and gravity. Controlled, standard and forceful launches trade arc height against horizontal velocity; payload size determines fuse, blast radius and damage.";
-else if(item_is_deployable_explosive(i))detail="Placement retains facing, owner and team safety. Rapid arming activates sooner with a smaller sensor envelope; balanced is general-purpose; concealed arming delays activation but expands detection.";
+if(item_is_thrown_explosive(i))detail="Uses continuous three-dimensional throw physics, bounce, drag, gravity, a payload-specific fuse and distance-scaled effects. Aim level for an ordinary arcing throw, up to lob it high and far, or down to drop or roll it short.";
+else if(item_is_launched_explosive(i))detail="Uses a dedicated heavy three-dimensional flight profile with continuous positional loop audio, physical bounce, drag and gravity. The launch angle follows your vertical aim; payload size determines fuse, blast radius and damage.";
+else if(item_is_deployable_explosive(i))detail="Placement retains facing, owner and team safety. It arms after its authored delay and watches its authored sensor area.";
 else if(i=="c4")detail="Places a persistent owner-tracked remote charge; the controller reports active charges and detonates them as a group.";
 else if(i=="semtex" or i=="semtex_pack" or i=="semtex_controller")detail="Forms part of the adhesive-charge workflow: components are placed, tracked and remotely controlled rather than behaving like an ordinary grenade.";
 else if(i=="torpedo")detail="Uses a dedicated anti-vehicle delivery and damage role rather than a general fragmentation blast.";
-else if(i=="smoke_bomb")detail="Creates a timed concealment screen; configuration trades deployment speed against persistence.";
+else if(i=="smoke_bomb")detail="Creates a timed concealment screen that hides the people inside it.";
 else if(i=="bunker_bomb")detail="A restricted demolition payload whose use is tied to bunker structures and access rules.";
-else if(i=="rock")detail="A reusable low-mass thrown distraction with controlled, standard and forceful delivery profiles.";
+else if(i=="rock")detail="A reusable low-mass thrown distraction. It goes where you aim it.";
 else if(i=="bomb_vest")detail="Occupies the body slot, contributes twelve units of equipment weight and mitigates explosive damage while equipped.";
 else if(item_is_vehicle_supply(i))detail="Belongs to the physical vehicle workshop system. Fuels retain their type and volume; service tools are reusable; fluids, filters, repair parts and flushes are consumed by their matching timed operation; refit packages alter the installed vehicle's live condition, capacity, protection, mass, traction or performance.";
 else if(is_armour_patch(i))detail="Repairs "+armour_names_list(item_prop_list(i,"repairs"))+". A consumable field patch for a compatible equipped armour construction. It restores only a small amount and cannot raise damaged armour above sixty percent durability; proper replacement remains necessary.";
 else if(armour_slot(i)!="")detail="Covers the "+(armour_slot(i)=="arm"?"arms":(armour_slot(i)=="leg"?"legs":armour_slot(i)))+": stops "+armour_rating(i)+" percent of each hit there, with "+armour_durability(i)+" durability and "+armour_weight(i)+" units of weight. Occupies its anatomical armour slot. Only hits to that body region consume its durability and receive protection; mass affects movement and jumping.";
-else if(item_is_medication(i))detail=(item_is_liquid_medication(i)?"A measured multi-dose medication bottle. Alt Shift M selects an exact fluid-ounce dose; the bottle remains until empty.":(item_is_pill_bottle(i)?"A multi-dose pill bottle. Alt Shift M selects the number swallowed; use "+kb_binding_label("extract_pill")+" to remove one transferable loose pill.":"One individually transferable pill removed from a medication bottle."))+" "+medication_recommended_dose(i)+". Effects and duration depend on the drug. Doses accumulate toxicity; exceeding the recommendation increases adverse effects and a severe overdose can be fatal.";
-else if(i=="life_injection")detail="Requires a downed teammate within four tiles, locks the administration sequence, and restores the selected target with dose-dependent initial health.";
+else if(item_is_medication(i))detail=(item_is_liquid_medication(i)?"A multi-dose medication bottle. Each use drinks the recommended dose, or what is left; the bottle stays until it is empty.":(item_is_pill_bottle(i)?"A multi-dose pill bottle. Each use swallows the recommended number of pills; use "+kb_binding_label("extract_pill")+" to take a single pill out of the bottle.":"A single pill, taken by itself."))+" "+medication_recommended_dose(i)+". Repeated doses build toxicity.";
+else if(i=="life_injection")detail="Requires a downed teammate within four tiles, locks the administration sequence, and revives them with half of their health.";
 else if(i=="adrenaline_syringe")detail="Starts a short emergency movement and stamina state rather than applying ordinary healing.";
 else if(i=="bucket" or i=="empty_bucket" or i=="water_tank")detail="Participates in a physical water-transfer loop: fill an empty bucket while standing in water, carry it, and empty it into a colocated tank over time.";
 else if(i=="translocator")detail="Consumes stored cell charge to move to a selected valid point of interest through its dedicated interface.";
 else if(i=="translocator_cell")detail="Adds finite charge to the translocator rather than acting as generic ammunition.";
-else if(i=="nanomatic_multitool" or i=="nanomatic_components" or i=="repair_kit")detail="Part of the equipment-maintenance economy: the tool selects damaged compatible equipment and consumes repair material according to missing durability.";
-else if(item_is_weapon_maintenance(i))detail="Part of class-specific weapon maintenance. Durable tools are retained; patches, solvents, lubricants, coolants, seals, replacement barrels and repair materials are consumed by timed servicing. Maintenance immobilizes the player, only partially reduces heat or fouling, and has a per-weapon cooldown.";
+else if(i=="repair_kit")detail="Patches the hull of the vehicle you are sitting in or standing beside, restoring up to 150 health. It cannot rebuild a destroyed vehicle.";
 else if(i=="biomonitor_bracelet")detail="Occupies the bracelet slot and supplies a movable quickbar scan ability with a server-validated radius and cooldown.";
 else if(i=="wirenet")detail="Occupies the medical slot and supplies a movable quickbar ability controlling three automatic emergency-heal charges.";
 else if(i=="hypercomp")detail="A session-bound smart terminal with finite storage, replaceable operating systems, downloadable applications, marketplace access, secure banking and its original bunker controls. Installed software and storage expansions belong to this physical terminal and are lost with it on death.";
@@ -88,7 +67,7 @@ else if(i=="neural_intrusion_device")detail="A consumable close-range electronic
 else if(i=="field_restraints")detail="Electronic restraints can be fitted only to a hostile within two tiles whose health is critically low. A successful fitting consumes the restraint and imposes a twenty-second movement disruption.";
 else if(i=="reconnaissance_ring")detail="A reusable wearable transponder that reports nearby friendly and hostile signatures after a short ten-second recovery.";
 else if(i=="portable_auction_terminal")detail="Legacy commerce hardware. Using it permanently upgrades it into the unified HyperComp Smart Terminal; Marketplace, App Store, Secure Banking and market tools now run as terminal applications instead of requiring a second device.";
-else if(i=="salvage_scanner")detail="Reusable twenty-five-second salvage scanner that recovers a real maintenance, vehicle or credit component from surrounding debris.";
+else if(i=="salvage_scanner")detail="Reusable twenty-five-second salvage scanner that recovers a vehicle component or repair kit from surrounding debris.";
 else if(i=="security_radio_receiver" or i=="field_television_receiver")detail="Reusable tactical receiver that reports friendly and hostile activity on the current map.";
 else if(i=="er_overdrive_amplifier")detail="Single-use twenty-second ballistic overdrive. It amplifies outgoing projectile energy, announces depletion, and remains subject to the global no-one-shot damage cap.";
 else if(item_prop(i,"use_kind")=="companion")detail="Deploys a persistent server-authoritative "+item_prop(i,"companion_kind")+" with "+item_prop_int(i,"companion_health")+" health. It physically travels, follows you and attacks using the range, damage, speed, cooldown and sounds defined in this item's data file. A Companion Command Remote can set follow, stay, guard, seek-and-attack or recall modes, report telemetry, or let you pilot it directly.";
@@ -96,17 +75,46 @@ else if(i=="companion_command_remote")detail="Reusable controller for every depl
 else if(string_contains(i,"er_",1)==0)detail="Executioner's Rage field content with a dedicated server-authoritative consumption, recovery, credit, or combat effect and purpose-specific authored audio.";
 else if(i=="locker_access_module")detail="A persistent encrypted access credential checked by compatible secured lockers; it is never consumed as a generic item.";
 else if(i=="bunker_key")detail="A persistent access credential checked by bunker interactions rather than consumed as a generic item.";
-else if(i=="fake_item")detail="Places a cooldown-limited owner decoy; its profile controls how conspicuous the deployment is.";
+else if(i=="fake_item")detail="Places a cooldown-limited owner decoy.";
 else if(string_contains(i,"team_",1)==0 or i=="duo_plane_kit")detail="Requires team membership and invokes its team-authoritative shared deployment, distribution or reconnaissance function.";
 else if(is_attachment_item(i))detail="Installs only in its declared weapon slot and changes live weapon statistics; occupied-slot replacement follows the saved attachment option.";
 else if(is_holster_item(i))detail="Occupies one of two equipment slots and provides weapon-specific storage, draw and ammunition handling with physical weight.";
-else if(is_ammo_reserve_item(i))detail="Represents a real compatible feed device or loose reserve. Loading preserves ammunition identity, partial contents and weapon capacity.";
+else if(is_ammo_reserve_item(i))detail="Represents a real compatible feed device or loose reserve. Loading preserves partial contents and weapon capacity.";
 else detail="Uses its registered contextual server action; it is not treated as a generic interchangeable consumable.";
-if(item_has_configuration(i))detail+=" Current configuration: "+item_configuration_name(i,item_configuration(i))+". Use "+kb_binding_label("item_configuration")+" to change it.";
 return detail;
 }
-string item_use_command(string item){return "use "+item+" "+item_configuration(item);}
-double item_dose_multiplier(string item){int mode=item_configuration(item);return mode==0?.72:(mode==2?1.28:1.0);}
+string item_use_command(string item){return "use "+item;}
+// How a throw leaves the player: "foot" on foot, "window" from a vehicle seat
+// whose window is open, "cabin" inside a closed vehicle.
+string explosive_throw_cabin()
+{
+if(!in_vehicle or player_vehicle_index<0)return "foot";
+vehicle@ v=map_vehicles[player_vehicle_index];
+return v.has_seat_window(player_seat) and v.window_down[player_seat]?"window":"cabin";
+}
+// use <item> <vertical aim> <cooked ms> <cabin>. The vertical aim is the same
+// angle used for weapons: 90 is level, lower is down, higher is up.
+string explosive_use_command(string item,int cooked=0){return "use "+item+" "+turn+" "+cooked+" "+explosive_throw_cabin();}
+string explosive_release_report(string item,int cooked)
+{
+string cabin=explosive_throw_cabin();string held=cooked>0?" after "+round(double(cooked)/1000.0,2)+" seconds of cooking":"";
+if(cabin=="cabin")return "You let go of it inside the closed vehicle"+held+".";
+if(cabin=="window")return "Thrown out of the window"+held+".";
+return "Thrown"+held+".";
+}
+// Explosives get one deliberate warning before they are set loose inside a
+// vehicle. Using the same one again within three seconds goes ahead.
+string pending_vehicle_explosive="";timer pending_vehicle_explosive_timer;
+bool confirm_explosive_in_vehicle(string item,bool placed)
+{
+if(!in_vehicle)return true;
+if(!placed and explosive_throw_cabin()=="window")return true;
+if(pending_vehicle_explosive==item and pending_vehicle_explosive_timer.elapsed<=3000){pending_vehicle_explosive="";return true;}
+pending_vehicle_explosive=item;pending_vehicle_explosive_timer.restart();p.play_stationary("alarm2.ogg",false);
+string name=string_replace(item,"_"," ",true);
+speak(placed?"Placing the "+name+" inside the vehicle would be a very bad idea: it arms right here in the cabin with you. Press Enter again within three seconds if you are sure.":"The window is closed. Setting off the "+name+" in here will go off inside the vehicle with you. Press Enter again within three seconds if you are sure, or open the window first.");
+return false;
+}
 
 class online_shop_offer
 {
@@ -129,11 +137,6 @@ offers.insert_last(online_shop_offer("pulse_cell_bundle","Pulse energy cells","A
 offers.insert_last(online_shop_offer("nanocyte_solution","Nanocyte Reconstruction Solution","Medical","One measured multi-dose bottle for controlled tissue repair.","nanocyte_solution_bottle",1,50));
 offers.insert_last(online_shop_offer("coagulant_serum","Hemostatic Coagulant Serum","Medical","One measured bottle for bleeding control and modest recovery.","coagulant_serum_bottle",1,42));
 offers.insert_last(online_shop_offer("antitoxin_tablets","Broad-Spectrum Antitoxin Tablets","Medical","One ten-tablet bottle used to reduce accumulated medication toxicity.","antitoxin_tablet_bottle",1,38));
-offers.insert_last(online_shop_offer("cleaning_patch_pack","Cleaning patch pack","Maintenance","Four consumable patches for timed firearm servicing.","cleaning_patches",4,18));
-offers.insert_last(online_shop_offer("bore_solvent_pair","Bore solvent pair","Maintenance","Two solvent units used with compatible firearm cleaning tools.","bore_solvent",2,25));
-offers.insert_last(online_shop_offer("lubricant_pair","Action lubricant pair","Maintenance","Two measured lubricant units used after firearm cleaning.","action_lubricant",2,22));
-offers.insert_last(online_shop_offer("replacement_parts_pair","Weapon replacement parts","Maintenance","Two sets of springs, pins, extractors and action components for mechanical repair.","weapon_replacement_parts",2,55));
-offers.insert_last(online_shop_offer("nanomatic_component_pack","Nanomatic component pack","Maintenance","Three consumable repair-material units for the Nanomatic Multitool.","nanomatic_components",3,45));
 offers.insert_last(online_shop_offer("frag_pair","Fragmentation grenade pair","Explosives","Two cookable fragmentation grenades with continuous authoritative fuses.","frag_grenade",2,45));
 offers.insert_last(online_shop_offer("smoke_pair","Smoke bomb pair","Explosives","Two concealment payloads with configurable delivery profiles.","smoke_bomb",2,32));
 offers.insert_last(online_shop_offer("flash_pair","Flashbang pair","Explosives","Two optical and movement-disruption grenades.","flashbang",2,38));

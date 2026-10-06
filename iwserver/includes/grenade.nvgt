@@ -22,23 +22,26 @@ int audio_id=-1;
 timer audio_update_timer;
 string stuck_to="";
 int blast_dir=-1;
-fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner,string gkind="frag_grenade",bool play_launch=true,int delivery=1,int cooked_ms=0)
+int inside_vehicle=-1; // id of the closed vehicle this explosive is loose inside
+fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner,string gkind="frag_grenade",bool play_launch=true,int aim=90,int cooked_ms=0)
 {
 x=gx;
 y=gy;
 z=double(gz)+0.8;
 double radians=gdir*3.14159265358979323846/180.0;
-double horizontal=delivery==0?8.0:(delivery==2?16.5:12.0),vertical=delivery==0?9.5:(delivery==2?5.8:7.25);
-vx=sine(radians)*horizontal;
-vy=cosine(radians)*horizontal;
-vz=vertical;
 map=gmap;
 owner=gowner;
 kind=gkind;
 // Fuse, blast and flight come from the explosive's item file.
 fuse=item_prop_int(kind,"fuse_ms",fuse);radius=item_prop_int(kind,"blast_radius",radius);damage=item_prop_int(kind,"blast_damage",damage);
-if(item_prop(kind,"launch_speed")!=""){horizontal=item_prop_number(kind,"launch_speed");vertical=item_prop_number(kind,"launch_rise",vertical);}
-vx=sine(radians)*horizontal;vy=cosine(radians)*horizontal;vz=vertical;
+// A throw's speed is the item's authored launch speed (an ordinary arm
+// throws at about fourteen tiles a second) and its angle follows the
+// thrower's vertical aim: aiming level is a normal arcing throw of about
+// thirty degrees, aiming up lobs it higher and further, aiming down drops or
+// rolls it. Throws used to be one of three fixed presets.
+double speed=14.0;if(item_prop(kind,"launch_speed")!=""){double h=item_prop_number(kind,"launch_speed"),v=item_prop_number(kind,"launch_rise",7.25);speed=sqrt(h*h+v*v);}
+double elevation=30.0+(double(aim)-90.0)*.75;if(elevation<-20)elevation=-20;if(elevation>80)elevation=80;double er=elevation*3.14159265358979323846/180.0;
+vx=sine(radians)*cosine(er)*speed;vy=cosine(radians)*cosine(er)*speed;vz=sine(er)*speed;
 if(cooked_ms<0)cooked_ms=0;if(cooked_ms>fuse-1)cooked_ms=fuse-1;fuse-=cooked_ms;
 if(play_launch){string launch=item_prop(kind,"throw_sound",kind=="frag_grenade"?"fraggrenadethrow":(kind=="er_bowling_bomb"?"er_bowling_bomb_start":kind+"_throw"));play(launch,x,y,z,map);}
 simulationtimer.restart();
@@ -52,6 +55,8 @@ for (int i=int(fraggrenades.length())-1; i>=0; i--)
 // touch, and ride along with a person until they go off. The Sticky Semtex
 // Charge was described as adhesive but bounced like any other grenade.
 bool sticky=item_flag(fraggrenades[i].kind,"sticky");
+// An explosive loose inside a vehicle rides along with it.
+if(fraggrenades[i].inside_vehicle>=0){int iv=find_authoritative_vehicle(fraggrenades[i].inside_vehicle,fraggrenades[i].map);if(iv>=0){authoritative_vehicle@ cv=authoritative_vehicles[iv];update_authoritative_vehicle_model(cv);fraggrenades[i].x=cv.model_x;fraggrenades[i].y=cv.model_y;fraggrenades[i].z=cv.model_z+.6;}}
 if(fraggrenades[i].stuck_to!=""){int carrier=get_player_index_from(fraggrenades[i].stuck_to);if(carrier>=0 and players[carrier].map==fraggrenades[i].map and !players[carrier].death){fraggrenades[i].x=players[carrier].x;fraggrenades[i].y=players[carrier].y;fraggrenades[i].z=players[carrier].z+1.0;}}
 else if(sticky and !fraggrenades[i].landed){for(uint pi=0;pi<players.length();pi++){if(players[pi].map!=fraggrenades[i].map or players[pi].name==fraggrenades[i].owner or players[pi].death or players[pi].in_plane)continue;if(get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,players[pi].x,players[pi].y,players[pi].z+1.0)<=.9){fraggrenades[i].stuck_to=players[pi].name;fraggrenades[i].landed=true;fraggrenades[i].vx=0;fraggrenades[i].vy=0;fraggrenades[i].vz=0;send_reliable(players[pi].peer_id,"A sticky charge is stuck to you!",2);break;}}}
 // Continuous ballistic integration: gravity, air drag, wall reflection,
@@ -63,7 +68,8 @@ if(elapsed>.05)elapsed=.05;int steps=4;double dt=elapsed/double(steps);
 for(int step=0;step<steps;step++)
 {
 fraggrenades[i].vz-=9.81*dt;
-double drag=1.0-.18*dt;fraggrenades[i].vx*=drag;fraggrenades[i].vy*=drag;
+// Air drag acts relative to the wind, so a breeze carries a throw.
+map_wind@ air=wind_for(fraggrenades[i].map);fraggrenades[i].vx+=(air.x-fraggrenades[i].vx)*.18*dt;fraggrenades[i].vy+=(air.y-fraggrenades[i].vy)*.18*dt;
 double nx=fraggrenades[i].x+fraggrenades[i].vx*dt,ny=fraggrenades[i].y+fraggrenades[i].vy*dt,nz=fraggrenades[i].z+fraggrenades[i].vz*dt;
 string nexttile=get_tile_at(nx,ny,int(nz),fraggrenades[i].map);
 if(string_contains(nexttile,"wall",1)>=0)
@@ -110,7 +116,11 @@ player@ target=players[i2];
 if(target.map!=fraggrenades[i].map or target.death or target.in_plane or !player_can_be_damaged_by(target,fraggrenades[i].owner))continue;
 // A directional charge throws its blast forward; people behind it are safe.
 if(fraggrenades[i].blast_dir>=0){double radians=double(fraggrenades[i].blast_dir)*3.14159265358979323846/180.0;if((target.x-fraggrenades[i].x)*sine(radians)+(target.y-fraggrenades[i].y)*cosine(radians)<0)continue;}
-int applied=blast_damage_to_player(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage,target);if(applied<=0)continue;
+int applied=0;
+// Inside a closed vehicle the occupants take the whole blast and the hull
+// shields everyone outside from half of it.
+if(fraggrenades[i].inside_vehicle>=0){int iv=find_authoritative_vehicle(fraggrenades[i].inside_vehicle,fraggrenades[i].map);if(iv>=0 and authoritative_vehicle_has_occupant(authoritative_vehicles[iv],target.name))applied=fraggrenades[i].damage;else applied=blast_damage_to_player(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage,target)/2;}
+else applied=blast_damage_to_player(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,fraggrenades[i].map,fraggrenades[i].radius,fraggrenades[i].damage,target);if(applied<=0)continue;
 applied=apply_player_damage(target,applied,fraggrenades[i].owner+"'s "+fraggrenades[i].kind);if(applied<=0)continue;
 if(owner_index>-1 and !pinged){pinged=true;send_reliable(players[owner_index].peer_id, "play_s weaponping.ogg", 0);}
 int effect_ms=item_prop_int(fraggrenades[i].kind,"effect_duration_ms",6000);string effect=blast_effect;
@@ -138,16 +148,101 @@ play("duoplanebombhit",planes[i2].x,planes[i2].y,planes[i2].z,planes[i2].map);
 }
 for(uint vi=0;vi<authoritative_vehicles.length() and destructive;vi++)
 {
-authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=fraggrenades[i].map or vehicle.health<=0)continue;double vehicle_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vehicle_distance>fraggrenades[i].radius)continue;int vehicle_damage=int(double(fraggrenades[i].damage)*(1.0-vehicle_distance/double(fraggrenades[i].radius)*.6));if(fraggrenades[i].kind=="carrier_missile")vehicle_damage=int(vehicle_damage*1.65);else if(fraggrenades[i].kind=="conventional_guided_missile")vehicle_damage=int(vehicle_damage*1.3);damage_authoritative_vehicle(vehicle,vehicle_damage,-1,"caught in a grenade blast");
+authoritative_vehicle@ vehicle=authoritative_vehicles[vi];if(vehicle.map!=fraggrenades[i].map or vehicle.health<=0)continue;double vehicle_distance=get_3d_distance(fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z,vehicle.model_x,vehicle.model_y,vehicle.model_z);if(vehicle_distance>fraggrenades[i].radius)continue;int vehicle_damage=int(double(fraggrenades[i].damage)*(1.0-vehicle_distance/double(fraggrenades[i].radius)*.6));if(fraggrenades[i].kind=="carrier_missile")vehicle_damage=int(vehicle_damage*1.65);else if(fraggrenades[i].kind=="conventional_guided_missile")vehicle_damage=int(vehicle_damage*1.3);if(vehicle.id==fraggrenades[i].inside_vehicle)vehicle_damage=fraggrenades[i].damage*2;damage_authoritative_vehicle(vehicle,vehicle_damage,-1,vehicle.id==fraggrenades[i].inside_vehicle?"blown apart from inside":"caught in a grenade blast");
 }
 fraggrenades.remove_at(i);
 continue;
 }
 }
 }
-void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int delivery=1,int cooked_ms=0)
+// Wind. Each map has a breeze that wanders slowly in strength and direction
+// and carries anything thrown while it is in the air.
+class map_wind{string map;double x=0,y=0;timer changed;}
+map_wind@[] map_winds;
+map_wind@ wind_for(string map)
 {
-fraggrenade e1(x,y,z,dir,map,owner,kind,true,delivery,cooked_ms);
+for(uint i=0;i<map_winds.length();i++)if(map_winds[i].map==map)
+{
+map_wind@ w=map_winds[i];if(w.changed.elapsed>=20000){w.changed.restart();w.x+=double(random(-15,15))/10.0;w.y+=double(random(-15,15))/10.0;double strength=sqrt(w.x*w.x+w.y*w.y);if(strength>7){w.x*=7/strength;w.y*=7/strength;}}
+return w;
+}
+map_wind w;w.map=map;double heading=double(random(0,359))*3.14159265358979323846/180.0,strength=double(random(0,40))/10.0;w.x=sine(heading)*strength;w.y=cosine(heading)*strength;map_winds.insert_last(w);return map_winds[map_winds.length()-1];
+}
+string wind_report(string map)
+{
+map_wind@ w=wind_for(map);double strength=sqrt(w.x*w.x+w.y*w.y);if(strength<1.5)return "";
+double heading=atan2(w.x,w.y)*180.0/3.14159265358979323846;if(heading<0)heading+=360;string[] names={"north","north-east","east","south-east","south","south-west","west","north-west"};
+return "Wind "+int(round(strength,0))+" tiles a second toward the "+names[int(round(heading/45.0,0))%8]+".";
+}
+// The vehicle a player is sitting in, and their seat; -1 when on foot.
+int occupied_vehicle_index(string name,string map,int &out seat)
+{
+for(uint i=0;i<authoritative_vehicles.length();i++){if(authoritative_vehicles[i].map!=map or authoritative_vehicles[i].health<=0)continue;for(uint s=0;s<authoritative_vehicles[i].occupants.length();s++)if(authoritative_vehicles[i].occupants[s]==name){seat=int(s);return int(i);}}
+seat=-1;return -1;
+}
+// A blast inside a closed vehicle: everyone aboard takes all of it, the hull
+// takes twice it, and everyone outside is shielded from half of it.
+void cabin_blast(authoritative_vehicle@ v,string owner,string label,int radius,int damage,string sound,string distant)
+{
+play(sound,v.model_x,v.model_y,v.model_z,v.map);if(distant!="")send_distant_sound(v.map,distant,int(v.model_x),int(v.model_y),int(v.model_z),35);
+for(uint i=0;i<players.length();i++){player@ t=players[i];if(t.map!=v.map or t.death or t.in_plane or !player_can_be_damaged_by(t,owner))continue;int dealt=authoritative_vehicle_has_occupant(v,t.name)?damage:blast_damage_to_player(v.model_x,v.model_y,v.model_z,v.map,radius,damage,t)/2;if(dealt>0)apply_player_damage(t,dealt,owner+"'s "+label);}
+damage_authoritative_vehicle(v,damage*2,-1,"blown apart from inside");
+}
+// What happens when a hand weapon is fired from inside a vehicle, by the
+// weapon's vehicle_use. Returns true when the shot never leaves the vehicle.
+bool vehicle_weapon_mishap(int index,string wname)
+{
+player@ p=players[index];int seat=-1,vi=occupied_vehicle_index(p.name,p.map,seat);if(vi<0)return false;
+int si=find_wpn_stats(wname);if(si<0)return false;wpn_server_stats@ st=wpn_stats_cache[si];
+authoritative_vehicle@ v=authoritative_vehicles[vi];update_authoritative_vehicle_model(v);string name=st.name!=""?st.name:wname;
+if(string_contains(st.wclass,"melee",1)==0 or st.wclass=="tool" or st.vehicle_use=="forbidden"){send_reliable(p.peer_id,"The "+name+" cannot be used from a vehicle seat.",2);return true;}
+if(st.vehicle_use=="cabin_detonation")
+{
+// The bomb leaves the tube and meets the roof.
+for(uint s=0;s<v.occupants.length();s++){int occupant=get_player_index_from(v.occupants[s]);if(occupant>=0)send_reliable(players[occupant].peer_id,"The "+name+" round strikes the roof of the "+v.type+".",2);}
+cabin_blast(v,p.name,name+", fired inside a "+v.type,st.explosive_radius>0?int(st.explosive_radius):12,st.blast_damage>0?st.blast_damage:st.maxdammage,st.explosion_sound!=""?st.explosion_sound:"120mm_mortarexplode",st.explosion_distant!=""?st.explosion_distant:"120mm_mortarexplodedist.ogg");
+return true;
+}
+if(st.vehicle_use=="backblast")
+{
+// The rocket leaves; its backblast stays in the cabin with everyone in it.
+for(uint s=0;s<v.occupants.length();s++){int occupant=get_player_index_from(v.occupants[s]);if(occupant<0)continue;send_reliable(players[occupant].peer_id,"The backblast of the "+name+" fills the cabin.",2);apply_player_damage(players[occupant],320,p.name+"'s "+name+" backblast");}
+damage_authoritative_vehicle(v,200,index,"the backblast of a "+name);
+return false;
+}
+if(st.vehicle_use=="cabin_fire")
+{
+// Flame in a closed space sets the cabin, and everyone in it, alight.
+for(uint s=0;s<v.occupants.length();s++){int occupant=get_player_index_from(v.occupants[s]);if(occupant<0)continue;players[occupant].burning=true;players[occupant].burning_owner=p.name;players[occupant].burning_duration_timer.restart();players[occupant].burning_tick_timer.restart();send_reliable(players[occupant].peer_id,"The cabin of the "+v.type+" catches fire!",2);}
+damage_authoritative_vehicle(v,40,index,"set alight by a "+name);
+return false;
+}
+return false;
+}
+// cabin is "foot", "window" (thrown out of an open window) or "cabin" (let go
+// of inside a closed vehicle). A throw from a window starts just outside it
+// and keeps the vehicle's speed and direction on top of the throw. An
+// explosive let go of in a closed cabin stays in there with the occupants.
+void spawn_fraggrenade(double x,double y,int z,double dir,string map,string owner,string kind="frag_grenade",int aim=90,int cooked_ms=0,string cabin="foot")
+{
+fraggrenade e1(x,y,z,dir,map,owner,kind,true,aim,cooked_ms);
+int seat=-1,vi=occupied_vehicle_index(owner,map,seat);int pi=get_player_index_from(owner);
+if(vi>=0)
+{
+authoritative_vehicle@ v=authoritative_vehicles[vi];update_authoritative_vehicle_model(v);double rad=v.facing*3.14159265358979323846/180.0;
+if(cabin=="window")
+{
+double forward=v.body_length*.27-double(seat/2)*1.35,side=(seat%2==0?-1.0:1.0)*(v.body_width*.5+.5);
+e1.x=v.model_x+sine(rad)*forward+cosine(rad)*side;e1.y=v.model_y+cosine(rad)*forward-sine(rad)*side;e1.z=v.model_z+1.2;
+e1.vx+=sine(rad)*v.velocity;e1.vy+=cosine(rad)*v.velocity;
+}
+else
+{
+e1.inside_vehicle=v.id;e1.landed=true;e1.vx=0;e1.vy=0;e1.vz=0;e1.x=v.model_x;e1.y=v.model_y;e1.z=v.model_z+.6;
+for(uint s=0;s<v.occupants.length();s++){int occupant=get_player_index_from(v.occupants[s]);if(occupant>=0)send_reliable(players[occupant].peer_id,"A live "+string_replace(kind,"_"," ",true)+" is loose inside the "+v.type+"!",2);}
+}
+}
+if(pi>=0 and e1.inside_vehicle<0){string wind=wind_report(map);if(wind!="")send_reliable(players[pi].peer_id,wind,2);}
 e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();string loop=item_prop(kind,"flight_loop",kind=="er_bowling_bomb"?"er_bowling_bomb_loop.ogg":(kind=="er_molotov"?"er_molotov_fire_loop.ogg":(kind=="er_frag_grenade"?"frag_grenade_flight_loop.ogg":kind+"_flight_loop.ogg")));send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+loop+" "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
 fraggrenades.insert_last(e1);
 }
@@ -156,19 +251,20 @@ deployable_explosive@[] deployable_explosives;
 class deployable_explosive
 {
 int x,y,z,dir,arming_ms=1200;double sensor_mult=1;string map,owner,kind;timer armed_timer;timer life_timer;timer trigger_timer;bool triggered=false;
-deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind,int profile=1){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;arming_ms=item_prop_int(kind,"arming_ms",1200);if(profile==0){arming_ms=int(arming_ms*.54);sensor_mult=.78;}else if(profile==2){arming_ms=int(arming_ms*1.84);sensor_mult=1.3;}play(item_prop(kind,"place_sound",explosive_audio_prefix(kind)+"_place"),x,y,z,map);string countdown=item_prop(kind,"countdown_sound");if(countdown!="")play(countdown,x,y,z,map);}
+int vehicle_id=-1; // a charge placed inside a vehicle travels with it
+deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;arming_ms=item_prop_int(kind,"arming_ms",1200);play(item_prop(kind,"place_sound",explosive_audio_prefix(kind)+"_place"),x,y,z,map);string countdown=item_prop(kind,"countdown_sound");if(countdown!="")play(countdown,x,y,z,map);}
 }
 void detonate_deployable(int index)
 {
 deployable_explosive@ d=deployable_explosives[index];fraggrenade@ blast=fraggrenade(d.x,d.y,d.z,d.dir,d.map,d.owner,d.kind,false);blast.landed=true;blast.vx=0;blast.vy=0;blast.vz=0;blast.fuse=0;
-blast.radius=item_prop_int(d.kind,"blast_radius",14);blast.damage=item_prop_int(d.kind,"blast_damage",700);if(item_prop(d.kind,"sensor_kind")=="directional")blast.blast_dir=d.dir;
+blast.radius=item_prop_int(d.kind,"blast_radius",14);blast.damage=item_prop_int(d.kind,"blast_damage",700);blast.inside_vehicle=d.vehicle_id;if(item_prop(d.kind,"sensor_kind")=="directional")blast.blast_dir=d.dir;
 fraggrenades.insert_last(blast);deployable_explosives.remove_at(index);
 }
 void deployable_explosive_loop()
 {
 for(int i=int(deployable_explosives.length())-1;i>=0;i--)
 {
-deployable_explosive@ d=deployable_explosives[i];int timed=item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
+deployable_explosive@ d=deployable_explosives[i];if(d.vehicle_id>=0){int dv=find_authoritative_vehicle(d.vehicle_id,d.map);if(dv>=0){authoritative_vehicle@ carrier=authoritative_vehicles[dv];update_authoritative_vehicle_model(carrier);d.x=int(round(carrier.model_x,0));d.y=int(round(carrier.model_y,0));d.z=int(round(carrier.model_z,0));}}int timed=item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
 int owner_index=get_player_index_from(d.owner);bool triggered=false;
 double sensor=item_prop_number(d.kind,"sensor_radius",3.2)*d.sensor_mult;string sensor_kind=item_prop(d.kind,"sensor_kind","proximity");
 // Anti-vehicle mines (vehicle_only=true) ignore people on foot.
@@ -200,4 +296,4 @@ else if(delay<=0){if(d.kind=="er_directional_claymore")play("er_claymore_detonat
 }
 }
 }
-void spawn_deployable_explosive(int x,int y,int z,int dir,string map,string owner,string kind,int profile=1){deployable_explosives.insert_last(deployable_explosive(x,y,z,dir,map,owner,kind,profile));}
+void spawn_deployable_explosive(int x,int y,int z,int dir,string map,string owner,string kind){deployable_explosive d(x,y,z,dir,map,owner,kind);int seat=-1,vi=occupied_vehicle_index(owner,map,seat);if(vi>=0){d.vehicle_id=authoritative_vehicles[vi].id;for(uint s=0;s<authoritative_vehicles[vi].occupants.length();s++){int occupant=get_player_index_from(authoritative_vehicles[vi].occupants[s]);if(occupant>=0)send_reliable(players[occupant].peer_id,"A "+string_replace(kind,"_"," ",true)+" has been armed inside the vehicle.",2);}}deployable_explosives.insert_last(d);}

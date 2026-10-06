@@ -1993,7 +1993,6 @@ nv_form_button@ f_announcement=communication.add_button("Post a persistent staff
 nv_form_button@ f_builder=world.add_button("Open the live map builder", "builder");
 nv_form_button@ f_teleport=world.add_button("Teleport to coordinates", "teleport");
 nv_form_button@ f_give=world.add_button("Give an item to a player", "give");
-nv_form_button@ f_physics=server.add_button("Read physics backend status", "physics");
 nv_form_button@ f_reboot=server.add_button("Schedule a server reboot", "reboot");
 nv_form_button@ f_cancel_reboot=server.add_button("Cancel a scheduled reboot", "cancel_reboot");
 nv_form_button@ f_server_gc=server.add_button("Run server garbage collection and stale-state cleanup", "server_gc");
@@ -2155,7 +2154,6 @@ else if(communication.is_pressed(f_motd)){string message=af_input("New message o
 else if(world.is_pressed(f_builder)){builder_menu();return;}
 else if(world.is_pressed(f_teleport)){string coordinates=af_input("Coordinates as X Y Z","",true).trim_whitespace();if(coordinates!="")send_reliable(0,"/go "+coordinates,1);}
 else if(world.is_pressed(f_give)){string request=af_input("Player, item ID, and quantity","",true).trim_whitespace();if(request!="")send_reliable(0,"/give "+request,1);}
-else if(server.is_pressed(f_physics))send_reliable(0,"/physicsstatus",1);
 else if(server.is_pressed(f_reboot)){string seconds=af_input("Seconds before reboot, from 5 to 3600","",true).trim_whitespace();string reason=af_input("Reboot reason","",true).trim_whitespace();if(seconds!="" and reason!="")send_reliable(0,"/reboot "+seconds+" "+reason,1);}
 else if(server.is_pressed(f_cancel_reboot))send_reliable(0,"/reboot cancel",1);
 else if(server.is_pressed(f_server_gc))send_reliable(0,"/gc",1);

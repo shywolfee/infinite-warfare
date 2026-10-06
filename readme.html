@@ -54,7 +54,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <li>Use the lobby to chat, browse players, inspect the armoury, read help, manage your account, or deploy into a map.</li>
 <li>Move with the arrow keys, fire with <kbd>Ctrl</kbd>, reload with <kbd>R</kbd>, open inventory with <kbd>I</kbd>, and open the game menu with <kbd>Escape</kbd>. In any menu, <kbd>Page Up</kbd> and <kbd>Page Down</kbd> set the menu music volume, which is remembered. The game menu has Options, so settings and volumes can be changed without leaving a match.</li>
 </ol>
-<p>Deployment provides a random melee weapon, sidearm, primary weapon, sensible ammunition, healing supplies, explosives, and maintenance supplies appropriate to the starting firearms. Automatic quickbar assignment is optional.</p>
+<p>Deployment provides a random melee weapon, sidearm, primary weapon, sensible ammunition, healing supplies and explosives. Automatic quickbar assignment is optional.</p>
 <div class="note">Unsure what a key does? Press <kbd>Shift+F1</kbd> for key practice. Press <kbd>Shift+H</kbd> for the in-game help browser.</div>
 </section>
 
@@ -77,10 +77,10 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <tr><th>Area</th><th>Defaults</th></tr>
 <tr><td>Movement</td><td><kbd>Arrow keys</kbd> move; hold <kbd>Shift</kbd> to sprint; <kbd>Space</kbd> jumps; <kbd>Alt+Z</kbd> sits or stands; <kbd>Page Up</kbd>/<kbd>Page Down</kbd> move vertically where supported.</td></tr>
 <tr><td>Turning and aim</td><td><kbd>Q</kbd>/<kbd>E</kbd> turn; add Shift for fine turning. <kbd>S</kbd>/<kbd>X</kbd> aim vertically. <kbd>Alt+[</kbd>/<kbd>Alt+]</kbd> select a target region; <kbd>Alt+T</kbd> returns to the whole body.</td></tr>
-<tr><td>Combat</td><td><kbd>Ctrl</kbd> fires; <kbd>R</kbd> reloads; <kbd>Shift+R</kbd> unloads; <kbd>A</kbd> reports ammunition/action state; <kbd>Shift+A</kbd> changes fire mode; <kbd>Alt+R</kbd> selects ammunition; <kbd>Alt+A</kbd> opens the drawn weapon panel.</td></tr>
-<tr><td>Weapon mechanics</td><td><kbd>Alt+N</kbd> operates a class-specific control; <kbd>Alt+Shift+N</kbd> services or vents; <kbd>Alt+Shift+A</kbd> inspects handling. <kbd>Alt+Y</kbd> opens/closes a manual action; <kbd>Alt+I</kbd> inserts a round; <kbd>Alt+Shift+Y</kbd> cycles a pump; <kbd>Alt+Shift+G</kbd> ejects while open.</td></tr>
+<tr><td>Combat</td><td><kbd>Ctrl</kbd> fires; <kbd>R</kbd> reloads; <kbd>Shift+R</kbd> unloads; <kbd>A</kbd> reports ammunition/action state; <kbd>Shift+A</kbd> changes fire mode; <kbd>Alt+A</kbd> opens the drawn weapon panel.</td></tr>
+<tr><td>Weapon mechanics</td><td><kbd>Alt+N</kbd> operates a class-specific control; <kbd>Alt+Shift+A</kbd> inspects handling. <kbd>Alt+Y</kbd> opens/closes a manual action; <kbd>Alt+I</kbd> inserts a round; <kbd>Alt+Shift+Y</kbd> cycles a pump; <kbd>Alt+Shift+G</kbd> ejects while open.</td></tr>
 <tr><td>Inventory</td><td><kbd>I</kbd> opens inventory; <kbd>Tab</kbd>/<kbd>Shift+Tab</kbd> cycle items; <kbd>K</kbd>/<kbd>Shift+K</kbd> cycle nonempty categories. <kbd>Shift+Enter</kbd> uses an item and <kbd>Alt+Enter</kbd> opens database help.</td></tr>
-<tr><td>Item mechanics</td><td><kbd>Alt+Shift+M</kbd> changes configuration or dose; <kbd>Alt+Shift+K</kbd> reports mechanics and recommendations; <kbd>Alt+Shift+L</kbd> removes one transferable pill.</td></tr>
+<tr><td>Item mechanics</td><td><kbd>Alt+Shift+K</kbd> reports mechanics and recommendations; <kbd>Alt+Shift+L</kbd> removes one transferable pill.</td></tr>
 <tr><td>Status</td><td><kbd>H</kbd> health; <kbd>V</kbd> stamina/effects; <kbd>Alt+B</kbd> buffs/debuffs; <kbd>F</kbd> facing; <kbd>C</kbd> coordinates; <kbd>B</kbd> zone; <kbd>M</kbd> nearby content; <kbd>P</kbd> nearby players; <kbd>J</kbd> points of interest.</td></tr>
 <tr><td>Server information</td><td><kbd>F1</kbd> players; <kbd>F2</kbd> message of the day; <kbd>F3</kbd> ping statistics; <kbd>F4</kbd> uptime and traffic.</td></tr>
 <tr><td>Menus</td><td><kbd>Escape</kbd> game menu; <kbd>F11</kbd> Options; <kbd>Shift+H</kbd> Help; <kbd>Alt+E</kbd> Equipment; <kbd>Alt+S</kbd> Support; <kbd>Shift+I</kbd> quickbar and abilities.</td></tr>
@@ -95,13 +95,12 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <p>Players have continuous, facing-aware models containing separate skull, neck, torso, pelvis, arm, and leg volumes. Projectiles strike the actual volume they intersect, and only armour covering that region can mitigate the hit. One-shot damage is prevented. A silent five-second spawn grace period ends early when the protected player initiates a damaging action.</p>
 <h3>Handling and ammunition</h3>
 <ul>
-<li>A weapon exposes only states that apply to it. Melee weapons do not report impossible heat or fouling; conventional firearms do not pretend to use energy cells.</li>
-<li>Fire modes, ammunition, attachments, condition, bracing, recoil, heat, fouling, safeties, stocks, gas settings, bipods, bolt cycling, and charge strength apply to the relevant weapons.</li>
+<li>A weapon exposes only states that apply to it. Conventional firearms do not pretend to use energy cells.</li>
+<li>Fire modes, attachments, bracing, recoil, safeties, stocks, bipods, bolt cycling, and charge strength apply to the relevant weapons. Each weapon takes one ammunition, its own calibre.</li>
 <li>Revolvers and individually fed shotguns require their proper sequence. Break actions chamber on close, tube-fed pumps must be cycled, and detachable-magazine shotguns reload normally.</li>
-<li>Shells, cartridges, bolts, cells, magazines, belts, and other feed devices are real inventory objects and change ballistic or functional behavior. Extended magazines change real capacity.</li>
-<li>Maintenance consumes compatible tools and supplies, takes time, has cooldowns, and may worsen damage if performed incorrectly or abandoned during a difficult repair.</li>
+<li>Shells, cartridges, bolts, cells, magazines, belts, and other feed devices are real inventory objects. Extended magazines change real capacity.</li>
 </ul>
-<p>The weapon panel is live: damage, range, capacity, projectile count, velocity, spread, recoil, fire mode, selected ammunition, attachments, condition, and applicable handling states update with the current configuration.</p>
+<p>The weapon panel is live: damage, range, capacity, projectile count, velocity, spread, recoil, fire mode, attachments, and applicable handling states update with the current configuration.</p>
 <h3>Movement and stamina</h3>
 <p>Movement uses momentum and simulated gravity while retaining predictable one-coordinate navigation. Sprinting has consistent speed and does not consume stamina, although extremely heavy weapons can prevent it. Stamina is reserved for melee attacks. Sitting slows movement, accelerates recovery, limits heavy weapons, and restricts jumping.</p>
 </section>
@@ -110,7 +109,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <h2>5. Inventory, equipment, and items</h2>
 <p>The inventory is a live categorized form. Up/Down browse, Page Up/Page Down move ten entries, Home/End jump to boundaries, and typing several letters performs prefix navigation. Left/Right or Tab/Shift+Tab move among categories that contain items. The Applications key opens a contextual action panel.</p>
 <p><kbd>Alt+Up</kbd>/<kbd>Alt+Down</kbd> reorder one position, <kbd>Alt+Home</kbd> moves first, <kbd>Alt+End</kbd> moves last, <kbd>Space</kbd> gives one item to a selected player within ten tiles, and <kbd>Backspace</kbd> drops one seven tiles ahead. Grenades retain their Enter-to-pull-pin and Enter-again-to-throw cooking workflow.</p>
-<p>Categories include weapons, ammo, explosives, healing, armour, armour repair, weapon maintenance, vehicle supplies, attachments, holsters, team items, tools, electronics, containers, and equipment. Partial magazines, cells, boxes, linked belts, belt boxes, bandoliers, quivers, shell cases, and crates preserve their remaining load.</p>
+<p>Categories include weapons, ammo, explosives, healing, armour, armour repair, vehicle supplies, attachments, holsters, team items, tools, electronics, containers, and equipment. Partial magazines, cells, boxes, linked belts, belt boxes, bandoliers, quivers, shell cases, and crates preserve their remaining load.</p>
 <h3>Equipment and quickbar</h3>
 <p>Equipment has dedicated armour and utility locations. One compatible piece occupies each slot. Armour protects its actual body region, loses durability, contributes weight, and can be patched only within its material and repair limits.</p>
 <p><kbd>Shift+I</kbd> opens the quickbar and equipment-ability manager. It reports each ability's source, description, cooldown, and remaining time; can clear assignments for the current session; and can automatically bind a practical loadout while explaining every choice.</p>
@@ -128,12 +127,14 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 <tr><td><kbd>O</kbd></td><td>Open or close a door while within five tiles.</td></tr>
 <tr><td><kbd>V</kbd></td><td>Enter the nearest open vehicle and take an available seat, or exit.</td></tr>
 <tr><td><kbd>U</kbd></td><td>Open or close the current seat window.</td></tr>
-<tr><td><kbd>Up/Down</kbd></td><td>Accelerate or brake through the continuous-speed model.</td></tr>
-<tr><td><kbd>Left/Right</kbd></td><td>Turn 90 degrees; add Shift for one-degree adjustments.</td></tr>
+<tr><td><kbd>Up/Down</kbd></td><td>Hold to accelerate or brake; release both to coast. In an automatic, hold Down at a standstill to reverse.</td></tr>
+<tr><td><kbd>Shift+Up/Shift+Down</kbd></td><td>Change gear in a vehicle with a manual gearbox.</td></tr>
+<tr><td><kbd>Left/Right</kbd></td><td>Steer while moving; steering is sharper at low speed. Tracked vehicles can pivot at a standstill.</td></tr>
+<tr><td><kbd>Ctrl</kbd></td><td>Fire the mounted weapon of your seat, if it has one.</td></tr>
 <tr><td><kbd>Alt+Left/Right</kbd></td><td>Change seats. Only the driver controls movement.</td></tr>
 <tr><td><kbd>Alt+Shift+V</kbd></td><td>Open the nearby workshop for inspection, fuel, service, repair, refit, and customization.</td></tr>
 </table></div>
-<p>Windows must be open to fire from a seat, and melee attacks cannot be used from a vehicle. Fuel type and quantity matter. Fuel can be consumed, transferred, siphoned, contaminated, or misfuelled; service and refits affect live performance. Vehicles take projectile and collision damage, including damage caused by their owner.</p>
+<p>Windows must be open to fire from a seat, and melee attacks cannot be used from a vehicle. Heavy weapons cannot be fired from inside at all; rocket backblast, flamethrowers and mortars inside a cabin go as badly as you would expect. Firing from a moving vehicle spoils your aim, and firing while driving spoils your driving. A grenade thrown with the window open goes out of the window carrying the vehicle's speed; with it closed it goes off inside, after a three-second confirmation. Fuel type and quantity matter. Fuel can be consumed, transferred, siphoned, contaminated, or misfuelled; service and refits affect live performance. Vehicles take projectile and collision damage, including damage caused by their owner.</p>
 </section>
 
 <section id="world">
@@ -230,7 +231,7 @@ ul,ol{padding-left:1.45rem}li{margin:.28rem 0}.muted{color:var(--muted)}footer{m
 
 <section id="source">
 <h2>13. Source builds, sound packs, and releases</h2>
-<p>The project targets NVGT 0.90. The normal server is <code>iwserver.exe</code>; the ReactPhysics-enabled server is <code>iwserver_physics.exe</code>. The physics launcher initializes its native integration without a manual workaround.</p>
+<p>The project targets NVGT 0.90. The server is <code>iwserver.exe</code>.</p>
 <p>When running <code>Infinite Warfare.nvgt</code> from source, the Administrator Panel exposes <strong>Compress a release build</strong>. It asks before replacement, compiles the client, verifies or optionally builds <code>sounds.dat</code>, stages the executable, sound pack, recursive <code>lib</code> directory, changelog, and README, then creates <code>release.zip</code> with progress and a final result.</p>
 <p>Check for updates compares your <code>version.txt</code> with the one on GitHub. If a newer version is published it downloads the release as a zip with PowerShell (Git is not needed), replaces the game files after the game closes, and starts the game again. Keep client and server versions synchronized when protocols or persistent formats change.</p>
 </section>

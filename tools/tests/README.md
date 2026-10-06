@@ -54,3 +54,12 @@ sensible range. It needs no sound pack or NVGT installation.
 correct but never ran: the collectable-item loop being serviced, corpses being
 filled from the dying client, the ring equipment branch being reachable,
 server-held WireNet charges, and anti-cheat removals disconnecting the peer.
+Since 0.5.7 it also checks that alternate ammunition, weapon maintenance and
+the physics server stay gone, that every weapon's `vehicle_use` is handled by
+the server, that only a vehicle's driver can move it, that every vehicle file
+describes its drivetrain, that arena maps are unlisted and have a spectator
+gallery, and that every player removal also releases arena membership.
+
+The server test also starts an arena with a single combatant and checks that
+it runs as practice, that a practice death respawns the player, and that the
+host leaving closes the arena.

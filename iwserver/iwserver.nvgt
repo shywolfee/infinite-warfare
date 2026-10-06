@@ -33,16 +33,12 @@ void load_vehicle_content_blob(const string &in blob){}
 #include "includes/account_wallet.nvgt"
 #include "includes/smart_terminal.nvgt"
 #include "includes/arenas.nvgt"
-#include "includes/native_physics.nvgt"
-#if IW_REACTPHYSICS_RUNTIME
-#include "includes/native_physics_selftest.nvgt"
-#endif
 string[] killmsgs;
 timer spawn_chesttimer;
 timer terminal_storage_spawn_timer;
 // Clients older than this speak a protocol the server no longer agrees with
 // (vehicle damage, spawning and healing all moved to the server in 0.5.2).
-double minversion=0.56; // 0.5.6 clients report bodies, WireNet charges and chest resupply
+double minversion=0.57; // 0.5.7 changed the fire, use and vehicle packets
 const int port=1316;
 string adminlist="";
 string[] dev_list = {"velan"};
@@ -94,12 +90,6 @@ void main()
 {
 #if IW_WORLD_EDITOR_REGRESSION
 run_world_editor_regression();return;
-#endif
-#if IW_REACTPHYSICS_RUNTIME
-for(uint argument=1;argument<ARGS.length();argument++)if(ARGS[argument]=="--physics-integration-test"){server_physics_selftest();return;}
-#endif
-#if_not IW_REACTPHYSICS_RUNTIME
-for(uint argument=1;argument<ARGS.length();argument++)if(ARGS[argument]=="--physics-integration-test" or ARGS[argument]=="--native-models")throw("Native physics requires the project-local runtime.");
 #endif
 show_window("Infinite Warfare server!, version "+ minversion);
 // Armour, patches and launched explosives are defined in content/items; a
@@ -171,11 +161,6 @@ nf.close();
 }
 load_wpn_stats();
 init_mapsystem();
-server_physics_boot();
-for(uint argument=0;argument<ARGS.length();argument++)if(ARGS[argument]=="--physics-boot-test")
-{
-file report;string report_path=DIRECTORY_LOCAL_APPDATA+"/Temp/InfiniteWarfare-physics-boot.txt";if(!report.open(report_path,"wb"))throw("Could not write physics boot report");report.write(server_physics_status());report.close();server_physics_close();return;
-}
 n.setup_server(port, 20, 500);
 spawn_all_map_bunkers();
 spawn_all_map_fixtures();
@@ -198,7 +183,6 @@ if (reboot_scheduled and reboot_schedule_timer.elapsed>=reboot_delay_ms)
 send_reliable(0, "Server rebooting now. Reason: "+reboot_reason, 2);
 for (int ri=0; ri<int(players.length()); ri++) send_reliable(0, "offline "+players[ri].x+" "+players[ri].y+" "+players[ri].z+" "+players[ri].name+" "+players[ri].map, 0);
 wait(300);
-server_physics_close();
 run("iwserver.exe", "", false, false);
 exit();
 }
@@ -215,7 +199,6 @@ terminal_storage_spawn_timer.restart();string[] storage={"usb_flash_drive_32","u
 }
 if(key_pressed(KEY_ESCAPE))
 {
-server_physics_close();
 exit();
 }
 }
@@ -224,7 +207,6 @@ void netloop(bool service_world=true)
 {
 if(service_world)
 {
-server_physics_tick();
 bunkerloop();
 bunker_alarm_loop();
 bunker_monitor_loop();
@@ -265,7 +247,6 @@ if(service_world and file_exists("updating.txt"))
 send_reliable(0, "updating", 0);
 file_delete("updating.txt");
 wait(500);
-server_physics_close();
 exit();
 }
 if(e.type==event_disconnect)
@@ -279,7 +260,7 @@ int combat_remaining=combat_logout_remaining(players[index]);if(!players[index].
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
 wait(100);
 voice_rooms.delete(string_to_lower_case(players[index].name));
-players.remove_at(index);
+arena_player_gone(players[index]);players.remove_at(index);
 }
 int li=get_lobby_client_index(e.peer_id);
 if(li>-1)
@@ -351,12 +332,6 @@ if(parsed.length()==0)return;
 if(!validate_chat_command(e.peer_id,parsed[0]))return;
 if(service_requester_staff(e.peer_id) and administrative_chat_command(parsed[0]))admin_log(service_requester_name(e.peer_id),"STAFF_COMMAND",get_event_message());
 if(handle_chat_utility_command(e.peer_id,get_event_message()))return;
-if(parsed.length()>0 and parsed[0]=="/physicsstatus")
-{
-if(service_requester_staff(e.peer_id))send_reliable(e.peer_id,server_physics_status(),2);
-else send_reliable(e.peer_id,"Only developers and administrators may inspect native physics status.",2);
-return;
-}
 int index=get_player_index(e.peer_id);
 if (index>-1)
 {
@@ -372,7 +347,7 @@ if (players[index].msg_count>25)
 {
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0);
 send_reliable(players[index].peer_id, "You have been removed for flooding.", 2);
-players.remove_at(index);
+arena_player_gone(players[index]);players.remove_at(index);
 }
 else
 send_reliable(players[index].peer_id, "You are sending messages too quickly. Slow down.", 2);
@@ -420,7 +395,7 @@ send_reliable(players[index].peer_id, "you can't kick a dev, sorry.", 0);
 else
 {
 send_reliable(0, "offline "+players[ind2].x+" "+players[ind2].y+" "+players[ind2].z+" "+players[ind2].name+" "+players[ind2].map, 0);
-players.remove_at(ind2);
+arena_player_gone(players[ind2]);players.remove_at(ind2);
 }
 }
 }
@@ -463,7 +438,6 @@ else
 string reason=parsed.length()>2 ? string_replace(get_event_message(), "/quitserver confirm ", "", false).trim_whitespace() : "Manual shutdown";
 send_reliable(0, "Server shutting down by "+players[index].name+". Reason: "+reason, 2);
 wait(300);
-server_physics_close();
 exit();
 }
 }
@@ -539,7 +513,7 @@ pr.write(oldtext+"\n");
 pr.write(players[index].name+ ": "+players[index2].comp);
 pr.close();
 send_reliable(0, "offline "+players[index2].x+" "+players[index2].y+" "+players[index2].z+" "+players[index2].name+" "+players[index2].map, 0);
-players.remove_at(index2);
+arena_player_gone(players[index2]);players.remove_at(index2);
 send_reliable(0, "play_s ban.ogg", 0);
 send_reliable(0, parsed[1]+" was just banned.", 0);
 send_reliable(players[index].peer_id, players[index2].name+" banned.", 2);
@@ -2163,7 +2137,11 @@ else if(parsed[0]=="use" and parsed.length()>1)
 int index=get_player_index(e.peer_id);
 if(index > -1)
 {
-int item_configuration=parsed.length()>2?string_to_number(parsed[2]):1;if(item_configuration<0 or item_configuration>2)item_configuration=1;
+// use <item> [<vertical aim> <cooked ms> <cabin>]. The aim (90 is level) and
+// cabin (foot, window or cabin) matter only to explosives. Items used to
+// carry a three-way "configuration" here instead.
+int throw_aim=parsed.length()>2?string_to_number(parsed[2]):90;if(throw_aim<0)throw_aim=0;if(throw_aim>180)throw_aim=180;
+string throw_cabin=parsed.length()>4?parsed[4]:"foot";if(throw_cabin!="window" and throw_cabin!="cabin")throw_cabin="foot";
 if(parsed[1]=="hypercomp"){players[index].has_hypercomp=true;send_reliable(players[index].peer_id,"terminal_open",0);}
 else if(item_prop(parsed[1],"use_kind")=="companion")deploy_companion(index,parsed[1]);
 else if(item_prop(parsed[1],"use_kind")=="terminal_storage")
@@ -2175,8 +2153,8 @@ int capacity=item_prop_int(parsed[1],"storage_gb",0);if(capacity>0){players[inde
 }
 }
 else if(parsed[1]=="companion_command_remote")send_reliable(players[index].peer_id,"companion_remote_open",0);
-else if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1],item_configuration);
-else if(er_use_item(players[index],parsed[1],item_configuration)){return;}
+else if(server_medication(parsed[1]))use_server_medication(players[index],parsed[1]);
+else if(er_use_item(players[index],parsed[1],1)){return;}
 else if(parsed[1]=="hightech_grapple")
 {
 if(players[index].grapple_timer.elapsed<8000)send_reliable(players[index].peer_id,"The grapple mechanism is recovering for "+((8000-players[index].grapple_timer.elapsed+999)/1000)+" more seconds.",2);
@@ -2261,7 +2239,7 @@ players[index].usehealth_potion=true;
 players[index].usehealth_potiontimer.restart();
 players[index].health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give health_potion -1", 0);
-players[index].health+=item_configuration==0?125:(item_configuration==2?325:200);
+players[index].health+=200;
 start_residual_healing(players[index],100,20);
 play("health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
@@ -2282,7 +2260,7 @@ if (index2<0) send_reliable(players[index].peer_id, "No downed teammate is withi
 else
 {
 send_reliable(players[index].peer_id, "give life_injection -1", 0);
-players[index2].health=item_configuration==0?350:(item_configuration==2?700:500);
+players[index2].health=500;
 players[index].life_injection=true;
 players[index].revive_target=players[index2].name;
 players[index].life_injectiontimer.restart();
@@ -2295,7 +2273,7 @@ if(parsed[1]=="ultra_health_potion")
 players[index].ultra_health_potion=true;
 players[index].ultra_health_potiontimer.restart();
 send_reliable(players[index].peer_id, "give ultra_health_potion -1", 0);
-int ultra_heal=random(500,600);if(item_configuration==0)ultra_heal=int(ultra_heal*.72);else if(item_configuration==2)ultra_heal=int(ultra_heal*1.28);players[index].health+=ultra_heal;
+int ultra_heal=random(500,600);players[index].health+=ultra_heal;
 start_residual_healing(players[index],300,60);
 play("ultra_health_potion", players[index].x, players[index].y, players[index].z, players[index].map, index);
 send_reliable(players[index].peer_id, "movestop", 0);
@@ -2324,7 +2302,7 @@ if(item_is_deployable_explosive(parsed[1]))
 end_spawn_grace(players[index]);
 int owned_deployables=0;for(uint di=0;di<deployable_explosives.length();di++)if(deployable_explosives[di].owner==players[index].name)owned_deployables++;
 if(owned_deployables>=8)send_reliable(players[index].peer_id,"You may have no more than eight armed deployable explosives.",2);
-else{spawn_deployable_explosive(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);}
+else{spawn_deployable_explosive(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1]);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);}
 }
 if(item_is_thrown_explosive(parsed[1]))
 {
@@ -2332,7 +2310,7 @@ if(players[index].fraggrenadetimer.elapsed>5000)
 {
 int cooked_ms=parsed.length()>3?string_to_number(parsed[3]):0;if(cooked_ms<0)cooked_ms=0;if(cooked_ms>6000)cooked_ms=6000;
 end_spawn_grace(players[index]);
-spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration,cooked_ms);
+spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],throw_aim,cooked_ms,throw_cabin);
 send_reliable(players[index].peer_id, "give "+parsed[1]+" -1", 0);
 players[index].fraggrenadetimer.restart();
 }
@@ -2344,7 +2322,7 @@ send_reliable(players[index].peer_id, "You must wait "+cd_remain+" seconds befor
 }
 if(item_is_launched_explosive(parsed[1]))
 {
-if(players[index].fraggrenadetimer.elapsed>5000){end_spawn_grace(players[index]);spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],item_configuration,0);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);players[index].fraggrenadetimer.restart();}else send_reliable(players[index].peer_id,"The heavy-launch mechanism needs "+((5000-players[index].fraggrenadetimer.elapsed+999)/1000)+" more seconds before another launch.",2);
+if(players[index].fraggrenadetimer.elapsed>5000){end_spawn_grace(players[index]);spawn_fraggrenade(players[index].x,players[index].y,players[index].z,players[index].facing,players[index].map,players[index].name,parsed[1],throw_aim,0,throw_cabin);send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);players[index].fraggrenadetimer.restart();}else send_reliable(players[index].peer_id,"The heavy-launch mechanism needs "+((5000-players[index].fraggrenadetimer.elapsed+999)/1000)+" more seconds before another launch.",2);
 }
 else if(parsed[1]=="bucket")
 {
@@ -2661,7 +2639,7 @@ if(index > -1)
 {
 int remaining=combat_logout_remaining(players[index]);if(!players[index].death and remaining>0){send_reliable(players[index].peer_id,"logout_denied "+((remaining+999)/1000),0);return;}send_reliable(players[index].peer_id,"logout_allowed",0);
 send_reliable(0, "offline "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].name+" "+players[index].map, 0,index);
-players.remove_at(index);
+arena_player_gone(players[index]);players.remove_at(index);
 }
 }
 else if(parsed[0]=="whoonline")
@@ -2998,13 +2976,19 @@ else if(parsed[0]=="veh_seat" and parsed.length()>2)
 {
 int index=get_player_index(e.peer_id);if(index>=0)authoritative_vehicle_occupant(string_to_number(parsed[1]),players[index].map,players[index].name,string_to_number(parsed[2]));
 }
+else if(parsed[0]=="veh_repair" and parsed.length()>2)
+{
+int index=get_player_index(e.peer_id);if(index>=0 and players[index].map==parsed[2])authoritative_vehicle_repair(index,string_to_number(parsed[1]));
+}
 else if(parsed[0]=="veh_turn" and parsed.length()>2)
 {
-int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map);if(vi>=0)authoritative_vehicles[vi].facing=string_to_number(parsed[2]);}
+// Only the vehicle's driver may steer, move or climb it. Any client on the
+// map used to be able to move or spin any vehicle.
+int index=get_player_index(e.peer_id);if(index>=0){int vi=find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map);if(vi>=0 and authoritative_vehicle_driver_is(authoritative_vehicles[vi],players[index].name))authoritative_vehicles[vi].facing=string_to_number(parsed[2]);}
 }
 else if(parsed[0]=="veh_move" and parsed.length()>6)
 {
-int index=get_player_index(e.peer_id);if(index>=0 and players[index].map==parsed[6])authoritative_vehicle_move(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),parsed[6],players[index].name);
+int index=get_player_index(e.peer_id);int moved=index>=0?find_authoritative_vehicle(string_to_number(parsed[1]),players[index].map):-1;if(index>=0 and players[index].map==parsed[6] and moved>=0 and authoritative_vehicle_driver_is(authoritative_vehicles[moved],players[index].name))authoritative_vehicle_move(string_to_number(parsed[1]),string_to_number(parsed[2]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),parsed[6],players[index].name);
 }
 else if(parsed[0]=="veh_crash" and parsed.length()>1)
 {
@@ -3016,7 +3000,7 @@ authoritative_vehicle_fire(get_player_index(e.peer_id),string_to_number(parsed[1
 }
 else if(parsed[0]=="veh_altitude" and parsed.length()>3)
 {
-int index=get_player_index(e.peer_id);int vi=find_authoritative_vehicle(string_to_number(parsed[1]),parsed[3]);if(index>=0 and vi>=0){authoritative_vehicles[vi].z=string_to_number(parsed[2]);send_reliable(0,"veh_sync_move "+parsed[1]+" "+authoritative_vehicles[vi].x+" "+authoritative_vehicles[vi].y+" "+parsed[2]+" "+authoritative_vehicles[vi].velocity+" "+parsed[3],0);}
+int index=get_player_index(e.peer_id);int vi=find_authoritative_vehicle(string_to_number(parsed[1]),parsed[3]);if(index>=0 and vi>=0 and authoritative_vehicle_driver_is(authoritative_vehicles[vi],players[index].name)){authoritative_vehicles[vi].z=string_to_number(parsed[2]);send_reliable(0,"veh_sync_move "+parsed[1]+" "+authoritative_vehicles[vi].x+" "+authoritative_vehicles[vi].y+" "+parsed[2]+" "+authoritative_vehicles[vi].velocity+" "+parsed[3],0);}
 }
 else if(parsed[0]=="fire" and parsed.length()>1)
 {
@@ -3053,12 +3037,14 @@ if(fire_mode_str=="normal")fire_mode_str="";
 int fire_variant=parsed.length()>3?string_to_number(parsed[3]):1;if(fire_variant<1 or fire_variant>20)fire_variant=1;
 string target_region=parsed.length()>4?parsed[4]:"body";
 double draw_strength=parsed.length()>5?string_to_number(parsed[5]):1.0;if(draw_strength<.25)draw_strength=.25;if(draw_strength>1)draw_strength=1;
-string loaded_ammunition=parsed.length()>6?parsed[6]:"standard_ammunition";if(loaded_ammunition.length()>80 or string_contains(loaded_ammunition,"/",1)>=0 or string_contains(loaded_ammunition,"\\",1)>=0)loaded_ammunition="standard_ammunition";
-int handling_configuration=parsed.length()>7?string_to_number(parsed[7]):0;if(handling_configuration<0 or handling_configuration>2)handling_configuration=0;
-int mechanical_condition=parsed.length()>8?string_to_number(parsed[8]):100;if(mechanical_condition<0)mechanical_condition=0;if(mechanical_condition>100)mechanical_condition=100;int alignment=parsed.length()>9?string_to_number(parsed[9]):100;if(alignment<0)alignment=0;if(alignment>100)alignment=100;int permanent_damage=parsed.length()>10?string_to_number(parsed[10]):0;if(permanent_damage<0)permanent_damage=0;if(permanent_damage>100)permanent_damage=100;
-spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map, fire_mode_str,target_region,draw_strength,loaded_ammunition,handling_configuration,mechanical_condition,alignment,permanent_damage);
+// Fire packet: fire <weapon> <mode> <variant> <region> <draw strength>
+// <handling>. 0.5.7 removed the ammunition-load and weapon-condition fields:
+// every weapon fires its calibre's one load and weapons no longer wear out.
+int handling_configuration=parsed.length()>6?string_to_number(parsed[6]):0;if(handling_configuration<0 or handling_configuration>2)handling_configuration=0;
+// A shot from inside a vehicle may never leave it (see vehicle_weapon_mishap).
+if(!vehicle_weapon_mishap(index,wname))spawn_weapon(players[index].x, players[index].y, players[index].z, players[index].facing,players[index].turn, wname, players[index].name, players[index].map, fire_mode_str,target_region,draw_strength,handling_configuration);
 if(players[index].er_quad_active)er_play("character/affects/quad_damage/fire",players[index]);
-string sound_weapon=get_wpn_sound_profile(wname);if(wname=="crossbow" and string_contains(loaded_ammunition,"crossbow_",1)==0){sound_weapon=loaded_ammunition;fire_mode_str="";fire_variant=random(1,3);}
+string sound_weapon=get_wpn_sound_profile(wname);
 int report_stats_index=find_wpn_stats(wname);string report_class=report_stats_index>=0?wpn_stats_cache[report_stats_index].wclass:"";
 bool suppressed=false;
 for(uint s=0; s<players[index].suppressed_weapons.length(); s++)
@@ -3101,7 +3087,7 @@ if(index>-1)
 {
 int remaining=combat_logout_remaining(players[index]);if(!players[index].death and remaining>0){send_reliable(players[index].peer_id,"logout_denied "+((remaining+999)/1000),0);return;}
 voice_rooms.delete(string_to_lower_case(players[index].name));
-players.remove_at(index);
+arena_player_gone(players[index]);players.remove_at(index);
 }
 }
 else if(parsed[0]=="builder_read_current")

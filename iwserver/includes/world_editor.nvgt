@@ -177,7 +177,6 @@ string old_map=p.map;
 send_reliable(p.peer_id,"we_travel|"+id+"|"+x+"|"+y+"|"+z,0);
 send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old_map,0,index);
 p.map=id;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;
-server_physics_sync_players();
 string path=indexed_map_path(id);
 send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);
 send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);
@@ -421,8 +420,7 @@ if(kind=="we_reload" and f.length()>=2){reload_content(index,f[1]);return true;}
 if(kind=="we_go" and f.length()>=4)
 {
 int x=int(string_to_number(f[1])),y=int(string_to_number(f[2])),z=int(string_to_number(f[3]));
-me.x=x;me.y=y;me.z=z;me.last_x=x;me.last_y=y;me.last_z=z;server_physics_sync_players();
-send_reliable(peer,"setcoords "+x+" "+y+" "+z,0);
+me.x=x;me.y=y;me.z=z;me.last_x=x;me.last_y=y;me.last_z=z;send_reliable(peer,"setcoords "+x+" "+y+" "+z,0);
 play("moved"+random(1,2),x,y,z,me.map,index);
 return true;
 }
@@ -431,7 +429,7 @@ if(kind=="we_goto" and f.length()>=2)
 int t=get_player_index_from(f[1]);
 if(t<0){we_say(index,f[1]+" is not in a match.");return true;}
 if(players[t].map!=me.map)move_player_to_map(index,players[t].map,int(players[t].x),int(players[t].y),int(players[t].z));
-else{me.x=players[t].x;me.y=players[t].y;me.z=players[t].z;me.last_x=int(me.x);me.last_y=int(me.y);me.last_z=int(me.z);server_physics_sync_players();send_reliable(peer,"setcoords "+me.x+" "+me.y+" "+me.z,0);}
+else{me.x=players[t].x;me.y=players[t].y;me.z=players[t].z;me.last_x=int(me.x);me.last_y=int(me.y);me.last_z=int(me.z);send_reliable(peer,"setcoords "+me.x+" "+me.y+" "+me.z,0);}
 return true;
 }
 if(kind=="we_content_list" and f.length()>=2)

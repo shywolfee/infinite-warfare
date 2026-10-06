@@ -48,7 +48,7 @@ client_check(armour_slot("carrier_missile")=="" and item_is_launched_explosive("
 client_check(armour_slot("plate_carrier")=="torso" and armour_rating("plate_carrier")==40 and armour_durability("plate_carrier")==1250,"plate carrier stats come from its file");
 client_check(armour_slot("bomb_vest")=="","bomb vest is body equipment, not torso armour");
 client_check(patch_repairs("aramid_repair_tape","tactical_greaves") and !patch_repairs("aramid_repair_tape","heavy_plate_carrier"),"patches repair what they list");
-string[] visible={"Ammo","Armour","Armour Repair","Containers","Electronics","Equipment","Explosives","Healing","Team","Tools","Utility","Vehicle Supplies","Weapon Maintenance"};bool categories_ok=true;
+string[] visible={"Ammo","Armour","Armour Repair","Containers","Electronics","Equipment","Explosives","Healing","Team","Tools","Utility","Vehicle Supplies"};bool categories_ok=true;
 for(uint i=0;i<item_catalogue.length();i++)if(visible.find(item_catalogue[i].category)<0){categories_ok=false;client_test_results+="  unknown category "+item_catalogue[i].category+" for "+item_catalogue[i].id+"\n";}
 client_check(categories_ok,"every item file names a known category");
 vehicle_type@[] saved_vehicle_types=vehicle_types;load_vehicle_content_blob("test_scout\x1fname=Test Scout\nhealth=777\narmour=55\nseats=2\nwindows=true,false\ntop_speed=12.5\nacceleration=3.5\nbraking=6\nfuel_type=diesel\nfuel_capacity=88\nfuel_per_tile=0.2");

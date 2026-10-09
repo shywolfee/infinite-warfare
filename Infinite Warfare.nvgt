@@ -16,7 +16,9 @@
 #include "includes/nv_form/form.nvgt"
 #include "includes/iw_form.nvgt"
 #include "includes/ammo.nvgt"
+#include "includes/arsenal_thermal.nvgt"
 #include "includes/weapon_handling.nvgt"
+#include "includes/arsenal_controls.nvgt"
 #include "includes/map_ambience.nvgt"
 #include "includes/item_mechanics.nvgt"
 #include "includes/smart_terminal.nvgt"
@@ -402,8 +404,8 @@ menu_music_save_timer.restart();
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
 double version=0.591;
-string version_name="0.5.9.3";
-int build_number=103;
+string version_name="0.5.10";
+int build_number=104;
 string build_date="2026-10-09";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
@@ -530,6 +532,7 @@ int spread;
 string projectile_kind;
 string sound_profile;
 string fire_sound_variants;
+dictionary mechanics;
 string manual_action; // "bolt" for weapons cycled by hand after each shot
 string vehicle_use; // forbidden, backblast, cabin_detonation or cabin_fire; empty for ordinary use from a window
 double muzzle_velocity;
@@ -637,6 +640,7 @@ if(props.get("explosive_radius",tmp))ws.projectile_explosive_radius=string_to_nu
 string melee_str;
 if (props.get("melee", melee_str) and melee_str=="true") ws.melee=true;
 else ws.melee=false;
+ws.mechanics=props;
 wpn_cache.insert_last(ws);
 wpn_display_names.set(wid, ws.name);
 string ammo_type, feed_device, capacity_str, reserve_item, reserve_label, is_mag_str, starting_reserve_str, reload_ms_str;
@@ -669,9 +673,10 @@ else if (mode_parts[m]=="focused") modes.insert_last(FIREMODE_FOCUSED);
 // Preserve fixed single modes too: an auto-only weapon must not fall through
 // to get_fire_mode's semi-automatic fallback merely because it has no selector.
 bool has_auto=false,has_scatter=false,has_focused=false;for(uint mi=0;mi<modes.length();mi++){if(modes[mi]==FIREMODE_AUTO)has_auto=true;else if(modes[mi]==FIREMODE_SCATTERSHOT)has_scatter=true;else if(modes[mi]==FIREMODE_FOCUSED)has_focused=true;}
-if((ws.wclass=="light_machine_gun" or ws.wclass=="incendiary") and !has_auto)modes.insert_last(FIREMODE_AUTO);
-if (ws.wclass=="shotgun" and !has_scatter) modes.insert_last(FIREMODE_SCATTERSHOT);
-if (ws.wclass=="energy" and !has_focused) modes.insert_last(FIREMODE_FOCUSED);
+string class_modes;props.get("class_modes",class_modes);
+if(class_modes!="false" and (ws.wclass=="light_machine_gun" or ws.wclass=="incendiary") and !has_auto)modes.insert_last(FIREMODE_AUTO);
+if (class_modes!="false" and ws.wclass=="shotgun" and !has_scatter) modes.insert_last(FIREMODE_SCATTERSHOT);
+if (class_modes!="false" and ws.wclass=="energy" and !has_focused) modes.insert_last(FIREMODE_FOCUSED);
 if (modes.length()>0)
 register_fire_modes(wid, modes);
 }
@@ -1778,7 +1783,7 @@ string[] cat_names = {
 "Game Systems"
 };
 string[][] cat_docs = {
-{"getting_started", "dashboard", "controls", "turning_and_aiming", "weapon_handling", "fire_modes", "stamina", "commands"},
+{"getting_started", "dashboard", "controls", "turning_and_aiming", "weapon_handling", "expanded_arsenal", "fire_modes", "stamina", "commands"},
 {"modes", "shattersea_map", "coruscant_map", "freyas_ascent_map", "turbolifts"},
 {"inventory_system", "item_mechanics", "ammo_system", "equipment", "buffs_debuffs", "teams", "bunkers", "rewards", "credits", "holsters", "attachments", "support_tickets", "vehicles"}
 };
@@ -5116,6 +5121,10 @@ equipped_armor_arms=parsed[5]=="none"?"":parsed[5]; equipped_armor_arms_durabili
 equipped_armor_legs=parsed[7]=="none"?"":parsed[7]; equipped_armor_legs_durability=string_to_number(parsed[8]);
 equipped_armor_weight=string_to_number(parsed[9]);
 }
+else if(parsed[0]=="weapon_heat_block" and parsed.length()>1)
+{
+ammo_give(parsed[1],1);arsenal_thermal_state@ t=handling_state(parsed[1]).thermal;t.blocked=true;t.heat=client_weapon_value(parsed[1],"heat_capacity");speak("The server requires this weapon to cool before firing.");
+}
 else if(parsed[0]=="combat_slow" and parsed.length()>1)
 {
 combat_slow_duration=string_to_number(parsed[1]);combat_slow_timer.restart();speak("Movement impaired.");
@@ -5142,7 +5151,7 @@ p.play_stationary("headshot_indicator.ogg", false);
 hp_msg+="Headshot! ";
 }
 if (show_damage_readout and parsed.length()>=3)
-hp_msg+="Damage: "+parsed[2]+". ";
+hp_msg+=(parsed.length()>=4 and parsed[3]=="healing"?"Healing: ":"Damage: ")+parsed[2]+". ";
 if (show_target_hp)
 hp_msg+="Target HP: "+parsed[1];
 if (hp_msg!="") speak(hp_msg);

@@ -828,10 +828,11 @@ bool is_manual_fed_weapon(string wname){int gi=find_gun(wname);return gi>=0 and 
 bool manual_weapon_requires_cycle(string wname)
 {
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action)return false;
+for(uint wi=0;wi<wpn_cache.length();wi++)if(wpn_cache[wi].id==wname){string cycle;if(wpn_cache[wi].mechanics.get("manual_cycle",cycle))return cycle!="auto";break;}
 string device=string_to_lower_case(gun_ammos[gi].feed_device);
 // Break-action and breech-loaded arms put the round in battery when closed.
 // Tube-fed pump and manually cycled shotguns still require an explicit cycle.
-return get_weapon_class(wname)=="shotgun" and string_contains(device,"break-action",0)<0 and string_contains(device,"breech",0)<0;
+return get_weapon_class(wname)=="shotgun" and device.find("break-action")<0 and device.find("breech")<0;
 }
 bool manual_weapon_can_fire(string wname,bool report=true)
 {
@@ -843,8 +844,8 @@ return true;
 void manual_weapon_after_fire(string wname)
 {
 int gi=find_gun(wname);if(gi<0 or !gun_ammos[gi].manual_action)return;
-if(get_weapon_class(wname)=="shotgun" or get_weapon_class(wname)=="grenade_launcher")gun_ammos[gi].chamber_ready=false;
-else gun_ammos[gi].chamber_ready=gun_ammos[gi].mag_loaded>0;
+bool cycle=get_weapon_class(wname)=="grenade_launcher" or (get_weapon_class(wname)=="shotgun" and manual_weapon_requires_cycle(wname));
+gun_ammos[gi].chamber_ready=!cycle and gun_ammos[gi].mag_loaded>0;
 }
 void manual_toggle_action(string wname)
 {

@@ -36,7 +36,10 @@ def retired_paths() -> list[str]:
     deleted = set(git("log", "-z", "--no-renames", "--diff-filter=D", "--name-only", "--format=", "HEAD").replace("\n", "\0").split("\0"))
     # Deletions staged for the commit being prepared count too.
     deleted |= set(git("diff", "-z", "--cached", "--no-renames", "--diff-filter=D", "--name-only").split("\0"))
-    current = set(git("ls-files", "-z").split("\0"))
+    # Account for worktree deletions before staging as well; an author should
+    # be able to validate a rename without changing the owner's index.
+    deleted |= set(git("diff", "-z", "--no-renames", "--diff-filter=D", "--name-only").split("\0"))
+    current = {p for p in git("ls-files", "-z").split("\0") if p and (ROOT / p).exists()}
     return sorted(p for p in deleted - current
                   if p and p.startswith(GAME_FOLDERS) and not any(r in p for r in RUNTIME))
 

@@ -4,6 +4,7 @@ class wpn_server_stats
 {
 string id,name,vehicle_use,wclass,projectile_kind,sound_profile,ammo_type,projectile_loop,explosion_sound,explosion_distant,explosion_impact,kill_label;
 int speedtime,range,mindammage,maxdammage,spread,firetime,walktime,pellet_count,penetration,blast_damage;
+dictionary mechanics;
 double muzzle_velocity,gravity,drag,mass_grams,diameter_mm,dispersion_deg,damage_retention,collision_radius,explosive_radius;
 }
 wpn_server_stats@[] wpn_stats_cache(0);
@@ -38,6 +39,7 @@ void load_wpn_file(string path,string fname)
 {
 string id=string_replace(fname,".wpn","",true);file f;if(!f.open(path+"/"+fname,"rb"))return;string content=f.read();f.close();if(content=="")return;content=string_replace(content,"\r\n","\n",true);string[] lines=string_split(content,"\n",true);wpn_server_stats s;s.id=id;s.wclass="";s.speedtime=5;s.range=10;s.mindammage=50;s.maxdammage=1000;s.spread=0;s.firetime=500;s.walktime=200;dictionary extras;
 for(uint l=0;l<lines.length();l++){int eq=string_contains(lines[l],"=",1);if(eq<0)continue;string key=string_left(lines[l],eq),val=string_replace(lines[l],key+"=","",false);extras.set(key,val);if(key=="name")s.name=val;else if(key=="vehicle_use")s.vehicle_use=val;else if(key=="speedtime")s.speedtime=string_to_number(val);else if(key=="range")s.range=string_to_number(val);else if(key=="min_damage")s.mindammage=string_to_number(val);else if(key=="max_damage")s.maxdammage=string_to_number(val);else if(key=="spread")s.spread=string_to_number(val);else if(key=="wclass")s.wclass=val;else if(key=="sound_profile")s.sound_profile=val;else if(key=="ammo_type")s.ammo_type=val;else if(key=="firetime")s.firetime=string_to_number(val);else if(key=="walktime")s.walktime=string_to_number(val);}
+s.mechanics=extras;
 if(s.sound_profile=="")s.sound_profile=id;
 set_ballistic_defaults(s);string v;if(extras.get("projectile_kind",v))s.projectile_kind=v;if(extras.get("muzzle_velocity",v))s.muzzle_velocity=string_to_number(v);if(extras.get("gravity",v))s.gravity=string_to_number(v);if(extras.get("drag",v))s.drag=string_to_number(v);if(extras.get("mass_grams",v))s.mass_grams=string_to_number(v);if(extras.get("diameter_mm",v))s.diameter_mm=string_to_number(v);if(extras.get("dispersion_degrees",v))s.dispersion_deg=string_to_number(v);if(extras.get("collision_radius",v))s.collision_radius=string_to_number(v);if(extras.get("pellet_count",v))s.pellet_count=string_to_number(v);if(extras.get("penetration",v))s.penetration=string_to_number(v);if(extras.get("damage_retention",v))s.damage_retention=string_to_number(v);if(extras.get("explosive_radius",v))s.explosive_radius=string_to_number(v);if(extras.get("projectile_loop",v))s.projectile_loop=v;if(extras.get("explosion_sound",v))s.explosion_sound=v;if(extras.get("explosion_distant",v))s.explosion_distant=v;if(extras.get("explosion_impact",v))s.explosion_impact=v;if(extras.get("kill_label",v))s.kill_label=v;if(extras.get("blast_damage",v))s.blast_damage=string_to_number(v);wpn_stats_index.set(id,int(wpn_stats_cache.length()));wpn_stats_cache.insert_last(s);
 }
@@ -54,6 +56,7 @@ return true;
 }
 string weapon_distant_report(string profile,string wclass,string mode="")
 {
+if(string_contains(profile,"ars_",1)==0)return profile+"dist.ogg";
 if(mode!="" and weapon_has_authored_mode_report(profile,mode))return profile+mode+"dist.ogg";
 if(profile=="er_ak74m" or profile=="er_mlk247" or profile=="er_mlk870" or profile=="er_mlk_tech9" or profile=="er_mpk20" or profile=="er_rocket_launcher")return profile+"dist.ogg";
 if(wclass=="shotgun")return "benelli_m4_shotgundist.ogg";
@@ -105,8 +108,8 @@ void flush_projectile_audio_updates(){if(projectile_audio_batch_timer.elapsed<50
 bool projectile_hit_vehicle(weapon@ w){for(uint i=0;i<authoritative_vehicles.length();i++){authoritative_vehicle@ v=authoritative_vehicles[i];if(v.map!=w.map or v.health<=0)continue;
 // Shots start inside the shooter's own vehicle: a mounted gun or a passenger's
 // rifle used to hit its own hull the instant it fired.
-if(authoritative_vehicle_has_occupant(v,w.cn))continue;
-update_authoritative_vehicle_model(v);double length,width,height;authoritative_vehicle_dimensions(v,length,width,height);double rad=v.facing*3.14159265358979323846/180.0,dx=w.x-v.model_x,dy=w.y-v.model_y;double forward=dx*sine(rad)+dy*cosine(rad),side=dx*cosine(rad)-dy*sine(rad),rz=w.z-v.model_z;bool body=absolute(forward)<=length*.5+w.collision_radius and absolute(side)<=width*.5+w.collision_radius and rz>=-.15-w.collision_radius and rz<=height+w.collision_radius;bool wheel=false;for(int axle=-1;axle<=1;axle+=2)for(int ws=-1;ws<=1;ws+=2){double fx=forward-length*.36*axle,sy=side-width*.52*ws,zz=rz-.35;if(sqrt(fx*fx+sy*sy+zz*zz)<=w.collision_radius+.42)wheel=true;}if(!body and !wheel)continue;int damage=projectile_damage(w,"torso");if(wheel)damage=int(double(damage)*.72);int owner=get_player_index_from(w.cn);damage_authoritative_vehicle(v,damage,owner,"shot by "+w.cn);return true;}return false;}
+if(authoritative_vehicle_has_occupant(v,w.cn) and server_weapon_property(w.type,"on_hit")!="repair")continue;
+update_authoritative_vehicle_model(v);double length,width,height;authoritative_vehicle_dimensions(v,length,width,height);double rad=v.facing*3.14159265358979323846/180.0,dx=w.x-v.model_x,dy=w.y-v.model_y;double forward=dx*sine(rad)+dy*cosine(rad),side=dx*cosine(rad)-dy*sine(rad),rz=w.z-v.model_z;bool body=absolute(forward)<=length*.5+w.collision_radius and absolute(side)<=width*.5+w.collision_radius and rz>=-.15-w.collision_radius and rz<=height+w.collision_radius;bool wheel=false;for(int axle=-1;axle<=1;axle+=2)for(int ws=-1;ws<=1;ws+=2){double fx=forward-length*.36*axle,sy=side-width*.52*ws,zz=rz-.35;if(sqrt(fx*fx+sy*sy+zz*zz)<=w.collision_radius+.42)wheel=true;}if(!body and !wheel)continue;if(projectile_support_vehicle(w,v))return true;int damage=projectile_damage(w,"torso");if(wheel)damage=int(double(damage)*.72);int owner=get_player_index_from(w.cn);damage_authoritative_vehicle(v,damage,owner,"shot by "+w.cn);return true;}return false;}
 
 bool projectile_solid_tile(string tile){return string_contains(tile,"wall",1)>=0 or tile=="tree" or tile=="glass";}
 int projectile_material_cost(string tile){if(tile=="glass" or string_contains(tile,"fence",1)>=0 or string_contains(tile,"grass",1)>=0 or string_contains(tile,"wood",1)>=0)return 1;if(tile=="tree" or string_contains(tile,"brick",1)>=0 or string_contains(tile,"stone",1)>=0 or string_contains(tile,"rock",1)>=0)return 2;if(string_contains(tile,"metal",1)>=0 or string_contains(tile,"steel",1)>=0)return 3;return 2;}
@@ -170,6 +173,8 @@ for(int e=0;e<int(players.length());e++)
 player@ target=players[e];
 if(target.map!=w.map or target.name==w.cn or target.death or target.in_plane or player_has_spawn_grace(target) or string_contains(w.hit_players,"|"+target.name+"|",1)>=0)continue;
 string region=projectile_player_region(w,target);if(region=="")continue;
+if(server_weapon_property(w.type,"on_hit")=="heal"){if(projectile_support_player(w,target,owner))return true;continue;}
+if(server_weapon_property(w.type,"on_hit")=="repair")continue;
 // Rounds pass through team-mates and through anyone the shooter cannot hurt
 // (arena spectators, players outside the shooter's arena). This is decided
 // before armour is touched: such hits used to wear armour down and play
@@ -181,6 +186,7 @@ play(w.sound_profile+"hit"+random(1,weapon_impact_sound_count(w.sound_profile)),
 dmg=apply_player_damage(target,dmg,source);if(dmg<=0)continue;
 if(owner>=0 and players[owner].overdrive_active and w.pellet_index==0)world_sound_at("character/affects/quad_damage/impact"+random(1,3),target.x,target.y,target.z,target.map);
 apply_projectile_class_effect(w,target,region,dmg);
+projectile_content_effect(w,target,dmg);
 if(region=="leg"){send_reliable(target.peer_id,"combat_slow 2200",0);send_reliable(target.peer_id,"play_s leg_hit_impair.ogg",0);}else if(region=="arm")send_reliable(target.peer_id,"weapon_sway 3200",0);
 if(owner>=0){send_reliable(players[owner].peer_id,"play_s executioners_rage/hittg.wav",0);send_reliable(players[owner].peer_id,"target_hp "+target.health+" "+dmg+" "+region,0);}
 if(w.penetration>0 and w.projectile_kind!="pellet" and w.projectile_kind!="flame"){w.hit_players+=target.name+"|";w.penetration--;w.mindammage=int(w.mindammage*.68);w.maxdammage=int(w.maxdammage*.68);w.vx*=.78;w.vy*=.78;w.vz*=.78;return false;}return true;

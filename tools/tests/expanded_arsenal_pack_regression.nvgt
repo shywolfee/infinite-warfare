@@ -1,0 +1,26 @@
+#include "bgt_compat.nvgt"
+const string audio_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
+void main()
+{
+string root=SCRIPT_MAIN_PATH+"/../../";
+string directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-arsenal-audio-pack-"+random(100000,999999999);directory_create(directory);
+string results;int failures=0,checked=0;
+pack_file archive;file listing;
+if(!archive.open(root+"sounds.dat",audio_pack_key)){results="FAIL cannot open encrypted sound archive\n";failures++;}
+else if(!listing.open(root+"sounds/EXPANDED_ARSENAL_AUDIO_FILES.txt","rb")){results="FAIL cannot read imported sound listing\n";failures++;}
+else
+{
+string[] names=string_split(string_replace(listing.read(),"\r","",true),"\n",false);listing.close();
+for(uint i=0;i<names.length();i++)
+{
+string name=names[i];if(name=="")continue;checked++;
+string extracted=directory+(name.ends_with(".wav")?"/decode.wav":"/decode.ogg");
+if(!archive.file_exists(name) or !archive.extract_file(name,extracted)){results+="FAIL missing or unreadable packed audio "+name+"\n";failures++;continue;}
+sound recording;if(!recording.load(extracted)){results+="FAIL NVGT cannot decode packed audio "+name+"\n";failures++;}
+recording.close();file_delete(extracted);
+}
+archive.close();
+}
+results+="Checked: "+checked+"\nFailures: "+failures+"\n";
+file report;report.open(directory+"/results.txt","wb");report.write(results);report.close();exit(failures);
+}

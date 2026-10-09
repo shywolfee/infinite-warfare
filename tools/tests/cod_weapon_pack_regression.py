@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 ROOT=Path(__file__).resolve().parents[2]
 WEAPONS=ROOT/"iwserver/content/weapons"
@@ -7,7 +8,8 @@ HEADLINE={"m14_ebr","ump45","pp2000","aa12","cm901","msr","pp90m1","rsass","mg36
 VARIANT_SUFFIXES=("_field_rifle","_modular_rifle","_compact_carbine","_personal_defence_weapon","_precision_rifle","_marksman_system","_support_weapon","_squad_automatic","_service_pistol","_tactical_pistol","_infantry_launcher","_guided_launcher","_underfolder_carbine")
 
 paths={p.stem:p for p in WEAPONS.rglob("*.wpn")}
-added=HEADLINE|{wid for wid in paths if wid.endswith(VARIANT_SUFFIXES) and not wid.startswith("er_")}
+renamed={r['id']:r['old_id'] for r in json.loads((ROOT/'tools/weapon_receiver_renames.json').read_text(encoding='utf-8'))}
+added={wid for wid in paths if renamed.get(wid,wid) in HEADLINE or (renamed.get(wid,wid).endswith(VARIANT_SUFFIXES) and not wid.startswith(('er_','ars_')))}
 assert len(added)==90, f"expected 90 release weapons, found {len(added)}"
 manifest=SOUNDS/"COD_WEAPON_AUDIO_SOURCES.tsv"
 rows=manifest.read_text(encoding="utf-8-sig").splitlines()

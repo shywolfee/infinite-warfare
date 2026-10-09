@@ -1,0 +1,33 @@
+string arsenal_results;int arsenal_failures=0;
+void arsenal_check(bool ok,string label){arsenal_results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)arsenal_failures++;}
+void run_arsenal_regression()
+{
+try
+{
+load_wpn_stats();int added=0;for(uint i=0;i<wpn_stats_cache.length();i++)if(wpn_stats_cache[i].id.find("ars_")==0)added++;
+arsenal_check(added==197,"all 197 weapons load through the production server loader");
+arsenal_thermal_state thermal;
+thermal.heat=95;arsenal_check(!thermal.ready(100,12,0) and thermal.blocked,"a shot that exceeds heat capacity is rejected");
+thermal.dissipate(3,100,20);arsenal_check(thermal.blocked and thermal.heat==35,"overheated receivers stay blocked above the recovery threshold");
+thermal.dissipate(1,100,20);arsenal_check(!thermal.blocked and thermal.ready(100,12,0),"passive cooling unlocks below a quarter capacity");
+thermal.start_vent(2000);arsenal_check(!thermal.ready(100,12,0),"venting blocks firing");
+thermal.vent_duration=1;wait(3);arsenal_check(thermal.ready(100,12,0) and thermal.heat==0,"completed vent resets heat and restores firing");
+player shooter(10,10,0,"test_map","arsenal_shooter",1),friend(12,10,0,"test_map","arsenal_friend",2),enemy(14,10,0,"test_map","arsenal_enemy",3);
+shooter.health=500;friend.health=900;enemy.health=500;players.insert_last(shooter);players.insert_last(friend);players.insert_last(enemy);
+team squad("test_squad");squad.members.insert_last(team_member(shooter.name));squad.members.insert_last(team_member(friend.name));teams.insert_last(squad);
+weapon medical(10,10,0,90,90,"ars_lifeline_medical_projector",shooter.name,"test_map");
+projectile_support_player(medical,players[1],0);arsenal_check(players[1].health==945,"medical projector heals an allied target");
+projectile_support_player(medical,players[2],0);arsenal_check(players[2].health==500,"medical projectile does not heal an enemy");
+players[0].arena_role="spectator";projectile_support_player(medical,players[1],0);arsenal_check(players[1].health==945,"spectators cannot supply healing");players[0].arena_role="none";
+players[1].health=995;projectile_support_player(medical,players[1],0);arsenal_check(players[1].health==1000,"medical healing clamps to maximum health");
+players[0].arena_id=1;players[1].arena_id=2;players[1].health=800;projectile_support_player(medical,players[1],0);arsenal_check(players[1].health==800,"support cannot cross arena boundaries");players[0].arena_id=0;players[1].arena_id=0;
+weapon injector(10,10,0,90,90,"ars_bloodline_injector_carbine",shooter.name,"test_map");projectile_content_effect(injector,players[2],100);arsenal_check(players[0].health==520,"health return uses actual dealt damage");
+authoritative_vehicle vehicle;vehicle.map="test_map";vehicle.health=100;vehicle.max_health=1000;
+weapon repair(10,10,0,90,90,"ars_patchwork_repair_crossbow",shooter.name,"test_map");
+arsenal_check(projectile_support_vehicle(repair,vehicle) and vehicle.health==185,"repair projectile restores an unoccupied vehicle");
+vehicle.occupants.insert_last(enemy.name);projectile_support_vehicle(repair,vehicle);arsenal_check(vehicle.health==185,"repair does not aid an enemy-occupied vehicle");
+weapon ion(10,10,0,90,90,"ars_t_7_ion_disruptor",shooter.name,"test_map");projectile_support_vehicle(ion,vehicle);arsenal_check(vehicle.emp_active() and vehicle.emp_ms==2600,"ion hits disable vehicle electronics with the content duration");
+}
+catch{arsenal_check(false,"Exception: "+get_exception_info()+" at "+get_exception_file()+":"+get_exception_line());}
+arsenal_results+="Failures: "+arsenal_failures+"\n";println(arsenal_results);exit(arsenal_failures);
+}

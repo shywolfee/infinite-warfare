@@ -354,6 +354,7 @@ for(int i=int(deployable_explosives.length())-1;i>=0;i--)
 deployable_explosive@ d=deployable_explosives[i];if(d.vehicle_id>=0){int dv=find_authoritative_vehicle(d.vehicle_id,d.map);if(dv>=0){authoritative_vehicle@ carrier=authoritative_vehicles[dv];update_authoritative_vehicle_model(carrier);d.x=int(round(carrier.model_x,0));d.y=int(round(carrier.model_y,0));d.z=int(round(carrier.model_z,0));}}int timed=item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
 int owner_index=get_player_index_from(d.owner);bool triggered=false;
 double sensor=item_prop_number(d.kind,"sensor_radius",3.2)*d.sensor_mult;string sensor_kind=item_prop(d.kind,"sensor_kind","proximity");
+if(sensor_kind=="timer")continue;
 // Anti-vehicle mines (vehicle_only=true) ignore people on foot.
 bool vehicle_only=item_flag(d.kind,"vehicle_only");
 for(uint pidx=0;pidx<players.length() and !vehicle_only;pidx++)

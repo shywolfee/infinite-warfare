@@ -1,0 +1,29 @@
+// Shared thermal model; content supplies all rates and thresholds.
+class arsenal_thermal_state
+{
+string weapon;
+double heat=0;
+bool blocked=false,warned=false;
+int vent_duration=0;
+timer cooling_timer,vent_timer;
+void dissipate(double seconds,double capacity,double rate)
+{
+heat-=seconds*rate;if(heat<0)heat=0;
+if(blocked and heat<=capacity*.25){blocked=false;warned=false;}
+}
+void refresh(double capacity,double rate)
+{
+dissipate(double(cooling_timer.elapsed)/1000.0,capacity,rate);cooling_timer.restart();
+if(vent_duration>0 and vent_timer.elapsed>=uint(vent_duration)){heat=0;blocked=false;warned=false;vent_duration=0;}
+}
+bool ready(double capacity,double cost,double rate)
+{
+refresh(capacity,rate);if(vent_duration>0 or blocked)return false;
+if(heat+cost>capacity+.001){blocked=true;return false;}return true;
+}
+void fired(double capacity,double cost,double rate)
+{
+refresh(capacity,rate);heat+=cost;if(heat>=capacity){heat=capacity;blocked=true;}
+}
+void start_vent(int duration){vent_duration=duration;vent_timer.restart();}
+}

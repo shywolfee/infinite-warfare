@@ -3,6 +3,7 @@
 class weapon_handling_state
 {
 string weapon;
+arsenal_thermal_state thermal;
 bool safety_on=false;
 bool deployed=false;
 bool powered=false;
@@ -66,6 +67,7 @@ bool weapon_handling_can_fire(string w,bool report=true)
 {
 weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
 if(s.wall_braced and !wall_brace_still_valid(s))release_wall_brace(s,report);
+if(!client_thermal_can_fire(w,report))return false;
 if(s.safety_on){if(report)speak("The safety is on. Use "+kb_binding_label("weapon_operation")+" to disengage it.");return false;}
 if(c=="explosive" and !s.deployed){if(report)speak("Deploy the "+get_weapon_display_name(w)+" before firing.");return false;}
 if((c=="incendiary" or c=="tool") and !s.powered){if(report)speak("Start the "+get_weapon_display_name(w)+" before using it.");return false;}
@@ -75,6 +77,7 @@ return true;
 
 void weapon_handling_after_fire(string w)
 {
+client_thermal_after_fire(w);
 weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
 if(handling_is_manual_bolt(w) or w=="ballista")s.action_ready=false;
 }
@@ -99,10 +102,11 @@ if(weapon=="" or weapon=="empty")return;weapon_handling_state@ s=handling_state(
 
 void operate_weapon(string w)
 {
+if(client_thermal_vent(w))return;
 weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);
 if(is_manual_fed_weapon(w)){manual_toggle_action(w);return;}
 if(handling_is_manual_bolt(w) or w=="ballista")
-{if(s.action_ready){speak(w=="ballista"?"The ballista is already cocked.":"The bolt is already in battery.");return;}s.action_ready=true;p.play_stationary(w+"reload_cycle.ogg",false);speak(w=="ballista"?"Ballista cocked.":"Bolt cycled; chamber ready.");return;}
+{if(s.action_ready){speak(w=="ballista"?"The ballista is already cocked.":"The bolt is already in battery.");return;}s.action_ready=true;p.play_stationary(weapon_sound_profile(w)+"reload_cycle.ogg",false);speak(w=="ballista"?"Ballista cocked; chamber ready.":"Bolt cycled; chamber ready.");return;}
 if(c=="explosive"){s.deployed=!s.deployed;p.play_stationary(s.deployed?"attachment_bipod_attach.ogg":"attachment_bipod_remove.ogg",false);set_weapon_vertical_aim(turn,false);speak(get_weapon_display_name(w)+(s.deployed?" deployed. Movement is restricted. Elevation range increased.":" packed for movement. Elevation range restricted."));return;}
 if(c=="incendiary" or c=="tool"){s.powered=!s.powered;p.play_stationary(s.powered?"modeenter.ogg":"modeleave.ogg",false);speak(get_weapon_display_name(w)+(s.powered?" started.":" stopped."));return;}
 if(c=="pistol"){s.safety_on=!s.safety_on;s.configuration=s.safety_on?1:0;p.play_stationary("weapon_safety.ogg",false);speak(s.safety_on?"Safety on.":"Safety off.");return;}
@@ -128,7 +132,7 @@ weapon_handling_state@ s=handling_state(w);string c=get_weapon_class(w);string r
 if(c=="explosive")result+=s.deployed?", deployed":", packed";
 if(c=="incendiary" or c=="tool")result+=s.powered?", running":", stopped";
 if(handling_is_manual_bolt(w) or w=="ballista")result+=s.action_ready?", action ready":", action requires cycling";
-return result+".";
+return result+client_thermal_status(w)+".";
 }
 
 double handling_recoil_multiplier(string w)

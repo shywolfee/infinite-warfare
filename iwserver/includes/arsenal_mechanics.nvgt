@@ -1,0 +1,49 @@
+string server_weapon_property(string id,string key)
+{
+int i=find_wpn_stats(id);string value;if(i>=0)wpn_stats_cache[i].mechanics.get(key,value);return value;
+}
+double server_weapon_value(string id,string key){return string_to_number(server_weapon_property(id,key));}
+arsenal_thermal_state@ server_thermal_state(player@ p,string id)
+{
+for(uint i=0;i<p.thermal_states.length();i++)if(p.thermal_states[i].weapon==id)return p.thermal_states[i];
+arsenal_thermal_state t;t.weapon=id;p.thermal_states.insert_last(t);return p.thermal_states[p.thermal_states.length()-1];
+}
+bool server_thermal_fire(player@ p,string id)
+{
+double cap=server_weapon_value(id,"heat_capacity");if(cap<=0)return true;
+arsenal_thermal_state@ t=server_thermal_state(p,id);double cost=server_weapon_value(id,"heat_per_shot"),rate=server_weapon_value(id,"cooling_per_second");
+if(!t.ready(cap,cost,rate)){send_reliable(p.peer_id,"weapon_heat_block "+id,0);return false;}t.fired(cap,cost,rate);return true;
+}
+void server_thermal_vent(player@ p,string id)
+{
+int duration=int(server_weapon_value(id,"vent_ms"));if(duration<=0 or p.death)return;
+arsenal_thermal_state@ t=server_thermal_state(p,id);t.refresh(server_weapon_value(id,"heat_capacity"),server_weapon_value(id,"cooling_per_second"));
+if(t.vent_duration<=0)t.start_vent(duration);
+}
+bool projectile_support_vehicle(weapon@ w,authoritative_vehicle@ v)
+{
+string effect=server_weapon_property(w.type,"on_hit");int owner=get_player_index_from(w.cn);
+if(effect=="ion"){if(owner>=0 and !players[owner].death){int duration=int(server_weapon_value(w.type,"effect_ms"));if(duration>10000)duration=10000;if(duration>0){v.emp_ms=duration;v.emp_timer.restart();v.velocity=0;send_reliable_map(v.map,"veh_emp "+v.id+" "+duration+" "+v.map,0);}}return false;}
+if(effect!="repair")return false;
+if(owner<0 or players[owner].death or players[owner].arena_role=="spectator")return true;
+int team=get_team_index_for_member(w.cn);if(v.team!="" and (team<0 or teams[team].name!=v.team))return true;
+for(uint i=0;i<v.occupants.length();i++)if(v.occupants[i]!="" and v.occupants[i]!="-" and v.occupants[i]!=w.cn and !same_team(w.cn,v.occupants[i]))return true;
+int amount=int(server_weapon_value(w.type,"support_amount"));if(amount>v.max_health-v.health)amount=v.max_health-v.health;if(amount<=0)return true;v.health+=amount;
+send_reliable_map(v.map,"veh_damage "+v.id+" 0 "+v.map+" "+v.health+" "+v.armor,0);send_reliable(players[owner].peer_id,"target_vehicle "+v.health+" "+amount+" "+v.armor,0);play(w.sound_profile+"hit1",v.x,v.y,v.z,v.map);return true;
+}
+bool projectile_support_player(weapon@ w,player@ target,int owner)
+{
+if(server_weapon_property(w.type,"on_hit")!="heal")return false;
+if(owner<0 or players[owner].death or players[owner].arena_role=="spectator" or !same_team(w.cn,target.name) or players[owner].arena_id!=target.arena_id or target.arena_role=="spectator")return true;
+int amount=int(server_weapon_value(w.type,"support_amount"));if(amount>1000-target.health)amount=1000-target.health;if(amount<=0)return true;
+target.health+=amount;target.burning=false;target.bleeding=false;
+play(w.sound_profile+"hit1",target.x,target.y,target.z,target.map);
+send_reliable(players[owner].peer_id,"target_hp "+target.health+" "+amount+" healing",0);return true;
+}
+void projectile_content_effect(weapon@ w,player@ target,int damage)
+{
+string effect=server_weapon_property(w.type,"on_hit");
+if(effect=="burn"){target.burning=true;target.burning_owner=w.cn;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
+if(effect=="slow" or effect=="ion"){int duration=int(server_weapon_value(w.type,"effect_ms"));if(duration<0)duration=0;if(duration>10000)duration=10000;send_reliable(target.peer_id,"combat_slow "+duration,0);}
+if(effect=="lifesteal"){int owner=get_player_index_from(w.cn);if(owner<0 or players[owner].death or players[owner].map!=w.map)return;double percent=server_weapon_value(w.type,"life_return_percent");if(percent<0)percent=0;if(percent>100)percent=100;int amount=int(damage*percent/100);if(amount>1000-players[owner].health)amount=1000-players[owner].health;if(amount>0)players[owner].health+=amount;}
+}

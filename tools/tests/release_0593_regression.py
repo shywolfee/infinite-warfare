@@ -9,10 +9,10 @@ def props(path):
     return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8-sig").splitlines()
                 if "=" in line and not line.startswith("#"))
 
-assert (ROOT / "version.txt").read_text().strip() == "0.5.9.3"
+assert (ROOT / "version.txt").read_text().strip() == "0.5.10"
 client = (ROOT / "Infinite Warfare.nvgt").read_text(encoding="utf-8-sig")
-assert 'string version_name="0.5.9.3";' in client
-assert re.search(r"int build_number\s*=\s*103;", client)
+assert 'string version_name="0.5.10";' in client
+assert re.search(r"int build_number\s*=\s*104;", client)
 items = {p.stem: props(p) for p in (CONTENT / "items").rglob("*.item")}
 weapons = {p.stem: props(p) for p in (CONTENT / "weapons").rglob("*.wpn")}
 offers = {}
@@ -45,4 +45,4 @@ for path in (CONTENT / "device_modules").rglob("*.app"):
     assert int(d["size"]) > 0 and int(d["price"]) >= 0, path
     for id in d["devices"].split(","):
         assert devices[id]["device_extensible"] == "true", path
-print(f"PASS 0.5.9.3: {len(offers)} offers, {len(devices)} devices, valid release metadata")
+print(f"PASS 0.5.10: {len(offers)} offers, {len(devices)} devices, valid release metadata")

@@ -1,0 +1,33 @@
+string get_weapon_sound_profile(string id){for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==id)return wpn_cache[i].sound_profile;return id;}
+double client_weapon_value(string id,string key,double fallback=0)
+{
+for(uint i=0;i<wpn_cache.length();i++)if(wpn_cache[i].id==id){string value;if(wpn_cache[i].mechanics.get(key,value))return string_to_number(value);break;}return fallback;
+}
+bool client_thermal_can_fire(string id,bool report)
+{
+double capacity=client_weapon_value(id,"heat_capacity");if(capacity<=0)return true;
+arsenal_thermal_state@ t=handling_state(id).thermal;
+bool ready=t.ready(capacity,client_weapon_value(id,"heat_per_shot"),client_weapon_value(id,"cooling_per_second"));
+if(!ready and report and !t.warned){t.warned=true;p.play_stationary(get_weapon_sound_profile(id)+"overheat.ogg",false);speak("Cooling required. Use "+kb_binding_label("weapon_operation")+" to vent, or wait for passive cooling.");}return ready;
+}
+void client_thermal_after_fire(string id)
+{
+double capacity=client_weapon_value(id,"heat_capacity");if(capacity<=0)return;
+handling_state(id).thermal.fired(capacity,client_weapon_value(id,"heat_per_shot"),client_weapon_value(id,"cooling_per_second"));
+}
+bool client_thermal_vent(string id)
+{
+int duration=int(client_weapon_value(id,"vent_ms"));if(duration<=0)return false;
+arsenal_thermal_state@ t=handling_state(id).thermal;
+t.refresh(client_weapon_value(id,"heat_capacity"),client_weapon_value(id,"cooling_per_second"));
+if(t.vent_duration>0){speak("Venting is already in progress.");return true;}
+if(t.heat<=0){speak("The blaster is already cool.");return true;}
+t.start_vent(duration);send_reliable(0,"weapon_vent "+id,0);
+p.play_stationary(get_weapon_sound_profile(id)+"vent.ogg",false);speak("Venting the blaster. Firing resumes when cooling completes.");return true;
+}
+string client_thermal_status(string id)
+{
+double capacity=client_weapon_value(id,"heat_capacity");if(capacity<=0)return "";
+arsenal_thermal_state@ t=handling_state(id).thermal;t.refresh(capacity,client_weapon_value(id,"cooling_per_second"));
+return ", heat "+int(t.heat*100/capacity)+" percent"+(t.vent_duration>0?", venting":t.blocked?", overheated":"");
+}

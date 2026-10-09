@@ -5,6 +5,7 @@ source selection and uses ffmpeg to produce level-matched game Oggs.
 """
 from pathlib import Path
 import subprocess
+raise SystemExit("This legacy content generator is retired. Use the reviewed content files and tools/import_expanded_arsenal.py; regenerating 0.5.4 would restore removed receiver IDs.")
 
 ROOT=Path(__file__).resolve().parents[1]; SOUNDS=ROOT/"sounds"; CONTENT=ROOT/"iwserver/content/weapons"
 # Remove files produced by a prerelease importer that exposed archive/game

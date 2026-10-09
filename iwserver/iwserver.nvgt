@@ -1,4 +1,5 @@
 #include "bgt_compat.nvgt"
+#include "../includes/arsenal_thermal.nvgt"
 #include"includes/item.nvgt"
 #include"includes/plane.nvgt"
 #include"includes/flood.nvgt"
@@ -28,6 +29,7 @@
 void load_vehicle_content_blob(const string &in blob){}
 #include "../includes/item_data.nvgt"
 #include "includes/weapon.nvgt"
+#include "includes/arsenal_mechanics.nvgt"
 #include "includes/grenade.nvgt"
 #include "includes/explosions.nvgt"
 #include "includes/companions.nvgt"
@@ -95,6 +97,9 @@ int player_index=get_player_index(peer);if(player_index>=0)return staff_can(play
 #if IW_MOTION_REGRESSION
 #include "../tools/tests/companion_bowling_regression.nvgt"
 #endif
+#if IW_ARSENAL_REGRESSION
+#include "../tools/tests/arsenal_regression.nvgt"
+#endif
 void route_private_message(string sender,uint sender_peer,string target,string message)
 {
 recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=message;record.scope="pm:"+sender;record.timestamp=chat_timestamp(false);int target_player=get_player_index_from(target);if(target_player>=0){if(chat_is_blocked(players[target_player].name,sender)){send_reliable(sender_peer,"That player is not accepting messages from you.",2);return;}send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_chat_event(players[target_player].peer_id,record.scope,sender,message,record);recent_chat_messages.insert_last(record);send_reliable(sender_peer,"pm sent successfully",2);return;}
@@ -105,6 +110,9 @@ const string BUG_SECRET = "IW_bUg_rPt_K3y_zX5vN8mQ2wL9!";
 string bug_dir="administration/bugs";
 void main()
 {
+#if IW_ARSENAL_REGRESSION
+run_arsenal_regression();return;
+#endif
 #if IW_MOTION_REGRESSION
 run_companion_bowling_regression();return;
 #endif
@@ -2985,12 +2993,14 @@ play("supressoroff", players[index].x, players[index].y, players[index].z, playe
 }
 }
 else if(handle_vehicle_request(e.peer_id,parsed)){}
+else if(parsed[0]=="weapon_vent" and parsed.length()>1){int pi=get_player_index(e.peer_id);if(pi>=0)server_thermal_vent(players[pi],parsed[1]);}
 else if(parsed[0]=="fire" and parsed.length()>1)
 {
 int index=get_player_index(e.peer_id);
 if(index>-1)
 {
 end_spawn_grace(players[index]);
+if(!server_thermal_fire(players[index],parsed[1]))return;
 // Pace shots by the weapon actually being fired. The interval used to come
 // from the last weapon the client said it drew, so declaring a fast SMG and
 // then firing a rifle got the rifle the SMG's cadence.

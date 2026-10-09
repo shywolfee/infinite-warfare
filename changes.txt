@@ -1,5 +1,15 @@
 # Infinite Warfare release notes
 
+## New in 0.5.10, build 104 (2026-10-09)
+
+- Healing readouts identify restored health as healing rather than damage. Added import provenance, collision checks, audio-level tests, packed-audio decoding and gameplay regression coverage for the expanded arsenal. Retired-file tooling also recognizes renamed files before staging, and the obsolete generator cannot recreate removed receiver IDs.
+- Galactic sidearms, carbines, repeaters, scatter cannons and precision rifles have role-specific damage and reach rather than one shared combat template. Bolt rifles require cycling their recorded action; tube-fed automatic shotguns can declare automatic cycling, while two- and four-barrel guns use their proper break-action capacities.
+- Added classic fragmentation, flash, smoke and timed demolition explosives, plus mercenary gas and disorientation throwables, with their recorded payload sounds and editable properties. Timer-only placed charges cannot accidentally act as proximity mines.
+- Repair projectiles restore allied or unoccupied vehicle hulls without damaging players; ion disruptors disable vehicle drive electronics for their authored duration. New weapons use their own distant reports instead of another weapon's class fallback.
+- Galactic blasters have editable heat capacity, shot heat, passive cooling and manual venting through the weapon-operation control, with server-enforced overheating and heat status. Mercenary support and specialist weapons gain data-driven healing, burning, slowing and health-return effects. Explicit class-mode opt-out prevents automatic focused/scattershot modes from overriding authored weapon behavior.
+- Added data-driven definitions and supply listings for 25 classic tactical weapons, 65 galactic weapons and 107 mercenary weapons, with individually labelled ammunition supplies. These additions require the rebuilt sound pack.
+- Renamed 40 confusingly similar firearm variants, including the duplicate Anaconda, Beretta, AKS-74U, Mini-Uzi, MP5K, P90 and Skorpion variants, with distinct receiver names, weapon filenames, inventory IDs and supply-catalogue labels. Old inventory IDs are deliberately not migrated or aliased; saved inventories containing them must be replaced. Their ammunition, recordings and combat statistics are unchanged.
+
 ## New in 0.5.9.3, build 103 (2026-10-09)
 
 - Bank PIN entry is protected against readback and copying. Service-screen exceptions release the pending-request lock rather than stranding subsequent banking or device actions. Adding a bunker no longer silently disables monitoring on structures you already own.

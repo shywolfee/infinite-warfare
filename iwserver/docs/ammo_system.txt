@@ -1,4 +1,4 @@
-Ammunition System
+# Ammunition System
 
 Every registered weapon declares its calibre, feed device, capacity and standard reserve in the content database. Each weapon takes exactly one ammunition: the ordinary load of its own calibre. There are no alternate loads to choose between.
 
@@ -8,4 +8,6 @@ Magazine and cell swaps preserve the removed feed device as a partial. Revolvers
 
 The Help browser's Ammo categories are generated from the current ammunition database. Each entry reports every compatible weapon, including shotgun shells, revolver ammunition, rifle calibres, mortar rounds, crossbow bolts and energy cells.
 
-Using a reserve or partial ammunition container explains that ammunition is loaded rather than used directly and lists the compatible weapons you currently carry, including weapons in holsters. Use the drawn weapon's reload controls instead.
+## Using reserves and partial containers
+
+Full reserves are loaded with the drawn weapon's reload controls rather than used directly. Individually loaded weapons require their open, insert, close and cycle controls. A compatible partial magazine or cell can be loaded from its inventory action sheet. That action is unavailable when the weapon uses a different reserve, is already full, is reloading, or does not support magazine swaps.

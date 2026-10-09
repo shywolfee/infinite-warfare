@@ -1,4 +1,4 @@
-Physical Player and Vehicle Models
+# Physical Player and Vehicle Models
 
 Map navigation continues to use whole coordinate units for predictable audio navigation. Combat does not treat those coordinates as point targets. The server maintains a continuous physical transform for each player and eases the body from its current position to each accepted navigation coordinate at the player's unchanged movement rate. Spawn, translocation and other large coordinate changes snap the transform intentionally.
 

@@ -5,7 +5,7 @@ It combines detailed server-authoritative combat, large three-dimensional maps,
 touch access, live communications, accessible interfaces, and an optional
 top-down visual presentation.
 
-Current source release: **0.5.2, build 86**
+Current source release: **0.5.9.2, build 102**
 
 > Infinite Warfare is an active alpha. Expect unfinished systems, balance
 > changes, server maintenance, bugs, and possible data resets.
@@ -188,8 +188,9 @@ where its report is written.
 | `sounds/` | Source audio tree used to create `sounds.dat` |
 | `lib/` | Runtime libraries, plugins, helpers, and notices |
 | `tools/` | Import, validation, build, and regression utilities |
-| `changes.txt` | Detailed player-facing release history |
-| `readme.html` | Complete game manual |
+| `changes.txt` | Markdown player-facing release history |
+| `player_manual.md` | Complete Markdown manual used by the in-game reader |
+| `readme.html` | Browser-compatible legacy manual |
 | `version.txt` | Version checked by the GitHub updater |
 | `updater/` | The updater script and the list of retired files it deletes |
 

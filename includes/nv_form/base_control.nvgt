@@ -30,6 +30,7 @@ abstract class nv_form_control {
 	nv_form@parent;
 	bool speak_shortcut = true, autoactivate = false;
 	bool hidden = false, enabled = true;
+	string group;
 	bool enable_go_line = true, enable_search = true;
 	nv_form_control_callback@callback = null;
 	nv_form_event_dispatcher event;
@@ -94,7 +95,7 @@ abstract class nv_form_control {
 	string get_fixed_type_first() property { return ""; }
 	string get_fixed_type_last() property { return ""; }
 	bool check_shortcut() {
-		if (@shortcut == null) return false;
+		if (!enabled || @shortcut == null) return false;
 		return parent.shortcut.is_pressed(shortcut);
 	}
 	bool shortcut_focus() {

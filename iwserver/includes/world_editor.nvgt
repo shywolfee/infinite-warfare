@@ -54,6 +54,7 @@ if(!map_file_paths.exists(stem))map_file_paths.set(stem,path);
 }
 string indexed_map_path(const string &in id)
 {
+for(uint i=0;i<arenas.length();i++)if(arenas[i].map==id)return indexed_map_path(arena_map(arenas[i].type));
 string path;
 if(map_file_paths.get(id,path) and file_exists(path))return path;
 index_map_files();

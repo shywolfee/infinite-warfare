@@ -1,32 +1,34 @@
-Commands
+# Commands
 
 Press / (slash) to open the chat input. Type a message and press Enter to send it. Messages starting with / are treated as commands.
 
-Player commands:
-/bunkers - Show any bunker locations on your current map.
-/team info - Show your team roster, roles, and shared point pool.
-/team shop - Show the team shop and prices. Full management is available from the in-game Team menu.
-/pm [name] [message] - Send a private message to another player.
-/channel - Open the forty-language channel selector. `/channel language` switches directly; `unfiltered` is separate from the forty languages.
-/group create [name], /group chat [message], /group leave, /group accept, /group invite [player] - Group chat. Groups persist on the server, you can be in five, and joining takes an accepted invitation. Alt+Shift+Slash opens your groups, where everything else is done; Alt+Slash messages your quick-chat group.
-/withdraw - Withdraw your most recent sent chat message within ten seconds. Recipients see a neutral withdrawal marker and staff receive an immediate audit copy.
-/block [player], /unblock [player], /blocked - Persistently manage players whose language, map, team, group and private chat you do not want to receive.
-/report [player] [reason] - File a player report without requiring a quoted message. The online-player form also provides Report Player.
-/bug - Submit a bug report with a title and description.
-/bugs - View your bug reports and their status.
-/feedback [message] - Submit feedback to the developers.
-/changes - View the changelog.
+## Player commands
 
-Staff commands, subject to the account's server role:
-/accounts - Browse server accounts and moderation status.
-/warn [account] [reason], /warnings [account] - Record or review warnings.
-/ban [account] [reason], /unban [account], /bans - Manage account bans.
-/staff - List persistent staff assignments.
-/staffrole [account] [administrator|moderator|support|builder] - Developer-only role assignment.
-/unstaff [account] - Developer-only role removal.
-/reports [optional report ID] - List filed player reports or read one report.
-/adminlog [optional count] - Read recent permanent administration-log entries.
-/gc - Prune stale server communication state and run a full NVGT garbage collection.
+- `/bunkers`: Show any bunker locations on your current map.
+- `/team info`: Show your team roster, roles, and shared point pool.
+- `/team shop`: Show the team shop and prices. Full management is available from the in-game Team menu.
+- `/pm [name] [message]`: Send a private message to another player.
+- `/channel`: Open the forty-language channel selector. `/channel language` switches directly; `unfiltered` is separate from the forty languages.
+- `/group create [name], /group chat [message], /group leave, /group accept, /group invite [player]`: Group chat. Groups persist on the server, you can be in five, and joining takes an accepted invitation. Alt+Shift+Slash opens your groups, where everything else is done; Alt+Slash messages your quick-chat group.
+- `/withdraw`: Withdraw your most recent sent chat message within ten seconds. Recipients see a neutral withdrawal marker and staff receive an immediate audit copy.
+- `/block [player], /unblock [player], /blocked`: Persistently manage players whose language, map, team, group and private chat you do not want to receive.
+- `/report [player] [reason]`: File a player report without requiring a quoted message. The online-player form also provides Report Player.
+- `/bug`: Submit a bug report with a title and description.
+- `/bugs`: View your bug reports and their status.
+- `/feedback [message]`: Submit feedback to the developers.
+- `/changes`: View the changelog.
+
+## Staff commands, subject to the account's server role
+
+- `/accounts`: Browse server accounts and moderation status.
+- `/warn [account] [reason], /warnings [account]`: Record or review warnings.
+- `/ban [account] [reason], /unban [account], /bans`: Manage account bans.
+- `/staff`: List persistent staff assignments.
+- `/staffrole [account] [administrator|moderator|support|builder]`: Developer-only role assignment.
+- `/unstaff [account]`: Developer-only role removal.
+- `/reports [optional report ID]`: List filed player reports or read one report.
+- `/adminlog [optional count]`: Read recent permanent administration-log entries.
+- `/gc`: Prune stale server communication state and run a full NVGT garbage collection.
 
 Commands must be entered by their complete names. An unknown command is reported explicitly; an incomplete prefix lists every matching command instead of guessing which one you intended.
 

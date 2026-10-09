@@ -60,11 +60,73 @@ class nv_form {
 	nv_form_callback@background_callback = null;
 	nv_shortcut_manager@ shortcut;
 	nv_form_event_handler@ default_event_handler = null;
+	/* GROUPS (Breach Point). A long form is cut into named groups, the way a
+	settings dialog has frames round related settings. Controls added after
+	begin_group("Volumes") are in Volumes until the next begin_group or
+	end_group. Alt with down or right arrow jumps to the first control of the
+	next group, alt with up or left to the previous one, saying the group's name
+	and where it is among them; and tabbing from one group into another says the
+	new group's name before the control. A form with no groups is unchanged. */
+	string current_group;
+	void begin_group(const string &in name) {
+		current_group = name;
+	}
+	void end_group() {
+		current_group = "";
+	}
+	// The groups with something visible in them, in order.
+	string[] get_groups() const {
+		string[] g;
+		for (uint i = 0; i < controls.length(); i++) {
+			if (@controls[i] == null || controls[i].hidden || controls[i].group == "") continue;
+			if (g.length() == 0 || g[g.length() - 1] != controls[i].group) {
+				if (g.find(controls[i].group) < 0) g.insert_last(controls[i].group);
+			}
+		}
+		return g;
+	}
+	bool has_groups() const {
+		for (uint i = 0; i < controls.length(); i++)
+			if (@controls[i] != null && !controls[i].hidden && controls[i].group != "") return true;
+		return false;
+	}
+	bool jump_group(bool next) {
+		string[] g = get_groups();
+		if (g.length() == 0) return false;
+		nv_form_control@ cur = current_control;
+		int at = (@cur == null ? -1 : g.find(cur.group));
+		int want;
+		if (at < 0) {
+			// Not in a group: the first group after where you are, or the last before.
+			want = -1;
+			for (uint i = 0; i < controls.length(); i++) {
+				if (@controls[i] == null || controls[i].hidden || controls[i].group == "") continue;
+				bool after = (control_index < 0 || int(i) > control_index);
+				if (next && after) { want = g.find(controls[i].group); break; }
+				if (!next && !after) want = g.find(controls[i].group);
+			}
+			if (want < 0) want = (next ? 0 : int(g.length()) - 1);
+		} else
+			want = at + (next ? 1 : -1);
+		if (want < 0 || want >= int(g.length())) {
+			speak(next ? "No more groups after " + g[at] + "." : "No groups before " + g[at] + ".");
+			return true;
+		}
+		for (uint i = 0; i < controls.length(); i++) {
+			if (@controls[i] == null || controls[i].hidden || controls[i].group != g[want]) continue;
+			set_focus(int(i), true);
+			speak(g[want] + " group, " + (want + 1) + " of " + g.length(), true);
+			speak_current_control(false);
+			return true;
+		}
+		return false;
+	}
 	nv_form() {
 		reset();
 	}
 	void reset() {
 		window_title = "";
+		current_group = "";
 		active = false;
 		shell_attached = false;
 		controls.resize(0);
@@ -110,13 +172,13 @@ class nv_form {
 	nv_form_control@find_next_control(bool next = true, bool wrap = true) const {
 		if (controls.length() == 0) return null;
 		int index = control_index;
-		while (true) {
+		for (uint examined = 0; examined < controls.length(); examined++) {
 			index += (next ? 1 : -1);
 			if (index < 0 || index >= controls.length()) {
 				if (!wrap) return null;
 				index = (index >= controls.length() ? 0 : controls.length() - 1);
 			}
-			if (@controls[index] != null and !controls[index].hidden)
+			if (@controls[index] != null and !controls[index].hidden and controls[index].enabled)
 				return controls[index];
 		}
 		return null;
@@ -180,6 +242,9 @@ class nv_form {
 	}
 	void handle_touch_input() {
 		int command=touch_form_poll();
+		if(command==12){game_dashboard_toggle_tab_mode(this);return;}
+		if(command==13){game_dashboard_touch_open();return;}
+		if(command==14){nv_form_keyboard_area@ keyboard=dashboard_keyboard(this);if(@keyboard!=null)focus_control(keyboard);return;}
 		if(command==0)return;
 		nv_form@ scope=this;
 		nv_form_control@ ctrl=current_control;
@@ -196,6 +261,7 @@ class nv_form {
 		nv_form_switch@ sw=cast<nv_form_switch@>(ctrl);if(@sw!=null and (command==3 or command==8 or command==9)){if(command==8)sw.set_pos(sw.index-1);else sw.next;nv_form_play_feedback();if(@sw.focused_item!=null)speak(sw.focused_item.text);return;}
 		nv_form_treeview@ tree=cast<nv_form_treeview@>(ctrl);if(@tree!=null and tree.visible_nodes.length()>0){if(command==1 and tree.pos>0)tree.pos--;else if(command==2 and tree.pos<int(tree.visible_nodes.length())-1)tree.pos++;else if(command==6)tree.pos=0;else if(command==7)tree.pos=int(tree.visible_nodes.length())-1;else @tree=null;if(@tree!=null){tree.speak_current_node();return;}}
 		nv_form_input@ input=cast<nv_form_input@>(ctrl);if(@input!=null){if(command==8){input.move_left();return;}if(command==9){input.move_right();return;}if(command==1 and input.multiline){input.previous_line();return;}if(command==2 and input.multiline){input.next_line();return;}}
+		nv_form_markdown@ document=cast<nv_form_markdown@>(ctrl);if(@document!=null){if(command==1 or command==2){document.go_line(document.line+(command==2?1:-1));return;}if(command==6 or command==7){document.go_line(command==6?0:int(document.lines.length())-1);return;}if(command==3){document.follow_link();return;}}
 		if(command==1 or command==2){scope.navigate_form(command==2);return;}
 		if(command==6 or command==7){if(scope.controls.length()==0)return;int target=command==6?0:int(scope.controls.length())-1;scope.focus_control(scope.controls[target]);return;}
 		if(command==3){if(@ctrl!=null and (ctrl.type==nv_form_ct_button or ctrl.type==nv_form_ct_link or ctrl.type==nv_form_ct_checkbox or ctrl.type==nv_form_ct_switch))ctrl.fire();else if(@scope.primary_control!=null)scope.primary_control.fire();else if(@primary_control!=null)primary_control.fire();return;}
@@ -205,8 +271,13 @@ class nv_form {
 	void handle_input() {
 		nv_form_control@ ctrl = current_control;
 		nv_form_control@ pctrl = primary_control;
+		// Modifier navigation only belongs to forms, never to game control.
+		if (@ctrl != null && ctrl.type != nv_form_ct_keyboard_area && has_groups() && (key_down(KEY_LMENU) || key_down(KEY_RMENU)) && !shift_is_down() && !(key_down(KEY_LCONTROL) || key_down(KEY_RCONTROL))) {
+			if (key_pressed(KEY_DOWN) || key_pressed(KEY_RIGHT)) { jump_group(true); return; }
+			if (key_pressed(KEY_UP) || key_pressed(KEY_LEFT)) { jump_group(false); return; }
+		}
 		bool handled = @ctrl != null ? ctrl.handle_input() : false;
-		if (@pctrl != null && pctrl.type != nv_form_ct_keyboard_area && ((@ctrl != null && ctrl.type != nv_form_ct_keyboard_area && !handled) || @ctrl == null)) {
+		if (@pctrl != null && pctrl.enabled && !pctrl.hidden && pctrl.type != nv_form_ct_keyboard_area && ((@ctrl != null && ctrl.type != nv_form_ct_keyboard_area && !handled) || @ctrl == null)) {
 			if (key_pressed(KEY_RETURN) || key_pressed(KEY_NUMPAD_ENTER))
 				pctrl.fire();
 		}
@@ -224,10 +295,11 @@ class nv_form {
 			if (key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT)) next_control = false;
 			navigate_form(next_control);
 		}
+		if (@current_control != null && current_control.type == nv_form_ct_keyboard_area) return;
 		bool found_shortcut = false;
 		int sposition = clamp(control_index + 1, 0, controls.length() - 1);
 		for (uint i = sposition; i < controls.length(); i++) {
-			if (@controls[i] == null || @controls[i].shortcut == null) continue;
+			if (@controls[i] == null || controls[i].hidden || !controls[i].enabled || @controls[i].shortcut == null) continue;
 			if (controls[i].check_shortcut()) {
 				found_shortcut = true;
 				controls[i].shortcut_focus();
@@ -237,7 +309,7 @@ class nv_form {
 		}
 		if (!found_shortcut) {
 			foreach (nv_form_control@ l: controls) {
-				if (@l == null || @l.shortcut == null) continue;
+				if (@l == null || l.hidden || !l.enabled || @l.shortcut == null) continue;
 				if (l.check_shortcut()) {
 					l.shortcut_focus();
 					shortcut.consume();
@@ -355,6 +427,12 @@ class nv_form {
 		if (added) return inp;
 		return null;
 	}
+	nv_form_markdown@add_markdown(const string &in caption, const string &in id = "", const string &in text = "", int position = -1) {
+		nv_form_markdown@ doc = nv_form_markdown(this, caption, id);
+		doc.set_markdown(text);
+		if (add_control(doc, position = position)) return doc;
+		return null;
+	}
 	nv_form_spin@add_spin(const string &in caption, const string &in id = "", const string &in default_text = "", double min = 0, double max = 100, bool read_only = false, double step = 1, double page = 0, int position = -1, nv_form_control_callback@callback = null) {
 		nv_form_spin@inp = nv_form_spin(this, caption, id, min, max, step, page);
 		inp.default_text = default_text;
@@ -421,6 +499,7 @@ class nv_form {
 			return false;
 		}
 		if (@callback != null) @ctrl.callback = callback;
+		if (ctrl.group == "") ctrl.group = current_group;
 		if (position < 0) controls.insert_last(ctrl);
 		else controls.insert_at(position, ctrl);
 		if (primary) @primary_control = @ctrl;
@@ -443,6 +522,7 @@ class nv_form {
 	private bool set_focus(int control_index, bool quiet = false, bool interrupt_previous_speech = true) {
 		if (control_index<0 || control_index >= controls.length()) return false;
 		nv_form_control@ current = current_control;
+		string was_group = (@current != null ? current.group : "");
 		if (@current != null)
 			current.event.fire(nv_form_event(current, nv_form_event_focus_lost));
 		this.control_index = control_index;
@@ -452,6 +532,11 @@ class nv_form {
 		current_control.event.fire(nv_form_event(this.current_control, nv_form_event_focus_gained));
 		current_control.on_focus_gained_immediate();
 		bool result;
+		string now_group = current_control.group;
+		if (!quiet && now_group != "" && now_group != was_group) {
+			speak(now_group + " group", interrupt_previous_speech);
+			interrupt_previous_speech = false;
+		}
 		if (!quiet) result = speak_current_control(interrupt_previous_speech);
 		else result = true;
 		current_control.on_focus_gained();

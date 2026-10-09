@@ -95,6 +95,11 @@ int arena_id=0;
 string arena_role="none";
 string arena_return_map="";
 int arena_return_x=0,arena_return_y=0,arena_return_z=0;
+int arena_return_health=1000;
+dictionary arena_return_attachments;
+string[] arena_return_suppressors;
+string[] arena_return_armour;
+int[] arena_return_durability;
 string zone;
 string name;
 int peer_id;
@@ -453,7 +458,7 @@ if(players[i].health<=0 and players[i].death==false)
 // longest player-name prefix. A substring search used to hand "Al" the kills
 // of "Alice", and whoever happened to be listed last won.
 int p=combat_attacker_index(players[i].hitby);
-if(p>-1 and p!=int(i))
+if(p>-1 and p!=int(i) and players[i].arena_return_map=="")
 {
 string grief_key=players[p].name+":"+players[i].name;
 double gc=0;

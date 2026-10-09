@@ -90,6 +90,9 @@ bool can_attach_to(string attachment_id, string weapon_name)
 {
 int idx=find_attachment_def(attachment_id);
 if(idx<0) return false;
+int gi=find_gun(weapon_name);
+if(attachment_defs[idx].slot=="magazine" and (gi<0 or !gun_ammos[gi].is_magazine or gun_ammos[gi].manual_action))return false;
+if(attachment_id=="shell_carrier" and (gi<0 or gun_ammos[gi].is_magazine))return false;
 for(uint i=0; i<attachment_defs[idx].compatible_weapons.length(); i++)
 {
 if(attachment_defs[idx].compatible_weapons[i]==weapon_name) return true;

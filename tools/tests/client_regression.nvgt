@@ -11,7 +11,8 @@ run_acoustic_regression();return;
 #endif
 client_test_directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-client-regression-"+random(100000,999999999);directory_create(client_test_directory);client_checkpoint("building inventory");
 inv.delete_all();inventory_order.resize(0);partial_items.resize(0);invalidate_inventory_keys();inv_category_index=0;
-for(int i=0;i<10000;i++){string id="test_item"+i;content_register(id,"Test item "+i,"Utility","Regression fixture",1);give(id,1);}
+// Construct the stress fixture directly; mutation correctness is tested below.
+for(int i=0;i<10000;i++){string id="test_item"+i;content_register(id,"Test item "+i,"Utility","Regression fixture",1);inv.set(id,1);inventory_order.insert_last(id);}invalidate_inventory_keys();
 client_check(get_filtered_keys().length()==10000,"ten-thousand-item inventory index");
 client_checkpoint("selection timing");
 invpos=5000;string chosen=get_selected_item();timer performance;
@@ -28,8 +29,7 @@ partial_items.resize(0);client_check(get_filtered_keys().length()==0,"partial-co
 inv.delete_all();invalidate_inventory_keys();inv_category_index=0;client_check(get_filtered_keys().length()==0,"session reset clears selection cache");
 client_check(!acoustic_local_world_source("menumove.ogg") and !acoustic_local_world_source("chat.ogg") and acoustic_local_world_source("grass3step1.ogg"),"dry interface versus physical local movement");
 register_gun("test_weapon","test","magazine",10,"test_standard","magazines",true,2,1000);
-string[] supported={"test_weapon"};register_ammunition_load("test_load","Test alternative","test_alt","Test","",supported,2);
-client_check(is_ammo_reserve_item("test_standard") and is_ammo_reserve_item("test_alt"),"base and alternative ammunition share classification");
+client_check(is_ammo_reserve_item("test_standard") and !is_ammo_reserve_item("unregistered_ammo"),"registered calibre reserves are classified without retired alternate loads");
 client_checkpoint("awareness and screens");
 client_check(clock_direction(0)=="straight ahead" and clock_direction(90)=="to your right" and clock_direction(180)=="behind you" and clock_direction(270)=="to your left" and clock_direction(60)=="at 2 o'clock" and clock_direction(-30)=="at 11 o'clock" and clock_direction(359)=="straight ahead","clock-face bearings");
 me.x=100;me.y=100;me.z=10;facing=0;
@@ -38,6 +38,28 @@ client_check(describe_offset(110,100,16)=="10 tiles to your right, 6 above","off
 client_check(describe_offset(100,100,7)=="straight down, 3 below","offset directly below");
 changelog_release@[] rel=parse_changelog("New in 2.0, build 9 (x)\r\nFirst.\n\nSecond.\nNew in 1.0, build 1 (y)\nOld.");
 client_check(rel.length()==2 and rel[0].heading=="2.0, build 9 (x)" and rel[0].entries.length()==2 and rel[1].entries[0]=="Old.","changelog splits by release");
+changelog_release@[] markdown_releases=parse_changelog("# Infinite Warfare release notes\n\n## New in 0.5.9.2, build 102 (2026-10-08)\n\n- Markdown documents.\n\n## Hotfix for 0.5.7, build 98 (x)\n\n- Fix.");
+client_check(markdown_releases.length()==2 and markdown_releases[0].entries[0]=="Markdown documents." and changelog_release_build(markdown_releases[0])==102 and markdown_releases[1].heading.find("hotfix")>=0,"Markdown release headings and bullet entries retain correct grouping");
+{
+nv_form md_form;md_form.create_window("Markdown regression",false,false,true);md_form.begin_group("Documentation");
+nv_form_markdown@ document=md_form.add_markdown("Document","document","# Heading\n\nParagraph with [a link](https://example.test).\n\n- First\n- Second\n\n| Name | Value |\n| --- | --- |\n| Test | 42 |");md_form.end_group();
+nv_form_button@ unavailable=md_form.add_button("Unavailable","disabled");unavailable.enabled=false;nv_form_button@ back=md_form.add_button("Back","back");
+bool heading=false,item=false,row=false,link=false;for(uint i=0;i<document.lines.length();i++){heading=heading or document.lines[i].kind==NV_MD_HEADING;item=item or document.lines[i].kind==NV_MD_ITEM;row=row or document.lines[i].kind==NV_MD_ROW;link=link or document.lines[i].links.length()>0;}
+client_check(heading and item and row and link,"Markdown parses headings, lists, tables and links");
+md_form.focus_control(document,true);client_check(!document.handle_input(),"idle document input leaves form navigation available");md_form.navigate_form(true,true);client_check(@md_form.current_control==@back,"Tab navigation leaves documents and skips unavailable actions");
+back.enabled=false;document.enabled=false;client_check(md_form.find_next_control() is null,"all-disabled forms terminate navigation safely");
+client_check(document.group=="Documentation" and md_form.get_groups().length()==1,"ported form groups track document ownership");
+}
+{
+inv.delete_all();inventory_order.resize(0);give("test_item0",3);weapons={"empty","test_weapon"};w=1;partial_items.insert_last(partial_ammo_item("test_standard",3,10));weapon_attachments.set("test_weapon","suppressor");int test_gun=find_gun("test_weapon");gun_ammos[test_gun].mag_loaded=4;gun_ammos[test_gun].chamber_ready=true;gun_ammos[test_gun].action_open=true;
+save_arena_inventory();issue_arena_loadout("none");client_check(weapons.length()==1 and weapons[0]=="empty" and partial_items.length()==0 and weapon_attachments.get_size()==0,"spectator loadout has a safe empty selection and no inherited ammunition or attachments");
+restore_arena_inventory();client_check(get_item_count("test_item0")==3 and weapons[w]=="test_weapon" and partial_items.length()==1 and weapon_has_attachment("test_weapon","suppressor") and gun_ammos[test_gun].mag_loaded==4 and gun_ammos[test_gun].action_open,"arena return restores inventory, partial feeds, attachments and action state");
+gun_ammos[test_gun].action_open=false;
+client_check(inventory_use_available("__partial__0") and !inventory_use_available("test_standard"),"partial magazine actions are offered but full reserves are loaded through weapon controls");
+inv_menu_use("__partial__0");client_check(gun_ammos[test_gun].reloading and gun_ammos[test_gun].reload_from_partial==0,"using a partial magazine starts the actual reload rather than speaking instructions");gun_ammos[test_gun].reloading=false;
+string[] compatible={"test_weapon"};register_attachment("test_extension","Test extension","extended","magazine",true,1.0,1.0,compatible);register_attachment("shell_carrier","Test carrier","carrier","carrier",true,1.0,1.0,compatible);
+client_check(can_attach_to("test_extension","test_weapon") and !can_attach_to("shell_carrier","test_weapon"),"attachment feed compatibility rejects shell carriers on magazine weapons");gun_ammos[test_gun].manual_action=true;client_check(!can_attach_to("test_extension","test_weapon"),"magazine extensions reject manually loaded weapons");gun_ammos[test_gun].manual_action=false;
+}
 client_check(html_to_text("<style>p{x:1}</style><h1>Title</h1><p>A &amp; B</p>")=="Title\n\nA & B","manual text skips styles and decodes entities");
 team_state_members="Ana (owner), Bo Ren (manager), Cy (member)";string[] tn,tr;team_member_list(tn,tr);
 client_check(tn.length()==3 and tn[1]=="Bo Ren" and tr[1]=="manager" and tr[0]=="owner","team members parse with spaces in names");
@@ -61,9 +83,9 @@ string[] med=item_stats_lines("trauma_repair_serum_bottle"),boom=item_stats_line
 string all=join(med," / ")+" | "+join(boom," / ")+" | "+join(plate," / ")+" | "+join(tape," / ")+" | "+join(pill," / ");
 client_test_results+="  sample: "+all+"\n";
 client_check(join(med," ").find("heals 210 at once and 90 more over 8 seconds")>=0,"medication stats come from the item file");
-client_check(join(boom," ").find("Launched. Blast radius 20 tiles, 720 damage")>=0,"explosive stats come from the item file");
-client_check(item_is_thrown_explosive("frag_grenade") and !item_is_thrown_explosive("carrier_missile") and explosive_fuse_ms("frag_grenade")==2200,"thrown explosives and fuses come from the item files");
-client_check(item_is_pill_bottle("regenex_tablet_bottle") and item_is_loose_pill("loose_regenex_tablet") and medication_pill_dose("pain_blocker_capsule_bottle",1)==2,"medication forms and doses come from the item files");
+client_check(join(boom," ").find("Launched. Blast radius 8 tiles, 800 damage")>=0,"explosive stats come from the item file");
+client_check(item_is_thrown_explosive("frag_grenade") and !item_is_thrown_explosive("carrier_missile") and explosive_fuse_ms("frag_grenade")==4500,"thrown explosives and fuses come from the item files");
+client_check(item_is_pill_bottle("regenex_tablet_bottle") and item_is_loose_pill("loose_regenex_tablet") and medication_recommended("pain_blocker_capsule_bottle")==2,"medication forms and doses come from the item files");
 }
 client_check(gesture_signature_words("top:2:double_hold")=="Two finger double tap and hold" and gesture_signature_words("middle:1:swipe:left")=="One finger swipe left","gesture reference wording");
 client_check(gesture_signature_rank("top:1:tap")<gesture_signature_rank("top:1:hold") and gesture_signature_rank("top:1:hold")<gesture_signature_rank("top:1:swipe:up") and gesture_signature_rank("top:1:swipe:up")<gesture_signature_rank("top:2:tap"),"gesture reference ordering");
@@ -75,7 +97,7 @@ uint old_key_names=_kb_key_names.length(),old_key_codes=_kb_key_codes.length(),o
 uint old_action_names=_kb_act_names.length(),old_action_labels=_kb_act_labels.length(),old_action_defaults=_kb_act_defaults.length(),old_action_binds=_kb_act_binds.length(),old_action_modifiers=_kb_act_modifiers.length();
 _kb_reg_key("print_screen",KEY_PRINTSCREEN,"Print Screen");_kb_reg_key("applications",KEY_APPS,"Applications");_kb_reg_key("numpad_enter",KEY_NUMPAD_ENTER,"Numpad Enter");_kb_reg_key("b",KEY_B,"B");_kb_reg_key("f1",KEY_F1,"F1");
 _kb_reg_action("buffer_manager","Open buffer manager",KEY_B,KEYMOD_ALT|KEYMOD_SHIFT);_kb_reg_action("key_practice","Open key practice",KEY_F1,KEYMOD_SHIFT);
-client_check(kb_practice_description(KEY_A,KEYMOD_SHIFT).find("fire mode")>=0 and kb_practice_description(KEY_R,KEYMOD_ALT).find("ammunition type")>=0,"practice describes modifier-dependent weapon controls");
+client_check(kb_practice_description(KEY_A,KEYMOD_SHIFT).find("fire mode")>=0,"practice describes modifier-dependent weapon controls");
 client_check(kb_key_label(KEY_PRINTSCREEN)=="Print Screen" and kb_key_label(KEY_APPS)=="Applications" and kb_key_label(KEY_NUMPAD_ENTER)=="Numpad Enter","practice names formerly missing keys");
 client_check(kb_practice_description(kb("buffer_manager"),KEYMOD_ALT|KEYMOD_SHIFT).find("Open buffer manager")>=0,"practice follows the active rebindable chord");
 int[] practice_keys=kb_practice_keys();client_check(practice_keys.find(KEY_PRINTSCREEN)>=0 and practice_keys.find(KEY_APPS)>=0 and practice_keys.find(kb("key_practice"))>=0,"practice scans named and currently bound keys");

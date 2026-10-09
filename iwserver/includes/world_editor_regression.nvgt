@@ -20,16 +20,23 @@ int idx=int(players.length())-1;
 // Arena lifecycle. This exercises the same authoritative transfer routine
 // used by the Start button and confirms that its return snapshot survives.
 player arena_guest(55,55,0,"freeforall","arena_guest",2);players.insert_last(arena_guest);int guest_idx=int(players.length())-1;
+players[idx].health=700;players[idx].armor_torso="plate_carrier";players[idx].armor_torso_durability=600;players[idx].weapon_attachment_state.set("ak47","suppressor");players[idx].suppressed_weapons.insert_last("ak47");
 arena_instance arena_test(9000,players[idx].name,"open");arena_test.members.insert_last(arena_member(players[guest_idx].name,"combatant"));arenas.insert_last(arena_test);players[idx].arena_id=9000;players[idx].arena_role="combatant";players[guest_idx].arena_id=9000;players[guest_idx].arena_role="combatant";
 arena_start(arenas[arenas.length()-1]);
-wer_check(arenas[arenas.length()-1].state=="active" and players[idx].map=="arena_open" and players[guest_idx].map=="arena_open","arena start transfers every combatant to its instanced map");
+wer_check(arenas[arenas.length()-1].state=="active" and players[idx].map=="arena_open_instance_9000" and players[guest_idx].map=="arena_open_instance_9000","arena start transfers every combatant to its instanced map");
+wer_check(get_map_index("arena_open_instance_9000")>=0 and maps[get_map_index("arena_open_instance_9000")].rawdata.find("mapname:arena_open_instance_9000")>=0,"arena instance has loadable geometry and the correct client map identity");
+wer_check(players[idx].health==1000 and players[idx].armor_torso=="" and players[idx].weapon_attachment_state.get_size()==0 and players[idx].suppressed_weapons.length()==0,"arena loadout clears ordinary health, armour and attachment advantages");
+arena_instance concurrent(9002,"absent_host","open");arenas.insert_last(concurrent);arena_start(arenas[arenas.length()-1]);
+wer_check(get_map_index("arena_open_instance_9002")>=0 and players[idx].map!="arena_open_instance_9002","simultaneous arenas of the same type occupy separate maps");
+arena_close(arena_index(9002));wer_check(get_map_index("arena_open_instance_9002")<0 and get_map_index("arena_open_instance_9000")>=0,"closing one instance does not remove another match's map");
 wer_check(players[idx].arena_return_map=="freeforall" and players[guest_idx].arena_return_map=="freeforall","arena start remembers both return locations");
 wer_check(arena_overview(players[idx]).find("arena_overview 9000~active~combatant~wer_tester")==0,"arena overview reports live role, state and host");
 arena_return_player(players[idx]);arena_return_player(players[guest_idx]);
 wer_check(players[idx].map=="freeforall" and int(players[idx].x)==50 and players[guest_idx].map=="freeforall" and int(players[guest_idx].x)==55,"arena exit restores exact maps and coordinates");
-arenas.remove_last();players.remove_at(guest_idx);
+wer_check(players[idx].health==700 and players[idx].armor_torso=="plate_carrier" and players[idx].armor_torso_durability==600 and server_weapon_has_attachment(players[idx],"ak47","suppressor") and players[idx].suppressed_weapons.length()==1,"arena exit restores original health, armour durability and suppressor state");
+arena_close(arena_index(9000));wer_check(get_map_index("arena_open_instance_9000")<0,"arena close releases its temporary map");players.remove_at(guest_idx);
 arena_instance solo(9001,players[idx].name,"melee");arenas.insert_last(solo);players[idx].arena_id=9001;players[idx].arena_role="combatant";arena_start(arenas[arenas.length()-1]);
-wer_check(arenas[arenas.length()-1].state=="active" and arenas[arenas.length()-1].practice and players[idx].map=="arena_melee","a lone combatant can start an arena to practise");
+wer_check(arenas[arenas.length()-1].state=="active" and arenas[arenas.length()-1].practice and players[idx].map=="arena_melee_instance_9001","a lone combatant can start an arena to practise");
 wer_check(arena_on_death(players[idx]) and arenas[arenas.length()-1].state=="active" and players[idx].arena_role=="combatant" and !players[idx].death,"a practice death respawns the combatant instead of ending the arena");
 arena_player_gone(players[idx]);wer_check(arena_index(9001)<0 and players[idx].arena_id==0,"the host leaving closes their arena");arena_return_player(players[idx]);
 // A new map.

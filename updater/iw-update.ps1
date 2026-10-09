@@ -111,7 +111,7 @@ function File-Matches([string]$path, [string]$sha) {
 function Map-Path([string]$repoPath, [string]$layout) {
     if ($Protected -contains $repoPath) { return $null }
     if ($layout -eq "source") { return $repoPath }
-    $rootFiles = @("Infinite Warfare.exe", "changes.txt", "readme.html", "README.md", "developers.txt", "rules.txt", "version.txt")
+    $rootFiles = @("Infinite Warfare.exe", "changes.txt", "readme.html", "player_manual.md", "README.md", "developers.txt", "rules.txt", "version.txt")
     if ($rootFiles -contains $repoPath) { return $repoPath }
     if ($repoPath.StartsWith("lib/") -or $repoPath.StartsWith("updater/")) { return $repoPath }
     foreach ($folder in @("weapons", "items", "editor")) {

@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import zipfile
@@ -68,7 +69,7 @@ for name in ("??", "-AsHashtable", "ForEach-Object -Parallel", "&&", "||"):
 # 5.1 throws if User-Agent or Accept is passed in -Headers.
 check("-Headers" not in script_code, "iw-update.ps1 passes -Headers; Windows PowerShell 5.1 refuses User-Agent there, use -UserAgent")
 if git("rev-parse", "--is-shallow-repository").strip() == b"false":
-    result = subprocess.run(["python3", str(ROOT / "tools" / "update_retired_files.py"), "--check"], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(ROOT / "tools" / "update_retired_files.py"), "--check"], capture_output=True, text=True)
     check(result.returncode == 0, result.stdout + result.stderr)
 
 pwsh = os.environ.get("IW_PWSH") or shutil.which("pwsh")
@@ -79,8 +80,20 @@ def blob_sha(data: bytes) -> str:
 
 
 # The "remote": this working tree, tracked files plus new ones not yet committed.
+def canonical_bytes(data: bytes) -> bytes:
+    # A Windows checkout can contain CRLF while GitHub serves LF. Match the
+    # updater's text-equivalence rule without normalizing binary payloads.
+    if b"\0" in data:
+        return data
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data
+    return data.replace(b"\r\n", b"\n")
+
+
 names = [n for n in git("ls-files", "-z", "--cached", "--others", "--exclude-standard").decode().split("\0") if n]
-REMOTE = {n: (ROOT / n).read_bytes() for n in names if (ROOT / n).is_file()}
+REMOTE = {n: canonical_bytes((ROOT / n).read_bytes()) for n in names if (ROOT / n).is_file()}
 SHA = "f" * 40
 failing: set[str] = set()
 
@@ -120,7 +133,7 @@ class FakeGitHub(http.server.BaseHTTPRequestHandler):
 
 
 def run_update(install: Path, threshold: int = 150) -> dict:
-    subprocess.run([pwsh, "-NoProfile", "-NonInteractive", "-File", str(SCRIPT), "-Root", str(install),
+    subprocess.run([pwsh, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT), "-Root", str(install),
                     "-Mode", "source", "-ApiBase", f"{BASE}/api", "-RawBase", f"{BASE}/raw",
                     "-ArchiveBase", f"{BASE}/archive", "-ArchiveThreshold", str(threshold), "-WaitSeconds", "2"],
                    capture_output=True, text=True, timeout=900)
@@ -153,7 +166,7 @@ if pwsh:
         for name, data in REMOTE.items():
             if name in PROTECTED:
                 continue
-            check(have.get(name) == data, f"after updating from 0.5.4, {name} does not match")
+            check(name in have and canonical_bytes(have[name]) == data, f"after updating from 0.5.4, {name} does not match")
         retired = (ROOT / "updater" / "retired_files.txt").read_text(encoding="utf-8").split()
         leftovers = sorted(n for n in have if n not in REMOTE and n not in STATE and n in old_files)
         check(not leftovers, f"files 0.5.4 shipped and the game no longer does were left behind: {leftovers[:5]}")

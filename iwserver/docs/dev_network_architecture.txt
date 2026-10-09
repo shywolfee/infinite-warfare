@@ -1,15 +1,17 @@
-Network Architecture (Developer Reference)
+# Network Architecture (Developer Reference)
 
 Infinite Warfare uses a client-server model with ENet networking.
 
-Channels:
+## Channels
+
 Channel 0: General game messages, lobby communication, and most server responses.
 Channel 1: Slash commands from players and spawn/movement data.
 Channel 2: Chat and notification messages displayed to the player.
 Channel 4: Periodic round-trip time updates.
 Channel 5: Positional audio and sound playback.
 
-Connection flow:
+## Connection flow
+
 1. Client connects and sends connect_me with username, version, and computer ID.
 2. Server validates version, checks bans, and sends loggedin123.
 3. Client enters lobby. Sends enter_lobby, then enter_mode when selecting a game mode.

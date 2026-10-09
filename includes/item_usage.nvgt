@@ -25,7 +25,7 @@ if(accepts){string display=get_weapon_display_name(gun);if(compatible.find(displ
 }
 string detail=title+" is ammunition and cannot be used directly. ";
 detail+=compatible.length()>0?"Weapons you own that accept it: "+content_join(compatible)+". ":"You do not currently carry a weapon that accepts it. ";
-detail+="Draw a compatible weapon, select its ammunition with Alt R, then reload. Manually fed weapons require their open, insert, close and cycle controls.";
+detail+="Draw a compatible weapon and reload. Manually fed weapons require their open, insert, close and cycle controls. A compatible partial magazine or cell can be loaded from its inventory action sheet.";
 speak(detail);
 }
 

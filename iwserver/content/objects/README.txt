@@ -1,45 +1,64 @@
-Dynamic object types
+# Dynamic object types
 
-Each file here describes one kind of object a map can place (see
-includes/dynamic_objects_core.nvgt). The file name, without .object, is the
-type's id. Lines are key=value; unknown keys are ignored.
+Each `.object` file describes one kind of object a map can place. Its filename
+without the extension is its type ID. Lines are `key=value`; unknown keys are
+ignored. Parsing and geometry live in `includes/dynamic_objects_core.nvgt`.
 
-Description
-  name, description, category
+## Description
 
-Shape (tiles; about a metre each). Without part= lines the object is one box
-of length (east-west) by width (north-south) by height, standing on its
+- `name`: the spoken object name.
+- `description`: its player-facing description.
+- `category`: the content category.
+
+## Shape
+
+Dimensions use tiles, about a metre each. Without `part=` lines the object is
+one box of length (east-west), width (north-south) and height, standing on its
 position.
-  length, width, height, material (the tile it presents: wallmetal,
-  wallwood, tree, ...), solid (true/false)
-  part=x1,x2,y1,y2,z1,z2,material,solid   relative to the centre, repeatable
 
-Damage
-  health        0 means it cannot be destroyed
-  bullet_factor, blast_factor   how much of a hit it takes
-  debris        type it turns into when destroyed (empty: it disappears)
-  respawn_ms    how long until it is put back (0: never)
-  burn_ms       burns this long after being wrecked, then explodes
-  explode_damage, explode_radius, explode_fragments, explode_payload,
-  explode_cloud_ms, explode_cloud_radius, explode_sound, explode_distant
-                an explosion when it is destroyed (or after burning)
-  loot_on_destroy=true   drops its stock or loot when destroyed
+- `length`, `width`, `height`: box dimensions.
+- `material`: the tile it presents, such as `wallmetal`, `wallwood` or `tree`.
+- `solid`: `true` or `false`.
+- `part=x1,x2,y1,y2,z1,z2,material,solid`: a component relative to the centre;
+  repeat this field for several components.
 
-Sounds, from the sound pack's executioners_rage/<sound>/ folder
-  sound, impact_sounds (how many impactN files), contact_sound, destroy_sound
+## Damage and destruction
 
-Use (interaction)
-  atm       pay credit chips into your account
-  vend      buy offer= items (offer=item:price:product sound)
-  store     open the online store
-  bed       heal (heal, heal_ceiling)
-  dispense  hand out one item= from stock
-  search    find one of loot= from stock
-  report    friendly and hostile counts on the map
-  team      the team directory
-  light, toggle   switch on and off
-  hydrate   restore stamina=
-  charge    charge a HyperComp at charge_rate percent a second
-  door      open and close
-  flush, info   a description
-  stock, restock_ms, cooldown_ms   how often, and how much
+- `health`: zero means the object cannot be destroyed.
+- `bullet_factor`, `blast_factor`: how much of a hit it takes.
+- `debris`: the type it becomes when destroyed; empty means it disappears.
+- `respawn_ms`: how long until it is replaced; zero means never.
+- `burn_ms`: how long it burns after being wrecked, before exploding.
+- `explode_damage`, `explode_radius`, `explode_fragments`, `explode_payload`,
+  `explode_cloud_ms`, `explode_cloud_radius`, `explode_sound`,
+  `explode_distant`: the explosion when destroyed or after burning.
+- `loot_on_destroy=true`: drop its stock or loot when destroyed.
+
+## Sounds
+
+Sounds come from the sound pack's `executioners_rage/<sound>/` folder.
+
+- `sound`: the sound folder.
+- `impact_sounds`: the number of `impactN` files.
+- `contact_sound`, `destroy_sound`: contact and destruction sounds.
+
+## Use and interaction
+
+Set `use` to the interaction the object supports:
+
+- `atm`: pay credit chips into the player's account.
+- `vend`: buy `offer=` items; each offer is `item:price:product sound`.
+- `store`: open the online store.
+- `bed`: heal using `heal` and `heal_ceiling`.
+- `dispense`: hand out one `item=` from stock.
+- `search`: find one `loot=` item from stock.
+- `report`: report friendly and hostile counts on the map.
+- `team`: open the team directory.
+- `light`, `toggle`: switch on and off.
+- `hydrate`: restore `stamina=`.
+- `charge`: charge a HyperComp at `charge_rate` percent a second.
+- `door`: open and close.
+- `flush`, `info`: describe the interaction.
+
+`stock`, `restock_ms` and `cooldown_ms` define how much is available and how
+often the interaction can be used.

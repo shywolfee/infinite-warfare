@@ -1,7 +1,10 @@
 int client_arena_id=0;string client_arena_role="none",client_arena_state="none";bool client_arena_practice=false;
 string arena_saved_inventory="";
 string[] arena_saved_order,arena_saved_quickbar,arena_saved_weapons;
-int[] arena_saved_rounds;bool[] arena_saved_chambered;
+int[] arena_saved_rounds;bool[] arena_saved_chambered,arena_saved_action_open;
+partial_ammo_item@[] arena_saved_partial_items;
+dictionary arena_saved_attachments;
+string arena_loaded_map="";
 int arena_saved_weapon_index=0;
 bool arena_inventory_saved=false;
 string arena_client_map(string type){if(type=="sidearms")return "arena_sidearms";if(type=="melee")return "arena_melee";if(type=="explosives")return "arena_explosives";return "arena_open";}
@@ -12,8 +15,9 @@ void save_arena_inventory()
 {
 if(arena_inventory_saved)return;
 arena_saved_inventory=serialize(inv);arena_saved_order=inventory_order;arena_saved_quickbar=quickbar;arena_saved_weapons=weapons;arena_saved_weapon_index=w;
-arena_saved_rounds.resize(gun_ammos.length());arena_saved_chambered.resize(gun_ammos.length());
-for(uint i=0;i<gun_ammos.length();i++){arena_saved_rounds[i]=gun_ammos[i].mag_loaded;arena_saved_chambered[i]=gun_ammos[i].chamber_ready;}
+arena_saved_partial_items=partial_items;arena_saved_attachments=weapon_attachments;
+arena_saved_rounds.resize(gun_ammos.length());arena_saved_chambered.resize(gun_ammos.length());arena_saved_action_open.resize(gun_ammos.length());
+for(uint i=0;i<gun_ammos.length();i++){arena_saved_rounds[i]=gun_ammos[i].mag_loaded;arena_saved_chambered[i]=gun_ammos[i].chamber_ready;arena_saved_action_open[i]=gun_ammos[i].action_open;}
 arena_inventory_saved=true;
 }
 void restore_arena_inventory()
@@ -21,8 +25,8 @@ void restore_arena_inventory()
 if(!arena_inventory_saved)return;
 inv=deserialize(arena_saved_inventory);
 inventory_order=arena_saved_order;quickbar=arena_saved_quickbar;weapons=arena_saved_weapons;
-w=arena_saved_weapon_index;
-for(uint i=0;i<gun_ammos.length() and i<arena_saved_rounds.length();i++){gun_ammos[i].reloading=false;gun_ammos[i].action_open=false;gun_ammos[i].mag_loaded=arena_saved_rounds[i];gun_ammos[i].chamber_ready=arena_saved_chambered[i];}
+w=arena_saved_weapon_index;partial_items=arena_saved_partial_items;arena_saved_partial_items.resize(0);weapon_attachments=arena_saved_attachments;arena_saved_attachments.delete_all();
+for(uint i=0;i<gun_ammos.length() and i<arena_saved_rounds.length();i++){gun_ammos[i].reloading=false;gun_ammos[i].action_open=arena_saved_action_open[i];synchronize_weapon_feed(gun_ammos[i].weapon_name);gun_ammos[i].mag_loaded=arena_saved_rounds[i];gun_ammos[i].chamber_ready=arena_saved_chambered[i];}
 arena_inventory_saved=false;
 invalidate_inventory_keys();
 }
@@ -30,7 +34,7 @@ invalidate_inventory_keys();
 // ready. "none" (a spectator) leaves the inventory empty.
 void issue_arena_loadout(string loadout)
 {
-inv.delete_all();inventory_order.resize(0);for(uint i=0;i<quickbar.length();i++)quickbar[i]="";weapons.resize(0);w=0;invalidate_inventory_keys();
+inv.delete_all();inventory_order.resize(0);for(uint i=0;i<quickbar.length();i++)quickbar[i]="";weapons.resize(0);weapons.insert_last("empty");w=0;partial_items.resize(0);weapon_attachments.delete_all();for(uint i=0;i<gun_ammos.length();i++){gun_ammos[i].reloading=false;gun_ammos[i].action_open=false;gun_ammos[i].mag_loaded=0;gun_ammos[i].chamber_ready=false;synchronize_weapon_feed(gun_ammos[i].weapon_name);}invalidate_inventory_keys();
 if(loadout=="none")return;
 string[] items=string_split(loadout,",",true);
 for(uint i=0;i<items.length();i++)give(items[i],1);
@@ -44,19 +48,20 @@ if(f[0]=="arena_transfer" and f.length()>4){we_map_transfer_active=true;me.x=str
 if(f[0]=="arena_begin" and f.length()>4)
 {
 client_arena_id=string_to_number(f[1]);client_arena_role=f[2];client_arena_state="active";client_arena_practice=f.length()>5 and f[5]=="practice";
-string expected=arena_client_map(f[3]);if(mapname!=expected){send_reliable(0,"arena_resync "+client_arena_id,0);speak("The arena map did not finish loading. Requesting it again.");return true;}
+string expected=f.length()>6?f[6]:arena_client_map(f[3]);arena_loaded_map=expected;if(mapname!=expected){send_reliable(0,"arena_resync "+client_arena_id,0);speak("The arena map did not finish loading. Requesting it again.");}
 save_arena_inventory();issue_arena_loadout(client_arena_role=="combatant"?f[4]:"none");can_move=true;
 if(client_arena_role=="spectator")speak(client_arena_practice?"You are watching a practice session from the spectator gallery. Nothing here can hurt you, and you cannot hurt anyone.":"You are watching from the spectator gallery. Nothing here can hurt you, and you cannot hurt anyone.");
 else if(client_arena_practice)speak("Practice started. You are the only combatant. Everything in the arena hurts as it normally would; when you die you are put back at a spawn point with a fresh loadout. Leave the arena from the arena manager when you are done.");
 else speak("Arena started. Last combatant standing wins. Your arena loadout is temporary; your own inventory comes back when the match ends.");
 return true;
 }
+if(f[0]=="arena_status" and f.length()>1){string[] status=string_split(message.substr(13),"|",false);if(status.length()>=3){client_arena_id=string_to_number(status[0]);client_arena_state=status[1];client_arena_role=status[2];}return true;}
 if(f[0]=="arena_respawn" and f.length()>2){issue_arena_loadout(f[2]);can_move=true;speak("You died. Back at a spawn point with a fresh loadout.");return true;}
 if(f[0]=="arena_eliminated"){client_arena_role="spectator";client_arena_state="active";issue_arena_loadout("none");can_move=true;speak("You have been eliminated. You are watching from the spectator gallery until the arena finishes.");return true;}
 if(f[0]=="arena_finished"){client_arena_id=0;client_arena_role="none";client_arena_state="finished";client_arena_practice=false;can_move=true;restore_arena_inventory();string winner=f.length()>2?f[2]:"";speak(winner==""?"The arena is over. Your own inventory has been restored.":winner+" won the arena. Your own inventory has been restored.");return true;}
 return false;
 }
-string arena_request(string command,string prefix="arena_",int timeout=3500){send_reliable(0,command,0);string response;if(!wait_for_service_response(prefix,response,timeout)){speak("The arena service did not answer.");return "";}return response;}
+string arena_request(string command,string prefix="arena_ok ",int timeout=3500){for(int i=int(service_response_queue.length())-1;i>=0;i--)if(service_response_queue[i].substr(0,prefix.length())==prefix or service_response_queue[i].substr(0,12)=="arena_error ")service_response_queue.remove_at(i);send_reliable(0,command,0);string response;if(!wait_for_service_response(prefix,response,timeout,"arena_error ")){speak("The arena service did not answer.");return "";}return response;}
 string arena_result_text(string response){return string_replace(string_replace(response,"arena_ok ","",false),"arena_error ","",false);}
 bool arena_create_dialog()
 {
@@ -68,26 +73,29 @@ return false;
 }
 void arena_manager()
 {
+string retained_focus="",retained_selection="";bool first_view=true;
 while(true)
 {
 string response=arena_request("arena_list","arena_list ");if(response=="")return;
 string overview=arena_request("arena_overview","arena_overview ");if(overview=="")return;
 string[] mine=string_split(string_replace(overview,"arena_overview ","",false),"~",false);bool member=mine.length()>=9 and mine[0]!="none";bool host=member and string_to_lower_case(mine[3])==string_to_lower_case(name);bool waiting=member and mine[1]=="waiting";int combatants=member?string_to_number(mine[6]):0;
+client_arena_id=member?int(string_to_number(mine[0])):0;client_arena_role=member?mine[2]:"none";client_arena_state=member?mine[1]:"none";
 string my_text="You are not in an arena. Create one, which you can start alone to practise, join a waiting arena, or watch one that is running.";if(member)my_text="Arena "+mine[0]+", "+mine[4]+". "+mine[1]+". You are a "+mine[2]+". Hosted by "+mine[3]+" on "+mine[5]+". "+mine[6]+" combatants and "+mine[7]+" spectators. Rules: "+mine[8];
 string[] entries=string_split(string_replace(response,"arena_list ","",false),";",true);string[][] fields;
-nv_form f;f.create_window("Automatic PK Arenas",false,true);nv_form_input@ current=f.add_input("My arena status","my_arena",my_text,"",0,true,true);current.hidden=!member;nv_form_list_box@ list=f.add_list(member?"Other public arena instances":"Public arena instances","arenas");for(uint i=0;i<entries.length();i++){string[] a=string_split(entries[i],"~",false);if(a.length()<7)continue;if(member and a[0]==mine[0])continue;fields.insert_last(a);list.add("Arena "+a[0]+": "+a[1]+", hosted by "+a[2]+", "+a[3]+", "+a[4]+" members",a[0]);}if(list.items.length()==0)list.add(member?"There are no other public arenas.":"No public arenas are currently available.","none");else list.set_pos(0,false);nv_form_input@ detail=f.add_input("Selected arena details","details","Select an arena to read its map and rules.","",0,true,true);list.hidden=member;detail.hidden=member;
+nv_form f;f.create_window("Automatic PK Arenas",false,first_view);nv_form_input@ current=f.add_input("My arena status","my_arena",my_text,"",0,true,true);current.hidden=!member;nv_form_list_box@ list=f.add_list(member?"Other public arena instances":"Public arena instances","arenas");for(uint i=0;i<entries.length();i++){string[] a=string_split(entries[i],"~",false);if(a.length()<7)continue;if(member and a[0]==mine[0])continue;fields.insert_last(a);list.add("Arena "+a[0]+": "+a[1]+", hosted by "+a[2]+", "+a[3]+", "+a[4]+" members",a[0]);}if(list.items.length()==0)list.add(member?"There are no other public arenas.":"No public arenas are currently available.","none");else list.set_pos(0,false);nv_form_input@ detail=f.add_input("Selected arena details","details","Select an arena to read its map and rules.","",0,true,true);list.hidden=member;detail.hidden=member;
 nv_form_button@ create=f.add_button("Create a new public arena; Alt+C","create",true);@create.shortcut=nv_shortcut(KEY_C,alt=true);create.enabled=!member;
 nv_form_button@ join=f.add_button("Join the selected waiting arena as a combatant; Alt+J","join");@join.shortcut=nv_shortcut(KEY_J,alt=true);join.enabled=!member and fields.length()>0 and fields[0][3]=="waiting";
 nv_form_button@ spectate=f.add_button("Watch the selected arena from its spectator gallery, even once it has started; Alt+W","spectate");@spectate.shortcut=nv_shortcut(KEY_W,alt=true);spectate.enabled=!member and fields.length()>0;
 nv_form_button@ start=f.add_button(combatants==1?"Start my arena alone to practise; Alt+S":"Start my arena with everyone who has joined; Alt+S","start");@start.shortcut=nv_shortcut(KEY_S,alt=true);start.enabled=host and waiting and combatants>=1;
+nv_form_button@ role=f.add_button(member and mine[2]=="spectator"?"Switch to combatant":"Switch to spectator","role");role.hidden=!(member and waiting);@role.shortcut=nv_shortcut(KEY_T,alt=true);
 nv_form_button@ leave=f.add_button(host?"Close my arena and return every participant; Alt+L":"Leave my arena and return to my previous location; Alt+L","leave");@leave.shortcut=nv_shortcut(KEY_L,alt=true);leave.enabled=member;
 create.hidden=member;join.hidden=member;spectate.hidden=member;start.hidden=!(host and waiting);leave.hidden=!member;
-nv_form_button@ refresh=f.add_button("Refresh all arena states and participants; Alt+R","refresh");@refresh.shortcut=nv_shortcut(KEY_R,alt=true);nv_form_button@ close=f.add_button("Close automatic arenas; Alt+X","close",false,true);@close.shortcut=nv_shortcut(KEY_X,alt=true);if(member)f.focus_control(current);else f.focus_control(list);int previous=-1;
+nv_form_button@ refresh=f.add_button("Refresh all arena states and participants; Alt+R","refresh");@refresh.shortcut=nv_shortcut(KEY_R,alt=true);nv_form_button@ close=f.add_button("Close automatic arenas; Alt+X","close",false,true);@close.shortcut=nv_shortcut(KEY_X,alt=true);if(member)f.focus_control(current,!first_view);else f.focus_control(list,!first_view);int kept=list.get_item_index(retained_selection);if(kept>=0)list.set_pos(kept,false);nv_form_control@ retained=f.get_control_by_id(retained_focus);if(@retained!=null and retained.enabled and !retained.hidden)f.focus_control(retained,!first_view);first_view=false;int previous=-1;timer live_refresh;
 while(true)
 {
-wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;
+wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(member and client_arena_state=="active")return;if(@f.current_control!=null)retained_focus=f.current_control.id;if(@list.focused_item!=null)retained_selection=list.focused_item.id;if(live_refresh.elapsed>=5000){live_refresh.restart();string updated_list=arena_request("arena_list","arena_list ");string updated_mine=arena_request("arena_overview","arena_overview ");if(updated_list!="" and updated_mine!="" and (updated_list!=response or updated_mine!=overview))break;}
 if(list.list_position!=previous){previous=list.list_position;if(previous>=0 and previous<int(fields.length())){string[] a=fields[previous];detail.text="Arena "+a[0]+" uses "+a[5]+". State: "+a[3]+". Host: "+a[2]+". Population: "+a[4]+". Rules: "+a[6];bool selected_waiting=a[3]=="waiting";join.enabled=!member and selected_waiting;spectate.enabled=!member;}else{detail.text="There is no arena selected.";join.enabled=false;spectate.enabled=false;}}
-string command="";if(f.is_pressed(create)){if(arena_create_dialog())break;}else if(f.is_pressed(join) and @list.focused_item!=null and list.focused_item.id!="none")command="arena_join "+list.focused_item.id+" combatant";else if(f.is_pressed(spectate) and @list.focused_item!=null and list.focused_item.id!="none")command="arena_join "+list.focused_item.id+" spectator";else if(f.is_pressed(start))command="arena_start";else if(f.is_pressed(leave))command="arena_leave";else if(f.is_pressed(refresh))break;
+string command="";if(f.is_pressed(create)){if(arena_create_dialog())break;}else if(f.is_pressed(join) and @list.focused_item!=null and list.focused_item.id!="none")command="arena_join "+list.focused_item.id+" combatant";else if(f.is_pressed(spectate) and @list.focused_item!=null and list.focused_item.id!="none")command="arena_join "+list.focused_item.id+" spectator";else if(f.is_pressed(role))command="arena_role "+(mine[2]=="spectator"?"combatant":"spectator");else if(f.is_pressed(start))command="arena_start";else if(f.is_pressed(leave))command="arena_leave";else if(f.is_pressed(refresh))break;
 if(command!=""){string result=arena_request(command);bool success=string_contains(result,"arena_ok ",1)==0;if(command=="arena_leave" and success)restore_arena_inventory();if(result!="")speak(arena_result_text(result));if(success and (command=="arena_start" or string_contains(result,"Watching arena",1)>=0))return;break;}
 }
 }

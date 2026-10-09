@@ -158,10 +158,10 @@ bool capture_service_response(string message)
 {
 string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","dobj_buy_","dobj_redeem_reply ","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_overview ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
 }
-bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000)
+bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000,string error_prefix="")
 {
 timer timeout;nv_form waiting;waiting.create_window("Waiting for server service",false,true);waiting.add_input("Request status","status","Waiting for the server to complete this menu request.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel server request","cancel",false,true);waiting.focus_control(cancel);
-while(connected and timeout.elapsed<timeout_ms){for(uint i=0;i<service_response_queue.length();i++)if(string_contains(service_response_queue[i],prefix,1)==0){response=service_response_queue[i];service_response_queue.remove_at(i);return true;}wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return false;netloop(false);}return false;
+while(connected and timeout.elapsed<timeout_ms){for(uint i=0;i<service_response_queue.length();i++)if(string_contains(service_response_queue[i],prefix,1)==0 or (error_prefix!="" and string_contains(service_response_queue[i],error_prefix,1)==0)){response=service_response_queue[i];service_response_queue.remove_at(i);return true;}wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return false;netloop(false);}return false;
 }
 string af_input(string title, string text="", bool online=false)
 {
@@ -379,9 +379,9 @@ menu_music_save_timer.restart();
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
 double version=0.591;
-string version_name="0.5.9.1";
-int build_number=101;
-string build_date="2026-10-06";
+string version_name="0.5.9.2";
+int build_number=102;
+string build_date="2026-10-08";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
@@ -851,7 +851,7 @@ rf.close();
 else
 rules_text = "Rules file not found. Please check the game folder.";
 nv_form f;f.create_window("Infinite Warfare agreements",false,true);
-nv_form_input@ rules=f.add_input("Rules, read only","rules",rules_text,"",0,true,true);
+nv_form_markdown@ rules=f.add_markdown("Server rules","rules",rules_text);@rules.on_link=iw_document_link;
 nv_form_checkbox@ agree_rules=f.add_checkbox("I have read and agree to the rules","agree_rules",false);
 nv_form_input@ notice=f.add_input("Beta and preliminary notice, read only","notice",notice_text,"",0,true,true);
 nv_form_checkbox@ agree_notice=f.add_checkbox("I have read and understand the beta and preliminary notice","agree_notice",false);
@@ -1812,11 +1812,12 @@ int ci=content_find(entry_name);
 if(ci>=0)
 {
 content_record@ record=content_database[ci];
-string result=record.display_name+"\n\nCategory: "+record.category+".\n";
+string result="# "+record.display_name+"\n\nCategory: "+record.category+".\n\n";
 if(record.category=="Weapons")return result+content_weapon_details(entry_name);
 result+=record.summary;
 string[] stats=item_stats_lines(entry_name);
-for(uint si=0;si<stats.length();si++)result+="\n"+stats[si];
+if(stats.length()>0)result+="\n\n## Current statistics\n\n";
+for(uint si=0;si<stats.length();si++)result+="- "+stats[si]+"\n";
 if(record.category=="Ammo")
 {
 string[] fed_weapons;
@@ -1845,7 +1846,7 @@ void show_help_entry(string entry_name)
 string content = read_help_file(entry_name);
 int ci=content_find(entry_name);string title=ci>=0?content_database[ci].display_name:string_replace(entry_name, "_", " ", true);
 nv_form f;f.create_window("Help: "+title,false,true);
-nv_form_input@ help_content=f.add_input("Read-only help content","help_content",content,"",0,true,true);
+nv_form_markdown@ help_content=f.add_markdown("Help document","help_content",content);@help_content.on_link=iw_document_link;
 nv_form_button@ close=f.add_button("Close","close",true,true);
 f.focus_control(help_content);
 while(true)
@@ -1879,7 +1880,7 @@ nv_form f; f.create_window("Help Topics",false,true);
 nv_form_list_box@ categories=f.add_list("Categories","help_categories",false,{},0,-1,true);
 for(uint i=0;i<help_categories.length();i++) categories.add(help_categories[i],""+i);
 nv_form_list_box@ topics=f.add_list("Topics for selected category","help_topics",false,{},0,-1,true);
-nv_form_input@ content=f.add_input("Selected topic content","help_content","","",0,true,true);
+nv_form_markdown@ content=f.add_markdown("Selected topic content","help_content");@content.on_link=iw_document_link;
 nv_form_button@ close=f.add_button("Close","close",false,true);
 categories.set_pos(0,false);
 int previous_category=-1, previous_topic=-1;
@@ -1896,14 +1897,13 @@ topics.items.resize(0); topics.list_position=-1;
 for(uint i=0;i<help_category_entries[category].length();i++)
 {int ci=content_find(help_category_entries[category][i]);topics.add(ci>=0?content_database[ci].display_name:string_replace(help_category_entries[category][i],"_"," ",true),help_category_entries[category][i]);}
 if(topics.items.length()>0) topics.set_pos(0,false);
-content.text="Choose a topic, then press Tab again to read it."; content.cursor=0;
+content.set_markdown("Choose a topic, then press Tab again to read it.");
 }
 int topic=topics.list_position;
 if(category>=0 and category<int(help_categories.length()) and topic!=previous_topic and topic>=0 and topic<int(help_category_entries[category].length()))
 {
 previous_topic=topic;
-content.text=read_help_file(help_category_entries[category][topic]);
-content.cursor=0;
+content.set_markdown(read_help_file(help_category_entries[category][topic]));
 }
 }
 }
@@ -2097,12 +2097,20 @@ string inv_menu_item_id(string key)
 	return key;
 }
 
+bool inventory_use_available(string key)
+{
+string item=inv_menu_item_id(key);if(item=="")return false;
+if(is_attachment_item(item)){if(w<0 or w>=int(weapons.length()) or weapons[w]=="empty")return false;int di=find_attachment_def(item);if(!can_attach_to(item,weapons[w]) or weapon_has_attachment(weapons[w],item))return false;if(weapon_has_attachment_in_slot(weapons[w],attachment_defs[di].slot) and !replace_occupied_attachments)return false;int gi=find_gun(weapons[w]);if(gi>=0 and (gun_ammos[gi].reloading or (attachment_defs[di].slot=="magazine" and gun_ammos[gi].mag_loaded>0)))return false;}
+if(is_ammo_reserve_item(item)){if(key.substr(0,11)!="__partial__" or w<0 or w>=int(weapons.length()))return false;int gi=find_gun(weapons[w]);return gi>=0 and gun_ammos[gi].reserve_item==item and gun_ammos[gi].is_magazine and !gun_ammos[gi].manual_action and gun_ammos[gi].ammo_display!="fuel" and !gun_ammos[gi].reloading and gun_ammos[gi].mag_loaded<gun_ammos[gi].mag_capacity;}
+return true;
+}
 // Use the focused inventory item, matching the behavior of the in-game use key.
 void inv_menu_use(string key)
 {
+	if(!inventory_use_available(key)){speak("This item cannot be used with your current weapon or equipment state.");return;}
 	if (string_contains(key, "__partial__", 1) == 0)
 	{
-		use_ammo_item(inv_menu_item_id(key));
+		int partial_index=string_to_number(key.substr(11));start_reload_partial(weapons[w],partial_index);
 		return;
 	}
 	// Every advertised inventory-use path must enter the cooking workflow.
@@ -2129,7 +2137,7 @@ void inventory_item_action_menu(string key)
 	string title=is_weapon(item_id)?get_weapon_display_name(item_id):string_replace(item_id,"_"," ",true);
 	nv_form f;f.create_window(title+" actions",false,true);
 	nv_form_input@ summary=f.add_input("Item information","summary",inv_menu_label(get_filtered_keys(),get_filtered_keys().find(key))+"\n"+item_mechanic_description(item_id),"",0,true,true);
-	nv_form_button@ use=null;if(string_contains(key,"__partial__",1)!=0)@use=f.add_button(is_weapon(item_id)?"Equip weapon":(item_is_thrown_explosive(item_id)?(cooked_grenade==item_id?"Throw cooked grenade":"Pull pin and begin cooking"):"Use item"),"use",true);
+nv_form_button@ use=null;if(inventory_use_available(key))@use=f.add_button(is_weapon(item_id)?"Equip weapon":(item_is_thrown_explosive(item_id)?(cooked_grenade==item_id?"Throw cooked grenade":"Pull pin and begin cooking"):"Use item"),"use",true);
 	nv_form_button@ help=f.add_button("Open detailed help","help");
 	nv_form_button@ give=null;nv_form_button@ drop=null;if(string_contains(key,"__partial__",1)!=0){@give=f.add_button("Give one to a nearby player","give");@drop=f.add_button("Drop one seven tiles ahead","drop");}
 	nv_form_button@ close=f.add_button("Return to inventory","close",false,true);f.focus_control(@use!=null?use:help);
@@ -2171,18 +2179,21 @@ nv_form_button@ later=f.add_button("Move the focused item later in this category
 nv_form_button@ first=f.add_button("Move selected items to the beginning of this category","first");@first.shortcut=nv_shortcut(KEY_HOME,alt=true);
 nv_form_button@ last=f.add_button("Move selected items to the end of this category","last");@last.shortcut=nv_shortcut(KEY_END,alt=true);
 nv_form_button@ close=f.add_button("Close inventory without changing the selected item","close",false,true);@close.shortcut=nv_shortcut(KEY_X,alt=true);
-f.focus_control(items);int category_position=categories.list_position;
+f.focus_control(items);int category_position=categories.list_position;uint seen_inventory_revision=inventory_revision;
 while(true)
 {
 wait(5);if(connected)netloop();grenade_cook_loop();
+if(seen_inventory_revision!=inventory_revision){string focused=@items.focused_item==null?"":items.focused_item.id;string[] selected;for(uint i=0;i<items.items.length();i++)if(items.items[i].selected)selected.insert_last(items.items[i].id);inventory_form_fill_categories(categories);inventory_form_fill_items(items,keys,0);int restored=keys.find(focused);if(restored>=0)items.set_pos(restored,false);for(uint i=0;i<items.items.length();i++)items.items[i].selected=selected.find(items.items[i].id)>=0;seen_inventory_revision=inventory_revision;category_position=categories.list_position;}
 if(categories.list_position!=category_position and categories.list_position>=0){category_position=categories.list_position;inv_category_index=string_to_number(categories.focused_item.id);inventory_form_fill_items(items,keys,0);}
 bool shifted_use=@f.current_control==@items and shift_is_down() and (key_pressed(KEY_RETURN) or key_pressed(KEY_NUMPAD_ENTER));
 bool toggle_stack=@f.current_control==@items and MENU_is_down() and key_pressed(KEY_SPACE);
+string current_key=@items.focused_item==null?"":items.focused_item.id;
+use.enabled=inventory_use_available(current_key);select.enabled=current_key!="";actions.enabled=current_key!="";help.enabled=current_key!="";give.enabled=current_key!="" and current_key.substr(0,11)!="__partial__";drop.enabled=give.enabled;earlier.enabled=current_key!="";later.enabled=earlier.enabled;first.enabled=earlier.enabled;last.enabled=later.enabled;
 f.monitor();
 if(f.is_pressed(close))return;
 if(keys.length()==0)continue;int pos=items.list_position;if(pos<0 or pos>=int(keys.length()))pos=0;string key=keys[pos];
 if(toggle_stack){items.focused_item.selected=!items.focused_item.selected;speak(items.focused_item.selected?"Selected this item stack for moving.":"Deselected this item stack.");continue;}
-if(shifted_use or f.is_pressed(use)){invpos=pos;inv_menu_use(key);return;}
+if((shifted_use and inventory_use_available(key)) or f.is_pressed(use)){invpos=pos;inv_menu_use(key);return;}
 if(f.is_pressed(select)){invpos=pos;speak(string_replace(inv_menu_item_id(key),"_"," ",true)+" selected.");return;}
 if(f.is_pressed(actions)){inventory_item_action_menu(key);inventory_form_fill_categories(categories);inventory_form_fill_items(items,keys,pos);continue;}
 if(f.is_pressed(help)){show_item_help(inv_menu_item_id(key));continue;}
@@ -2511,6 +2522,8 @@ return;
 }
 int def_idx=find_attachment_def(item);
 if(def_idx<0) return;
+if(weapon_has_attachment(current_weapon,item)){speak("That attachment is already installed.");return;}
+if(!attachment_feed_change_allowed(item,current_weapon))return;
 if(weapon_has_attachment_in_slot(current_weapon, attachment_defs[def_idx].slot))
 {
 if(!replace_occupied_attachments){speak("This weapon already has an attachment in the "+attachment_defs[def_idx].slot+" slot.");return;}
@@ -2716,8 +2729,8 @@ string[] attached=get_weapon_attachments(wname);double accuracy=1.0;
 for(uint i=0;i<attached.length();i++)
 {
 string a=attached[i];
-if(a=="long_barrel")velocity*=1.12;else if(a=="short_barrel")velocity*=.9;else if(a=="match_grade_barrel")velocity*=1.05;else if(a=="heavy_barrel")velocity*=1.04;else if(string_contains(a,"suppressor",1)>=0){velocity*=.94;drag*=1.03;retention*=.97;}
-if(a=="red_dot_sight")accuracy*=.92;else if(a=="holographic_sight")accuracy*=.9;else if(a=="two_power_optic")accuracy*=.86;else if(a=="four_power_optic")accuracy*=.75;else if(a=="eight_power_scope")accuracy*=.62;else if(a=="thermal_scope")accuracy*=.72;else if(a=="vertical_grip")accuracy*=.88;else if(a=="angled_grip")accuracy*=.82;else if(a=="bipod")accuracy*=.65;else if(a=="laser_aiming_module")accuracy*=.9;else if(a=="weapon_light")accuracy*=.96;else if(a=="lightweight_stock")accuracy*=1.08;else if(a=="precision_stock")accuracy*=.78;else if(a=="recoil_buffer_stock")accuracy*=.86;else if(a=="muzzle_brake")accuracy*=.9;else if(a=="compensator")accuracy*=.86;else if(a=="choke_full")accuracy*=.92;else if(a=="choke_improved")accuracy*=.96;
+if(a=="long_barrel")velocity*=1.12;else if(a=="short_barrel")velocity*=.9;else if(a=="match_grade_barrel"){velocity*=1.05;accuracy/=1.035;}else if(a=="heavy_barrel"){velocity*=1.04;accuracy/=1.025;}else if(string_contains(a,"suppressor",1)>=0){velocity*=.94;drag*=1.03;accuracy/=1.01;}else if(a=="flash_hider")accuracy/=1.012;
+if(a=="red_dot_sight")accuracy*=.92;else if(a=="holographic_sight")accuracy*=.9;else if(a=="two_power_optic")accuracy*=.86;else if(a=="four_power_optic")accuracy*=.75;else if(a=="eight_power_scope")accuracy*=.62;else if(a=="thermal_scope")accuracy*=.72;else if(a=="vertical_grip")accuracy*=.88;else if(a=="angled_grip")accuracy*=.82;else if(a=="bipod")accuracy*=.65;else if(a=="laser_aiming_module")accuracy*=.9;else if(a=="weapon_light")accuracy*=.96;else if(a=="lightweight_stock")accuracy*=1.08;else if(a=="precision_stock")accuracy*=.78;else if(a=="recoil_buffer_stock")accuracy*=.86;else if(a=="muzzle_brake")accuracy*=.9;else if(a=="compensator")accuracy*=.86;else if(a=="choke_full")accuracy/=1.08;else if(a=="choke_improved")accuracy/=1.04;
 }
 int gi=find_gun(wname);
 string active_mode=has_fire_modes(wname)?fire_mode_name(get_fire_mode(wname)):"fixed";
@@ -2731,7 +2744,7 @@ if((live_class=="melee_short_blade" or live_class=="melee_long_blade" or live_cl
 spread*=accuracy;
 int attached_fire_interval=int(double(base.firetime)*get_attachment_firetime_mult(wname));
 string report="Live loaded configuration\nFire mode: "+active_mode+"\nAmmunition: "+(gi>=0?gun_ammos[gi].ammo_type:"none")+"\nDamage: "+int(min_damage)+(int(min_damage)!=int(max_damage)?" to "+int(max_damage):"")+"\nRange: "+int(range)+" tiles\nDispersion: "+round(spread,2)+" degrees\nMuzzle velocity: "+round(velocity,2)+" tiles per second\nDrag: "+round(drag,4)+"\nDamage retention: "+int(retention*100)+" percent\nPenetration: "+penetration+"\nProjectiles per shot: "+pellets+"\nFire interval: "+handling_fire_interval(wname,attached_fire_interval)+" milliseconds\nMovement interval: "+int(double(base.walktime)*get_attachment_walktime_mult(wname)*handling_movement_penalty(wname))+" milliseconds\nHandling: "+weapon_handling_status(wname);
-if(gi>=0)report+="\nLoaded: "+gun_ammos[gi].mag_loaded+" of "+gun_ammos[gi].mag_capacity;
+if(gi>=0)report+="\nLoaded: "+gun_ammos[gi].mag_loaded+" of "+effective_magazine_capacity(wname)+"\nFull reload time: "+int(double(gun_ammos[gi].reload_ms)*attachment_reload_time_mult(wname))+" milliseconds";
 return report;
 }
 
@@ -2752,6 +2765,7 @@ for(uint i=0;i<attached.length();i++)
 int di=find_attachment_def(attached[i]);
 if(di<0) continue;
 string label=attachment_defs[di].display_name+" ("+attachment_defs[di].slot+")";
+label+=". "+attachment_effect_description(attached[i]);
 if(!attachment_defs[di].removable) label+=" [permanent]";
 attachments_control.add(label,attached[i]);
 }
@@ -2760,6 +2774,7 @@ attachments_control.add(label,attached[i]);
 nv_form_button@ close=f.add_button("Close","close",false,true); f.focus_control(stats_control);
 while(true)
 {
+if(@remove_control!=null){int selected_attachment=@attachments_control.focused_item==null?-1:find_attachment_def(attachments_control.focused_item.id);remove_control.enabled=selected_attachment>=0 and attachment_defs[selected_attachment].removable and (gi<0 or (!gun_ammos[gi].reloading and (attachment_defs[selected_attachment].slot!="magazine" or gun_ammos[gi].mag_loaded==0)));}
 wait(5); f.monitor(); if(connected) netloop();
 if(f.is_pressed(close)) return;
 if(@remove_control!=null and f.is_pressed(remove_control) and @attachments_control!=null)

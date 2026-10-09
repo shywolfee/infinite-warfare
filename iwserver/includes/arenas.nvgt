@@ -21,7 +21,7 @@ class arena_member{string name,role;bool alive=true;arena_member(string n,string
 class arena_instance
 {
 int id;string host,type,map,state="waiting";bool practice=false;arena_member@[] members;
-arena_instance(int i,string h,string t){id=i;host=h;type=t;map=arena_map(t);members.insert_last(arena_member(h,"combatant"));}
+arena_instance(int i,string h,string t){id=i;host=h;type=t;map=arena_map(t)+"_instance_"+i;members.insert_last(arena_member(h,"combatant"));}
 }
 arena_instance@[] arenas;int next_arena_id=1;
 string arena_type_name(string t){if(t=="sidearms")return "Sidearm Showdown";if(t=="melee")return "Close Quarters";if(t=="explosives")return "Demolition Ring";return "Open Arsenal";}
@@ -53,13 +53,18 @@ arena_spawn_point(a,0,x,y,z);int mi=get_map_index(a.map);if(mi<0)return;
 for(uint i=0;i<maps[mi].poidefs.length();i++)if(maps[mi].poidefs[i].name=="Spectator gallery"){x=maps[mi].poidefs[i].x;y=maps[mi].poidefs[i].y;z=maps[mi].poidefs[i].z;return;}
 }
 
-void arena_transfer_player(player@ p,string destination,int x,int y,int z)
+bool arena_transfer_player(player@ p,string destination,int x,int y,int z)
 {
-string path=indexed_map_path(destination);if(path=="")return;string old=p.map;send_reliable(p.peer_id,"arena_transfer "+destination+" "+x+" "+y+" "+z,0);send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;set_player_model_target(p,x,y,z);send_reliable(p.peer_id,"mapdata "+read_whole_file(path),0);send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);sync_dobjects(p.peer_id,destination);sync_vehicles(p.peer_id,destination);send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);
+string path=indexed_map_path(destination);if(path=="")return false;string old=p.map;send_reliable(p.peer_id,"arena_transfer "+destination+" "+x+" "+y+" "+z,0);send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;set_player_model_target(p,x,y,z);send_reliable(p.peer_id,"mapdata "+(get_map_index(destination)>=0?maps[get_map_index(destination)].rawdata:read_whole_file(path)),0);send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);sync_dobjects(p.peer_id,destination);sync_vehicles(p.peer_id,destination);send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);return true;
 }
-void arena_remember_return(player@ p){if(p.arena_return_map!="")return;p.arena_return_map=p.map;p.arena_return_x=p.x;p.arena_return_y=p.y;p.arena_return_z=p.z;}
+void arena_remember_return(player@ p){if(p.arena_return_map!="")return;p.arena_return_map=p.map;p.arena_return_x=p.x;p.arena_return_y=p.y;p.arena_return_z=p.z;p.arena_return_health=p.health;p.arena_return_attachments=p.weapon_attachment_state;p.arena_return_suppressors=p.suppressed_weapons;p.arena_return_armour={p.armor_head,p.armor_torso,p.armor_arms,p.armor_legs};p.arena_return_durability={p.armor_head_durability,p.armor_torso_durability,p.armor_arms_durability,p.armor_legs_durability};}
 void arena_refresh_body(player@ p){p.death=false;p.health=1000;p.hitby="no one";p.burning=false;p.bleeding=false;}
-void arena_return_player(player@ p){if(p.arena_return_map!=""){string destination=p.arena_return_map;int x=p.arena_return_x,y=p.arena_return_y,z=p.arena_return_z;p.arena_return_map="";arena_transfer_player(p,destination,x,y,z);}p.arena_id=0;p.arena_role="none";arena_refresh_body(p);}
+void arena_return_player(player@ p)
+{
+bool started=p.arena_return_map!="";
+if(started){string destination=p.arena_return_map;int x=p.arena_return_x,y=p.arena_return_y,z=p.arena_return_z;if(!arena_transfer_player(p,destination,x,y,z))return;p.arena_return_map="";arena_refresh_body(p);p.health=p.arena_return_health;p.weapon_attachment_state=p.arena_return_attachments;p.arena_return_attachments.delete_all();p.suppressed_weapons=p.arena_return_suppressors;p.arena_return_suppressors.resize(0);if(p.arena_return_armour.length()==4){p.armor_head=p.arena_return_armour[0];p.armor_torso=p.arena_return_armour[1];p.armor_arms=p.arena_return_armour[2];p.armor_legs=p.arena_return_armour[3];p.armor_head_durability=p.arena_return_durability[0];p.armor_torso_durability=p.arena_return_durability[1];p.armor_arms_durability=p.arena_return_durability[2];p.armor_legs_durability=p.arena_return_durability[3];update_player_armor_weight(p);send_player_armor_state(p);}}
+p.arena_id=0;p.arena_role="none";
+}
 void arena_sync_member(arena_instance@ a,arena_member@ m){int pi=get_player_index_from(m.name);if(pi>=0){players[pi].arena_id=a.id;players[pi].arena_role=m.role;send_reliable(players[pi].peer_id,"arena_status "+a.id+"|"+arena_state_text(a)+"|"+m.role+"|"+arena_type_name(a.type)+"|"+arena_rules(a.type),0);}}
 
 // Put one member into a running arena: combatants at their spawn with the
@@ -67,21 +72,32 @@ void arena_sync_member(arena_instance@ a,arena_member@ m){int pi=get_player_inde
 void arena_place_member(arena_instance@ a,int member_index,int combatant_slot)
 {
 arena_member@ m=a.members[member_index];int pi=get_player_index_from(m.name);if(pi<0)return;player@ p=players[pi];
-arena_remember_return(p);p.arena_id=a.id;p.arena_role=m.role;arena_refresh_body(p);
+arena_remember_return(p);p.arena_id=a.id;p.arena_role=m.role;arena_refresh_body(p);p.weapon_attachment_state.delete_all();p.suppressed_weapons.resize(0);p.armor_head="";p.armor_torso="";p.armor_arms="";p.armor_legs="";p.armor_head_durability=0;p.armor_torso_durability=0;p.armor_arms_durability=0;p.armor_legs_durability=0;update_player_armor_weight(p);send_player_armor_state(p);
 int x,y,z;if(m.role=="combatant")arena_spawn_point(a,combatant_slot,x,y,z);else arena_gallery_point(a,x,y,z);
 arena_transfer_player(p,a.map,x,y,z);
-send_reliable(p.peer_id,"arena_begin "+a.id+" "+m.role+" "+a.type+" "+(m.role=="combatant"?arena_loadout(a.type):"none")+" "+(a.practice?"practice":"match"),0);
+send_reliable(p.peer_id,"arena_begin "+a.id+" "+m.role+" "+a.type+" "+(m.role=="combatant"?arena_loadout(a.type):"none")+" "+(a.practice?"practice":"match")+" "+a.map,0);
 }
 void arena_close(int ai,string winner="")
 {
 if(ai<0 or ai>=int(arenas.length()))return;arena_instance@ a=arenas[ai];
 for(uint i=0;i<a.members.length();i++){int pi=get_player_index_from(a.members[i].name);if(pi>=0){send_reliable(players[pi].peer_id,"arena_finished "+a.id+" "+winner,0);arena_return_player(players[pi]);}}
+for(int i=int(weapons.length())-1;i>=0;i--)if(weapons[i].map==a.map){stop_projectile_audio(weapons[i]);weapons.remove_at(i);}
+for(int i=int(fraggrenades.length())-1;i>=0;i--)if(fraggrenades[i].map==a.map){if(fraggrenades[i].audio_id>=0)send_reliable_map(a.map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades.remove_at(i);}
+for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].map==a.map)deployable_explosives.remove_at(i);
+clear_map_vehicles(a.map);
+for(int i=int(maps.length())-1;i>=0;i--)if(maps[i].name==a.map)maps.remove_at(i);
 arenas.remove_at(ai);
 }
 void arena_start(arena_instance@ a)
 {
 int combatants=arena_count(a,"combatant");if(combatants<1)return;
-int map_index=get_map_index(a.map);if(map_index<0){int host=get_player_index_from(a.host);if(host>=0)send_reliable(players[host].peer_id,"arena_error Arena map data is unavailable.",0);return;}
+int map_index=get_map_index(arena_map(a.type));if(map_index<0){int host=get_player_index_from(a.host);if(host>=0)send_reliable(players[host].peer_id,"arena_error Arena map data is unavailable.",0);return;}
+mapdata instance(arena_map(a.type));
+instance.name=a.map;instance.rawdata=string_replace(instance.rawdata,"mapname:"+arena_map(a.type),"mapname:"+a.map,false);
+for(uint i=0;i<instance.mapispawns.length();i++)instance.mapispawns[i].imap=a.map;
+maps.insert_last(instance);
+// Rebuild object state with the instance identity, never the template map.
+load_map_dobjects(int(maps.length())-1);spawn_map_vehicles(int(maps.length())-1);
 a.state="active";a.practice=combatants==1;
 // Spread combatants across the spawn points from a random starting point.
 int slot=random(0,11);for(uint i=0;i<a.members.length();i++){a.members[i].alive=a.members[i].role=="combatant";arena_place_member(a,i,a.members[i].role=="combatant"?slot++:0);}
@@ -143,7 +159,14 @@ if(cmd=="arena_overview"){send_reliable(peer,arena_overview(p),0);return;}
 if(cmd=="arena_resync")
 {
 int ai=arena_index(p.arena_id);if(ai<0 or arenas[ai].state!="active"){send_reliable(peer,"arena_error No active arena is available to synchronize.",0);return;}
-int mi=arena_member_index(arenas[ai],p.name);if(mi<0)return;arena_place_member(arenas[ai],mi,random(0,11));return;
+int mi=arena_member_index(arenas[ai],p.name);if(mi<0)return;arena_transfer_player(p,arenas[ai].map,int(p.x),int(p.y),int(p.z));return;
+}
+if(cmd=="arena_role" and f.length()>1)
+{
+int ai=arena_index(p.arena_id);if(ai<0 or arenas[ai].state!="waiting"){send_reliable(peer,"arena_error Roles can only change in a waiting arena.",0);return;}
+int mi=arena_member_index(arenas[ai],p.name);if(mi<0)return;
+string role=f[1]=="spectator"?"spectator":"combatant";arenas[ai].members[mi].role=role;arenas[ai].members[mi].alive=role=="combatant";p.arena_role=role;
+send_reliable(peer,"arena_ok Your role is now "+role+".",0);return;
 }
 if(cmd=="arena_create" and f.length()>2)
 {

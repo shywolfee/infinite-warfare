@@ -3,8 +3,22 @@
 // The game historically used NVGT's audio_form integer-handle API in more
 // than one hundred dialogs. Keeping that small public surface lets those
 // dialogs move to NV_form immediately while newer screens use typed NV_form
-// controls directly. This altered adapter is game code; NV_form itself is
-// vendored unchanged in includes/nv_form with its original license.
+// controls directly. The vendored library preserves its license and contains
+// the Breach Factor markdown/groups additions plus IW integration hooks.
+void iw_document_link(nv_form_markdown@ document, const string &in url)
+{
+if(url.substr(0,8)=="https://" or url.substr(0,7)=="http://")urlopen(url);
+else speak("Link: "+url);
+}
+void show_markdown_document(const string &in title,const string &in text)
+{
+nv_form f;f.create_window(title,false,true);
+nv_form_markdown@ document=f.add_markdown(title,"document",text);
+@document.on_link=iw_document_link;
+nv_form_button@ close=f.add_button("Back","close",false,true);
+f.focus_control(document);
+while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;}
+}
 class iw_form : nv_form
 {
 int create_input_box(const string &in caption, const string &in default_text="", const string &in password_mask="", int max_length=0, bool multiline=false, bool read_only=false, bool unused=false)

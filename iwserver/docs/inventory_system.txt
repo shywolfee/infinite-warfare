@@ -1,12 +1,20 @@
-Inventory System
+# Inventory System
 
-Press I to open the inventory. Up and Down browse the current group; Page Up and Page Down move ten entries; Home and End jump to the boundaries; and typing several letters performs prefix navigation. Left/Right and Tab/Shift+Tab move through nonempty groups. Enter selects, Shift+Enter uses the focused entry, Alt+Enter opens its database documentation, Applications opens a discoverable item-action panel, and F1 reads every available control.
+## Opening and navigation
+
+Press I to open the inventory. Tab and Shift+Tab move between its category list, item list and action buttons, and through the shared dashboard controls in Dashboard mode. Up and Down operate the focused list, Page Up and Page Down move ten entries, Home and End jump to its boundaries, and typing several letters performs prefix navigation. Select a category to update the item list. Shift+Enter uses an available focused item; the Help and Actions buttons open documentation and contextual actions.
 
 The item-action panel retains the live inventory and offers only relevant actions: use or equip, dynamic help, give one to a player within ten tiles, and drop one seven tiles ahead. Throwable grenades continue to use Enter's pin-and-cook workflow so the panel cannot bypass their fuse simulation.
 
 The live groups are All, Weapons, Ammo, Explosives, Healing, Armour, Armour Repair, Vehicle Supplies, Attachments, Holsters, Team, Tools, Electronics, Containers and Equipment. Only All and groups containing at least one current item participate in Left/Right or K/Shift+K navigation; a group appears automatically when its first item is received and disappears from cycling when its last item is removed. The inventory traverses this same live category registry for both filtered views and All, so a database category cannot be visible in the selector but omitted from item browsing. Content is classified by the same runtime database used by the armoury and developer grant tools, so newly registered content does not require another hardcoded help list.
 
-Tab and Shift+Tab cycle items without opening the form. K and Shift+K cycle categories. Alt plus a number assigns the current entry to that quickbar slot; the number alone activates it.
+## Gameplay inventory cycling
+
+In Inventory mode, Tab and Shift+Tab cycle carried items without opening the form. In Dashboard mode those keys navigate the dashboard. Alt+F switches modes. K and Shift+K cycle categories during gameplay. Alt plus a number assigns the current entry to that quickbar slot; the number alone activates it.
+
+## Moving item stacks
+
+On the item list, Alt+Space selects or deselects a whole stack for moving. Select several stacks to move them together. Alt+Up and Alt+Down move the focused or selected stacks earlier or later; Alt+Home and Alt+End move them to the beginning or end of the current category. Selection and focus survive live inventory updates when those stacks still exist.
 
 Shift+I opens the quickbar manager. Clear quickbar removes all ten assignments for the current session. Automatically bind best loadout ranks the live inventory and lays out the strongest melee weapon, sidearm, primary and backup primary first, followed by the best distinct explosives, recovery choices and practical equipment. It reports every selected slot and its reason; unsuitable filler is left out.
 

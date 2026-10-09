@@ -1,0 +1,750 @@
+/* markdown.nvgt -- a markdown document in a form, read the way a screen reader
+reads a web page in browse mode. Breach Point's addition to nv_form.
+
+The text is parsed once into lines -- headings, paragraphs, list items, table
+rows, block quotes, code, separators -- and read a line at a time, with what each
+line is said as NVDA says it: "Rounds, heading level 2", "list with 4 items",
+"table with 6 rows and 3 columns", "out of list", "link, Modes".
+
+THE KEYS are NVDA's browse mode keys, shift going backwards:
+
+  Up, Down              the previous or next line
+  Left, Right           by character; with control, by word
+  Home, End             the start or end of the line
+  Control Home, End     the top or bottom of the document
+  H                     the next heading; 1 to 6 the next heading at that level
+  K                     the next link; U unvisited, V visited
+  Enter, Space          on a link, follow it
+  L                     the next list; I the next list item
+  T                     the next table; in one, control and alt with the arrows
+                        go from cell to cell, saying the column's heading
+  Q                     the next block quote
+  P                     the next paragraph of text
+  S                     the next separator
+  G                     the next graphic
+  N                     past the links to the next text that is not a link
+  Comma                 past the end of the list, table or quote you are in;
+                        with shift, to its start
+  F7                    the elements list: headings, then tab for links; up and
+                        down, Enter goes there, escape back to the document
+  Control C             copies the line
+
+Nothing here is the game's: the form library only. */
+
+funcdef void nv_md_link_callback(nv_form_markdown@ doc, const string&in url);
+
+const int NV_MD_PARA=0;
+const int NV_MD_HEADING=1;
+const int NV_MD_ITEM=2;
+const int NV_MD_ROW=3;
+const int NV_MD_CODE=4;
+const int NV_MD_RULE=5;
+
+class nv_md_link
+{
+	int start;        // where its text starts in the line's plain text
+	int len;
+	string text;
+	string url;
+	bool image=false;
+}
+class nv_md_line
+{
+	int kind=NV_MD_PARA;
+	int level=0;            // a heading's level
+	string text;            // the plain text, markup gone
+	nv_md_link@[] links;
+	// lists
+	int list_id=-1;
+	int list_items=0;
+	int item_no=0;
+	int depth=0;
+	bool ordered=false;
+	// tables
+	int table_id=-1;
+	int row=0;
+	int rows=0, cols=0;
+	string[] cells;
+	bool header_row=false;
+	// block quotes and code
+	int quote=0;
+	int code_id=-1;
+}
+
+class nv_form_markdown: nv_form_control {
+	nv_md_line@[] lines;
+	int line=0;
+	int pos=0;               // a character in the current line
+	int cell=-1;             // a cell in the current table row, or -1
+	int link_at=-1;          // the link on the current line last moved to
+	string[] visited;
+	nv_md_link_callback@ on_link=null;
+	// the elements list
+	bool elements=false;
+	int el_kind=0;           // 0 headings, 1 links
+	int el_pos=0;
+	nv_form_markdown(nv_form@parent, const string &in caption, const string &in id = "") {
+		super(caption, id, nv_form_ct_input, @parent);
+		custom_type = "document";
+	}
+
+	// ---- parsing -----------------------------------------------------------
+	void set_markdown(const string &in md) {
+		lines.resize(0);
+		line=0; pos=0; cell=-1; link_at=-1;
+		string[] raw=md.replace("\r", "", true).split("\n");
+		string para;
+		int para_quote=0;
+		int list_id=-1, table_id=-1, code_id=-1;
+		int next_list=0, next_table=0, next_code=0;
+		bool in_code=false;
+		uint i=0;
+		while (i < raw.length()) {
+			string l=raw[i];
+			string t=l.trim_whitespace();
+			// fenced code
+			if (t.substr(0, 3)=="```") {
+				flush_para(para, para_quote);
+				in_code=!in_code;
+				if (in_code) code_id=next_code++;
+				i++;
+				continue;
+			}
+			if (in_code) {
+				nv_md_line c;
+				c.kind=NV_MD_CODE; c.text=l; c.code_id=code_id;
+				lines.insert_last(c);
+				i++;
+				continue;
+			}
+			if (t=="") {
+				flush_para(para, para_quote);
+				i++;
+				continue;
+			}
+			// block quote
+			int quote=0;
+			while (t.substr(0, 1)==">") {
+				quote++;
+				t=t.substr(1).trim_whitespace();
+			}
+			// setext headings: a line of text, then === or ---
+			if (quote==0 && i+1 < raw.length() && !is_list_marker(t) && t.substr(0, 1)!="#" && t.substr(0, 1)!="|") {
+				string u=raw[i+1].trim_whitespace();
+				if (u.length()>=2 && (only_of(u, "=") || (only_of(u, "-") && para==""))) {
+					flush_para(para, para_quote);
+					nv_md_line h;
+					h.kind=NV_MD_HEADING; h.level=(u.substr(0, 1)=="=" ? 1 : 2);
+					md_inline(h, t);
+					lines.insert_last(h);
+					i+=2;
+					continue;
+				}
+			}
+			// separators
+			if (t.length()>=3 && (only_of(t, "-") || only_of(t, "*") || only_of(t, "_"))) {
+				flush_para(para, para_quote);
+				nv_md_line r;
+				r.kind=NV_MD_RULE; r.text="separator";
+				lines.insert_last(r);
+				i++;
+				continue;
+			}
+			// ATX headings
+			if (t.substr(0, 1)=="#") {
+				int n=0;
+				while (n<int(t.length()) && t.substr(n, 1)=="#") n++;
+				if (n<=6 && (n==int(t.length()) || t.substr(n, 1)==" ")) {
+					flush_para(para, para_quote);
+					string ht=t.substr(n).trim_whitespace();
+					while (ht.length()>0 && ht.substr(ht.length()-1)=="#") ht=ht.substr(0, ht.length()-1);
+					nv_md_line h;
+					h.kind=NV_MD_HEADING; h.level=n; h.quote=quote;
+					md_inline(h, ht.trim_whitespace());
+					lines.insert_last(h);
+					i++;
+					continue;
+				}
+			}
+			// tables: a row of cells, then a row of dashes
+			if (t.substr(0, 1)=="|" && i+1 < raw.length() && is_table_rule(raw[i+1].trim_whitespace())) {
+				flush_para(para, para_quote);
+				table_id=next_table++;
+				int first=int(lines.length());
+				int r=0;
+				string[] head=split_row(t);
+				add_row(head, table_id, ++r, true, quote);
+				i+=2;
+				while (i < raw.length()) {
+					string rt=raw[i].trim_whitespace();
+					while (rt.substr(0, 1)==">") rt=rt.substr(1).trim_whitespace();
+					if (rt.substr(0, 1)!="|") break;
+					add_row(split_row(rt), table_id, ++r, false, quote);
+					i++;
+				}
+				int cols=0;
+				for (uint k=first; k<lines.length(); k++)
+					if (int(lines[k].cells.length())>cols) cols=int(lines[k].cells.length());
+				for (uint k=first; k<lines.length(); k++) {
+					lines[k].rows=r; lines[k].cols=cols;
+				}
+				continue;
+			}
+			// list items, with what follows them indented
+			if (is_list_marker(t)) {
+				flush_para(para, para_quote);
+				int indent=0;
+				while (indent<int(l.length()) && (l.substr(indent, 1)==" " || l.substr(indent, 1)=="\t")) indent+=(l.substr(indent, 1)=="\t" ? 4 : 1);
+				bool newlist=(lines.length()==0 || lines[lines.length()-1].kind!=NV_MD_ITEM || list_id<0);
+				if (newlist) list_id=next_list++;
+				nv_md_line it;
+				it.kind=NV_MD_ITEM; it.quote=quote;
+				it.depth=indent/2;
+				string body;
+				it.ordered=marker_split(t, body);
+				int j=i+1;
+				while (j<int(raw.length())) {
+					string nl=raw[j];
+					string nt=nl.trim_whitespace();
+					if (nt=="" || is_list_marker(nt) || nt.substr(0, 1)=="#" || nt.substr(0, 1)=="|" || nl.substr(0, 1)!=" ") break;
+					body+=" "+nt;
+					j++;
+				}
+				md_inline(it, body);
+				it.list_id=list_id;
+				lines.insert_last(it);
+				i=j;
+				continue;
+			}
+			// an ordinary line of a paragraph
+			if (para!="" && para_quote!=quote) flush_para(para, para_quote);
+			para+=(para=="" ? "" : " ")+t;
+			para_quote=quote;
+			if (lines.length()>0 && lines[lines.length()-1].kind==NV_MD_ITEM && para==t) list_id=-1;
+			i++;
+		}
+		flush_para(para, para_quote);
+		number_lists();
+	}
+	private void flush_para(string &inout para, int quote) {
+		if (para=="") return;
+		nv_md_line p;
+		p.kind=NV_MD_PARA; p.quote=quote;
+		md_inline(p, para);
+		lines.insert_last(p);
+		para="";
+	}
+	// Lists: how many items each has, at each depth, and each item's number.
+	private void number_lists() {
+		for (uint i=0; i<lines.length(); i++) {
+			nv_md_line@ a=lines[i];
+			if (a.kind!=NV_MD_ITEM || a.item_no>0) continue;
+			// the run of items at this depth in this list, until it ends or goes shallower
+			int[] run;
+			for (uint k=i; k<lines.length(); k++) {
+				nv_md_line@ b=lines[k];
+				if (b.kind!=NV_MD_ITEM || b.list_id!=a.list_id || b.depth<a.depth) break;
+				if (b.depth==a.depth) run.insert_last(k);
+			}
+			for (uint k=0; k<run.length(); k++) {
+				lines[run[k]].item_no=k+1;
+				lines[run[k]].list_items=run.length();
+			}
+		}
+	}
+	private void add_row(string[]@ cells, int table_id, int r, bool header, int quote) {
+		nv_md_line row;
+		row.kind=NV_MD_ROW; row.table_id=table_id; row.row=r; row.header_row=header; row.quote=quote;
+		string txt;
+		for (uint c=0; c<cells.length(); c++) {
+			nv_md_line tmp;
+			md_inline(tmp, cells[c]);
+			row.cells.insert_last(tmp.text);
+			// links in a cell keep their place in the row's text
+			for (uint k=0; k<tmp.links.length(); k++) {
+				tmp.links[k].start+=txt.length()+(c>0 ? 2 : 0);
+				row.links.insert_last(tmp.links[k]);
+			}
+			txt+=(c>0 ? ", " : "")+tmp.text;
+		}
+		row.text=txt;
+		lines.insert_last(row);
+	}
+	private bool only_of(const string &in s, const string &in ch) {
+		for (uint k=0; k<s.length(); k++) {
+			string c=s.substr(k, 1);
+			if (c!=ch && c!=" ") return false;
+		}
+		return true;
+	}
+	private bool is_table_rule(const string &in s) {
+		if (s.find("-")<0) return false;
+		for (uint k=0; k<s.length(); k++) {
+			string c=s.substr(k, 1);
+			if (c!="|" && c!="-" && c!=":" && c!=" ") return false;
+		}
+		return true;
+	}
+	private string[] split_row(const string &in s) {
+		string t=s;
+		if (t.substr(0, 1)=="|") t=t.substr(1);
+		if (t.length()>0 && t.substr(t.length()-1)=="|") t=t.substr(0, t.length()-1);
+		string[] parts=t.split("|");
+		for (uint k=0; k<parts.length(); k++) parts[k]=parts[k].trim_whitespace();
+		return parts;
+	}
+	private bool is_list_marker(const string &in t) {
+		if (t.length()>=2 && (t.substr(0, 2)=="- " || t.substr(0, 2)=="* " || t.substr(0, 2)=="+ ")) return true;
+		int n=0;
+		while (n<int(t.length()) && t.substr(n, 1)>="0" && t.substr(n, 1)<="9") n++;
+		return n>0 && n<int(t.length())-1 && (t.substr(n, 1)=="." || t.substr(n, 1)==")") && t.substr(n+1, 1)==" ";
+	}
+	// The text after a list marker, and whether the list is numbered.
+	private bool marker_split(const string &in t, string &out body) {
+		if (t.substr(0, 1)=="-" || t.substr(0, 1)=="*" || t.substr(0, 1)=="+") {
+			body=t.substr(2).trim_whitespace();
+			return false;
+		}
+		int n=t.find(" ");
+		body=t.substr(n+1).trim_whitespace();
+		return true;
+	}
+	// Markup out of a line: emphasis and code marks go, links keep their text
+	// and are remembered where they are, images become their description.
+	private void md_inline(nv_md_line@ ln, const string &in src) {
+		string out_text;
+		uint k=0;
+		while (k < src.length()) {
+			string c=src.substr(k, 1);
+			if (c=="\\" && k+1<src.length()) {
+				out_text+=src.substr(k+1, 1);
+				k+=2;
+				continue;
+			}
+			bool img=(c=="!" && k+1<src.length() && src.substr(k+1, 1)=="[");
+			if (c=="[" || img) {
+				int open=int(k)+(img ? 1 : 0);
+				int close=find_closing(src, open, "[", "]");
+				if (close>open && uint(close+1)<src.length() && src.substr(close+1, 1)=="(") {
+					int pclose=src.find(")", close+2);
+					if (pclose>close) {
+						string label=src.substr(open+1, close-open-1);
+						string url=src.substr(close+2, pclose-close-2).trim_whitespace();
+						nv_md_line inner;
+						md_inline(inner, label);
+						nv_md_link lk;
+						lk.image=img;
+						lk.text=(img ? (inner.text!="" ? inner.text : "graphic") : inner.text);
+						lk.url=url;
+						lk.start=out_text.length();
+						lk.len=lk.text.length();
+						ln.links.insert_last(lk);
+						out_text+=lk.text;
+						k=uint(pclose+1);
+						continue;
+					}
+				}
+			}
+			if (c=="<") {
+				int e=src.find(">", k+1);
+				if (e>int(k)) {
+					string inside=src.substr(k+1, e-k-1);
+					if (inside.find("://")>0 || inside.find("@")>0) {
+						nv_md_link lk;
+						lk.text=inside; lk.url=inside; lk.start=out_text.length(); lk.len=inside.length();
+						ln.links.insert_last(lk);
+						out_text+=inside;
+						k=uint(e+1);
+						continue;
+					}
+				}
+			}
+			// emphasis and code marks
+			if (c=="*" || c=="`" || c=="~") {
+				k++;
+				continue;
+			}
+			if (c=="_" && (k+1<src.length() && src.substr(k+1, 1)=="_")) {
+				k+=2;
+				continue;
+			}
+			out_text+=c;
+			k++;
+		}
+		ln.text=out_text;
+	}
+	private int find_closing(const string &in s, int open, const string &in a, const string &in b) {
+		int depth=0;
+		for (int k=open; k<int(s.length()); k++) {
+			string c=s.substr(k, 1);
+			if (c==a) depth++;
+			else if (c==b) {
+				depth--;
+				if (depth==0) return k;
+			}
+		}
+		return -1;
+	}
+
+	// ---- saying a line ------------------------------------------------------
+	// What changes between two lines: into or out of a list, a table, a quote.
+	string transition(int from, int to) {
+		string s;
+		nv_md_line@ b=(to>=0 && to<int(lines.length()) ? lines[to] : null);
+		nv_md_line@ a=(from>=0 && from<int(lines.length()) ? lines[from] : null);
+		if (@b==null) return "";
+		int aq=(@a!=null ? a.quote : 0);
+		if (aq>b.quote) s+="out of block quote, ";
+		if (@a!=null && a.list_id>=0 && (b.list_id!=a.list_id)) s+="out of list, ";
+		if (@a!=null && a.table_id>=0 && b.table_id!=a.table_id) s+="out of table, ";
+		if (b.quote>aq) s+="block quote, ";
+		if (b.kind==NV_MD_ITEM && (@a==null || a.list_id!=b.list_id || a.depth<b.depth))
+			s+="list with "+b.list_items+(b.list_items==1 ? " item, " : " items, ");
+		if (b.kind==NV_MD_ROW && (@a==null || a.table_id!=b.table_id))
+			s+="table with "+b.rows+" rows and "+b.cols+" columns, ";
+		if (b.kind==NV_MD_CODE && (@a==null || a.code_id!=b.code_id))
+			s+="code, ";
+		return s;
+	}
+	string line_words(int n) {
+		if (n<0 || n>=int(lines.length())) return "blank";
+		nv_md_line@ l=lines[n];
+		string body=with_links(l);
+		if (l.kind==NV_MD_HEADING) return body+", heading level "+l.level;
+		if (l.kind==NV_MD_ITEM) return (l.ordered ? l.item_no+". " : "bullet ")+body;
+		if (l.kind==NV_MD_ROW) return "row "+l.row+(l.header_row ? ", column headings" : "")+": "+body;
+		if (l.kind==NV_MD_RULE) return "separator";
+		return body=="" ? "blank" : body;
+	}
+	// The text with each link announced as NVDA does: "link, its text".
+	string with_links(nv_md_line@ l) {
+		if (l.links.length()==0) return l.text;
+		string s;
+		int at=0;
+		for (uint k=0; k<l.links.length(); k++) {
+			nv_md_link@ lk=l.links[k];
+			if (lk.start>at) s+=l.text.substr(at, lk.start-at);
+			s+=(lk.image ? "graphic, " : (visited.find(lk.url)>=0 ? "visited link, " : "link, "))+lk.text;
+			at=lk.start+lk.len;
+		}
+		if (at<int(l.text.length())) s+=l.text.substr(at);
+		return s;
+	}
+	void go_line(int n, bool from_quick = false) {
+		if (lines.length()==0) {
+			speak("blank");
+			return;
+		}
+		n=clamp(n, 0, int(lines.length())-1);
+		string pre=transition(line, n);
+		line=n;
+		pos=0;
+		cell=-1;
+		link_at=-1;
+		speak(pre+line_words(n));
+	}
+	string get_control_info() {
+		if (lines.length()==0) return "blank";
+		return line_words(line);
+	}
+
+	// ---- quick navigation -------------------------------------------------------
+	bool matches(int n, const string &in what, int level) {
+		nv_md_line@ l=lines[n];
+		if (what=="heading") return l.kind==NV_MD_HEADING && (level==0 || l.level==level);
+		if (what=="item") return l.kind==NV_MD_ITEM;
+		if (what=="list") return l.kind==NV_MD_ITEM && l.item_no==1 && (n==0 || lines[n-1].list_id!=l.list_id || lines[n-1].depth<l.depth);
+		if (what=="table") return l.kind==NV_MD_ROW && l.row==1;
+		if (what=="quote") return l.quote>0 && (n==0 || lines[n-1].quote<l.quote);
+		if (what=="paragraph") return l.kind==NV_MD_PARA && l.text.length()>0;
+		if (what=="separator") return l.kind==NV_MD_RULE;
+		if (what=="text") return (l.kind==NV_MD_PARA || l.kind==NV_MD_ITEM) && l.links.length()==0;
+		if (what=="graphic") {
+			for (uint k=0; k<l.links.length(); k++) if (l.links[k].image) return true;
+			return false;
+		}
+		return false;
+	}
+	void quick(const string &in what, int dir, int level = 0, const string &in name = "") {
+		for (int n=line+dir; n>=0 && n<int(lines.length()); n+=dir) {
+			if (matches(n, what, level)) {
+				go_line(n, true);
+				return;
+			}
+		}
+		string nm=(name!="" ? name : what);
+		if (level>0) nm="heading at level "+level;
+		speak((dir>0 ? "no next " : "no previous ")+nm);
+	}
+	// Links one at a time, including several on one line.
+	void quick_link(int dir, int want) {
+		// want: 0 any, 1 unvisited, 2 visited
+		int n=line, k=link_at+dir;
+		while (n>=0 && n<int(lines.length())) {
+			nv_md_line@ l=lines[n];
+			if (dir<0 && k<-1) k=int(l.links.length())-1;
+			while (k>=0 && k<int(l.links.length())) {
+				nv_md_link@ lk=l.links[k];
+				bool v=visited.find(lk.url)>=0;
+				if (!lk.image && (want==0 || (want==1 && !v) || (want==2 && v))) {
+					string pre=(n!=line ? transition(line, n) : "");
+					line=n;
+					link_at=k;
+					pos=lk.start;
+					cell=-1;
+					speak(pre+(v ? "visited link, " : "link, ")+lk.text);
+					return;
+				}
+				k+=dir;
+			}
+			n+=dir;
+			k=(dir>0 ? 0 : -2);
+		}
+		speak(dir>0 ? (want==1 ? "no next unvisited link" : (want==2 ? "no next visited link" : "no next link")) : (want==1 ? "no previous unvisited link" : (want==2 ? "no previous visited link" : "no previous link")));
+	}
+	// Past the end of the container the line is in, or to its start.
+	void container_edge(bool to_start) {
+		nv_md_line@ l=lines[line];
+		int n=line;
+		if (l.list_id<0 && l.table_id<0 && l.quote==0) {
+			speak("not in a container");
+			return;
+		}
+		if (to_start) {
+			while (n>0 && same_container(lines[n-1], l)) n--;
+			go_line(n);
+		} else {
+			while (n<int(lines.length())-1 && same_container(lines[n+1], l)) n++;
+			if (n+1<int(lines.length())) go_line(n+1);
+			else speak("bottom");
+		}
+	}
+	bool same_container(nv_md_line@ a, nv_md_line@ b) {
+		if (b.list_id>=0) return a.list_id==b.list_id;
+		if (b.table_id>=0) return a.table_id==b.table_id;
+		return a.quote>=b.quote && b.quote>0;
+	}
+	// A cell in a table row, with its column's heading.
+	void table_cell(int dcol, int drow) {
+		nv_md_line@ l=lines[line];
+		if (l.kind!=NV_MD_ROW) {
+			speak("not in a table");
+			return;
+		}
+		int col=(cell<0 ? 0 : cell);
+		if (dcol!=0) {
+			int nc=col+dcol;
+			if (nc<0 || nc>=int(l.cells.length())) {
+				speak("edge of table");
+				return;
+			}
+			col=nc;
+		}
+		if (drow!=0) {
+			int nl=line+drow;
+			if (nl<0 || nl>=int(lines.length()) || lines[nl].table_id!=l.table_id) {
+				speak("edge of table");
+				return;
+			}
+			line=nl;
+			@l=lines[line];
+			if (col>=int(l.cells.length())) col=int(l.cells.length())-1;
+		}
+		cell=col;
+		string head;
+		// the column's heading, from the first row
+		int first=line;
+		while (first>0 && lines[first-1].table_id==l.table_id) first--;
+		if (lines[first].header_row && first!=line && col<int(lines[first].cells.length())) head=lines[first].cells[col];
+		string where=(drow!=0 ? "row "+l.row+", " : "")+(dcol!=0 || drow==0 ? "column "+(col+1)+", " : "");
+		if (drow!=0 && dcol==0) where="row "+l.row+", ";
+		speak(where+(head!="" ? head+", " : "")+(l.cells[col]=="" ? "blank" : l.cells[col]));
+	}
+	void follow_link() {
+		nv_md_line@ l=lines[line];
+		nv_md_link@ lk=null;
+		if (link_at>=0 && link_at<int(l.links.length())) @lk=l.links[link_at];
+		else {
+			for (uint k=0; k<l.links.length(); k++)
+				if (!l.links[k].image) { @lk=l.links[k]; break; }
+		}
+		if (@lk==null || lk.image) {
+			speak("not a link");
+			return;
+		}
+		if (visited.find(lk.url)<0) visited.insert_last(lk.url);
+		if (@on_link!=null) on_link(this, lk.url);
+		else speak(lk.url);
+	}
+	// The elements list, NVDA's insert and F7, here F7.
+	int[] element_lines(int kind) {
+		int[] r;
+		for (uint n=0; n<lines.length(); n++) {
+			if (kind==0 && lines[n].kind==NV_MD_HEADING) r.insert_last(n);
+			if (kind==1) {
+				for (uint k=0; k<lines[n].links.length(); k++)
+					if (!lines[n].links[k].image) { r.insert_last(n*1000+k); }
+			}
+		}
+		return r;
+	}
+	string element_words(int kind, int v) {
+		if (kind==0) {
+			nv_md_line@ l=lines[v];
+			return l.text+", level "+l.level;
+		}
+		return lines[v/1000].links[v%1000].text;
+	}
+	void elements_say() {
+		int[] e=element_lines(el_kind);
+		if (e.length()==0) {
+			speak(el_kind==0 ? "no headings" : "no links");
+			return;
+		}
+		el_pos=clamp(el_pos, 0, int(e.length())-1);
+		speak(element_words(el_kind, e[el_pos])+", "+(el_pos+1)+" of "+e.length());
+	}
+	bool elements_input() {
+		if (key_pressed(KEY_ESCAPE) || key_pressed(KEY_F7)) {
+			elements=false;
+			speak("document, "+line_words(line));
+			return true;
+		}
+		if (key_pressed(KEY_TAB)) {
+			el_kind=1-el_kind;
+			el_pos=0;
+			speak(el_kind==0 ? "headings" : "links");
+			elements_say();
+			return true;
+		}
+		int[] e=element_lines(el_kind);
+		if (key_repeating(KEY_DOWN) && e.length()>0) { el_pos=(el_pos+1<int(e.length()) ? el_pos+1 : int(e.length())-1); elements_say(); }
+		if (key_repeating(KEY_UP) && e.length()>0) { el_pos=(el_pos>0 ? el_pos-1 : 0); elements_say(); }
+		if (key_pressed(KEY_HOME)) { el_pos=0; elements_say(); }
+		if (key_pressed(KEY_END)) { el_pos=int(e.length())-1; elements_say(); }
+		if ((key_pressed(KEY_RETURN) || key_pressed(KEY_NUMPAD_ENTER)) && e.length()>0) {
+			elements=false;
+			int v=e[el_pos];
+			if (el_kind==0) go_line(v);
+			else {
+				string pre=transition(line, v/1000);
+				line=v/1000; link_at=v%1000; pos=lines[line].links[link_at].start; cell=-1;
+				speak(pre+"link, "+lines[line].links[link_at].text);
+			}
+		}
+		// the first letter of an element
+		string ch=get_characters();
+		if (ch!="" && e.length()>0) {
+			string c=ch.substr(0, 1).lower();
+			for (uint k=1; k<=e.length(); k++) {
+				uint at=(uint(el_pos)+k)%e.length();
+				if (element_words(el_kind, e[at]).substr(0, 1).lower()==c) {
+					el_pos=int(at);
+					elements_say();
+					break;
+				}
+			}
+		}
+		return true;
+	}
+
+	// ---- the keys -------------------------------------------------------------------
+	bool handle_input() {
+		if (@parent.current_control != @this) return false;
+		if (elements) return elements_input();
+		bool shift=key_down(KEY_LSHIFT) || key_down(KEY_RSHIFT);
+		bool ctrl=key_down(KEY_LCTRL) || key_down(KEY_RCTRL);
+		bool alt=key_down(KEY_LALT) || key_down(KEY_RALT);
+		int dir=(shift ? -1 : 1);
+		get_characters();
+		if (lines.length()==0) return false;
+		// tables, cell by cell
+		if (ctrl && alt) {
+			if (key_repeating(KEY_RIGHT)) table_cell(1, 0);
+			else if (key_repeating(KEY_LEFT)) table_cell(-1, 0);
+			else if (key_repeating(KEY_DOWN)) table_cell(0, 1);
+			else if (key_repeating(KEY_UP)) table_cell(0, -1);
+			return true;
+		}
+		if (key_repeating(KEY_DOWN)) {
+			if (line>=int(lines.length())-1) speak("bottom, "+line_words(line));
+			else go_line(line+1);
+			return true;
+		}
+		if (key_repeating(KEY_UP)) {
+			if (line<=0) speak("top, "+line_words(line));
+			else go_line(line-1);
+			return true;
+		}
+		if (ctrl && key_pressed(KEY_HOME)) { go_line(0); return true; }
+		if (ctrl && key_pressed(KEY_END)) { go_line(int(lines.length())-1); return true; }
+		string txt=lines[line].text;
+		if (key_pressed(KEY_HOME)) { pos=0; speak(txt=="" ? "blank" : txt.substr(0, 1)); return true; }
+		if (key_pressed(KEY_END)) { pos=(txt.length()>0 ? int(txt.length())-1 : 0); speak(txt=="" ? "blank" : txt.substr(pos, 1)); return true; }
+		bool right=key_repeating(KEY_RIGHT), left=key_repeating(KEY_LEFT);
+		if (right || left) {
+			if (txt=="") { speak("blank"); return true; }
+			if (ctrl) {
+				int p=pos;
+				if (right) {
+					while (p<int(txt.length()) && txt.substr(p, 1)!=" ") p++;
+					while (p<int(txt.length()) && txt.substr(p, 1)==" ") p++;
+					if (p>=int(txt.length())) { speak("end of line"); return true; }
+				} else {
+					if (p>0) p--;
+					while (p>0 && txt.substr(p, 1)==" ") p--;
+					while (p>0 && txt.substr(p-1, 1)!=" ") p--;
+				}
+				pos=p;
+				int e=txt.find(" ", pos);
+				speak(e<0 ? txt.substr(pos) : txt.substr(pos, e-pos));
+			} else {
+				int np=pos+(right ? 1 : -1);
+				if (np<0 || np>=int(txt.length())) { speak(right ? "end of line" : "start of line"); return true; }
+				pos=np;
+				string c=txt.substr(pos, 1);
+				speak(c==" " ? "space" : c);
+			}
+			return true;
+		}
+		if (ctrl && key_pressed(KEY_C)) {
+			clipboard_set_text(txt);
+			speak("copied");
+			return true;
+		}
+		if (key_pressed(KEY_RETURN) || key_pressed(KEY_NUMPAD_ENTER) || key_pressed(KEY_SPACE)) {
+			follow_link();
+			return true;
+		}
+		if (key_pressed(KEY_F7)) {
+			elements=true;
+			el_kind=0;
+			el_pos=0;
+			// start at the heading at or before where you are
+			int[] e=element_lines(0);
+			for (uint k=0; k<e.length(); k++) if (e[k]<=line) el_pos=k;
+			speak("elements list, headings");
+			elements_say();
+			return true;
+		}
+		if (ctrl || alt) return false;
+		if (key_pressed(KEY_H)) { quick("heading", dir); return true; }
+		int[] nums={KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6};
+		for (uint k=0; k<nums.length(); k++)
+			if (key_pressed(nums[k])) { quick("heading", dir, k+1); return true; }
+		if (key_pressed(KEY_K)) { quick_link(dir, 0); return true; }
+		if (key_pressed(KEY_U)) { quick_link(dir, 1); return true; }
+		if (key_pressed(KEY_V)) { quick_link(dir, 2); return true; }
+		if (key_pressed(KEY_L)) { quick("list", dir); return true; }
+		if (key_pressed(KEY_I)) { quick("item", dir, 0, "list item"); return true; }
+		if (key_pressed(KEY_T)) { quick("table", dir); return true; }
+		if (key_pressed(KEY_Q)) { quick("quote", dir, 0, "block quote"); return true; }
+		if (key_pressed(KEY_P)) { quick("paragraph", dir); return true; }
+		if (key_pressed(KEY_S)) { quick("separator", dir); return true; }
+		if (key_pressed(KEY_G)) { quick("graphic", dir); return true; }
+		if (key_pressed(KEY_N)) { quick("text", dir, 0, "text that is not a link"); return true; }
+		if (key_pressed(KEY_COMMA)) { container_edge(shift); return true; }
+		// Enter falls to the form's primary button only when nothing here wants it.
+		return false;
+	}
+}

@@ -791,6 +791,7 @@ int gi=find_gun(wname);if(gi<0)return;gun_ammos[gi].mag_capacity=effective_magaz
 bool attachment_feed_change_allowed(string attachment_id,string wname)
 {
 int ai=find_attachment_def(attachment_id),gi=find_gun(wname);if(ai<0 or gi<0)return true;
+if(gun_ammos[gi].reloading){speak("Finish or cancel the reload before changing attachments.");return false;}
 if(attachment_defs[ai].slot=="magazine" and gun_ammos[gi].mag_loaded>0){speak("Unload the "+gun_ammos[gi].feed_device+" before changing magazine attachments. This prevents loaded rounds from being lost.");return false;}
 return true;
 }

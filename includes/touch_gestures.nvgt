@@ -56,6 +56,9 @@ void init_gesture_bindings(){
 	register_gesture_action("kb:voice_ptt_mode","Push-to-talk or latched voice","top:3:swipe:up");
 	register_gesture_action("kb:track_player","Choose a player to track","top:3:swipe:down");
 	register_gesture_action("context_actions","Context actions","bottom:2:tap");
+	register_gesture_action("dashboard_open","Open the dashboard","top:3:hold");
+	register_gesture_action("dashboard_mode","Switch dashboard and inventory mode","top:3:triple_hold");
+	register_gesture_action("dashboard_keyboard","Return to game keyboard area","bottom:2:swipe:down");
 	load_gesture_bindings();
 	int old_help=gesture_action_index("kb:help"),context=gesture_action_index("context_actions");if(old_help>=0 and context>=0 and gesture_current_signatures[old_help]==gesture_current_signatures[context]){gesture_current_signatures[old_help]="";save_gesture_bindings();}
 }
@@ -71,6 +74,9 @@ void execute_gesture_action(string action){
 	else if(action=="fire_hold"){touch_fire_latched=true;gk_fire=true;}
 	else if(action=="lift_or_transition"){if(turbolift_at_player())try_use_turbolift();else try_use_transition();}
 	else if(action=="context_actions")touch_context_actions();
+	else if(action=="dashboard_open")game_dashboard_touch_open();
+	else if(action=="dashboard_mode"){nv_form@ f=game_dashboard_nested_gameplay?game_dashboard_nested_form:game_dashboard_form;game_dashboard_toggle_tab_mode(f);}
+	else if(action=="dashboard_keyboard"){nv_form@ f=game_dashboard_nested_gameplay?game_dashboard_nested_form:game_dashboard_form;if(@f!=null and @dashboard_keyboard(f)!=null)f.focus_control(dashboard_keyboard(f));}
 	// Everything else named kb: presses the keyboard action of the same name.
 	else if(action.substr(0,3)=="kb:")gesture_press(action.substr(3));
 }
@@ -491,7 +497,7 @@ void process_touch_gestures() {
 	gesture_pressed_actions.resize(0);
 	gesture_held_actions.resize(0);
 	touch_sprint = false;
-	if (!is_android()) return;
+	if (!is_android() or (game_dashboard_ready and !game_dashboard_keyboard_active())) return;
 	gengine.update();
 	if(take_global_gesture_help()){show_context_gesture_help(in_vehicle?"vehicle":"map gameplay");return;}
 	// Held drags. One finger in the middle band walks, two fingers sprint; in
@@ -559,6 +565,12 @@ int touch_menu_poll() {
 int touch_form_poll() {
 	if (!is_android()) return 0;
 	gengine.update();
+	if(client_match_active and game_dashboard_ready){
+		string band=gengine.region==REGION_TOP?"top":(gengine.region==REGION_MIDDLE?"middle":"bottom");
+		string action="";if(gengine.take_long_press(3))action=gesture_action_at(band+":3:hold","");else if(gengine.take_triple_tap_hold(3))action=gesture_action_at(band+":3:triple_hold","");
+		if(action=="dashboard_mode")return 12;if(action=="dashboard_open")return 13;if(action!=""){execute_gesture_action(action);return 0;}
+		if(@game_dashboard_active_form!=null and @game_dashboard_active_form.current_control==@dashboard_keyboard(game_dashboard_active_form))return 0;
+	}
 	if(take_global_gesture_help()){show_context_gesture_help("audio form");return 0;}
 	int s=gengine.take_swipe(1);
 	if(s==swipe_touch_direction_up)return 1;
@@ -567,7 +579,7 @@ int touch_form_poll() {
 	if(s==swipe_touch_direction_right)return 9;
 	int s2=gengine.take_swipe(2);
 	if(s2==swipe_touch_direction_up)return 6;
-	if(s2==swipe_touch_direction_down)return 7;
+	if(s2==swipe_touch_direction_down){if(client_match_active and game_dashboard_ready and gesture_action_at((gengine.region==REGION_TOP?"top":(gengine.region==REGION_MIDDLE?"middle":"bottom"))+":2:swipe:down","")=="dashboard_keyboard")return 14;return 7;}
 	if(s2==swipe_touch_direction_left)return 10;
 	if(s2==swipe_touch_direction_right)return 11;
 	if(gengine.take_double_tap(1))return 3;

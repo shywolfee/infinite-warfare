@@ -10,6 +10,8 @@ Run these from source using the same NVGT installation used to build the game:
 python tools/tests/world_editor_regression.py
 python tools/tests/weapon_data_regression.py
 python tools/tests/mechanics_wiring_regression.py
+python tools/tests/markdown_regression.py
+python tools/tests/server_vehicles_regression.py
 python tools/tests/updater_regression.py
 python tools/tests/repo_status_regression.py
 python tools/compile_check/compile_check.py --nvgt /path/to/nvgt
@@ -22,6 +24,16 @@ Reports and synthetic wallet records go in uniquely named `IW-*-regression-*`
 directories under the current user's Local AppData Temp directory. No real
 accounts, settings or game connections are used. The large inventory fixture
 takes time to construct; the report distinguishes setup from browsing timings.
+
+The 0.5.9.2 client checks exercise Markdown headings, links, lists and tables,
+document-to-form navigation, disabled-control navigation, Markdown release
+grouping, and spectator inventory restoration. Server checks cover distinct
+simultaneous arena instances, travel, practice respawns, map cleanup, and
+restoration of health, armour durability and suppressor state.
+
+The updater suite uses the current Python interpreter, permits its isolated
+PowerShell test process to execute scripts, and compares text independently
+of Windows checkout line endings. Binary files still require exact matches.
 
 The acoustic test loads Freya's Ascent geometry directly from the source tree
 and compares narrowed wall traces with the pre-optimization reference. It also

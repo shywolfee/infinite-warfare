@@ -1,7 +1,11 @@
-Weapon Attachments
+# Weapon Attachments
 
 Attachments are runtime database records with a slot, compatibility list and mechanical effect. Use one from inventory while its compatible weapon is drawn. Each slot accepts one component; Gameplay options can either reject an occupied slot or safely replace its component and return the old one to inventory.
 
 Attachment families include optics, barrels, muzzle devices, suppressors, grips, bipods, rail devices, stocks, magazines, shotgun chokes and shell carriers. Their effects are applied by the authoritative projectile system and may change dispersion, recoil, velocity, drag, capacity, reload time, firing interval or movement handling.
 
 Alt+A opens the drawn weapon panel. Shift+Enter opens the panel for the selected inventory weapon. The panel reports the live combined configuration and allows removable components to be detached. Individual attachment compatibility and effects are generated in the Help browser from the same database rather than maintained in this file.
+
+## Feed compatibility and changing parts
+
+Magazine extensions and drums require a genuine detachable-magazine feed. They do not fit revolvers or individually loaded weapons. Shell carriers fit individually loaded shotguns rather than detachable-magazine shotguns. Unload a magazine before changing its capacity, and finish an active reload before changing any attachment. The weapon panel explains each installed part's mechanical effect and disables removal when the part is permanent or the current feed state prevents it.

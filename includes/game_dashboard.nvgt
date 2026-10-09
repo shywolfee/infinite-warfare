@@ -129,9 +129,20 @@ game_dashboard_option_state="";game_dashboard_refresh_timer.restart();game_dashb
 game_dashboard_form.monitor();game_dashboard_form.focus_control(dashboard_keyboard(game_dashboard_form),true,false);
 }
 
+void game_dashboard_touch_open()
+{
+if(!game_dashboard_ready){speak("The dashboard is not available yet.");return;}
+game_dashboard_tab_mode=true;
+nv_form@ f=game_dashboard_nested_gameplay?game_dashboard_nested_form:game_dashboard_form;
+if(@f==null)return;
+if(f.get_control_by_id("__dash_keyboard") is null){f.shell_attached=false;game_dashboard_attach_shell(f);}
+if(@f==@game_dashboard_form)f.focus_control(game_dashboard_options);else for(uint i=0;i<f.controls.length();i++)if(!f.controls[i].hidden and f.controls[i].enabled and f.controls[i].type!=nv_form_ct_keyboard_area){f.focus_control(f.controls[i]);break;}
+speak("Dashboard mode.");
+}
+
 string game_dashboard_current_option_state()
 {
-return (count_total_items()>0?"inventory":"empty")+"|"+(get_item_count("hypercomp")>0?"terminal":"offline")+"|"+((staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)?"staff":"player");
+return (count_total_items()>0?"inventory":"empty")+"|"+(get_item_count("hypercomp")>0?"terminal":"offline")+"|"+client_arena_id+"|"+client_arena_state+"|"+((staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)?"staff":"player");
 }
 
 void game_dashboard_rebuild_options(bool force)
@@ -189,7 +200,7 @@ void show_staff_announcements()
 announcements_received=false;announcements_text="";send_reliable(0,"announcements_get",0);timer timeout;
 while(connected and !announcements_received and timeout.elapsed<4000){wait(5);netloop(false);}
 if(!announcements_received){speak("The announcements request timed out.");return;}
-string[] rows=string_split(announcements_text,";",true);nv_form f;f.create_window("Staff announcements",false,true);nv_form_list_box@ titles=f.add_list("Announcements; move through titles, then Tab to read the selected body","announcement_titles");for(uint i=0;i<rows.length();i++){string[] fields=string_split(rows[i],"~",false);if(fields.length()>=2)titles.add(fields[1],fields[0]);}if(titles.items.length()==0)titles.add("No staff announcements have been posted.","none");nv_form_input@ body=f.add_input("Selected announcement body","announcement_body","Select an announcement title.","",0,true,true);nv_form_button@ close=f.add_button("Close announcements","close",false,true);f.focus_control(titles);int previous=-1;while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(titles.list_position!=previous and @titles.focused_item!=null){previous=titles.list_position;if(titles.focused_item.id=="none"){body.text="There are no announcements to read.";continue;}announcement_body_received=false;announcement_body_id="";announcement_body_text="";send_reliable(0,"announcement_get "+titles.focused_item.id,0);timer timeout;while(connected and !announcement_body_received and timeout.elapsed<3000){wait(5);f.monitor();netloop(false);}body.text=announcement_body_received and announcement_body_id==titles.focused_item.id?announcement_body_text:"The selected announcement could not be loaded.";}}
+string[] rows=string_split(announcements_text,";",true);nv_form f;f.create_window("Staff announcements",false,true);nv_form_list_box@ titles=f.add_list("Announcements; move through titles, then Tab to read the selected body","announcement_titles");for(uint i=0;i<rows.length();i++){string[] fields=string_split(rows[i],"~",false);if(fields.length()>=2)titles.add(fields[1],fields[0]);}if(titles.items.length()==0)titles.add("No staff announcements have been posted.","none");nv_form_markdown@ body=f.add_markdown("Selected announcement body","announcement_body","Select an announcement title.");@body.on_link=iw_document_link;nv_form_button@ close=f.add_button("Close announcements","close",false,true);f.focus_control(titles);int previous=-1;while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(titles.list_position!=previous and @titles.focused_item!=null){previous=titles.list_position;if(titles.focused_item.id=="none"){body.set_markdown("There are no announcements to read.");continue;}announcement_body_received=false;announcement_body_id="";announcement_body_text="";send_reliable(0,"announcement_get "+titles.focused_item.id,0);timer timeout;while(connected and !announcement_body_received and timeout.elapsed<3000){wait(5);f.monitor();netloop(false);}body.set_markdown(announcement_body_received and announcement_body_id==titles.focused_item.id?announcement_body_text:"The selected announcement could not be loaded.");}}
 }
 
 void game_dashboard_open_action_id(const string &in chosen)
@@ -264,7 +275,8 @@ if(game_dashboard_tab_mode and (key_down(KEY_LMENU) or key_down(KEY_RMENU)) and 
 if(@f.current_control==@keyboard and @f!=@game_dashboard_form and !game_dashboard_nested_gameplay){game_dashboard_begin_nested_gameplay(f);return true;}
 // Nested screens own Escape: their cancel control returns to the previous
 // dashboard menu. Only the dashboard root uses Escape to resume the game.
-if(@f.current_control!=@keyboard and key_pressed(KEY_ESCAPE)){
+nv_form_markdown@ open_document=cast<nv_form_markdown@>(f.current_control);
+if(@f.current_control!=@keyboard and !(@open_document!=null and open_document.elements) and key_pressed(KEY_ESCAPE)){
 if(@f!=@game_dashboard_form and @f.cancel_control!=null){f.cancel_control.fire();return true;}
 f.focus_control(keyboard);return true;}
 if(game_dashboard_refresh_timer.elapsed>300){game_dashboard_rebuild_options(false);game_dashboard_refresh_shell(f);game_dashboard_refresh_timer.restart();}
@@ -273,12 +285,15 @@ if(!game_dashboard_tab_mode and @f.current_control==@keyboard and key_pressed(KE
 if(@f.current_control==@game_dashboard_options and game_dashboard_option_shortcut(f))return true;
 if(@f.current_control!=@keyboard)
 {
+// An open screen owns its announced shortcuts before shared shell controls.
+// Otherwise Alt+S starts sending chat instead of starting an arena, for example.
+if(@f!=@game_dashboard_form)for(uint i=0;i<f.controls.length();i++){nv_form_control@ c=f.controls[i];if(c.id.substr(0,7)=="__dash_" or c.hidden or !c.enabled)continue;if(c.check_shortcut()){c.shortcut_focus();f.shortcut.consume();return true;}}
 nv_form_control@[] shell_controls={game_dashboard_options,dashboard_open_screen(f),dashboard_players(f),dashboard_transcript(f),dashboard_conversations(f),dashboard_message(f),dashboard_send(f)};
 for(uint i=0;i<shell_controls.length();i++)if(@shell_controls[i]!=null and @shell_controls[i]!=@game_dashboard_options and shell_controls[i].check_shortcut()){shell_controls[i].shortcut_focus();f.shortcut.consume();if(@shell_controls[i]==@dashboard_send(f)){f.is_pressed(dashboard_send(f));game_dashboard_send_message(f);}return true;}
 }
-if(@f.current_control!=@game_dashboard_options)
+if(@f.current_control!=@game_dashboard_options and @f.current_control!=@keyboard)
 {
-for(uint i=0;i<game_dashboard_options.items.length();i++){nv_form_button@ option_shortcut=cast<nv_form_button@>(f.get_control_by_id("__dash_option_"+game_dashboard_options.items[i].id));if(@option_shortcut!=null and option_shortcut.check_shortcut()){f.shortcut.consume();return true;}}
+for(uint i=0;i<game_dashboard_options.items.length();i++){nv_form_button@ option_shortcut=cast<nv_form_button@>(f.get_control_by_id("__dash_option_"+game_dashboard_options.items[i].id));if(@option_shortcut!=null and option_shortcut.check_shortcut()){if(@f.current_control!=@keyboard){f.shortcut.consume();return true;}}}
 }
 bool activate=false;
 if(@f.current_control==@game_dashboard_options or @f.current_control==@dashboard_players(f) or @f.current_control==@input or @f.current_control==@dashboard_send(f))activate=key_pressed(KEY_RETURN) or key_pressed(KEY_NUMPAD_ENTER);

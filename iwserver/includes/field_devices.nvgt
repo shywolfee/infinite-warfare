@@ -1,0 +1,68 @@
+// Purpose-built hardware. Modules augment two profiles, never gate basic UI.
+string[] device_items(){string[] ids;for(uint i=0;i<item_catalogue.length();i++)if(item_prop(item_catalogue[i].id,"device_profile")!="")ids.insert_last(item_catalogue[i].id);return ids;}
+bool device_owned(player@ p,string item){return !p.death and p.arena_return_map=="" and physical_count(p,item)>0 and item_prop(item,"device_profile")!="";}
+bool device_installed(player@ p,string item,string module){bool installed=false;return p.device_modules.get(item+":"+module,installed) and installed;}
+int device_capacity(player@ p,string item){int extra=0;if(!p.device_expansions.get(item,extra))extra=0;return item_prop_int(item,"device_storage",0)+extra;}
+terminal_app_def@[] device_module_definitions;
+void load_device_modules()
+{
+device_module_definitions.resize(0);string root="content/device_modules";string[] dirs=find_directories(root+"/*");dirs.insert_at(0,"");
+for(uint folder=0;folder<dirs.length();folder++){string path=dirs[folder]==""?root:root+"/"+dirs[folder];string[] files=find_files(path+"/*.app");
+for(uint i=0;i<files.length();i++){file f;if(!f.open(path+"/"+files[i],"rb"))continue;item_data@ d=parse_item_file(files[i].substr(0,files[i].length()-4),f.read());f.close();terminal_app_def a;a.id=d.id;a.name=d.name;string value;d.props.get("devices",a.systems);d.props.get("handler",a.handler);d.props.get("feature",a.feature);d.props.get("size",value);a.size=int(string_to_number(value));d.props.get("price",value);a.price=int(string_to_number(value));string[] handlers={"scanner","ballistics","vehicle_diagnostics"};if(a.size>0 and a.size<=2048 and a.price>=0 and a.price<=1000000 and handlers.find(a.handler)>=0 and a.systems!="" and a.name.find("~")<0 and a.name.find(";")<0 and a.feature.find("~")<0 and a.feature.find(";")<0)device_module_definitions.insert_last(a);}
+}
+}
+int device_used(player@ p,string item){int used=0;for(uint i=0;i<device_module_definitions.length();i++)if(device_installed(p,item,device_module_definitions[i].id))used+=device_module_definitions[i].size;return used;}
+bool device_action_allowed(player@ p,string item,string action)
+{
+if(!device_owned(p,item))return false;string[] native=item_prop_list(item,"device_actions");if(native.find(action)>=0)return true;
+for(uint i=0;i<device_module_definitions.length();i++)if(device_module_definitions[i].handler==action and device_installed(p,item,device_module_definitions[i].id) and terminal_os_supports(item,device_module_definitions[i].systems))return true;return false;
+}
+bool device_market_access(player@ p){string[] items=device_items();for(uint i=0;i<items.length();i++)if(device_action_allowed(p,items[i],"market"))return true;return false;}
+bool device_bank_access(player@ p){string[] items=device_items();for(uint i=0;i<items.length();i++)if(device_action_allowed(p,items[i],"bank"))return true;return false;}
+string device_bearing(double x,double y,double tx,double ty){double a=atan2(tx-x,ty-y)*180/3.14159265358979323846;if(a<0)a+=360;string[] names={"north","northeast","east","southeast","south","southwest","west","northwest"};return names[int(round(a/45,0))%8];}
+void device_handle(uint peer,string raw,const string[] &in parsed)
+{
+int pi=get_player_index(peer);if(pi<0 or parsed.length()<2)return;player@ p=players[pi];string item=parsed[1],cmd=parsed[0];
+if(!device_owned(p,item)){send_reliable(peer,"device_error Carry this device and leave your arena before using it.",0);return;}
+if(device_module_definitions.length()==0)load_device_modules();init_player_bunker_arrays(pi);ensure_bunker_alarm_arrays();
+if(cmd=="device_state")
+{string[] actions=item_prop_list(item,"device_actions");for(uint i=0;i<device_module_definitions.length();i++)if(device_installed(p,item,device_module_definitions[i].id) and actions.find(device_module_definitions[i].handler)<0)actions.insert_last(device_module_definitions[i].handler);send_reliable(peer,"device_state "+item+"|"+item_info(item).name+"|"+item_prop(item,"device_profile")+"|"+device_capacity(p,item)+"|"+device_used(p,item)+"|"+join(actions,","),0);return;}
+if(cmd=="device_catalog")
+{string result="device_catalog ";for(uint i=0;i<device_module_definitions.length();i++){terminal_app_def@ a=device_module_definitions[i];if(!terminal_os_supports(item,a.systems))continue;if(result!="device_catalog ")result+=";";result+=a.id+"~"+a.name+"~"+a.size+"~"+a.price+"~"+(device_installed(p,item,a.id)?"1":"0")+"~"+a.handler+"~"+a.feature;}send_reliable(peer,result,0);return;}
+if(cmd=="device_install" or cmd=="device_remove")
+{
+if(parsed.length()!=3 or !item_flag(item,"device_extensible")){send_reliable(peer,"device_error This device does not support downloadable modules.",0);return;}
+terminal_app_def@ app=null;for(uint i=0;i<device_module_definitions.length();i++)if(device_module_definitions[i].id==parsed[2])@app=device_module_definitions[i];
+if(app is null or !terminal_os_supports(item,app.systems)){send_reliable(peer,"device_error That module is incompatible with this hardware.",0);return;}
+if(cmd=="device_remove"){if(!device_installed(p,item,app.id)){send_reliable(peer,"device_error That module is not installed.",0);return;}p.device_modules.delete(item+":"+app.id);send_reliable(peer,"device_ok Removed "+app.name+" and recovered "+app.size+" GB.",0);return;}
+if(device_installed(p,item,app.id) or device_used(p,item)+app.size>device_capacity(p,item)){send_reliable(peer,"device_error Already installed or insufficient device storage.",0);return;}
+if(!change_player_credits(p,-app.price)){send_reliable(peer,"device_error Insufficient wallet credits or payment could not be saved.",0);return;}p.device_modules.set(item+":"+app.id,true);send_reliable(peer,"device_ok Installed "+app.name+" on "+item_info(item).name+" for "+app.price+" credits.",0);return;
+}
+if(cmd=="device_expand" and parsed.length()==3)
+{
+string memory=parsed[2];int size=item_prop_int(memory,"storage_gb",0);if(!item_flag(item,"device_extensible") or size<=0 or physical_count(p,memory)<=0 or device_capacity(p,item)+size>2048){send_reliable(peer,"device_error Select an owned compatible memory module; capacity cannot exceed 2048 GB.",0);return;}
+int extra=device_capacity(p,item)-item_prop_int(item,"device_storage",0);p.device_expansions.set(item,extra+size);send_reliable(peer,"give "+memory+" -1",0);send_reliable(peer,"device_ok Added "+size+" GB to this device. Capacity "+device_capacity(p,item)+" GB.",0);return;
+}
+if(cmd=="device_mark" and device_action_allowed(p,item,"navigation")){p.device_waypoints.set(item,p.x+","+p.y+","+p.z+","+p.map);send_reliable(peer,"device_ok Return waypoint recorded at "+p.x+", "+p.y+", "+p.z+".",0);return;}
+if(cmd=="device_bunker" and parsed.length()==4 and device_action_allowed(p,item,"bunkers"))
+{int id=int(string_to_number(parsed[2]));if(id<0 or id>=int(bunkers.length()) or bunkers[id].owner!=p.name){send_reliable(peer,"device_error That bunker is not yours.",0);return;}if(parsed[3]=="monitor")p.bunker_monitor[id]=!p.bunker_monitor[id];else if(parsed[3]=="alarm")bunker_alarm_active[id]=!bunker_alarm_active[id];else{send_reliable(peer,"device_error Unknown bunker control.",0);return;}send_reliable(peer,"device_ok "+parsed[3]+" is now "+(parsed[3]=="monitor"?(p.bunker_monitor[id]?"enabled":"disabled"):(bunker_alarm_active[id]?"enabled":"disabled"))+" for "+bunkers[id].name+".",0);return;}
+if(cmd!="device_run" or parsed.length()<3 or !device_action_allowed(p,item,parsed[2])){send_reliable(peer,"device_error This operation is not available on the carried hardware.",0);return;}
+string action=parsed[2],report="";
+if(action=="bank" or action=="market"){send_reliable(peer,"device_open "+action,0);return;}
+if(action=="c4")
+{int count=count_player_c4(p.name);if(parsed.length()>3){int wanted=int(string_to_number(parsed[3]));if(wanted<1 or wanted>count){send_reliable(peer,"device_error Select a valid number of your placed C4 charges.",0);return;}detonate_c4(p.name,wanted);send_reliable(peer,"device_ok Detonated "+wanted+" of your C4 charges.",0);return;}report=count+" owned C4 charges are available for remote detonation.";}
+else if(action=="bunkers")
+{string rows="";for(uint i=0;i<bunkers.length();i++)if(bunkers[i].owner==p.name){if(rows!="")rows+=";";rows+=i+"~"+bunkers[i].name+"~"+(p.bunker_monitor[i]?"on":"off")+"~"+(bunker_alarm_active[i]?"on":"off");}send_reliable(peer,"device_bunkers "+rows,0);return;}
+else if(action=="weather"){report=wind_report(p.map);if(report=="")report="Calm wind: less than 1.5 tiles per second.";report+=" Readings are current conditions, not a forecast.";}
+else if(action=="medical")report="Health "+p.health+" of 1000. Medication toxicity "+p.medication_toxicity+" percent. Remaining treatment "+p.medication_heal_remaining+". "+(p.bleeding?"Active bleeding. ":"No bleeding. ")+(p.burning?"Active burns.":"No active fire.");
+else if(action=="scanner")
+{for(uint i=0;i<players.length();i++){player@ other=players[i];if(other.map!=p.map or other.name==p.name or other.death or other.arena_role=="spectator" or actor_distance(p.x,p.y,p.z,other.x,other.y,other.z)>item_prop_int(item,"device_scan_range",40))continue;string detected=contact_state(p,other,true);if(detected=="")continue;report+=other.name+": "+relative_position(p,other.x,other.y,other.z)+", "+detected+". ";}if(report=="")report="No detectable contacts. Concealed contacts are not revealed by this scan.";}
+else if(action=="vehicle_diagnostics")
+{for(uint i=0;i<authoritative_vehicles.length();i++){authoritative_vehicle@ v=authoritative_vehicles[i];if(v.map!=p.map or actor_distance(p.x,p.y,p.z,v.px,v.py,v.z)>10)continue;report+=v.type+": health "+v.health+", armour "+v.armor+". ";}if(report=="")report="No vehicles within ten tiles.";}
+else if(action=="navigation")
+{string waypoint;if(p.device_waypoints.get(item,waypoint)){string[] f=string_split(waypoint,",",false);if(f.length()==4){if(f[3]!=p.map)report="Return waypoint is on "+map_display_title(f[3])+".";else report="Return waypoint: "+round(actor_distance(p.x,p.y,p.z,string_to_number(f[0]),string_to_number(f[1]),string_to_number(f[2])),1)+" tiles "+device_bearing(p.x,p.y,string_to_number(f[0]),string_to_number(f[1]))+". Elevation difference "+(string_to_number(f[2])-p.z)+".";}}if(report=="")report="Record a return waypoint first. Bearings are straight-line references, not a walkable route through obstacles.";}
+else if(action=="ballistics" and parsed.length()==6)
+{double x=string_to_number(parsed[3]),y=string_to_number(parsed[4]),z=string_to_number(parsed[5]);int si=find_wpn_stats(p.current_weapon);double range=actor_distance(p.x,p.y,p.z,x,y,z);if(si<0)report="Draw a weapon to calculate its projectile travel.";else{wpn_server_stats@ w=wpn_stats_cache[si];double time=range/(w.muzzle_velocity>0?w.muzzle_velocity:1);report="Straight-line range "+round(range,1)+" tiles, "+device_bearing(p.x,p.y,x,y)+". Approximate muzzle-speed travel time "+round(time,2)+" seconds and gravity drop "+round(w.gravity*time*time*.5,2)+" tiles. "+(blast_line_blocked(p.x,p.y,p.z+1,x,y,z,p.map)?"The direct line is obstructed.":"The direct line is clear.")+" Estimates exclude drag, wind and moving targets.";}}
+else{send_reliable(peer,"device_error This tool needs valid parameters.",0);return;}
+send_reliable(peer,"device_output "+report,0);
+}

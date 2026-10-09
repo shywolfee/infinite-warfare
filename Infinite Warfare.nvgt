@@ -20,6 +20,9 @@
 #include "includes/map_ambience.nvgt"
 #include "includes/item_mechanics.nvgt"
 #include "includes/smart_terminal.nvgt"
+#include "includes/field_devices.nvgt"
+#include "includes/physical_commerce.nvgt"
+bool fixture_revived=false;
 #include "includes/arenas.nvgt"
 #include "includes/release_tools.nvgt"
 #include"includes/buffer.nvgt"
@@ -150,12 +153,31 @@ dictionary fire_sound_count_cache;
 pack_file fire_archive_index;
 string[] recent_pm_senders;
 string[] service_response_queue;
+int next_service_request_id=0;bool service_request_busy=false;string[] abandoned_service_markers;
+string identified_service_request(string command,int timeout_ms=5000)
+{
+if(service_request_busy){speak("Finish the current service operation before starting another.");return "";}
+if(next_service_request_id==0)next_service_request_id=random(100000,1000000000);
+service_request_busy=true;int id=++next_service_request_id;string marker="service_reply "+id+" ";
+try{
+send_reliable(0,"service_request "+id+" "+command,0);timer elapsed;nv_form waiting;nv_form_button@ close=null;bool shown=false;string response="";
+while(connected and elapsed.elapsed<timeout_ms)
+{
+for(uint i=0;i<service_response_queue.length();i++)if(service_response_queue[i].find(marker)==0){response=service_response_queue[i].substr(marker.length());service_response_queue.remove_at(i);service_request_busy=false;return response;}
+wait(5);netloop(false);
+if(!shown and elapsed.elapsed>350){shown=true;waiting.create_window("Server operation in progress",false,true);waiting.add_input("Operation status","status","Waiting for an acknowledged result. Leaving this screen does not undo a submitted transaction.","",0,true,true);@close=waiting.add_button("Return while the server finishes; check the resulting balance before retrying","close",false,true);waiting.focus_control(close);}
+if(shown){waiting.monitor();if(waiting.is_pressed(close))break;}
+}
+}catch{speak("The service screen could not finish.");}
+service_request_busy=false;abandoned_service_markers.insert_last(marker);if(abandoned_service_markers.length()>64)abandoned_service_markers.remove_at(0);speak("No confirmed result was received. The server may have completed this operation; check balances and inventory before submitting it again.");return "";
+}
 const string CLIENT_DEV_KEY = "Fluttershy";
 int failed_login_attempts=0;
 timer lockout_timer;
 bool lockout_active=false;
 bool capture_service_response(string message)
 {
+if(message.find("service_reply ")==0){for(uint i=0;i<abandoned_service_markers.length();i++)if(message.find(abandoned_service_markers[i])==0){string result=message.substr(abandoned_service_markers[i].length());abandoned_service_markers.remove_at(i);speak("Delayed server result.");terminal_speak_reply(result);return true;}service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}
 string[] prefixes={"ticket_role_","ticket_created","ticket_mylist ","ticket_alllist ","ticket_data ","ticket_closed","ticket_replied","feedback_role_","feedback_created","feedback_mylist ","feedback_alllist ","feedback_data ","feedback_closed","feedback_replied","bug_role_","bug_created","bug_mylist ","bug_alllist ","bug_data ","bug_flagged","market_balance ","market_catalog ","market_purchase_","dobj_buy_","dobj_redeem_reply ","announcement_posted","announcement_error ","terminal_state ","terminal_catalog ","terminal_output ","terminal_ok ","terminal_error ","bank_status ","bank_ok ","bank_error ","terminal_open","arena_list ","arena_overview ","arena_ok ","arena_error ","arena_status "};for(uint i=0;i<prefixes.length();i++)if(string_contains(message,prefixes[i],1)==0){service_response_queue.insert_last(message);if(service_response_queue.length()>64)service_response_queue.remove_at(0);return true;}return false;
 }
 bool wait_for_service_response(string prefix,string &out response,int timeout_ms=3000,string error_prefix="")
@@ -298,6 +320,7 @@ bool x=false;
 bool connected;
 bool show_damage_readout=false;
 bool hear_own_projectile_audio=false;
+bool nearby_object_compass=false;
 bool audio_form_sound_feedback=true;
 bool dashboard_form_sound_feedback=true;
 void play_nv_form_audio_feedback(bool activation)
@@ -379,9 +402,9 @@ menu_music_save_timer.restart();
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
 double version=0.591;
-string version_name="0.5.9.2";
-int build_number=102;
-string build_date="2026-10-08";
+string version_name="0.5.9.3";
+int build_number=103;
+string build_date="2026-10-09";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
@@ -474,10 +497,10 @@ else if(tracker_quiet_timer.elapsed>20000){tracker_quiet_timer.restart();speak(t
 }
 void update_all_listeners()
 {
-double t=calculate_theta(facing);
-p.update_listener_3d(me.x,me.y,me.z,t);
-distpool.update_listener_3d(me.x,me.y,me.z,t);
-ambpool.update_listener_3d(me.x,me.y,me.z,t);
+double t=calculate_theta(view_facing());
+p.update_listener_3d(view_x(),view_y(),view_z(),t);
+distpool.update_listener_3d(view_x(),view_y(),view_z(),t);
+ambpool.update_listener_3d(view_x(),view_y(),view_z(),t);
 }
 key_hold kleft(KEY_LEFT,300,cameraspeed);
 key_hold kright(KEY_RIGHT,300,cameraspeed);
@@ -877,6 +900,7 @@ sd.save();
 }
 string packet_safe_preview(string value)
 {
+if(value.find("bank_")>=0 or value.find("service_request ")>=0)return "Bank or device service packet; credentials and transaction details hidden";
 value=string_replace(value,"\r"," ",true);value=string_replace(value,"\n"," ",true);value=string_replace(value,"\t"," ",true);if(value.length()>120)value=string_left(value,120)+"...";return value;
 }
 void record_diagnostic_packet(string direction,string transport,int peer,int channel,string payload)
@@ -1862,6 +1886,7 @@ void show_help_list(){show_help_browser_form();}
 
 void show_item_help(string item)
 {
+if(item.find("__value__")>0 and item_info(item) !is null){item_data@ data=item_info(item);show_readonly_audio_form(physical_item_name(item),data.summary+"\n\nRemaining balance: "+physical_item_value(item)+" credits.");return;}
 if(string_contains(item,"__partial__",1)==0){int pidx=string_to_number(string_replace(item,"__partial__","",false));if(pidx>=0 and pidx<int(partial_items.length()))item=partial_items[pidx].base_item;}
 string content = read_help_file(item);
 if (string_contains(content, "No help available", 1) == 0)
@@ -1913,7 +1938,7 @@ content.set_markdown(read_help_file(help_category_entries[category][topic]));
 // ---------------------------------------------------------------------------
 string quickbar_display_name(string item)
 {
-if(is_weapon(item))return get_weapon_display_name(item);int ci=content_find(item);if(ci>=0)return content_database[ci].display_name;return string_replace(item,"_"," ",true);
+if(is_weapon(item))return get_weapon_display_name(item);int ci=content_find(item);if(ci>=0)return content_database[ci].display_name;return physical_item_name(item);
 }
 
 int quickbar_weapon_score(string item)
@@ -2070,7 +2095,7 @@ string inv_menu_label(const string[] &in keys, int pos)
 	if (is_weapon(key))
 		display_name = get_weapon_display_name(key);
 	else
-	{int content_index=content_find(key);display_name=content_index>=0?content_database[content_index].display_name:string_replace(key, "_", " ", true);}
+	{int content_index=content_find(key);display_name=content_index>=0?content_database[content_index].display_name:physical_item_name(key);}
 	if (is_ammo_container(key))
 		return display_name + " (" + a + "). " + (pos+1) + " of " + total;
 	else if(item_is_liquid_medication(key))
@@ -2134,10 +2159,10 @@ void inv_menu_use(string key)
 void inventory_item_action_menu(string key)
 {
 	string item_id=inv_menu_item_id(key);if(item_id=="")return;
-	string title=is_weapon(item_id)?get_weapon_display_name(item_id):string_replace(item_id,"_"," ",true);
+	string title=is_weapon(item_id)?get_weapon_display_name(item_id):physical_item_name(item_id);
 	nv_form f;f.create_window(title+" actions",false,true);
 	nv_form_input@ summary=f.add_input("Item information","summary",inv_menu_label(get_filtered_keys(),get_filtered_keys().find(key))+"\n"+item_mechanic_description(item_id),"",0,true,true);
-nv_form_button@ use=null;if(inventory_use_available(key))@use=f.add_button(is_weapon(item_id)?"Equip weapon":(item_is_thrown_explosive(item_id)?(cooked_grenade==item_id?"Throw cooked grenade":"Pull pin and begin cooking"):"Use item"),"use",true);
+nv_form_button@ use=null;if(inventory_use_available(key))@use=f.add_button(is_weapon(item_id)?"Equip weapon":(item_flag(item_id,"momentum_rolling")?"Throw momentum bomb":(item_is_thrown_explosive(item_id)?(cooked_grenade==item_id?"Throw cooked grenade":"Pull pin and begin cooking"):"Use item")),"use",true);
 	nv_form_button@ help=f.add_button("Open detailed help","help");
 	nv_form_button@ give=null;nv_form_button@ drop=null;if(string_contains(key,"__partial__",1)!=0){@give=f.add_button("Give one to a nearby player","give");@drop=f.add_button("Drop one seven tiles ahead","drop");}
 	nv_form_button@ close=f.add_button("Return to inventory","close",false,true);f.focus_control(@use!=null?use:help);
@@ -2339,12 +2364,16 @@ void inventory_menu_legacy()
 bool item_handled_on_client(string item)
 {
 if(item=="credit_chip_small" or item=="credit_chip_large" or is_attachment_item(item) or is_holster_item(item) or is_ammo_reserve_item(item))return true;
+if(item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item=="portable_auction_terminal" or item_prop(item,"device_profile")!="" or item_prop(item,"use_kind")=="terminal_storage")return true;
 if(item_is_thrown_explosive(item) or item_is_deployable_explosive(item) or item_is_launched_explosive(item))return true;
 string[] client_items={"bomb_vest","translocator","translocator_cell","adrenaline_syringe","biomonitor_bracelet","wirenet","c4","hypercomp","repair_kit"};
 return client_items.find(item)>=0;
 }
 void on_item_used(string item)
 {
+if(item_prop(item,"device_profile")!=""){device_menu(item);return;}
+if(item_prop(item,"use_kind")=="terminal_storage"){device_upgrade_storage(item);return;}
+if(item_prop(item,"currency_kind")!="" or item_flag(item,"disposable")){physical_item_menu(item);return;}
 // Every explosive goes through here, whichever key or menu used it: thrown
 // ones are cooked and thrown along the vertical aim, placed and launched ones
 // are sent with the same aim and the vehicle cabin state. Grenades used from
@@ -2430,7 +2459,7 @@ return;
 }
 else if(item=="portable_auction_terminal")
 {
-give("portable_auction_terminal",-1);give("hypercomp",1);speak("The legacy Portable Auction Terminal has been upgraded into a HyperComp Smart Terminal with Marketplace, App Store and commerce applications.");smart_terminal_menu();
+string upgraded=terminal_request("physical_upgrade_terminal","bank_");terminal_speak_reply(upgraded);if(terminal_reply_ok(upgraded))device_menu("supply_link");
 return;
 }
 else if(item=="credit_chip_small" or item=="credit_chip_large"){use_credit_chip(item);return;}
@@ -3623,6 +3652,7 @@ process_touch_gestures();
 game_dashboard_tick();
 if(resume_nested_dashboard and !game_dashboard_keyboard_active())return;
 if(!game_dashboard_keyboard_active())continue;
+if(companion_piloting){companion_pilot_controls();continue;}
 if(pingtimer.elapsed > 20000 and pinging==true)
 {
 p.play_stationary("pingstop.ogg", false);
@@ -4616,6 +4646,7 @@ if(sd.d.exists("voice_hear_self")) voice_hear_self=sd.readn("voice_hear_self")>=
 if(sd.d.exists("auto_bind_starting_loadout")) auto_bind_starting_loadout=sd.readn("auto_bind_starting_loadout")>=1;
 if(sd.d.exists("replace_occupied_attachments"))replace_occupied_attachments=sd.readn("replace_occupied_attachments")>=1;
 if(sd.d.exists("hear_own_projectile_audio"))hear_own_projectile_audio=sd.readn("hear_own_projectile_audio")>=1;
+if(sd.d.exists("nearby_object_compass"))nearby_object_compass=sd.readn("nearby_object_compass")>=1;
 if(sd.d.exists("audio_form_sound_feedback"))audio_form_sound_feedback=sd.readn("audio_form_sound_feedback")>=1;
 if(sd.d.exists("dashboard_form_sound_feedback"))dashboard_form_sound_feedback=sd.readn("dashboard_form_sound_feedback")>=1;
 if(sd.d.exists("acoustic_occlusion_enabled"))acoustic_occlusion_enabled=sd.readn("acoustic_occlusion_enabled")>=1;
@@ -4680,6 +4711,7 @@ sd.add("voice_hear_self",voice_hear_self?1:0);
 sd.add("auto_bind_starting_loadout",auto_bind_starting_loadout?1:0);
 sd.add("replace_occupied_attachments",replace_occupied_attachments?1:0);
 sd.add("hear_own_projectile_audio",hear_own_projectile_audio?1:0);
+sd.add("nearby_object_compass",nearby_object_compass?1:0);
 sd.add("audio_form_sound_feedback",audio_form_sound_feedback?1:0);
 sd.add("dashboard_form_sound_feedback",dashboard_form_sound_feedback?1:0);
 sd.add("acoustic_occlusion_enabled",acoustic_occlusion_enabled?1:0);
@@ -4801,6 +4833,7 @@ else if(parsed[0]=="item_usage" and parsed.length()>1)
 {
 explain_indirect_item(parsed[1]);
 }
+else if(handle_grenade_packet(full_msg)){}
 else if(handle_dynamic_object_packet(full_msg)){}
 else if(parsed[0]=="builder_data" or parsed[0]=="builder_error")
 {
@@ -4851,6 +4884,10 @@ else if(parsed[0]=="reset_ammo")
 {
 reset_ammo();
 }
+else if(parsed[0]=="fixture_revive")
+{
+fixture_revived=true;can_move=true;send_reliable(0,"health",0);speak("You have been resuscitated.");
+}
 else if(parsed[0]=="revive")
 {
 send_reliable(0, "player_remove", 0);
@@ -4893,7 +4930,7 @@ move_src(id,lx,rx,miny,maxy,minz,maxz);
 }
 else if(parsed[0]=="projectile_audio_start" and parsed.length()>6)
 {
-int audio_id=string_to_number(parsed[1]);bool own=parsed.length()>7 and parsed[7]==name;if(parsed[6]==mapname and (!own or hear_own_projectile_audio))spawn_source(string_to_number(parsed[3]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[5]),parsed[2],1,false,audio_id);
+int audio_id=string_to_number(parsed[1]);bool own=parsed.length()>7 and parsed[7]==name,mandatory=parsed.length()>8 and parsed[8]=="world";if(parsed[6]==mapname and (mandatory or !own or hear_own_projectile_audio)){destroy_source(audio_id);spawn_source(string_to_number(parsed[3]),string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[4]),string_to_number(parsed[5]),string_to_number(parsed[5]),parsed[2],1,false,audio_id);if(parsed.length()>9){float gain=string_to_number(parsed[9]);if(gain>12)gain=12;if(gain< -30)gain=-30;source@ created=sources[sources.length()-1];if(created.source_sound>=0){p.items[created.source_sound].start_volume=gain;p.items[created.source_sound].handle.set_volume(gain);}}}
 }
 else if(parsed[0]=="projectile_audio_move" and parsed.length()>5)
 {
@@ -5580,6 +5617,7 @@ exit();
 }
 void death()
 {
+fixture_revived=false;
 report_corpse_inventory();
 turn=90;
 plane.stop();
@@ -5592,6 +5630,7 @@ while(true)
 {
 wait(5);
 netloop();
+if(fixture_revived){fixture_revived=false;return;}
 mainloop();
 if(respawntimer.elapsed>=2000 and can_respawn==false)
 {

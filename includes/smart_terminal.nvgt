@@ -1,30 +1,62 @@
-string terminal_request(string command,string prefix,int timeout=3500){send_reliable(0,command,0);string response;if(!wait_for_service_response(prefix,response,timeout)){speak("The terminal service did not answer.");return "";}return response;}
-void terminal_bank_menu()
-{
-string exists=terminal_request("bank_exists","bank_status ",3500);if(exists=="")return;
-if(exists=="bank_status none")
-{
-if(yesno("No bank account exists for this player. Create one now?")!=1)return;string create_pin=af_input("Create bank account: choose a PIN of at least four characters","",true);if(create_pin=="")return;string confirm=af_input("Confirm the new bank PIN","",true);if(confirm!=create_pin){speak("The PINs did not match. No account was created.");return;}string created=terminal_request("bank_create "+create_pin,"bank_",3500);speak(string_replace(string_replace(created,"bank_ok ","",false),"bank_error ","",false));if(string_contains(created,"bank_ok ",1)!=0)return;
+// Shared, error-aware service transport. All forms retain their parent screen.
+string terminal_request(string command,string prefix,int timeout=5000){
+ if(!connected){speak("This service needs a server connection.");return "";}
+ return identified_service_request(command,timeout);
 }
-string pin=af_input("Sign in to Secure Banking with your PIN","",true);if(pin=="")return;string status=terminal_request("bank_status "+pin,"bank_",3500);
-if(string_contains(status,"bank_status ",1)!=0){speak(string_replace(status,"bank_error ","",false));return;}
-while(true){string detail=string_replace(status,"bank_status ","",false);string[] fields=string_split(detail,"|",false);nv_form f;f.create_window("Secure Banking",false,true);f.add_input("Account summary","summary",fields.length()>=4?"Account "+fields[0]+". Checking "+fields[1]+" credits. Savings "+fields[2]+". Credit debt "+fields[3]+"."+(fields.length()>4 and fields[4]!=""?" Cards: "+fields[4]+".":""):detail,"",0,true,true);nv_form_button@ deposit=f.add_button("Deposit wallet credits into checking","deposit",true);nv_form_button@ withdraw=f.add_button("Withdraw checking credits to wallet","withdraw");nv_form_button@ debit=f.add_button("Issue a debit card","debit");nv_form_button@ credit=f.add_button("Issue a credit card","credit");nv_form_button@ prepaid=f.add_button("Issue a prepaid card","prepaid");nv_form_button@ virtual_card=f.add_button("Issue a virtual card","virtual");nv_form_button@ close=f.add_button("Close banking","close",false,true);f.focus_control(deposit);while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;string command="";if(f.is_pressed(deposit))command="bank_deposit "+pin+" "+af_input("Deposit amount","",true);else if(f.is_pressed(withdraw))command="bank_withdraw "+pin+" "+af_input("Withdrawal amount","",true);else if(f.is_pressed(debit))command="bank_card "+pin+" debit";else if(f.is_pressed(credit))command="bank_card "+pin+" credit";else if(f.is_pressed(prepaid))command="bank_card "+pin+" prepaid";else if(f.is_pressed(virtual_card))command="bank_card "+pin+" virtual";if(command!=""){string reply=terminal_request(command,"bank_",3500);speak(string_replace(string_replace(reply,"bank_ok ","",false),"bank_error ","",false));status=terminal_request("bank_status "+pin,"bank_",3500);break;}}}
+bool terminal_reply_ok(string response){return response.find("terminal_ok ")==0 or response.find("bank_ok ")==0 or response.find("terminal_output ")==0 or response.find("device_ok ")==0 or response.find("device_output ")==0;}
+void terminal_speak_reply(string response){
+ string[] prefixes={"terminal_ok ","terminal_error ","terminal_output ","bank_ok ","bank_error ","device_ok ","device_error ","device_output "};
+ for(uint i=0;i<prefixes.length();i++)if(response.find(prefixes[i])==0){speak(response.substr(prefixes[i].length()));return;}if(response!="")speak(response);
 }
-void smart_terminal_app_store()
-{
-string response=terminal_request("terminal_catalog","terminal_catalog ",3500);if(response=="")return;string[] entries=string_split(string_replace(response,"terminal_catalog ","",false),";",true);nv_form f;f.create_window("HyperComp App Store",false,true);nv_form_list_box@ list=f.add_list("Applications","apps");for(uint i=0;i<entries.length();i++){string[] a=string_split(entries[i],"~",false);if(a.length()<7)continue;list.add(string_replace(a[1],"_"," ",true)+"; "+a[2]+" GB; "+a[3]+" credits; systems "+string_replace(a[4],",",", ",true)+". "+string_replace(a[5],"_"," ",true)+(a[6]=="1"?" Installed.":""),a[0]);}nv_form_button@ install=f.add_button("Install selected application","install",true);nv_form_button@ remove=f.add_button("Uninstall selected application","remove");nv_form_button@ close=f.add_button("Close app store","close",false,true);f.focus_control(list);while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(@list.focused_item==null)continue;string reply="";if(f.is_pressed(install))reply=terminal_request("terminal_install "+list.focused_item.id,"terminal_",3500);else if(f.is_pressed(remove))reply=terminal_request("terminal_uninstall "+list.focused_item.id,"terminal_",3500);if(reply!=""){speak(string_replace(string_replace(reply,"terminal_ok ","",false),"terminal_error ","",false));return;}}
+string bank_pin_input(string title){
+ nv_form f;f.create_window(title,false,true);nv_form_input@ pin=f.add_input("Protected bank PIN","pin","","*",12);nv_form_button@ submit=f.add_button("Submit PIN","submit",true),cancel=f.add_button("Cancel","cancel",false,true);f.focus_control(pin);
+ while(connected){wait(5);f.monitor();netloop(false);if(f.is_pressed(cancel))return "";if(f.is_pressed(submit))return pin.text;}return "";
 }
-void smart_terminal_launcher()
-{
-string response=terminal_request("terminal_catalog","terminal_catalog ",3500);if(response=="")return;string[] entries=string_split(string_replace(response,"terminal_catalog ","",false),";",true);nv_form f;f.create_window("Installed terminal applications",false,true);nv_form_list_box@ list=f.add_list("Applications","installed_apps");for(uint i=0;i<entries.length();i++){string[] a=string_split(entries[i],"~",false);if(a.length()>=7 and a[6]=="1")list.add(string_replace(a[1],"_"," ",true)+": "+string_replace(a[5],"_"," ",true),a[0]);}nv_form_button@ launch=f.add_button("Launch selected application","launch",true);nv_form_button@ close=f.add_button("Close launcher","close",false,true);f.focus_control(list);while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(f.is_pressed(launch) and @list.focused_item!=null){string app=list.focused_item.id;if(app=="market")online_supply_shop();else if(app=="bank")terminal_bank_menu();else if(app=="bunkers" or app=="c4")hypercomp_legacy_menu();else if(app=="appstore" or app=="files")smart_terminal_app_store();else if(app=="team")team_menu();else if(app=="groups")groups_menu();else if(app=="companions")companion_remote_menu();else if(app=="news")show_staff_announcements();else if(app=="messenger")speak("Open the dashboard conversation controls with Alt+C.");else if(app=="armoury")show_help_list();else{string result=terminal_request("terminal_run "+app,"terminal_",3500);speak(string_replace(string_replace(result,"terminal_output ","",false),"terminal_error ","",false));}return;}}
+string bank_sign_in(){
+ string exists=terminal_request("bank_exists","bank_");if(exists=="")return "";
+ if(exists=="bank_status none"){
+  if(yesno("Create a bank account? Cash machines and BankLink use the same checking and savings balances.")!=1)return "";
+  string pin=bank_pin_input("Choose a numeric PIN, four to twelve digits");if(pin=="")return "";
+  if(bank_pin_input("Confirm your bank PIN")!=pin){speak("PINs did not match.");return "";}
+  string created=terminal_request("bank_create "+pin,"bank_");terminal_speak_reply(created);if(!terminal_reply_ok(created))return "";
+ }else if(exists!="bank_status exists"){terminal_speak_reply(exists);return "";}
+ string pin=bank_pin_input("Sign in to your bank account with your PIN");if(pin=="")return "";
+ string status=terminal_request("bank_status "+pin,"bank_");if(status.find("bank_status ")!=0){terminal_speak_reply(status);return "";}
+ return pin;
 }
-void smart_terminal_menu()
-{
-if(get_item_count("hypercomp")<=0){speak("You need a HyperComp Smart Terminal to use terminal applications.");return;}send_reliable(0,"use hypercomp 1",0);string response=terminal_request("terminal_state","terminal_state ",3500);if(response=="")return;
-while(true)
-{
-string[] state=string_split(string_replace(response,"terminal_state ","",false),"|",false);string os=state.length()>0?state[0]:"frontier_os",capacity=state.length()>1?state[1]:"64",used=state.length()>2?state[2]:"28";nv_form f;f.create_window("HyperComp Smart Terminal",false,true);f.add_input("System status","status",string_replace(os,"_"," ",true)+". Storage "+used+" of "+capacity+" GB used. Installed applications are erased when this terminal is lost on death.","",0,true,true);nv_form_button@ launch=f.add_button("Applications: Open installed terminal software","launch",true);nv_form_button@ market=f.add_button("Marketplace: Spend credits on field supplies","market");nv_form_button@ apps=f.add_button("App Store: Buy and install compatible software","apps");nv_form_button@ bank=f.add_button("Secure Banking: Manage accounts, balances and cards","bank");nv_form_button@ bunker=f.add_button("Bunker Control: Sensors, alarms and demolition","bunker");nv_form_button@ os_button=f.add_button("Operating Systems: Replace the terminal OS","os");nv_form_button@ close=f.add_button("Shut down terminal","close",false,true);f.focus_control(launch);
-while(true){wait(5);f.monitor();if(connected)netloop(false);if(f.is_pressed(close))return;if(f.is_pressed(launch)){smart_terminal_launcher();break;}if(f.is_pressed(market)){online_supply_shop();break;}if(f.is_pressed(apps)){smart_terminal_app_store();break;}if(f.is_pressed(bank)){terminal_bank_menu();break;}if(f.is_pressed(bunker)){hypercomp_legacy_menu();break;}if(f.is_pressed(os_button)){string[] choices={"Frontier OS: broad field compatibility","Aegis OS: security and combat applications","OpenWave: communications and civilian software","Minimal Recovery: core applications only"};int choice=android_select("Install operating system",choices);if(choice>=0){string[] ids={"frontier_os","aegis_os","openwave","minimal_recovery"};string reply=terminal_request("terminal_os "+ids[choice],"terminal_",3500);speak(string_replace(string_replace(reply,"terminal_ok ","",false),"terminal_error ","",false));}break;}}
-response=terminal_request("terminal_state","terminal_state ",3500);if(response=="")return;
+void deposit_owned_chips(string item){
+ if(bank_sign_in()=="")return;string count=af_input("Number of "+physical_item_name(item)+" chips to deposit; "+get_item_count(item)+" carried","1",true);if(count!="")terminal_speak_reply(terminal_request("physical_deposit "+item+" "+count,"bank_"));
 }
+void terminal_bank_menu(){
+ string pin=bank_sign_in();if(pin=="")return;
+string selected_operation="";
+ while(connected){
+  string status=terminal_request("bank_status "+pin,"bank_");if(status.find("bank_status ")!=0){terminal_speak_reply(status);return;}
+  string[] fields=string_split(status.substr(12),"|",false);if(fields.length()<4)return;
+  nv_form f;f.create_window("Bank account "+fields[0],false,true);
+  f.add_input("Account summary","summary","Checking "+fields[1]+" credits. Savings "+fields[2]+". Credit debt "+fields[3]+". Wallet is separate. Sign-in authorizes your bank credsticks for five minutes.","",0,true,true);
+  nv_form_list_box@ actions=f.add_list("Banking operations","operations");
+  actions.add("Deposit wallet credits: Transfer your saved wallet balance to checking.","deposit");actions.add("Withdraw to wallet: Transfer checking credits to your saved wallet.","withdraw");
+  actions.add("Move funds to savings: Transfer from checking.","save");actions.add("Move funds to checking: Transfer from savings.","unsave");
+if(string_to_number(fields[3])>0)actions.add("Repay your credit line: Transfer checking funds to reduce debt.","repay");
+actions.add("Withdraw physical credit chips: Choose a denomination and quantity from checking.","cash");
+  if(physical_owned_selection_available("chip"))actions.add("Deposit physical credit chips: Choose a stack and quantity to transfer into checking.","chip");
+  if(physical_owned_selection_available("refill"))actions.add("Reload a credstick: Pay from checking, including its refill surcharge.","refill");
+  actions.add("View issued cards: Read the cards attached to this bank account.","cards");
+actions.add("Issue a debit card and bank credstick: "+item_prop_int("credstick_bank","market_price",50)+" credits from checking; three percent payment fee.","card:debit");actions.add("Issue a credit-line card and credstick: "+item_prop_int("credstick_credit","card_issue_price",75)+" credits; five percent payment fee and a 2000-credit limit.","card:credit");actions.add("Issue a prepaid card and sealed credstick: "+item_prop_int("credstick_disposable","market_price",260)+" credits; 250 credits loaded.","card:prepaid");actions.add("Issue a premium bank credstick: "+item_prop_int("credstick_bank_plus","market_price",150)+" credits; one percent payment fee.","card:virtual");
+nv_form_button@ perform=f.add_button("Perform selected operation","perform",true);nv_form_button@ logout=f.add_button("Sign out: Lock bank-linked credsticks","logout");nv_form_button@ close=f.add_button("Back: Keep the five-minute bank authorization","close",false,true);for(uint i=0;i<actions.items.length();i++)if(actions.items[i].id==selected_operation)actions.set_pos(int(i),false);f.focus_control(actions);
+  bool refresh=false;while(connected){
+   wait(5);f.monitor();netloop(false);if(f.is_pressed(close))return;if(f.is_pressed(logout)){terminal_speak_reply(terminal_request("bank_logout","bank_"));return;}
+if(!f.is_pressed(perform) or actions.focused_item_id=="")continue;string op=actions.focused_item_id,command="";selected_operation=op;
+   if(op=="cards"){show_readonly_audio_form("Registered bank cards",fields.length()>4 and fields[4]!=""?string_replace(fields[4],",","\n",true):"No cards have been issued.");continue;}
+   if(op=="chip"){string item=physical_pick_owned("chip","Choose a credit chip to deposit");if(item!=""){string count=af_input("Number of chips to deposit; "+get_item_count(item)+" carried","1",true);if(count!="")command="physical_deposit "+item+" "+count;}}
+else if(op=="cash"){string[] labels,ids;for(uint i=0;i<item_catalogue.length();i++)if(item_prop(item_catalogue[i].id,"currency_kind")=="chip"){labels.insert_last(item_catalogue[i].name+"; "+physical_item_value(item_catalogue[i].id)+" credits each");ids.insert_last(item_catalogue[i].id);}int choice=android_select("Choose cash denomination",labels);if(choice>=0){string count=af_input("Number of chips to withdraw","1",true);if(count!="")command="bank_cash "+pin+" "+ids[choice]+" "+count;}}
+   else if(op=="refill"){string item=physical_pick_owned("refill","Choose a credstick to reload");if(item!=""){string amount=af_input("Credits to add; surcharge "+item_prop_int(item,"currency_fee_percent",5)+" percent","",true);if(amount!="")command="physical_refill "+item+" "+amount;}}
+   else if(op.find("card:")==0)command="bank_card "+pin+" "+op.substr(5);
+   else{string amount=af_input("Whole credits to transfer","",true);if(amount!="")command="bank_"+op+" "+pin+" "+amount;}
+   if(command!=""){terminal_speak_reply(terminal_request(command,"bank_"));refresh=true;break;}
+  }if(!refresh)return;
+ }
 }
+void smart_terminal_launcher(){device_menu("hypercomp");}
+void smart_terminal_menu(){device_menu("hypercomp");}

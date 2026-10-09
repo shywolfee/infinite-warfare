@@ -188,8 +188,8 @@ send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+id,0);
 // ---------------------------------------------------------------------------
 // Content files.
 // ---------------------------------------------------------------------------
-string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";if(kind=="vehicles")return "content/vehicles";if(kind=="object_presets")return "content/object_presets";return "";}
-string content_ext(const string &in kind){if(kind=="weapons")return ".wpn";if(kind=="vehicles")return ".vehicle";if(kind=="object_presets")return ".json";return ".item";}
+string content_root(const string &in kind){if(kind=="items")return "content/items";if(kind=="weapons")return "content/weapons";if(kind=="vehicles")return "content/vehicles";if(kind=="objects")return "content/objects";if(kind=="terminal_apps")return "content/terminal_apps";if(kind=="device_modules")return "content/device_modules";if(kind=="marketplace")return "content/marketplace";if(kind=="object_presets")return "content/object_presets";return "";}
+string content_ext(const string &in kind){if(kind=="weapons")return ".wpn";if(kind=="vehicles")return ".vehicle";if(kind=="objects")return ".object";if(kind=="terminal_apps" or kind=="device_modules")return ".app";if(kind=="marketplace")return ".offer";if(kind=="object_presets")return ".json";return ".item";}
 string content_path(const string &in kind,const string &in id)
 {
 string root=content_root(kind);if(root=="")return "";
@@ -218,6 +218,9 @@ blob+=files[i].substr(0,files[i].length()-5)+"\x1f"+read_whole_file(root+"/"+dir
 return blob;
 }
 void sync_items_to(uint peer){send_reliable(peer,"content_items|"+item_sync_blob(),0);}
+string object_sync_blob(){string blob;string[] dirs=find_directories("content/objects/*");for(uint d=0;d<dirs.length();d++){string[] files=find_files("content/objects/"+dirs[d]+"/*.object");for(uint i=0;i<files.length();i++){if(blob!="")blob+="\x1e";blob+=files[i].substr(0,files[i].length()-7)+"\x1f"+read_whole_file("content/objects/"+dirs[d]+"/"+files[i]);}}return blob;}
+void sync_objects_to(uint peer){send_reliable(peer,"content_objects|"+object_sync_blob(),0);}
+void sync_objects_to_everyone(){string message="content_objects|"+object_sync_blob();for(uint i=0;i<players.length();i++)send_reliable(players[i].peer_id,message,0);for(uint i=0;i<lobby_clients.length();i++)send_reliable(lobby_clients[i].peer_id,message,0);}
 string vehicle_sync_blob(){string blob;string[] dirs=find_directories("content/vehicles/*");for(uint d=0;d<dirs.length();d++){string[] files=find_files("content/vehicles/"+dirs[d]+"/*.vehicle");for(uint i=0;i<files.length();i++){if(blob!="")blob+="\x1e";blob+=files[i].substr(0,files[i].length()-8)+"\x1f"+read_whole_file("content/vehicles/"+dirs[d]+"/"+files[i]);}}return blob;}
 void sync_vehicles_to(uint peer){send_reliable(peer,"content_vehicles|"+vehicle_sync_blob(),0);}
 void sync_vehicles_to_everyone(){string message="content_vehicles|"+vehicle_sync_blob();for(uint i=0;i<players.length();i++)send_reliable(players[i].peer_id,message,0);for(uint i=0;i<lobby_clients.length();i++)send_reliable(lobby_clients[i].peer_id,message,0);}
@@ -269,6 +272,10 @@ string done;
 if(what=="items" or what=="all"){int n=load_item_catalogue();sync_items_to_everyone();done+=n+" items";}
 if(what=="weapons" or what=="all"){load_wpn_stats();done+=(done==""?"":", ")+"weapon statistics";}
 if(what=="vehicles" or what=="all"){sync_vehicles_to_everyone();done+=(done==""?"":", ")+"vehicle definitions";}
+if(what=="device_modules" or what=="all"){load_device_modules();done+=(done==""?"":", ")+"device modules";}
+if(what=="marketplace" or what=="all"){load_market_offers();done+=(done==""?"":", ")+"supply offers";}
+if(what=="terminal_apps" or what=="all"){terminal_apps_catalogue.resize(0);init_terminal_apps();done+=(done==""?"":", ")+"terminal applications";}
+if(what=="objects" or what=="all"){dobject_types.delete_all();load_dobject_types(dobject_data_directory());load_all_map_dobjects();sync_objects_to_everyone();for(uint p=0;p<players.length();p++)sync_dobjects(players[p].peer_id,players[p].map);done+=(done==""?"":", ")+"fixture services";}
 if(what=="maps" or what=="all")
 {
 index_map_files();
@@ -458,6 +465,10 @@ string ckind=f[1],folder=f[2].lower(),id=f[3].lower(),text=after_field(message,4
 string root=content_root(ckind);
 if(root==""){we_say(index,"Unknown content kind.");return true;}
 if(!we_valid_id(id) or !we_valid_id(folder)){we_say(index,"Ids and folders are lower-case letters, digits and underscores.");return true;}
+if(ckind=="terminal_apps" and !terminal_app_text_valid(text)){we_say(index,"An application needs a registered handler, positive whole-GB size, nonnegative whole-credit price and compatible systems.");return true;}
+if(ckind=="marketplace"){item_data@ data=parse_item_file(id,text);market_offer a;a.id=id;a.name=data.name;a.category=data.category;a.summary=data.summary;string v;data.props.get("item",a.item);data.props.get("quantity",v);a.quantity=int(string_to_number(v));data.props.get("price",v);a.price=int(string_to_number(v));data.props.get("max_order",v);a.max_order=int(string_to_number(v));if(!market_offer_valid(a)){we_say(index,"Offers need a valid item or weapon, positive pack quantity, price, order limit and delimiter-free text.");return true;}}
+if(ckind=="device_modules"){item_data@ data=parse_item_file(id,text);string v,handler,devices;data.props.get("handler",handler);data.props.get("devices",devices);string[] handlers={"scanner","ballistics","vehicle_diagnostics"};data.props.get("size",v);int size=int(string_to_number(v));data.props.get("price",v);int price=int(string_to_number(v));if(handlers.find(handler)<0 or devices=="" or size<1 or price<0){we_say(index,"Modules need a supported device tool, compatible device ids, positive storage and nonnegative price.");return true;}}
+if(ckind=="objects"){dobject_type@ object=parse_dobject_type(id,text);if(object.length<=0 or object.width<=0 or object.height<=0 or object.health<0 or object.stock<0 or object.cooldown_ms<0 or (object.interaction=="medical" and object.service!="coagulate" and object.service!="ventilate" and object.service!="resuscitate")){we_say(index,"Fixtures need positive dimensions, nonnegative health/stock/cooldown and a recognized medical service.");return true;}}
 if(ckind=="object_presets"?!object_preset_text_valid(text):(ckind=="vehicles"?!vehicle_content_valid(text):!content_text_valid(text))){we_say(index,ckind=="object_presets"?"The preset must be valid JSON with health, bullet, blast, hit, break and parts values.":(ckind=="vehicles"?"A vehicle needs valid health, armour, seats, one window flag per seat, motion and fuel values.":"A content file is key=value lines and needs a name."));return true;}
 string existing=content_path(ckind,id);
 string path=ckind=="object_presets"?root+"/"+id+content_ext(ckind):root+"/"+folder+"/"+id+content_ext(ckind);

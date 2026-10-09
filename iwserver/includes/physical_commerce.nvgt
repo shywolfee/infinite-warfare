@@ -1,0 +1,77 @@
+// Physical ownership comes only from authoritative inventory grants.
+void spawn_physical_commerce_supply(){int total=0;for(uint i=0;i<item_catalogue.length();i++)total+=item_prop_int(item_catalogue[i].id,"economy_drop_weight",0);if(total<=0)return;int roll=random(1,total);for(uint i=0;i<item_catalogue.length();i++){roll-=item_prop_int(item_catalogue[i].id,"economy_drop_weight",0);if(roll>0)continue;int x,y,z;string map;if(choose_world_drop(x,y,z,map))spawn_citem(x,y,z,map,item_catalogue[i].id);return;}}
+bool physical_tracked(string item){return is_credit_chip(item) or item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item_prop(item,"device_profile")!="" or item=="hypercomp" or item=="portable_auction_terminal" or item_prop(item,"use_kind")=="terminal_storage" or item_prop(item,"empty_container")!="";}
+int physical_count(player@ p,string item){if(is_credit_chip(item))return credit_chip_count(p,item);int count;return p.physical_items.get(item,count)?count:0;}
+void track_physical_grant(uint peer,string message)
+{
+if(message.find("give ")!=0)return;string[] f=string_split(message," ",true);if(f.length()!=3 or !physical_tracked(f[1]) or is_credit_chip(f[1]))return;
+int i=get_player_index(peer);if(i<0)return;player@ p=players[i];int64 count=int64(physical_count(p,f[1]))+int64(string_to_number(f[2]));if(count<0)count=0;if(count>1000000)count=1000000;p.physical_items.set(f[1],int(count));
+if(count<=0 and item_prop(f[1],"device_profile")!=""){string[] keys=p.device_modules.get_keys();for(uint k=0;k<keys.length();k++)if(keys[k].find(f[1]+":")==0)p.device_modules.delete(keys[k]);p.device_expansions.delete(f[1]);p.device_waypoints.delete(f[1]);if(item_prop_list(f[1],"device_actions").find("bank")>=0)p.bank_authorized_until=0;}
+if(f[1]=="hypercomp"){p.has_hypercomp=count>0;if(count<=0){p.terminal_apps.resize(0);p.terminal_storage=item_prop_int("hypercomp","terminal_base_storage",64);p.terminal_os=item_prop("hypercomp","terminal_default_os","frontier_os");p.terminal_notes="";p.bank_authorized_until=0;}}
+}
+bool physical_bank_access(player@ p)
+{
+if(p.death)return false;if(device_bank_access(p) or (p.has_hypercomp and terminal_has_app(p,"bank")))return true;
+dobject_set@ set=dobjects_on(p.map);if(set is null)return false;
+for(uint i=0;i<set.list.length();i++){dobject@ o=set.list[i];if(o.active and !o.burning and o.type.interaction=="atm" and o.distance_to(p.x,p.y)<=2.2 and absolute(o.z-p.z)<=2.5)return true;}return false;
+}
+bool physical_bank_authenticated(player@ p){return p.bank_authorized_until>double(uptimer.elapsed);}
+bool physical_payment(player@ p,int amount,string method)
+{
+if(p.death or p.arena_return_map!="" or !recover_bank_transfer(p)){send_reliable(p.peer_id,"Commerce is unavailable while downed, in an arena, or awaiting bank-transfer recovery.",2);return false;}
+if(amount<=0)return false;if(method=="wallet")return change_player_credits(p,-amount);
+if(method=="chips")
+{
+string[] keys=p.physical_items.get_keys();if(keys.find("credit_chip_small")<0)keys.insert_last("credit_chip_small");if(keys.find("credit_chip_large")<0)keys.insert_last("credit_chip_large");string[] used;int[] counts;int64 total=0;
+for(uint i=0;i<keys.length() and total<amount;i++){string item=keys[i];int value=physical_item_value(item),have=physical_count(p,item);if(!is_credit_chip(item) or value<=0 or have<=0)continue;int need=int((int64(amount)-total+value-1)/value);int take=have<need?have:need;used.insert_last(item);counts.insert_last(take);total+=int64(take)*value;}
+if(total<amount){send_reliable(p.peer_id,"You do not carry enough physical credit chips.",2);return false;}
+for(uint i=0;i<used.length();i++)send_reliable(p.peer_id,"give "+used[i]+" -"+counts[i],0);if(total>amount)send_reliable(p.peer_id,"give credit_chip_1 "+(total-amount),0);return true;
+}
+string kind=item_prop(method,"currency_kind");if(physical_count(p,method)<=0){send_reliable(p.peer_id,"You no longer own that credstick.",2);return false;}
+if(kind=="stored")
+{
+int value=physical_item_value(method);if(value<amount){send_reliable(p.peer_id,"This credstick has insufficient stored credit.",2);return false;}
+int marker=method.find("__value__");string base=marker>0?method.substr(0,marker):method;int left=value-amount;
+send_reliable(p.peer_id,"give "+method+" -1",0);send_reliable(p.peer_id,"give "+(left>0?base+"__value__"+left:(item_flag(method,"currency_refillable")?"empty_refillable_credstick":"empty_credstick"))+" 1",0);send_reliable(p.peer_id,"Credstick payment complete. "+left+" credits remain on this stick.",2);return true;
+}
+if(kind=="bank" or kind=="credit")
+{
+if(!physical_bank_authenticated(p)){send_reliable(p.peer_id,"Sign in at a cash machine or through Secure Banking before using a bank credstick.",2);return false;}
+savedata bank(bank_path(p.name),ACCOUNT_SECRET+"_bank");load_bank(bank);int fee=int(ceil(double(amount)*item_prop_int(method,"currency_fee_percent",0)/100));int64 charge=int64(amount)+fee;
+if(!bank_record_valid(bank) or item_prop_int(method,"currency_fee_percent",0)<0 or item_prop_int(method,"currency_fee_percent",0)>100 or fee<0 or charge<amount)return false;
+if(kind=="credit"){int limit=item_prop_int(method,"currency_capacity",2000);if(bank.readn("debt")+double(charge)>limit){send_reliable(p.peer_id,"This payment exceeds your account's credit line, including fees.",2);return false;}bank.add("debt",bank.readn("debt")+double(charge));if(!save_bank(bank))return false;send_reliable(p.peer_id,"Charged "+int(charge)+" credits to your credit line. Debt "+int(bank.readn("debt"))+" of "+limit+" credits.",2);return true;}
+if(!bank.d.exists("number") or bank.readn("checking")<charge){send_reliable(p.peer_id,"Insufficient checking balance including the "+fee+" credit service charge.",2);return false;}
+bank.add("checking",bank.readn("checking")-double(charge));if(!save_bank(bank))return false;send_reliable(p.peer_id,"Paid "+amount+" credits from checking plus a "+fee+" credit service charge.",2);return true;
+}
+return false;
+}
+void physical_handle(uint peer,const string[] &in parsed)
+{
+int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];if(p.death){send_reliable(peer,"bank_error You cannot use physical commerce while downed.",0);return;}
+if(p.arena_return_map!="" or !recover_bank_transfer(p)){send_reliable(peer,"bank_error Leave your arena or resolve pending bank transfers before using physical commerce.",0);return;}
+if(parsed[0]=="physical_upgrade_terminal"){
+if(physical_count(p,"portable_auction_terminal")<=0){send_reliable(peer,"bank_error You do not own a legacy auction terminal.",0);return;}
+send_reliable(peer,"give portable_auction_terminal -1",0);send_reliable(peer,"give supply_link 1",0);send_reliable(peer,"bank_ok Replaced your legacy auction terminal with a SupplyLink ordering device.",0);return;
+}
+if(parsed[0]=="physical_deposit" and (parsed.length()==2 or parsed.length()==3))
+{
+string item=parsed[1];if(!physical_bank_access(p) or !physical_bank_authenticated(p)){send_reliable(peer,"bank_error Sign in at a cash machine or through Secure Banking first.",0);return;}
+int count=parsed.length()==3?int(string_to_number(parsed[2])):1;if(!is_credit_chip(item) or count<1 or (parsed.length()==3 and parsed[2]!=count+"") or physical_count(p,item)<count){send_reliable(peer,"bank_error Choose a positive whole quantity of chips you own.",0);return;}
+int64 amount=int64(physical_item_value(item))*count;savedata bank(bank_path(p.name),ACCOUNT_SECRET+"_bank");load_bank(bank);double next=bank.readn("checking")+double(amount);if(amount<=0 or next>2000000000 or !bank_record_valid(bank) or !bank.d.exists("number")){send_reliable(peer,"bank_error This deposit cannot be accepted.",0);return;}bank.add("checking",next);if(!save_bank(bank)){send_reliable(peer,"bank_error Deposit could not be saved. The chips were not consumed.",0);return;}
+send_reliable(peer,"give "+item+" -"+count,0);send_reliable(peer,"bank_ok Deposited "+count+" chips worth "+amount+" credits into checking. Balance "+int(next)+".",0);return;
+}
+if(parsed[0]=="physical_refill" and parsed.length()==3)
+{
+string item=parsed[1];int amount=int(string_to_number(parsed[2]));if(!physical_bank_access(p) or !physical_bank_authenticated(p) or physical_count(p,item)<=0 or !item_flag(item,"currency_refillable") or amount<=0){send_reliable(peer,"bank_error Sign in and select an owned reloadable credstick and positive amount.",0);return;}
+int value=physical_item_value(item),capacity=item_prop_int(item,"currency_capacity",500);if(int64(value)+amount>capacity){send_reliable(peer,"bank_error The stick cannot hold that much credit.",0);return;}
+int percent=item_prop_int(item,"currency_fee_percent",5);int64 cost=int64(amount)+int64(ceil(double(amount)*percent/100));savedata bank(bank_path(p.name),ACCOUNT_SECRET+"_bank");load_bank(bank);if(!bank_record_valid(bank) or percent<0 or percent>100 or cost<amount or bank.readn("checking")<double(cost)){send_reliable(peer,"bank_error Insufficient checking balance or invalid refill surcharge.",0);return;}
+bank.add("checking",bank.readn("checking")-cost);if(!save_bank(bank)){send_reliable(peer,"bank_error Refill could not be saved. The stick was not changed.",0);return;}
+send_reliable(peer,"give "+item+" -1",0);send_reliable(peer,"give credstick_refillable__value__"+(value+amount)+" 1",0);send_reliable(peer,"bank_ok Reloaded "+amount+" credits; charged "+cost+" including the surcharge.",0);return;
+}
+if(parsed[0]=="physical_dispose" and parsed.length()==3)
+{
+dobject@ o=dobject_for_use(p,int(string_to_number(parsed[1])));string item=parsed[2];if(o is null or o.type_id!="dumpster" or !item_flag(item,"disposable") or physical_count(p,item)<=0){send_reliable(peer,"bank_error Stand beside a working dumpster with a disposable item you own.",0);return;}
+int count;if(!o.salvage.get(item,count))count=0;if(count>=100000){send_reliable(peer,"bank_error The dumpster cannot accept more of this item.",0);return;}send_reliable(peer,"give "+item+" -1",0);o.salvage.set(item,count+1);dobject_sound(o,"place_item");send_reliable(peer,"bank_ok Placed "+physical_item_name(item)+" in this dumpster's salvage pool.",0);return;
+}
+send_reliable(peer,"bank_error Unknown physical-commerce operation.",0);
+}

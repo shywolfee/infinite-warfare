@@ -30,6 +30,7 @@ string spawn_corpse(player@ p)
 {
 corpse c;c.id=generate_corpse_id();c.owner=p.name;c.x=p.x;c.y=p.y;c.z=p.z;c.map=p.map;
 corpse_add(c,p.armor_head,1);corpse_add(c,p.armor_torso,1);corpse_add(c,p.armor_arms,1);corpse_add(c,p.armor_legs,1);
+string[] physical=p.physical_items.get_keys();for(uint i=0;i<physical.length();i++)corpse_add(c,physical[i],physical_count(p,physical[i]));corpse_add(c,"credit_chip_small",p.er_small_chips);corpse_add(c,"credit_chip_large",p.er_large_chips);
 corpses.insert_last(c);spawn_citem(p.x,p.y,p.z,p.map,"corpse_"+c.id);return c.id;
 }
 // A corpse_inventory packet is "item:count|item:count|..." and may arrive in
@@ -43,7 +44,7 @@ for(uint e=0;e<entries.length();e++)
 {
 string[] part=string_split(entries[e],":",false);if(part.length()!=2)continue;
 string item=part[0];int amount=string_to_number(part[1]);
-if(amount<=0 or amount>100000 or item.length()>80 or string_contains(item,"__partial__",1)>=0 or string_contains(item,"corpse_",1)==0 or is_credit_chip(item))continue;
+if(amount<=0 or amount>100000 or item.length()>80 or string_contains(item,"__partial__",1)>=0 or string_contains(item,"corpse_",1)==0 or physical_tracked(item))continue;
 corpse_add(corpses[ci],item,amount);
 }
 }

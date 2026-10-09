@@ -1,0 +1,29 @@
+bool physical_owned_selection_available(string kind){string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++)if(get_item_count(keys[i])>0 and (kind=="refill"?item_flag(keys[i],"currency_refillable"):item_prop(keys[i],"currency_kind")==kind))return true;return false;}
+string physical_pick_owned(string kind,string title){string[] labels,ids;string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++){string item=keys[i];if(get_item_count(item)<=0 or !(kind=="refill"?item_flag(item,"currency_refillable"):item_prop(item,"currency_kind")==kind))continue;labels.insert_last(physical_item_name(item)+"; "+get_item_count(item)+" carried");ids.insert_last(item);}if(ids.length()==0){speak("No suitable physical items are carried.");return "";}int choice=android_select(title,labels);return choice>=0?ids[choice]:"";}
+string physical_choose_payment(){
+ string[] labels={"Wallet: Pay from saved wallet credits"},ids={"wallet"};
+ if(physical_owned_selection_available("chip")){labels.insert_last("Credit chips: Pay with physical currency and receive exact change");ids.insert_last("chips");}
+string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++){string kind=item_prop(keys[i],"currency_kind");if(get_item_count(keys[i])<=0 or (kind!="stored" and kind!="bank" and kind!="credit"))continue;labels.insert_last(physical_item_name(keys[i])+(kind=="bank" or kind=="credit"?"; "+(kind=="credit"?"credit-line":"checking")+" payment plus "+item_prop_int(keys[i],"currency_fee_percent")+" percent":"; "+physical_item_value(keys[i])+" credits available"));ids.insert_last(keys[i]);}
+ int choice=android_select("Choose payment method",labels);return choice>=0?ids[choice]:"";
+}
+void physical_item_menu(string item){
+ if(get_item_count(item)<=0)return;
+ while(connected and get_item_count(item)>0){
+  nv_form f;f.create_window(physical_item_name(item),false,true);
+  string kind=item_prop(item,"currency_kind");
+item_data@ data=item_info(item);
+f.add_input("Item details","details",(data is null?"":data.summary)+" "+(kind=="chip" or kind=="stored"?"Value: "+physical_item_value(item)+" credits.":kind=="bank"?"Service fee: "+item_prop_int(item,"currency_fee_percent")+" percent. Sign in to banking before paying.":""),"",0,true,true);
+  nv_form_list_box@ actions=f.add_list("Available actions","actions");
+  actions.add("Read the item: Inspect its value and use","inspect");
+  if(kind=="chip")actions.add("Deposit into checking: Authenticate and deposit a chosen quantity through BankLink or a cash machine","bank");
+if(kind=="bank" or kind=="credit" or item_flag(item,"currency_refillable"))actions.add("Open banking: Authenticate or reload this credstick","bank");
+  dobject@ dumpster=null;for(uint i=0;i<client_dobjects.list.length();i++){dobject@ o=client_dobjects.list[i];if(o.active and !o.burning and o.type_id=="dumpster" and o.distance_to(me.x,me.y)<=2.2 and absolute(o.z-me.z)<=2.5){@dumpster=o;break;}}
+  if(item_flag(item,"disposable") and @dumpster!=null)actions.add("Discard in the nearby dumpster: Make this item available as salvage","dispose");
+  nv_form_button@ perform=f.add_button("Perform selected action","perform",true);nv_form_button@ back=f.add_button("Back","back",false,true);f.focus_control(actions);
+  bool refresh=false;while(connected and get_item_count(item)>0){wait(5);f.monitor();netloop(false);if(f.is_pressed(back))return;if(!f.is_pressed(perform))continue;string action=actions.focused_item_id;
+   if(action=="inspect"){speak(physical_item_name(item)+". "+(kind=="stored" or kind=="chip"?physical_item_value(item)+" credits.":"Use this item through the appropriate fixture or banking screen."));continue;}
+   if(action=="bank"){if(kind=="chip")deposit_owned_chips(item);else terminal_bank_menu();refresh=true;break;}
+   if(action=="dispose" and @dumpster!=null){terminal_speak_reply(terminal_request("physical_dispose "+dumpster.id+" "+item,"bank_"));return;}
+  }if(!refresh)return;
+ }
+}

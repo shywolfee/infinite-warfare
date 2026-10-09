@@ -1,6 +1,6 @@
 # Infinite Warfare
 
-Version 0.5.9.2 · Build 102
+Version 0.5.9.3 · Build 103
 
 An open-source, audio-first online action game for Windows and Android, with an optional modern top-down visual interface, HUD, minimap, forms, subtitles and keyboard.
 
@@ -284,4 +284,4 @@ This project was forked from a leaked copy of **Infinite Warfair 0.14**, origina
 
 **Blindpro** is credited for NVGT Helpers, and **Ivan Soto** is credited for NV_form. Sound-resource acknowledgements include **Executioner's Rage**, **Firefight**, **Call of Duty: Modern Warfare**, **Insurgency: Sandstorm**, and **Fortnite**. Product names, trademarks, and sound resources remain associated with their respective creators and rights holders; acknowledgement does not imply endorsement.
 
-Manual revised for version 0.5.9.2, build 102.
+Manual revised for version 0.5.9.3, build 103.

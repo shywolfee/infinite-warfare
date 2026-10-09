@@ -149,6 +149,8 @@ string nearby_things(int index)
 {
 player@ me=players[index];
 awareness_contact@[] found;
+dobject_set@ objects=dobjects_on(me.map);
+if(objects !is null)for(uint i=0;i<objects.list.length();i++){dobject@ o=objects.list[i];if(!o.active or o.type_id!="dumpster" or o.distance_to(me.x,me.y)>30 or absolute(o.z-me.z)>4)continue;string[] keys=o.salvage.get_keys();if(keys.length()==0)continue;awareness_contact c;c.distance=o.distance_to(me.x,me.y);c.text=o.describe()+" salvage: ";for(uint k=0;k<keys.length();k++){int count=0;o.salvage.get(keys[k],count);if(k>0)c.text+=", ";c.text+=count+" "+physical_item_name(keys[k]);}found.insert_last(c);}
 for(uint i=0;i<items.length();i++)
 {
 if(items[i].map!=me.map)continue;

@@ -1,0 +1,53 @@
+// Rolling bombs share grenade audio and blasts, but have no timed fuse.
+double bowling_bomb_power(fraggrenade@ g)
+{
+double travelled=g.rolling_distance/(g.rolling_range>0?g.rolling_range:120);if(travelled>1)travelled=1;
+double cap=item_prop_number(g.kind,"rolling_max_speed",28);if(cap<1)cap=1;
+double speed=sqrt(g.vx*g.vx+g.vy*g.vy+g.vz*g.vz)/cap;if(speed>1)speed=1;
+return 1+travelled*item_prop_number(g.kind,"rolling_distance_damage_bonus",1)+speed*item_prop_number(g.kind,"rolling_speed_damage_bonus",1);
+}
+void bowling_bomb_accelerate(fraggrenade@ g,double dt,double sx,double sy)
+{
+double speed=sqrt(g.vx*g.vx+g.vy*g.vy),slope=sqrt(sx*sx+sy*sy);
+// Motor thrust never fights a ramp's gravity. Uphill throws reverse naturally.
+if(slope<.08 and speed>.01){double a=item_prop_number(g.kind,"rolling_acceleration",3);g.vx+=g.vx/speed*a*dt;g.vy+=g.vy/speed*a*dt;}
+g.vx-=sx*9.81*dt;g.vy-=sy*9.81*dt;
+speed=sqrt(g.vx*g.vx+g.vy*g.vy);double cap=item_prop_number(g.kind,"rolling_max_speed",28);if(cap<1)cap=1;
+if(speed>cap){g.vx*=cap/speed;g.vy*=cap/speed;}
+}
+bool bowling_bomb_step(fraggrenade@ g,double dt)
+{
+if(g.rolling_detonate)return false;
+double h=projectile_surface_height(g.x,g.y,g.z,g.map);
+if(g.rolling_grounded and (h<-9000 or g.z>h+.4)){g.rolling_grounded=false;g.vz=0;}
+if(g.rolling_grounded){double sx=0,sy=0;projectile_surface_gradient(g.x,g.y,g.z,g.map,sx,sy);bowling_bomb_accelerate(g,dt,sx,sy);}else g.vz-=9.81*dt;
+double nx=g.x+g.vx*dt,ny=g.y+g.vy*dt,nz=g.z+g.vz*dt;
+double ground=projectile_surface_height(nx,ny,g.z+.5,g.map);
+if(g.rolling_grounded and ground>-9000 and ground>g.z+.45){g.rolling_detonate=true;return false;}
+if(blast_tile_solid(get_tile_at(int(round(nx,0)),int(round(ny,0)),int(floor(nz+.2)),g.map))){g.rolling_detonate=true;return false;}
+dobject_set@ objects=dobjects_on(g.map);if(objects !is null){dobject@ obstacle=objects.at(nx,ny,nz);if(obstacle !is null and obstacle.active){g.rolling_detonate=true;return false;}}
+for(uint vi=0;vi<authoritative_vehicles.length();vi++)
+{
+authoritative_vehicle@ v=authoritative_vehicles[vi];if(v.map!=g.map or v.health<=0 or v.id==g.inside_vehicle)continue;update_authoritative_vehicle_model(v);
+double r=v.facing*3.14159265358979323846/180,dx=nx-v.model_x,dy=ny-v.model_y;
+if(absolute(dx*sine(r)+dy*cosine(r))<=v.body_length*.5+.15 and absolute(dx*cosine(r)-dy*sine(r))<=v.body_width*.5+.15 and nz>=v.model_z and nz<=v.model_z+v.body_height){g.rolling_detonate=true;return false;}
+}
+for(uint i=0;i<players.length();i++)
+{
+player@ t=players[i];if(t.map!=g.map or t.death or t.arena_role=="spectator" or t.in_plane)continue;
+double d=actor_distance(nx,ny,0,t.x,t.y,0);
+if(t.name==g.owner){if(d>1)g.owner_cleared=true;if(!g.owner_cleared)continue;}
+if(d<=.55 and nz>=t.z-.1 and nz<=t.z+1.9){g.x=nx;g.y=ny;g.z=nz;g.rolling_detonate=true;return false;}
+}
+for(uint i=0;i<companions.length();i++)if(companions[i].map==g.map and companions[i].health>0 and actor_distance(nx,ny,nz,companions[i].x,companions[i].y,companions[i].z)<=.6){g.rolling_detonate=true;return false;}
+bool grounded_before=g.rolling_grounded;
+if(ground>-9000 and ((g.rolling_grounded and absolute(ground-g.z)<.45) or (g.vz<=0 and nz<=ground+.1)))
+{
+nz=ground+.1;g.rolling_grounded=true;
+if(!grounded_before){double retain=item_prop_number(g.kind,"rolling_landing_retention",.72);g.vx*=retain;g.vy*=retain;g.bounces++;play(grenade_landing_sound(g),int(nx),int(ny),int(nz),g.map);}g.vz=0;
+}
+else if(g.rolling_grounded){g.rolling_grounded=false;g.vz=0;}
+double dx=nx-g.x,dy=ny-g.y,dz=nz-g.z;g.rolling_distance+=sqrt(dx*dx+dy*dy+dz*dz);g.x=nx;g.y=ny;g.z=nz;
+if(g.rolling_distance>=g.rolling_range or nz<-32)g.rolling_detonate=true;
+return !g.rolling_detonate;
+}

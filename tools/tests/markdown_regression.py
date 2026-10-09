@@ -21,7 +21,7 @@ for path in documents:
 
 changes = (ROOT / "changes.txt").read_text(encoding="utf-8")
 assert changes.startswith("# Infinite Warfare release notes\n\n")
-assert "## New in 0.5.9.2, build 102 (2026-10-08)\n\n- " in changes
+assert "## New in 0.5.9.3, build 103 (2026-10-09)\n\n- " in changes
 assert "## Hotfix for 0.5.7" in changes, "historical hotfix grouping lost"
 assert not re.search(r"^(?:New in |Hotfix for )", changes, re.M)
 manual = (ROOT / "player_manual.md").read_text(encoding="utf-8")

@@ -68,9 +68,16 @@ int credits=0;
 timer online_shop_timer;
 int bunkers_owned=0;
 bool has_hypercomp=false;
+dictionary device_modules,device_expansions,device_waypoints;
 int terminal_storage=64;
 string terminal_os="frontier_os";
 string[] terminal_apps;
+dictionary physical_items;
+double bank_authorized_until=0;
+double bank_pin_blocked_until=0;
+int bank_pin_failures=0;
+bool bank_transfer_writing=false;
+string terminal_notes;
 bool[] bunker_monitor;
 string mate="";
 timer torpedotimer;
@@ -243,13 +250,14 @@ if(total>0){p.medication_heal_remaining+=total;p.medication_tick_amount=p.medica
 // bigger dose of the same thing.
 void use_server_medication(player@ p,string item)
 {
+if(physical_tracked(item) and physical_count(p,item)<=0){send_reliable(p.peer_id,"You do not own that medication bottle.",2);return;}
 bool liquid=server_liquid_medication(item),bottle=server_pill_bottle(item);double dose=liquid or bottle?server_medication_recommended(item):1;if(dose<=0)dose=1;
 double remaining=1;
 if(liquid or bottle)
 {
 if(!p.medication_remaining.get(item,remaining))remaining=server_medication_capacity(item);
 if(dose>remaining)dose=remaining;remaining-=dose;
-if(remaining<=.001){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);}else p.medication_remaining.set(item,remaining);
+if(remaining<=.001){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);send_reliable(p.peer_id,"give "+item_prop(item,"empty_container","empty_medicine_bottle")+" 1",0);}else p.medication_remaining.set(item,remaining);
 send_reliable(p.peer_id,"medication_remaining "+item+" "+remaining,0);
 }
 else send_reliable(p.peer_id,"give "+item+" -1",0);
@@ -260,7 +268,8 @@ send_reliable(p.peer_id,"Took "+amount+"."+left+" Medication toxicity "+p.medica
 }
 void extract_server_pill(player@ p,string item)
 {
-if(!server_pill_bottle(item)){send_reliable(p.peer_id,"Select a pill bottle first.",2);return;}double remaining;if(!p.medication_remaining.get(item,remaining))remaining=server_medication_capacity(item);if(remaining<1){send_reliable(p.peer_id,"That bottle is empty.",2);return;}remaining--;if(remaining<=0){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);}else p.medication_remaining.set(item,remaining);send_reliable(p.peer_id,"medication_remaining "+item+" "+remaining,0);send_reliable(p.peer_id,"give "+server_loose_pill_for(item)+" 1",0);send_reliable(p.peer_id,"Removed one pill. "+int(remaining)+" remain in the bottle.",2);
+if(physical_tracked(item) and physical_count(p,item)<=0){send_reliable(p.peer_id,"You do not own that pill bottle.",2);return;}
+if(!server_pill_bottle(item)){send_reliable(p.peer_id,"Select a pill bottle first.",2);return;}double remaining;if(!p.medication_remaining.get(item,remaining))remaining=server_medication_capacity(item);if(remaining<1){send_reliable(p.peer_id,"That bottle is empty.",2);return;}remaining--;if(remaining<=0){p.medication_remaining.delete(item);send_reliable(p.peer_id,"give "+item+" -1",0);send_reliable(p.peer_id,"give "+item_prop(item,"empty_container","empty_medicine_bottle")+" 1",0);}else p.medication_remaining.set(item,remaining);send_reliable(p.peer_id,"medication_remaining "+item+" "+remaining,0);send_reliable(p.peer_id,"give "+server_loose_pill_for(item)+" 1",0);send_reliable(p.peer_id,"Removed one pill. "+int(remaining)+" remain in the bottle.",2);
 }
 
 

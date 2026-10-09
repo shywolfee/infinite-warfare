@@ -1,0 +1,35 @@
+// Correlated, replay-safe commerce RPC. Inventory grants keep their old wire format.
+int service_context_id=0;uint service_context_peer=0;string service_context_reply="";
+class service_receipt{uint peer;int id;string owner,command,reply;timer age;}
+service_receipt@[] service_receipts;
+bool service_result_packet(string message){return message.find("bank_")==0 or message.find("terminal_")==0 or message.find("market_")==0 or message.find("device_")==0;}
+string service_wrap_reply(uint peer,string message,uint channel)
+{
+if(service_context_id>0 and peer==service_context_peer and channel==0 and service_result_packet(message)){service_context_reply=message;return "service_reply "+service_context_id+" "+message;}return message;
+}
+bool handle_service_request(uint peer,string message)
+{
+if(message.find("service_request ")!=0)return false;
+int pi=get_player_index(peer);if(pi<0)return true;
+string[] fields=string_split(message," ",true);if(fields.length()<3)return true;
+int id=int(string_to_number(fields[1]));if(id<1)return true;
+string prefix="service_request "+fields[1]+" ",command=message.substr(prefix.length());
+for(int i=int(service_receipts.length())-1;i>=0;i--){if(service_receipts[i].age.elapsed>60000)service_receipts.remove_at(i);}
+for(uint i=0;i<service_receipts.length();i++)if(service_receipts[i].peer==peer and service_receipts[i].owner==players[pi].name and service_receipts[i].id==id)
+{send_reliable(peer,"service_reply "+id+" "+(service_receipts[i].command==command?service_receipts[i].reply:"terminal_error Request identifier reused for another operation."),0);return true;}
+string owner=players[pi].name;service_context_id=id;service_context_peer=peer;service_context_reply="";
+try
+{
+string[] parsed=string_split(command," ",true);
+if(parsed.length()>0 and (parsed[0].find("bank_")==0 or parsed[0].find("terminal_")==0))terminal_handle(peer,command,parsed);
+else if(parsed.length()>0 and parsed[0].find("physical_")==0)physical_handle(peer,parsed);
+else if(parsed.length()>0 and parsed[0].find("market_")==0)handle_online_shop_request(peer,parsed);
+else if(parsed.length()>0 and parsed[0].find("device_")==0)device_handle(peer,command,parsed);
+else send_reliable(peer,"terminal_error Unknown service operation.",0);
+}
+catch{send_reliable(peer,"terminal_error The operation could not be completed. Check balances and inventory before retrying.",0);}
+if(service_context_reply=="")send_reliable(peer,"terminal_error The service returned no result.",0);
+service_receipt receipt;receipt.peer=peer;receipt.id=id;receipt.owner=owner;receipt.command=command;receipt.reply=service_context_reply;
+service_context_id=0;service_context_peer=0;service_context_reply="";service_receipts.insert_last(receipt);if(service_receipts.length()>128)service_receipts.remove_at(0);
+return true;
+}

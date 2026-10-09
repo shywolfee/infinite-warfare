@@ -441,8 +441,9 @@ void init_player_bunker_arrays(int player_idx)
 {
 if(players[player_idx].bunker_monitor.length()<bunkers.length())
 {
+uint previous=players[player_idx].bunker_monitor.length();
 players[player_idx].bunker_monitor.resize(bunkers.length());
-for(uint i=0; i<bunkers.length(); i++)
+for(uint i=previous; i<bunkers.length(); i++)
 players[player_idx].bunker_monitor[i]=false;
 }
 }

@@ -1,26 +1,156 @@
+// Companion perception is independent of the physical player.
 class client_companion
 {
-int id,health,facing;string item,kind,mode,map;double x,y,z;
+int id,health,facing,recharge_ms=0;string item,kind,mode,map,owner;double x,y,z;
 }
 client_companion@[] client_companions;
-string companion_list_reply="";bool companion_list_ready=false;
-bool companion_piloting=false;int piloted_companion_id=-1;double companion_body_x,companion_body_y,companion_body_z;int companion_body_facing=0;timer companion_pilot_move_timer;
+string companion_list_reply="";bool companion_list_ready=false,companion_remote_pending=false;
+bool companion_piloting=false;int piloted_companion_id=-1;
+timer companion_pilot_move_timer;
 int client_companion_index(int id){for(uint i=0;i<client_companions.length();i++)if(client_companions[i].id==id)return int(i);return -1;}
+client_companion@ companion_view()
+{
+int at=client_companion_index(piloted_companion_id);return companion_piloting and at>=0?client_companions[at]:null;
+}
+double view_x(){client_companion@ c=companion_view();return c is null?me.x:c.x;}
+double view_y(){client_companion@ c=companion_view();return c is null?me.y:c.y;}
+double view_z(){client_companion@ c=companion_view();return c is null?me.z:c.z;}
+int view_facing(){client_companion@ c=companion_view();return c is null?facing:c.facing;}
+string companion_telemetry(client_companion@ c)
+{
+if(c is null)return "No companion selected.";
+return string_replace(c.item==""?c.kind:c.item,"_"," ",true)+" number "+c.id+": "+c.health+" of "+item_prop_int(c.item,"companion_health",c.health)+" health; "+(c.id==piloted_companion_id and companion_piloting?"direct control":c.mode)+"; "+(c.recharge_ms>0?"attack recharging for "+((c.recharge_ms+999)/1000)+" seconds":"attack ready")+". Coordinates "+round(c.x,1)+", "+round(c.y,1)+", "+round(c.z,1)+", facing "+c.facing+" degrees on "+map_display_name(c.map)+".";
+}
+void stop_companion_pilot(bool notify=true)
+{
+if(notify)send_reliable(0,"companion stop",0);
+if(!companion_piloting)return;companion_piloting=false;piloted_companion_id=-1;
+update_all_listeners();speak("Returned to your body.");game_dashboard_rebuild_options(true);
+}
 void companion_remote_menu()
 {
-companion_list_ready=false;companion_list_reply="";send_reliable(0,"companion list",0);timer timeout;
-nv_form waiting;waiting.create_window("Companion Command Remote",false,true);waiting.add_input("Companion telemetry","status","Waiting for live health, mode, map and coordinates from every deployed companion.","",0,true,true);nv_form_button@ cancel=waiting.add_button("Cancel companion telemetry","cancel",false,true);waiting.focus_control(cancel);
-while(!companion_list_ready and timeout.elapsed<3000){wait(5);waiting.monitor();if(waiting.is_pressed(cancel))return;netloop(false);}if(!companion_list_ready){speak("The companion remote did not receive telemetry.");return;}string[] rows=string_split(companion_list_reply,";",false);if(rows.length()==0 or companion_list_reply==""){speak("You have no deployed companions.");return;}string[] labels,ids;for(uint i=0;i<rows.length();i++){string[] f=string_split(rows[i],",",false);if(f.length()<9)continue;labels.insert_last(string_replace(f[1],"_"," ",true)+" number "+f[0]+", "+f[3]+", "+f[4]+" health, at "+f[5]+", "+f[6]+", "+f[7]+" on "+f[8]);ids.insert_last(f[0]);}string selected=pick_from_list("Companion Command Remote",labels,ids);if(selected=="")return;string command=pick_from_list("Command",{"Follow me","Stay here","Guard this area","Seek and attack","Use its attack once","Report full status","Pilot directly","Recall to inventory"},{"follow","stay","guard","attack","fire","status","pilot","recall"});if(command=="")return;if(command=="status")send_reliable(0,"companion status "+selected+" now",0);else if(command=="pilot")send_reliable(0,"companion pilot "+selected+" now",0);else if(command=="fire")send_reliable(0,"companion fire "+selected+" now",0);else send_reliable(0,"companion mode "+selected+" "+command,0);
-}
-void stop_companion_pilot()
+companion_remote_pending=false;send_reliable(0,"companion list",0);
+nv_form f;f.create_window("Companion command center",false,true);
+nv_form_list_box@ actors=f.add_list("Deployed companions: Select an actor for live telemetry and commands; Alt+A","actors");@actors.shortcut=nv_shortcut(KEY_A,alt=true);
+nv_form_input@ telemetry=f.add_input("Live companion telemetry; Alt+T","telemetry","","",0,true,true);@telemetry.shortcut=nv_shortcut(KEY_T,alt=true);
+nv_form_list_box@ commands=f.add_list("Companion orders; Alt+D","orders");@commands.shortcut=nv_shortcut(KEY_D,alt=true);
+commands.add("Follow your body: Travel with you and defend nearby","follow");
+commands.add("Stay here: Remain stationary without automatic attacks","stay");
+commands.add("Guard this position: Engage threats and return to this anchor","guard");
+commands.add("Seek and attack: Pursue unobstructed hostile targets","attack");
+commands.add("Use its attack once: Fire at the nearest valid target when ready","fire");
+commands.add("Pilot directly: Control movement, facing and the sound listener","pilot");
+commands.add("Recall to inventory: Return to your body before recovering the item","recall");
+commands.add("Report full status: Read this companion's live telemetry","status");
+nv_form_button@ execute=f.add_button("Execute selected order on this companion; Alt+E","execute",true);@execute.shortcut=nv_shortcut(KEY_E,alt=true);
+nv_form_button@ fleet=f.add_button("Execute selected order on all companions, except direct piloting; Alt+L","fleet");@fleet.shortcut=nv_shortcut(KEY_L,alt=true);
+nv_form_button@ body=f.add_button("Return control to your body; Alt+Y","body");@body.shortcut=nv_shortcut(KEY_Y,alt=true);
+nv_form_button@ close=f.add_button("Close companion command center; Alt+Z","close",false,true);@close.shortcut=nv_shortcut(KEY_Z,alt=true);
+f.focus_control(actors);timer refresh;string previous="",previous_status="";
+while(connected)
 {
-if(!companion_piloting)return;companion_piloting=false;piloted_companion_id=-1;me.x=companion_body_x;me.y=companion_body_y;me.z=companion_body_z;mr.x=me.x;mr.y=me.y;facing=companion_body_facing;can_move=true;speak("Returned to your body.");
+wait(5);f.monitor();netloop(false);if(f.is_pressed(close))return;
+string roster="";for(uint i=0;i<client_companions.length();i++)if(client_companions[i].owner==name and client_companions[i].map==mapname)roster+=client_companions[i].id+";";
+if(roster!=previous)
+{
+string selected=@actors.focused_item==null?"":actors.focused_item.id;actors.items.resize(0);
+for(uint i=0;i<client_companions.length();i++)if(client_companions[i].owner==name and client_companions[i].map==mapname)actors.add(string_replace(client_companions[i].item,"_"," ",true)+" number "+client_companions[i].id,""+client_companions[i].id);
+if(actors.items.length()==0)actors.add("No deployed companions","none");
+for(uint i=0;i<actors.items.length();i++)if(actors.items[i].id==selected)actors.set_pos(i,false);
+previous=roster;
+}
+int id=@actors.focused_item==null?-1:int(string_to_number(actors.focused_item.id)),at=client_companion_index(id);
+string status=at<0?"Deploy a drone or chimp from your inventory first.":companion_telemetry(client_companions[at]);
+if(status!=previous_status){telemetry.text=status;previous_status=status;}
+body.hidden=!companion_piloting;
+execute.enabled=at>=0 and client_companions[at].health>0;
+fleet.enabled=execute.enabled and @commands.focused_item!=null and commands.focused_item.id!="pilot";
+if(execute.enabled and @commands.focused_item!=null){if(commands.focused_item.id=="fire" and client_companions[at].recharge_ms>0)execute.enabled=false;if(commands.focused_item.id=="pilot" and companion_piloting and piloted_companion_id==id)execute.enabled=false;}
+if(f.is_pressed(body)){stop_companion_pilot();continue;}
+bool all=f.is_pressed(fleet);if(f.is_pressed(execute) or all)
+{
+if(@commands.focused_item==null or at<0){speak("Select a deployed companion first.");continue;}
+string command=commands.focused_item.id;
+if(command=="pilot" and all){speak("Only one companion can be piloted at a time.");continue;}
+for(uint i=0;i<client_companions.length();i++)
+{
+client_companion@ c=client_companions[i];if(c.owner!=name or c.map!=mapname or (!all and c.id!=id))continue;
+if(command=="status")speak(companion_telemetry(c));
+else if(command=="fire" or command=="pilot")send_reliable(0,"companion "+command+" "+c.id+" now",0);
+else send_reliable(0,"companion mode "+c.id+" "+command,0);
+}
+if(command=="pilot")return;
+}
+if(refresh.elapsed>=2000){refresh.restart();send_reliable(0,"companion list",0);}
+}
 }
 void companion_pilot_loop()
 {
-if(!companion_piloting)return;if(key_pressed(KEY_ESCAPE)){stop_companion_pilot();return;}if(companion_pilot_move_timer.elapsed<70)return;double nx=me.x,ny=me.y,nz=me.z;bool changed=false;if(key_down(KEY_UP)){vector v=move(nx,ny,nz,facing,0);nx=v.x;ny=v.y;changed=true;}if(key_down(KEY_DOWN)){vector v=move(nx,ny,nz,facing+180,0);nx=v.x;ny=v.y;changed=true;}if(key_pressed(KEY_LEFT)){facing-=15;if(facing<0)facing+=360;changed=true;}if(key_pressed(KEY_RIGHT)){facing+=15;if(facing>=360)facing-=360;changed=true;}if(key_down(KEY_PAGEUP)){nz+=1;changed=true;}if(key_down(KEY_PAGEDOWN)){nz-=1;changed=true;}if(!changed)return;companion_pilot_move_timer.restart();me.x=nx;me.y=ny;me.z=nz;mr.x=nx;mr.y=ny;send_reliable(0,"companion move "+piloted_companion_id+" "+nx+" "+ny+" "+nz+" "+facing,0);
+// Maintenance only: never poll gameplay keys inside an unrelated form.
+if(companion_remote_pending and game_dashboard_keyboard_active())companion_remote_menu();
+if(companion_piloting and (!connected or mapname=="main" or companion_view() is null))stop_companion_pilot(false);
+}
+void companion_pilot_controls()
+{
+client_companion@ c=companion_view();if(c is null)return;
+if(key_pressed(KEY_ESCAPE)){stop_companion_pilot();return;}
+if(action_pressed("health") or action_pressed("facing"))speak(companion_telemetry(c));
+if(action_pressed("coordinates"))speak("Coordinates "+round(c.x,1)+", "+round(c.y,1)+", "+round(c.z,1)+".");
+if(action_pressed("zone"))speak(get_dynamic_or_static_zone_at(c.x,c.y,c.z));
+if(action_pressed("fire") or gk_fire)send_reliable(0,"companion fire "+c.id+" now",0);
+if(action_pressed("vehicle_door") or gk_interact)companion_remote_menu();
+chat_channel_shortcuts();
+if(kb_action_pressed("chat") or gk_chat){string text=af_input("Companion operator chat","",true).trim_whitespace();if(text!="")send_global_chat_or_command(text);}
+if(kb_action_pressed("help"))show_help_list();
+if(action_pressed("nearby_players")){string contacts="";for(uint i=0;i<visual_remote_players.length();i++){visual_remote_player@ other=visual_remote_players[i];double dx=other.x-c.x,dy=other.y-c.y;if(sqrt(dx*dx+dy*dy)<=40)contacts+=other.name+" at "+round(sqrt(dx*dx+dy*dy),1)+" tiles. ";}speak(contacts==""?"No recently detected contacts nearby.":contacts);}
+if(companion_pilot_move_timer.elapsed<50)return;companion_pilot_move_timer.restart();
+int forward=(action_down("move_forward")?1:0)-(action_down("move_backward")?1:0);
+int side=(action_down("move_right")?1:0)-(action_down("move_left")?1:0);
+int vertical=(action_down("move_up")?1:0)-(action_down("move_down")?1:0);
+int turn_input=(action_down("turn_right")?1:0)-(action_down("turn_left")?1:0);
+forward+=(gesture_take_press("move_forward")?1:0)-(gesture_take_press("move_backward")?1:0);
+side+=(gesture_take_press("move_right")?1:0)-(gesture_take_press("move_left")?1:0);
+vertical+=(gesture_take_press("move_up")?1:0)-(gesture_take_press("move_down")?1:0);
+turn_input+=(gesture_take_press("turn_right")?1:0)-(gesture_take_press("turn_left")?1:0);
+send_unreliable(0,"companion input "+c.id+" "+forward+" "+side+" "+vertical+" "+turn_input,0);
+}
+bool companion_touch_action(string action)
+{
+if(!companion_piloting)return false;
+client_companion@ c=companion_view();if(c is null)return true;
+if(action=="status" or action=="facing"){speak(companion_telemetry(c));return true;}
+if(action=="fire" or action=="fire_hold"){send_reliable(0,"companion fire "+c.id+" now",0);return true;}
+if(action=="game_menu"){stop_companion_pilot();return true;}
+if(action=="context_actions" or action=="interact"){companion_remote_menu();return true;}
+if(action=="inventory_next" or action=="inventory_previous"){companion_remote_menu();return true;}
+if(action=="rotate_left" or action=="rotate_right" or action=="aim_up" or action=="aim_down")
+{gesture_press(action=="rotate_left"?"turn_left":(action=="rotate_right"?"turn_right":(action=="aim_up"?"move_up":"move_down")));return true;}
+if(action=="dashboard_open" or action=="dashboard_mode" or action=="dashboard_keyboard" or action.substr(0,3)=="kb:" or action=="global_chat" or action=="global_chat_alt" or action=="voice_transmit")return false;
+speak("That body action is unavailable while piloting. Use companion controls or return to your body.");return true;
 }
 bool handle_companion_packet(const string &in message)
 {
-if(message=="companion_remote_open"){companion_remote_menu();return true;}if(message.substr(0,15)=="companion_list "){companion_list_reply=message.substr(15);companion_list_ready=true;return true;}string[] f=string_split(message," ",true);if(f.length()==0)return false;if(f[0]=="companion_remove" and f.length()>1){int at=client_companion_index(int(string_to_number(f[1])));if(at>=0)client_companions.remove_at(at);if(piloted_companion_id==int(string_to_number(f[1])))stop_companion_pilot();return true;}if(f[0]=="companion_sync" and f.length()>=11){int id=int(string_to_number(f[1])),at=client_companion_index(id);if(at<0){client_companions.insert_last(client_companion());at=int(client_companions.length())-1;}client_companion@ c=client_companions[at];c.id=id;c.kind=f[2];c.x=string_to_number(f[3]);c.y=string_to_number(f[4]);c.z=string_to_number(f[5]);c.facing=int(string_to_number(f[6]));c.health=int(string_to_number(f[7]));c.map=f[8];c.mode=f[10];if(companion_piloting and id==piloted_companion_id){me.x=c.x;me.y=c.y;me.z=c.z;mr.x=me.x;mr.y=me.y;facing=c.facing;}return true;}if(f[0]=="companion_pilot" and f.length()>=7){companion_body_x=me.x;companion_body_y=me.y;companion_body_z=me.z;companion_body_facing=facing;piloted_companion_id=int(string_to_number(f[1]));me.x=string_to_number(f[2]);me.y=string_to_number(f[3]);me.z=string_to_number(f[4]);facing=int(string_to_number(f[5]));mr.x=me.x;mr.y=me.y;companion_piloting=true;can_move=false;speak("Piloting companion number "+piloted_companion_id+". Arrow keys move and turn, Page Up and Page Down change height, and Escape returns to your body.");return true;}return false;
+if(message=="companion_remote_open"){companion_remote_pending=true;return true;}
+if(message=="companion_pilot_end"){stop_companion_pilot(false);return true;}
+if(message.substr(0,15)=="companion_list ")
+{
+companion_list_reply=message.substr(15);companion_list_ready=true;string[] rows=string_split(companion_list_reply,";",false);string present=";";
+for(uint i=0;i<rows.length();i++){string[] fields=string_split(rows[i],",",false);if(fields.length()>0)present+=fields[0]+";";}
+for(int i=int(client_companions.length())-1;i>=0;i--)if(client_companions[i].owner==name and string_contains(present,";"+client_companions[i].id+";",1)<0){if(client_companions[i].id==piloted_companion_id)stop_companion_pilot(false);client_companions.remove_at(i);}
+return true;
+}
+string[] f=string_split(message," ",true);if(f.length()==0)return false;
+if(f[0]=="companion_remove" and f.length()>1){int id=int(string_to_number(f[1])),at=client_companion_index(id);if(at>=0)client_companions.remove_at(at);if(piloted_companion_id==id)stop_companion_pilot(false);return true;}
+if(f[0]=="companion_sync" and f.length()>=11)
+{
+int id=int(string_to_number(f[1])),at=client_companion_index(id);if(at<0){client_companions.insert_last(client_companion());at=int(client_companions.length())-1;}
+client_companion@ c=client_companions[at];c.id=id;c.kind=f[2];c.x=string_to_number(f[3]);c.y=string_to_number(f[4]);c.z=string_to_number(f[5]);c.facing=int(string_to_number(f[6]));c.health=int(string_to_number(f[7]));c.map=f[8];c.owner=f[9];c.mode=f[10];if(f.length()>11)c.item=f[11];if(f.length()>12)c.recharge_ms=int(string_to_number(f[12]));if(companion_piloting and id==piloted_companion_id)update_all_listeners();return true;
+}
+if(f[0]=="companion_pilot" and f.length()>=7)
+{
+int id=int(string_to_number(f[1])),at=client_companion_index(id);if(at<0 or f[6]!=mapname)return true;
+piloted_companion_id=id;companion_piloting=true;game_dashboard_rebuild_options(true);game_dashboard_focus_game();
+speak("Companion control. Movement keys travel, Q and E turn, Page Up and Page Down change drone altitude. Fire uses its attack; Escape returns to your body. Your body remains vulnerable.");return true;
+}
+return false;
 }

@@ -169,6 +169,7 @@ if(command=="next buffer"){bufferright();return;}
 if(command=="previous buffer"){bufferleft();return;}
 if(command=="repeat message"){if(buffers.length()>0 and buffers[bufferpos].items.length()>0)speak(buffers[bufferpos].items[buffers[bufferpos].pos]);else speak("No messages yet.");return;}
 if(!helpers_in_match()){play_ui_cue("error");speak("\""+command+"\" works during a match.");return;}
+if(companion_piloting){if(command=="status" or command=="health" or command=="where am i")speak(companion_telemetry(companion_view()));else if(command=="inventory")companion_remote_menu();else speak("Return to your body before using that body command.");return;}
 if(command=="status")speak(get_stamina_string()+" "+get_effects_string());
 else if(command=="health"){send_reliable(0,"health",0);pending_health_report=true;}
 else if(command=="ammunition"){if(w>=0 and w<int(weapons.length()))announce_ammo(weapons[w]);else speak("No weapon drawn.");}
@@ -392,8 +393,8 @@ visual_world_frame@ visual_build_world_frame()
 {
 visual_rebuild_static_geometry();
 visual_world_frame@ frame=visual_world_frame();
-frame.map_name=map_display_name(mapname);frame.zone=get_dynamic_or_static_zone_at(me.x,me.y,me.z);
-frame.player_x=me.x;frame.player_y=me.y;frame.player_z=me.z;frame.player_heading=facing;
+frame.map_name=map_display_name(mapname);frame.zone=get_dynamic_or_static_zone_at(view_x(),view_y(),view_z());
+frame.player_x=view_x();frame.player_y=view_y();frame.player_z=view_z();frame.player_heading=view_facing();
 frame.stamina=stamina;frame.max_stamina=max_stamina;frame.map_width=max.x>0?max.x:1;frame.map_height=max.y>0?max.y:1;
 // Keep the per-frame scene small even on the expanded city maps.  The static
 // cache may contain the whole map, but the detailed camera cannot show
@@ -401,7 +402,7 @@ frame.stamina=stamina;frame.max_stamina=max_stamina;frame.map_width=max.x>0?max.
 for(uint i=0;i<visual_static_geometry.length();i++)
 {
 visual_world_rect@ r=visual_static_geometry[i];
-if(r.x2<me.x-40 or r.x1>me.x+40 or r.y2<me.y-40 or r.y1>me.y+40)continue;
+if(r.x2<frame.player_x-40 or r.x1>frame.player_x+40 or r.y2<frame.player_y-40 or r.y1>frame.player_y+40)continue;
 frame.geometry.insert_last(r);
 }
 
@@ -409,10 +410,10 @@ frame.geometry.insert_last(r);
 // world rectangles.  Only nearby objects enter the detailed viewport.
 for(uint i=0;i<dynamic_map_elements.length();i++)
 {
-dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active or abs(e.x-me.x)>45 or abs(e.y-me.y)>45)continue;
+dynamic_map_element@ e=dynamic_map_elements[i];if(!e.active or abs(e.x-frame.player_x)>45 or abs(e.y-frame.player_y)>45)continue;
 for(uint j=0;j<e.tiles.length();j++)
 {
-dynamic_map_tile@ t=e.tiles[j];if(me.z<e.z+t.z1-2 or me.z>e.z+t.z2+2)continue;
+dynamic_map_tile@ t=e.tiles[j];if(frame.player_z<e.z+t.z1-2 or frame.player_z>e.z+t.z2+2)continue;
 double ax,ay,az,bx,by,bz,cx,cy,cz,dx,dy,dz;
 e.local_to_world(t.x1,t.y1,0,ax,ay,az);e.local_to_world(t.x2,t.y1,0,bx,by,bz);e.local_to_world(t.x1,t.y2,0,cx,cy,cz);e.local_to_world(t.x2,t.y2,0,dx,dy,dz);
 double minx=ax;if(bx<minx)minx=bx;if(cx<minx)minx=cx;if(dx<minx)minx=dx;double maxx=ax;if(bx>maxx)maxx=bx;if(cx>maxx)maxx=cx;if(dx>maxx)maxx=dx;
@@ -421,6 +422,7 @@ frame.geometry.insert_last(visual_world_rect(minx,maxx,miny,maxy,t.solid?4:visua
 }
 }
 
+for(uint i=0;i<client_companions.length();i++)if(client_companions[i].map==mapname)frame.markers.insert_last(visual_world_marker(client_companions[i].x,client_companions[i].y,client_companions[i].z,string_replace(client_companions[i].item,"_"," ",true)+" #"+client_companions[i].id,2,client_companions[i].facing));
 for(uint i=0;i<pois.length();i++)frame.markers.insert_last(visual_world_marker(pois[i].x,pois[i].y,pois[i].z,string_replace(pois[i].name,"_"," ",true),0));
 if(waypoint_name!="" and waypoint_map==mapname)frame.markers.insert_last(visual_world_marker(waypoint_x,waypoint_y,waypoint_z,waypoint_name,4));
 for(uint i=0;i<map_vehicles.length();i++)if(!map_vehicles[i].destroyed)frame.markers.insert_last(visual_world_marker(map_vehicles[i].x,map_vehicles[i].y,map_vehicles[i].z,map_vehicles[i].get_name(),2,map_vehicles[i].facing));
@@ -429,7 +431,7 @@ for(uint i=0;i<visual_remote_players.length();)
 if(visual_remote_players[i].seen.elapsed>4500){visual_remote_players.remove_at(i);continue;}
 frame.markers.insert_last(visual_world_marker(visual_remote_players[i].x,visual_remote_players[i].y,visual_remote_players[i].z,visual_remote_players[i].name,3));i++;
 }
-for(uint i=0;i<sources.length();i++)if(sources[i].id>=0 and sources[i].lx==sources[i].rx and sources[i].miny==sources[i].maxy and abs(sources[i].lx-me.x)<=40 and abs(sources[i].miny-me.y)<=40)frame.markers.insert_last(visual_world_marker(sources[i].lx,sources[i].miny,sources[i].minz,"",3));
+for(uint i=0;i<sources.length();i++)if(sources[i].id>=0 and sources[i].lx==sources[i].rx and sources[i].miny==sources[i].maxy and abs(sources[i].lx-frame.player_x)<=40 and abs(sources[i].miny-frame.player_y)<=40)frame.markers.insert_last(visual_world_marker(sources[i].lx,sources[i].miny,sources[i].minz,"",3));
 
 string weapon_id=(w>=0 and w<int(weapons.length()))?weapons[w]:"";
 frame.weapon=weapon_id!="" and weapon_id!="empty"?get_weapon_display_name(weapon_id):"Unarmed";
@@ -437,8 +439,9 @@ int gun=find_gun(weapon_id);
 if(gun>=0)frame.ammo=gun_ammos[gun].mag_loaded+" / "+gun_ammos[gun].mag_capacity+"  "+gun_ammos[gun].ammo_type;
 else frame.ammo=get_weapon_class(weapon_id)==""?"No ammunition":"Ready";
 string mode=has_fire_modes(weapon_id)?fire_mode_name(get_fire_mode(weapon_id)):"fixed";
-frame.status="Fire mode: "+mode+"\nVertical aim: "+turn+" degrees\nElevation: "+int(me.z)+"\n"+get_effects_string();
-if(in_vehicle and player_vehicle_index>=0 and player_vehicle_index<int(map_vehicles.length()))
+frame.status="Fire mode: "+mode+"\nVertical aim: "+turn+" degrees\nElevation: "+int(frame.player_z)+"\n"+get_effects_string();
+if(companion_piloting){frame.weapon="Companion direct control";frame.ammo="Fire: companion attack";frame.status=companion_telemetry(companion_view());frame.markers.insert_last(visual_world_marker(me.x,me.y,me.z,"Your body",3,facing));}
+if(!companion_piloting and in_vehicle and player_vehicle_index>=0 and player_vehicle_index<int(map_vehicles.length()))
 {
 vehicle@ active_vehicle=map_vehicles[player_vehicle_index];
 frame.status=active_vehicle.get_name()+"\nHealth: "+active_vehicle.health+"   Armour: "+active_vehicle.armor+"\nFuel: "+round(active_vehicle.fuel,1)+" litres   Speed: "+round(active_vehicle.observed_velocity,1);

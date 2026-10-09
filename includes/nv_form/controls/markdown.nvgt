@@ -92,7 +92,10 @@ class nv_form_markdown: nv_form_control {
 	void set_markdown(const string &in md) {
 		lines.resize(0);
 		line=0; pos=0; cell=-1; link_at=-1;
-		string[] raw=md.replace("\r", "", true).split("\n");
+		string normalized=md.replace("\r\n","\n",true).replace("\r","\n",true);
+		string[] raw;int start=0;
+		for(uint at=0;at<normalized.length();at++)if(normalized.substr(at,1)=="\n"){raw.insert_last(normalized.substr(start,int(at)-start));start=int(at)+1;}
+		raw.insert_last(normalized.substr(start));
 		string para;
 		int para_quote=0;
 		int list_id=-1, table_id=-1, code_id=-1;
@@ -119,6 +122,7 @@ class nv_form_markdown: nv_form_control {
 			}
 			if (t=="") {
 				flush_para(para, para_quote);
+				nv_md_line blank;lines.insert_last(blank);
 				i++;
 				continue;
 			}
@@ -195,32 +199,28 @@ class nv_form_markdown: nv_form_control {
 				flush_para(para, para_quote);
 				int indent=0;
 				while (indent<int(l.length()) && (l.substr(indent, 1)==" " || l.substr(indent, 1)=="\t")) indent+=(l.substr(indent, 1)=="\t" ? 4 : 1);
-				bool newlist=(lines.length()==0 || lines[lines.length()-1].kind!=NV_MD_ITEM || list_id<0);
+				bool newlist=(lines.length()==0 || list_id<0 || lines[lines.length()-1].list_id!=list_id);
 				if (newlist) list_id=next_list++;
 				nv_md_line it;
 				it.kind=NV_MD_ITEM; it.quote=quote;
 				it.depth=indent/2;
 				string body;
 				it.ordered=marker_split(t, body);
-				int j=i+1;
-				while (j<int(raw.length())) {
-					string nl=raw[j];
-					string nt=nl.trim_whitespace();
-					if (nt=="" || is_list_marker(nt) || nt.substr(0, 1)=="#" || nt.substr(0, 1)=="|" || nl.substr(0, 1)!=" ") break;
-					body+=" "+nt;
-					j++;
-				}
 				md_inline(it, body);
 				it.list_id=list_id;
 				lines.insert_last(it);
-				i=j;
+				i++;
 				continue;
 			}
 			// an ordinary line of a paragraph
+			if(list_id>=0 and lines.length()>0 and lines[lines.length()-1].list_id==list_id and (l.substr(0,1)==" " or l.substr(0,1)=="\t")){
+				nv_md_line continuation;continuation.kind=NV_MD_PARA;continuation.list_id=list_id;continuation.quote=quote;md_inline(continuation,t);lines.insert_last(continuation);i++;continue;
+			}
 			if (para!="" && para_quote!=quote) flush_para(para, para_quote);
 			para+=(para=="" ? "" : " ")+t;
 			para_quote=quote;
 			if (lines.length()>0 && lines[lines.length()-1].kind==NV_MD_ITEM && para==t) list_id=-1;
+			flush_para(para,para_quote);
 			i++;
 		}
 		flush_para(para, para_quote);
@@ -648,6 +648,32 @@ class nv_form_markdown: nv_form_control {
 		return true;
 	}
 
+	// Byte positions stay on UTF-8 boundaries. Review also crosses source lines.
+	int character_next(const string &in text,int at){return at>=int(text.length())?int(text.length()):utf8next(text,at);}
+	int character_previous(const string &in text,int at){return at<=0?0:utf8prev(text,at);}
+	bool word_space(const string &in text,int at){string c=text.substr(at,1);return c==" " or c=="\t" or c=="\n" or c=="\r";}
+	string review_cursor(int direction,bool word=false,bool announce=true)
+	{
+	if(lines.length()==0)return "blank";
+	string text=lines[line].text;int p=pos;
+	if(direction>0)
+	{
+	if(word){while(p<int(text.length()) and !word_space(text,p))p=character_next(text,p);while(p<int(text.length()) and word_space(text,p))p=character_next(text,p);}
+	else p=character_next(text,p);
+	if(p>=int(text.length())){if(line+1<int(lines.length())){line++;p=0;text=lines[line].text;}else{if(announce)speak("end of document");return "end of document";}}
+	}
+	else
+	{
+	if(p<=0){if(line<=0){if(announce)speak("start of document");return "start of document";}line--;text=lines[line].text;p=int(text.length());}
+	p=character_previous(text,p);
+	if(word){while(p>0 and word_space(text,p))p=character_previous(text,p);while(p>0 and !word_space(text,character_previous(text,p)))p=character_previous(text,p);}
+	}
+	pos=p;cell=-1;link_at=-1;string result;
+	if(text=="")result="blank";
+	else if(word){int end=p;while(end<int(text.length()) and !word_space(text,end))end=character_next(text,end);result=text.substr(p,end-p);}
+	else{result=text.substr(p,character_next(text,p)-p);if(result==" ")result="space";if(result=="\t")result="tab";}
+	if(announce)speak(result);return result;
+	}
 	// ---- the keys -------------------------------------------------------------------
 	bool handle_input() {
 		if (@parent.current_control != @this) return false;
@@ -679,34 +705,10 @@ class nv_form_markdown: nv_form_control {
 		if (ctrl && key_pressed(KEY_HOME)) { go_line(0); return true; }
 		if (ctrl && key_pressed(KEY_END)) { go_line(int(lines.length())-1); return true; }
 		string txt=lines[line].text;
-		if (key_pressed(KEY_HOME)) { pos=0; speak(txt=="" ? "blank" : txt.substr(0, 1)); return true; }
-		if (key_pressed(KEY_END)) { pos=(txt.length()>0 ? int(txt.length())-1 : 0); speak(txt=="" ? "blank" : txt.substr(pos, 1)); return true; }
-		bool right=key_repeating(KEY_RIGHT), left=key_repeating(KEY_LEFT);
-		if (right || left) {
-			if (txt=="") { speak("blank"); return true; }
-			if (ctrl) {
-				int p=pos;
-				if (right) {
-					while (p<int(txt.length()) && txt.substr(p, 1)!=" ") p++;
-					while (p<int(txt.length()) && txt.substr(p, 1)==" ") p++;
-					if (p>=int(txt.length())) { speak("end of line"); return true; }
-				} else {
-					if (p>0) p--;
-					while (p>0 && txt.substr(p, 1)==" ") p--;
-					while (p>0 && txt.substr(p-1, 1)!=" ") p--;
-				}
-				pos=p;
-				int e=txt.find(" ", pos);
-				speak(e<0 ? txt.substr(pos) : txt.substr(pos, e-pos));
-			} else {
-				int np=pos+(right ? 1 : -1);
-				if (np<0 || np>=int(txt.length())) { speak(right ? "end of line" : "start of line"); return true; }
-				pos=np;
-				string c=txt.substr(pos, 1);
-				speak(c==" " ? "space" : c);
-			}
-			return true;
-		}
+		if (key_pressed(KEY_HOME)) { pos=0; speak(txt=="" ? "blank" : txt.substr(0, character_next(txt,0))); return true; }
+		if (key_pressed(KEY_END)) { pos=(txt.length()>0 ? character_previous(txt,int(txt.length())) : 0); speak(txt=="" ? "blank" : txt.substr(pos,character_next(txt,pos)-pos)); return true; }
+		if(key_repeating(KEY_RIGHT)){review_cursor(1,ctrl);return true;}
+		if(key_repeating(KEY_LEFT)){review_cursor(-1,ctrl);return true;}
 		if (ctrl && key_pressed(KEY_C)) {
 			clipboard_set_text(txt);
 			speak("copied");

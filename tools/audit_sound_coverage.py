@@ -10,26 +10,32 @@ SOUNDS=ROOT/"sounds"
 AUDIO_EXTENSIONS=(".ogg",".wav",".flac",".mp3")
 SOURCE_GLOBS=("*.nvgt","*.txt","*.map")
 
-assets={p.name.lower():p for p in SOUNDS.rglob("*") if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS}
+assets={p.relative_to(SOUNDS).as_posix().lower():p for p in SOUNDS.rglob("*") if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS}
 literal=re.compile(r'["\']([^"\']+\.(?:ogg|wav|flac|mp3))["\']',re.I)
 references=defaultdict(list)
 dynamic_suffixes={"close.ogg","draw.ogg","empty.ogg","equip.ogg","holster.ogg","land.ogg","open.ogg","reload.ogg","reload_close.ogg","reload_cycle.ogg","reload_insert.ogg","reload_open.ogg","reloadend.ogg","step1.ogg","unequip.ogg","unload.ogg","use.ogg"}
 for pattern in SOURCE_GLOBS:
     for path in ROOT.rglob(pattern):
-        if any(part in {".git","release","packs"} for part in path.parts):continue
+        relative=path.relative_to(ROOT)
+        # Audit the game, not NVGT examples, generated builds or regression
+        # extraction filenames. Runtime-constructed names belong to the
+        # data-aware audit rather than being guessed from a string fragment.
+        if relative.parts[0] not in {"includes", "iwserver"} and path.name!="Infinite Warfare.nvgt":continue
+        if any(part in {"accounts", "administration"} for part in relative.parts):continue
         try:text=path.read_text(encoding="utf-8",errors="ignore")
         except OSError:continue
         for line_no,line in enumerate(text.splitlines(),1):
             for match in literal.finditer(line):
-                name=match.group(1).replace("\\","/").split("/")[-1].lower()
+                name=match.group(1).replace("\\","/").lower()
                 # Ignore packet commands and fragments from concatenated names.
+                if re.search(r"\+\s*$",line[:match.start()]):continue
                 if " " in name or name.startswith("_") or name in dynamic_suffixes or name=="sound_pack_test.ogg":continue
                 references[name].append(f"{path.relative_to(ROOT)}:{line_no}")
 
 missing={name:sites for name,sites in references.items() if name not in assets}
 hashes=defaultdict(list)
 for path in assets.values():
-    digest=hashlib.sha256(path.read_bytes()).hexdigest();hashes[digest].append(path.name)
+    digest=hashlib.sha256(path.read_bytes()).hexdigest();hashes[digest].append(path.relative_to(SOUNDS).as_posix())
 duplicates=[sorted(names,key=str.lower) for names in hashes.values() if len(names)>1]
 
 print(f"Audio assets: {len(assets)}")

@@ -32,7 +32,7 @@ lx=source_lx;rx=source_rx;miny=source_miny;maxy=source_maxy;minz=source_minz;max
 soundfile=file;
 id=source_id;
 sound_pool@ pool=source_pool(dist);
-source_sound=pool.play_3d(soundfile,me.x,me.y,me.z,lx,miny,minz,facing,true);
+source_sound=pool.play_3d(soundfile,view_x(),view_y(),view_z(),lx,miny,minz,calculate_theta(view_facing()),true);
 pool.update_sound_3d(source_sound,lx,miny,minz);
 paused=source_paused;
 if(paused)pool.pause_sound(source_sound);

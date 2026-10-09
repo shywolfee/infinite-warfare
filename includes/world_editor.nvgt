@@ -79,7 +79,7 @@ nv_form_list_box@ list=f.add_list(prompt==""?title:prompt,"list");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
 if(position>=0 and position<int(labels.length()))list.set_pos(position);
 nv_form_button@ open=f.add_button("Open","open",true);
-open.hidden=true;
+open.hidden=true;open.default_when_hidden=true;
 nv_form_button@ back=f.add_button("Back","back",false,true);
 f.focus_control(list);
 while(true)
@@ -410,8 +410,8 @@ return;
 // ---------------------------------------------------------------------------
 void we_content_menu()
 {
-string[] labels={"Items","Weapons","Vehicles","Object presets","Reload items from their files","Reload weapons from their files","Reload vehicles from their files","Reload object presets and maps","Reload every map from its file","Reload everything"};
-string[] ids={"items","weapons","vehicles","object_presets","r:items","r:weapons","r:vehicles","r:object_presets","r:maps","r:all"};
+string[] labels={"Items","Weapons","Vehicles","Fixtures and world-object services","Legacy terminal applications","Device modules","Supply marketplace offers","Object presets","Reload items from their files","Reload weapons from their files","Reload vehicles from their files","Reload fixtures and services","Reload legacy applications","Reload device modules","Reload supply offers","Reload object presets and maps","Reload every map from its file","Reload everything"};
+string[] ids={"items","weapons","vehicles","objects","terminal_apps","device_modules","marketplace","object_presets","r:items","r:weapons","r:vehicles","r:objects","r:terminal_apps","r:device_modules","r:marketplace","r:object_presets","r:maps","r:all"};
 while(true)
 {
 string chosen=pick_from_list("Content",labels,ids);
@@ -429,7 +429,7 @@ int bar=we_reply_data.find("|");
 string[] entries=string_split(bar<0?"":we_reply_data.substr(bar+1),";",false);
 entries.sort_ascending();
 string[] folders={"All categories"};for(uint i=0;i<entries.length();i++){int slash=entries[i].find("/");if(slash>0){string folder=entries[i].substr(0,slash);if(folders.find(folder)<0)folders.insert_last(folder);}}if(folders.length()>1){string[] sorted=folders;sorted.remove_at(0);sorted.sort_ascending();folders={"All categories"};for(uint si=0;si<sorted.length();si++)folders.insert_last(sorted[si]);}
-nv_form f;f.create_window(kind=="items"?"Item content database":(kind=="weapons"?"Weapon content database":(kind=="vehicles"?"Vehicle content database":"Object preset database")),false,true);nv_form_list_box@ categories=f.add_list("Category or folder","category");for(uint i=0;i<folders.length();i++)categories.add(string_replace(folders[i],"_"," ",true),folders[i]);categories.set_pos(0,false);nv_form_input@ search=f.add_input("Search ids and folders","search");nv_form_list_box@ files=f.add_list("Matching content files","files");nv_form_input@ details=f.add_input("Selected file","details","","",0,true,true);nv_form_button@ open=f.add_button("Open selected content file","open",true);nv_form_button@ create=f.add_button("Create new content","new");nv_form_button@ back=f.add_button("Back to content types","back",false,true);f.focus_control(search);string previous="\x01",previous_file="\x01";string[] visible;
+nv_form f;f.create_window(kind=="items"?"Item content database":(kind=="weapons"?"Weapon content database":(kind=="vehicles"?"Vehicle content database":(kind=="marketplace"?"Supply offers":(kind=="device_modules"?"Compatible device modules":"Object preset database")))),false,true);nv_form_list_box@ categories=f.add_list("Category or folder","category");for(uint i=0;i<folders.length();i++)categories.add(string_replace(folders[i],"_"," ",true),folders[i]);categories.set_pos(0,false);nv_form_input@ search=f.add_input("Search ids and folders","search");nv_form_list_box@ files=f.add_list("Matching content files","files");nv_form_input@ details=f.add_input("Selected file","details","","",0,true,true);nv_form_button@ open=f.add_button("Open selected content file","open",true);nv_form_button@ create=f.add_button("Create new content","new");nv_form_button@ back=f.add_button("Back to content types","back",false,true);f.focus_control(search);string previous="\x01",previous_file="\x01";string[] visible;
 while(true){wait(5);f.monitor();string filter=categories.focused_item_id+"|"+search.text.lower().trim_whitespace();if(filter!=previous){previous=filter;string keep=files.focused_item_id;files.items.resize(0);visible.resize(0);for(uint i=0;i<entries.length();i++){int slash=entries[i].find("/");if(slash<0)continue;string folder=entries[i].substr(0,slash),id=entries[i].substr(slash+1);if(categories.focused_item_id!="All categories" and folder!=categories.focused_item_id)continue;if(search.text.trim_whitespace()!="" and id.lower().find(search.text.lower().trim_whitespace())<0 and folder.lower().find(search.text.lower().trim_whitespace())<0)continue;visible.insert_last(entries[i]);files.add(id+"; "+string_replace(folder,"_"," ",true),entries[i]);}if(files.items.length()==0)files.add("No content files match this filter.","");int at=0;for(uint i=0;i<files.items.length();i++)if(files.items[i].id==keep)at=i;files.set_pos(at,false);details.text=files.focused_item_id==""?"No matching file selected.":files.focused_item_id;open.enabled=files.focused_item_id!="";}if(files.focused_item_id!=previous_file){previous_file=files.focused_item_id;details.text=previous_file==""?"No matching file selected.":previous_file;open.enabled=previous_file!="";}if(f.is_pressed(back))return;if(f.is_pressed(create)){if(kind=="object_presets")we_object_preset_new();else we_content_new(kind);break;}if(f.is_pressed(open) and files.focused_item_id!=""){string chosen=files.focused_item_id;int slash=chosen.find("/");if(kind=="object_presets")we_object_preset_file(chosen.substr(slash+1));else we_content_file(kind,chosen.substr(0,slash),chosen.substr(slash+1));break;}}
 }
 }
@@ -536,6 +536,10 @@ if(name=="")return;
 string text;
 if(kind=="items")text="name="+name+"\ncategory=Utility\nsummary=Describe what it does.\ngive_amount=1";
 else if(kind=="vehicles")text="name="+name+"\norder=999\nhealth=500\narmour=0\nseats=2\nwindows=true,true\ntop_speed=8\nacceleration=2\nbraking=4\nfuel_type=gasoline\nfuel_capacity=70\nfuel_per_tile=0.11";
+else if(kind=="terminal_apps")text="name="+name+"\nsize=4\nprice=10\nsystems=all\nfeature=Describe this application\nhandler=diagnostics\nbuiltin=false";
+else if(kind=="device_modules")text="name="+name+"\nsize=8\nprice=180\ndevices=field_tablet\nfeature=Scan detectable nearby contacts\nhandler=scanner";
+else if(kind=="marketplace")text="name="+name+"\ncategory=Medical\nsummary=One treatment bottle\nitem=nanocyte_solution_bottle\nquantity=1\nprice=50\nmax_order=20\nenabled=true";
+else if(kind=="objects")text="name="+name+"\ndescription=Describe this fixture\nlength=1\nwidth=1\nheight=1.8\nhealth=300\ninteraction=search\nsound=environment/objects/dumpster\nstock=3\nrestock_ms=300000\ncooldown_ms=1000\nloot=repair_kit";
 else text="name="+name+"\nwclass=pistol\nfiretime=500\nwalktime=180\nrange=25\nmin_damage=200\nmax_damage=240\nspread=1\ncapacity=12\nreload_ms=2000\nfire_modes=semi";
 if(we_change("we_content_write|"+kind+"|"+folder+"|"+id+"|"+text))we_content_file(kind,folder,id);
 }

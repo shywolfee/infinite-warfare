@@ -46,27 +46,28 @@ catch{return false;}
 }
 bool change_player_credits(player@ user,int delta)
 {
+if(!user.bank_transfer_writing and !recover_bank_transfer(user)){send_reliable(user.peer_id,"Credit transaction blocked by an unrecovered bank transfer. Contact staff.",2);return false;}
 int64 next=int64(user.credits)+delta;
 if(user.credits<0 or next<0 or next>2000000000 or !save_player_credits(user.name,int(next)))
 {send_reliable(user.peer_id,"Credit transaction failed: the account balance could not be saved. No credits were changed. Please contact a developer if this continues.",2);return false;}
 user.credits=int(next);return true;
 }
 
-bool is_credit_chip(string item){return item=="credit_chip_small" or item=="credit_chip_large";}
-int credit_chip_count(player@ user,string item){return item=="credit_chip_small"?user.er_small_chips:(item=="credit_chip_large"?user.er_large_chips:0);}
+bool is_credit_chip(string item){return item=="credit_chip_small" or item=="credit_chip_large" or item_prop(item,"currency_kind")=="chip";}
+int credit_chip_count(player@ user,string item){if(item=="credit_chip_small")return user.er_small_chips;if(item=="credit_chip_large")return user.er_large_chips;int count;return user.physical_items.get(item,count)?count:0;}
 bool commit_credit_chip_deposit(player@ user,string item)
 {
 if(!is_credit_chip(item) or credit_chip_count(user,item)<=0)return false;
-if(!change_player_credits(user,item=="credit_chip_small"?15:60))return false;
+if(!change_player_credits(user,item=="credit_chip_small"?15:(item=="credit_chip_large"?60:physical_item_value(item))))return false;
 send_reliable(user.peer_id,"give "+item+" -1",0);return true;
 }
 // Observe only authoritative, targeted inventory grants/removals, not client claims.
 void track_credit_chip_grant(uint peer,const string &in message)
 {
-if(string_contains(message,"give er_",1)!=0)return;
+if(string_contains(message,"give ",1)!=0)return;
 string[] fields=string_split(message," ",true);if(fields.length()!=3 or !is_credit_chip(fields[1]))return;
 int index=get_player_index(peer);if(index<0)return;
 int64 count=int64(credit_chip_count(players[index],fields[1]))+int64(string_to_number(fields[2]));
 if(count<0)count=0;if(count>1000000)count=1000000;
-if(fields[1]=="credit_chip_small")players[index].er_small_chips=int(count);else players[index].er_large_chips=int(count);
+if(fields[1]=="credit_chip_small")players[index].er_small_chips=int(count);else if(fields[1]=="credit_chip_large")players[index].er_large_chips=int(count);else players[index].physical_items.set(fields[1],int(count));
 }

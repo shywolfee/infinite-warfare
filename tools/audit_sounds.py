@@ -14,10 +14,12 @@ perfectly on the machine it was authored on and nowhere else.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+from content_sound_contract import content_references
 
 ROOT = Path(__file__).resolve().parents[1]
 SOUNDS = ROOT / "sounds"
@@ -34,7 +36,7 @@ GUN_CONTRACT = [
     ("draw.ogg", "required"), ("holster.ogg", "required"),
     ("empty.ogg", "required"), ("reload.ogg", "required"),
     ("reloadend.ogg", "required"), ("unload.ogg", "required"),
-    ("hit1.ogg", "required"), ("hit2.ogg", "wanted"), ("hit3.ogg", "wanted"),
+    ("hit1.ogg", "required"),
     ("fire2.ogg", "wanted"), ("fire3.ogg", "wanted"),
 ]
 MANUAL_CONTRACT = [
@@ -44,7 +46,6 @@ MANUAL_CONTRACT = [
 MELEE_CONTRACT = [
     ("fire1.ogg", "required"), ("draw.ogg", "required"),
     ("holster.ogg", "required"), ("hit1.ogg", "required"),
-    ("hit2.ogg", "wanted"), ("hit3.ogg", "wanted"),
 ]
 MANUAL_CLASSES = {"shotgun", "revolver", "grenade_launcher"}
 # The weapon file writes the short token; the game says the long name and the
@@ -92,6 +93,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wanted", action="store_true",
                         help="also list recordings the game can manage without")
+    parser.add_argument("--duplicates", action="store_true",
+                        help="report exact duplicate referenced assets; sharing is not an error")
     args = parser.parse_args()
 
     have = {p.relative_to(SOUNDS).as_posix().lower() for p in SOUNDS.rglob("*")
@@ -102,10 +105,21 @@ def main():
         return name.lower() in have
 
     missing = defaultdict(list)
+    content_audio = list(content_references(ROOT))
+    for owner, name in content_audio:
+        if not present(name):
+            missing["required"].append((owner, name))
     weapons = parse_weapons()
+    server = (ROOT / "iwserver/includes/weapon.nvgt").read_text(encoding="utf-8")
+    hit_function = server.split("int weapon_impact_sound_count(string profile)", 1)[1].split("\n}", 1)[0]
+    impact_counts = {}
+    for condition, count in re.findall(r"if\((.*?)\)return (\d+);", hit_function):
+        for profile in re.findall(r'profile=="([^"]+)"', condition):
+            impact_counts[profile] = int(count)
     for w in weapons.values():
         p = w["profile"]
         contract = list(MELEE_CONTRACT if w["melee"] else GUN_CONTRACT)
+        contract += [(f"hit{i}.ogg", "required") for i in range(2, impact_counts.get(p, 3)+1)]
         if not w["melee"] and w["manual"]:
             contract += MANUAL_CONTRACT
         # A weapon with one fire mode never cycles, so it never asks for the
@@ -156,7 +170,16 @@ def main():
         if len(gaps) > 60:
             print(f"  ... and {len(gaps) - 60} more")
 
-    print(f"\n{len(weapons)} weapons, {len(have)} recordings on disk.")
+    if args.duplicates:
+        hashes = defaultdict(list)
+        for name in sorted({name for _, name in content_audio}):
+            if present(name):
+                hashes[hashlib.sha256((SOUNDS/name).read_bytes()).hexdigest()].append(name)
+        groups = [names for names in hashes.values() if len(names)>1]
+        print(f"\n{len(groups)} exact duplicate groups among content-bound files (review, not automatic deletion)")
+        for names in groups:
+            print("  " + " | ".join(names))
+    print(f"\n{len(weapons)} weapons, {len(content_audio)} content audio bindings, {len(have)} recordings on disk.")
     return 1 if missing["required"] else 0
 
 

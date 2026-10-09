@@ -13,6 +13,9 @@ modified integration, not an unmodified upstream distribution.
 - Do not process form shortcuts while the game keyboard area has focus.
 - Nested screen shortcuts take priority over shared dashboard shortcuts.
 - Hidden and disabled actions cannot claim shortcuts or default activation.
+- A hidden list-menu Enter handler can explicitly opt into default activation
+  with `default_when_hidden`; this never enables its hidden shortcut and does
+  not bypass the enabled-state or game-keyboard-area checks.
 - Form navigation must terminate even when every control is unavailable.
 
 ## Document-reader fixes

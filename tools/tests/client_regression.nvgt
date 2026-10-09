@@ -10,6 +10,13 @@ void run_client_regression()
 run_acoustic_regression();return;
 #endif
 client_test_directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-client-regression-"+random(100000,999999999);directory_create(client_test_directory);client_checkpoint("building inventory");
+cooked_grenade="frag_grenade";cooked_grenade_releasing=true;
+client_check(handle_grenade_packet("grenade_armed frag_grenade 4321") and cooked_grenade_fuse==4321 and cooked_grenade_releasing,"server fuse acknowledgement preserves a pending grenade release");
+client_check(!handle_grenade_packet("other_packet frag_grenade"),"grenade handler leaves unrelated packets alone");
+handle_grenade_packet("grenade_finished flash_grenade rejected");
+client_check(cooked_grenade=="frag_grenade","unrelated grenade responses cannot clear the held grenade");
+handle_grenade_packet("grenade_finished frag_grenade rejected");
+client_check(cooked_grenade=="" and !cooked_grenade_releasing,"grenade resolution clears pending client state");
 inv.delete_all();inventory_order.resize(0);partial_items.resize(0);invalidate_inventory_keys();inv_category_index=0;
 // Construct the stress fixture directly; mutation correctness is tested below.
 for(int i=0;i<10000;i++){string id="test_item"+i;content_register(id,"Test item "+i,"Utility","Regression fixture",1);inv.set(id,1);inventory_order.insert_last(id);}invalidate_inventory_keys();
@@ -31,8 +38,18 @@ client_check(!acoustic_local_world_source("menumove.ogg") and !acoustic_local_wo
 register_gun("test_weapon","test","magazine",10,"test_standard","magazines",true,2,1000);
 client_check(is_ammo_reserve_item("test_standard") and !is_ammo_reserve_item("unregistered_ammo"),"registered calibre reserves are classified without retired alternate loads");
 client_checkpoint("awareness and screens");
+{
+nv_form menu;menu.create_window("List-menu Enter regression",false,false,true);nv_form_list_box@ entries=menu.add_list("Menu options","entries");entries.add("Open option","option");entries.set_pos(0,false);nv_form_button@ open=menu.add_button("Open","open",true);open.hidden=true;menu.focus_control(entries,true);
+client_check(!menu.activate_primary() and !menu.is_pressed(open),"hidden actions do not become default menu actions implicitly");
+open.default_when_hidden=true;client_check(menu.activate_primary() and menu.is_pressed(open),"explicit hidden list-menu handlers activate the selected option");
+open.enabled=false;client_check(!menu.activate_primary() and !menu.is_pressed(open),"unavailable hidden default actions remain blocked");open.fire();client_check(!menu.is_pressed(open),"disabled buttons cannot latch a pressed event");
+open.enabled=true;nv_form_keyboard_area@ keyboard=menu.add_keyboard_area("Game keyboard area","keyboard");menu.focus_control(keyboard,true);client_check(!menu.activate_primary() and !menu.is_pressed(open),"default menu activation cannot claim game keyboard input");
+menu.focus_control(entries,true);open.hidden=false;client_check(menu.activate_primary() and menu.is_pressed(open),"visible default actions still activate normally");
+}
 client_check(clock_direction(0)=="straight ahead" and clock_direction(90)=="to your right" and clock_direction(180)=="behind you" and clock_direction(270)=="to your left" and clock_direction(60)=="at 2 o'clock" and clock_direction(-30)=="at 11 o'clock" and clock_direction(359)=="straight ahead","clock-face bearings");
 me.x=100;me.y=100;me.z=10;facing=0;
+nearby_object_compass=true;client_check(dynamic_object_direction(100,100,100,105)=="north" and dynamic_object_direction(100,100,105,100)=="east" and dynamic_object_direction(100,100,95,95)=="southwest","nearby-object compass directions use world bearings");
+nearby_object_compass=false;client_check(dynamic_object_direction(100,100,100,105)=="straight ahead" and dynamic_object_direction(100,100,105,100)=="to your right","nearby-object clock directions use the listener heading");
 client_check(describe_offset(100,110,10)=="10 tiles straight ahead","offset straight ahead");
 client_check(describe_offset(110,100,16)=="10 tiles to your right, 6 above","offset to the right and above");
 client_check(describe_offset(100,100,7)=="straight down, 3 below","offset directly below");
@@ -49,6 +66,19 @@ client_check(heading and item and row and link,"Markdown parses headings, lists,
 md_form.focus_control(document,true);client_check(!document.handle_input(),"idle document input leaves form navigation available");md_form.navigate_form(true,true);client_check(@md_form.current_control==@back,"Tab navigation leaves documents and skips unavailable actions");
 back.enabled=false;document.enabled=false;client_check(md_form.find_next_control() is null,"all-disabled forms terminate navigation safely");
 client_check(document.group=="Documentation" and md_form.get_groups().length()==1,"ported form groups track document ownership");
+nv_form_markdown@ review=md_form.add_markdown("Source review","review","First line\r\nSecond line\r\n\r\nThird line\rFourth line");
+client_test_results+="  source review lines: "+review.lines.length()+"\n";for(uint i=0;i<review.lines.length();i++)client_test_results+="  ["+review.lines[i].text+"]\n";
+client_check(review.lines.length()==5 and review.lines[0].text=="First line" and review.lines[1].text=="Second line" and review.lines[2].text=="" and review.lines[4].text=="Fourth line","Markdown preserves CRLF, lone CR, source lines and blank lines");
+review.set_markdown("alpha beta\ngamma delta");review.line=0;review.pos=0;
+client_check(review.review_cursor(1,false,false)=="l" and review.review_cursor(-1,false,false)=="a","Markdown character review moves both directions");
+client_check(review.review_cursor(1,true,false)=="beta" and review.review_cursor(-1,true,false)=="alpha","Markdown word review moves both directions");
+review.pos=9;client_check(review.review_cursor(1,false,false)=="g" and review.line==1 and review.review_cursor(-1,false,false)=="a" and review.line==0,"Markdown character review crosses source lines");
+review.line=0;review.pos=6;client_check(review.review_cursor(1,true,false)=="gamma" and review.review_cursor(-1,true,false)=="beta","Markdown word review crosses source lines");
+review.set_markdown("Aé猫Z");review.line=0;review.pos=0;
+client_check(review.review_cursor(1,false,false)=="é" and review.review_cursor(1,false,false)=="猫" and review.review_cursor(-1,false,false)=="é","Markdown character review stays on UTF-8 boundaries");
+review.set_markdown("- First\n  continuation\n- Second");client_check(review.lines.length()==3 and review.lines[1].text=="continuation","Markdown list continuations preserve their source line");
+client_check(review.lines[0].list_id==review.lines[2].list_id,"multiline list items retain a shared list identity");
+review.set_markdown("\nFirst\n\n\nLast\n");client_check(review.lines.length()==6 and review.lines[0].text=="" and review.lines[2].text=="" and review.lines[3].text=="" and review.lines[5].text=="","Markdown preserves leading, consecutive and trailing blank lines");
 }
 {
 inv.delete_all();inventory_order.resize(0);give("test_item0",3);weapons={"empty","test_weapon"};w=1;partial_items.insert_last(partial_ammo_item("test_standard",3,10));weapon_attachments.set("test_weapon","suppressor");int test_gun=find_gun("test_weapon");gun_ammos[test_gun].mag_loaded=4;gun_ammos[test_gun].chamber_ready=true;gun_ammos[test_gun].action_open=true;
@@ -66,6 +96,8 @@ client_check(tn.length()==3 and tn[1]=="Bo Ren" and tr[1]=="manager" and tr[0]==
 client_checkpoint("item data");
 int loaded=load_item_catalogue(SCRIPT_MAIN_PATH+"/../../iwserver/content/items");
 client_check(loaded>=200,"item files load ("+loaded+")");
+client_check(grenade_pin_audio("m67_fragmentation_grenade")=="m67_fragmentation_grenade_audio_pin.ogg","grenade pin audio resolves its editable item binding");
+client_check(grenade_pin_audio("missing_regression_item")=="ammo_cycle.ogg","unknown pin audio retains a playable fallback");
 client_check(armour_slot("carrier_missile")=="" and item_is_launched_explosive("carrier_missile"),"carrier missile is a launched explosive and not armour");
 client_check(armour_slot("plate_carrier")=="torso" and armour_rating("plate_carrier")==40 and armour_durability("plate_carrier")==1250,"plate carrier stats come from its file");
 client_check(armour_slot("bomb_vest")=="","bomb vest is body equipment, not torso armour");
@@ -196,6 +228,25 @@ nv_form lf;lf.create_window("Regression lobby",false,true);nv_form_list_box@ ll=
 timer lt;int frames=0;while(lt.elapsed<300){lf.monitor();frames++;wait(5);}
 client_check(frames>10 and !pumping_network_for_form and form_net_depth==0,"dialogs keep running while connected in the lobby ("+frames+" frames)");
 connected=was_connected;client_match_active=was_match;mapname=was_map;
+}
+// Control packets update perception without teleporting or restoring an old body.
+{
+double old_x=me.x,old_y=me.y,old_z=me.z;int old_facing=facing;string old_map=mapname,old_name=name;name="pilot_tester";
+client_companion@[] saved_actors=client_companions;bool old_pilot=companion_piloting;int old_id=piloted_companion_id;
+client_companions.resize(0);companion_piloting=false;mapname="freeforall";
+handle_companion_packet("companion_sync 901 drone 25 26 2 90 450 freeforall "+name+" stay auto_hover_drone 1200");
+handle_companion_packet("companion_pilot 901 25 26 2 90 freeforall");
+client_check(companion_piloting and view_x()==25 and view_y()==26 and view_z()==2 and view_facing()==90,"pilot acknowledgements select actor perception");
+client_check(me.x==old_x and me.y==old_y and me.z==old_z and facing==old_facing,"pilot packets leave body coordinates and heading unchanged");
+client_check(companion_view().item=="auto_hover_drone" and companion_view().owner==name and companion_view().recharge_ms==1200,"telemetry retains item ownership and recharge state");
+handle_companion_packet("companion_sync 901 drone 27 28 3 180 400 freeforall "+name+" stay auto_hover_drone 500");
+client_check(view_x()==27 and view_facing()==180 and me.x==old_x,"live sync moves perception, not the body");
+me.x=old_x+4;me.y=old_y+2;
+handle_companion_packet("companion_pilot_end");
+client_check(!companion_piloting and view_x()==old_x+4 and view_y()==old_y+2,"return uses the live body instead of restoring stale coordinates");
+handle_companion_packet("companion_pilot 901 27 28 3 180 freeforall");handle_companion_packet("companion_remove 901");
+client_check(!companion_piloting and client_companions.length()==0,"actor removal safely ends direct control");
+client_companions=saved_actors;companion_piloting=old_pilot;piloted_companion_id=old_id;mapname=old_map;name=old_name;me.x=old_x;me.y=old_y;me.z=old_z;facing=old_facing;
 }
 client_test_results+="Failures: "+client_test_failures+"\n";
 client_checkpoint("finished");

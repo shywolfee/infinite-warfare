@@ -28,7 +28,10 @@ void load_map_dobjects(int mi)
 {
 if(mi<0 or mi>=int(maps.length()))return;
 maps[mi].objects.map=maps[mi].name;
+// A geometry/content reload must not erase player-deposited salvage.
+dobject@[] old=maps[mi].objects.list;
 maps[mi].objects.list=parse_map_dobjects(maps[mi].rawdata,maps[mi].name);
+for(uint i=0;i<maps[mi].objects.list.length();i++)for(uint j=0;j<old.length();j++)if(old[j].id==maps[mi].objects.list[i].id and old[j].origin_type==maps[mi].objects.list[i].origin_type){maps[mi].objects.list[i].salvage=old[j].salvage;break;}
 maps[mi].objects.index();
 }
 void load_all_map_dobjects(){for(uint i=0;i<maps.length();i++)load_map_dobjects(int(i));}
@@ -37,6 +40,7 @@ void load_all_map_dobjects(){for(uint i=0;i<maps.length();i++)load_map_dobjects(
 // file gives it. Objects in their default state need no message at all.
 void sync_dobjects(uint peer,string map)
 {
+sync_grenade_audio(peer,map);
 dobject_set@ s=dobjects_on(map);if(s is null)return;
 string prefix="dobj_batch "+world_token(map)+" ",packet=prefix;int entries=0;
 for(uint i=0;i<s.list.length();i++)
@@ -200,16 +204,34 @@ o.stock--;o.restock_timer.restart();send_dobject_state(o);return true;
 void dobject_use(uint peer,int id)
 {
 int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
+if(p.death or p.arena_return_map!=""){send_reliable(peer,"Fixture services are unavailable while downed or in an arena.",2);return;}
 dobject@ o=dobject_for_use(p,id);if(o is null)return;
 if(o.use_timer.elapsed<600){send_reliable(peer,"The "+o.describe()+" is busy.",2);return;}o.use_timer.restart();
 dobject_type@ t=o.type;string what=t.interaction;
 if(what=="atm"){dobject_sound(o,"door_open");send_reliable(peer,"dobj_open atm "+o.id,0);}
+else if(what=="news" or what=="voice"){dobject_sound(o,t.contact_sound);send_reliable(peer,"dobj_open "+what+" "+o.id,0);}
 else if(what=="vend")send_reliable(peer,"dobj_open vend "+o.id+" "+o.stock,0);
 else if(what=="store"){dobject_sound(o,t.contact_sound);send_reliable(peer,"dobj_open store "+o.id,0);}
 else if(what=="door")
 {
 o.open=!o.open;dobject_sound(o,o.open?"open":"close");send_dobject_state(o);
 send_reliable(peer,"The "+o.describe()+(o.open?" opens.":" closes."),2);
+}
+else if(what=="medical")
+{
+if(t.service=="resuscitate"){
+player@ target=null;double nearest=3.1;for(uint i=0;i<players.length();i++){player@ candidate=players[i];if(candidate.map!=p.map or !candidate.death or candidate.pending_corpse=="" or absolute(candidate.z-o.z)>2.5)continue;double distance=o.distance_to(candidate.x,candidate.y);if(distance<nearest){@target=candidate;nearest=distance;}}
+if(target is null){send_reliable(peer,"No downed player is close enough to this defibrillator.",2);return;}
+if(!dobject_ready(o,p,t.cooldown_ms,"another resuscitation") or !dobject_take_stock(o,p))return;
+target.health=t.heal>0?t.heal:300;target.death=false;target.bleeding=false;target.has_hypercomp=physical_count(target,"hypercomp")>0;withdraw_corpse(target);dobject_sound(o,t.contact_sound);send_reliable(target.peer_id,"fixture_revive",0);send_reliable(peer,"The defibrillator resuscitates "+target.name+".",2);return;
+}
+if(t.service=="coagulate"){
+if(!p.bleeding){send_reliable(peer,"You have no active bleeding for the coagulator to treat.",2);return;}
+if(!dobject_ready(o,p,t.cooldown_ms,"another treatment") or !dobject_take_stock(o,p))return;p.bleeding=false;send_reliable(peer,"The coagulator stops your active bleeding.",2);
+}else if(t.service=="ventilate"){
+if(!dobject_ready(o,p,t.cooldown_ms,"another breathing treatment"))return;send_reliable(peer,"stamina_restore "+t.stamina,0);send_reliable(peer,"Assisted breathing restores "+t.stamina+" stamina.",2);
+}else{send_reliable(peer,"This medical station has no configured treatment.",2);return;}
+dobject_sound(o,t.contact_sound);
 }
 else if(what=="bed")
 {
@@ -226,6 +248,8 @@ send_reliable(peer,"You take a "+string_replace(t.item,"_"," ",true)+" from the 
 }
 else if(what=="search")
 {
+string[] deposited=o.salvage.get_keys();
+if(deposited.length()>0){string found=deposited[random(0,deposited.length()-1)];int count=0;o.salvage.get(found,count);if(count<=1)o.salvage.delete(found);else o.salvage.set(found,count-1);dobject_sound(o,"place_item");send_reliable(peer,"give "+found+" 1",0);send_reliable(peer,"You recover "+physical_item_name(found)+" from the "+o.describe()+".",2);return;}
 if(o.stock<=0){send_reliable(peer,"The "+o.describe()+" has been searched recently. Nothing left.",2);return;}
 if(!dobject_ready(o,p,t.cooldown_ms,"another search") or !dobject_take_stock(o,p))return;
 string found=t.loot.length()>0?t.loot[random(0,t.loot.length()-1)].trim_whitespace():"repair_kit";
@@ -235,9 +259,9 @@ send_reliable(peer,"give "+found+" 1",0);send_reliable(peer,"You search the "+o.
 else if(what=="report")
 {
 if(!dobject_ready(o,p,t.cooldown_ms,"another report"))return;
-int hostile=0,friendly=0;for(uint i=0;i<players.length();i++)if(players[i].map==p.map and !players[i].death and players[i].name!=p.name){if(same_team(players[i].name,p.name))friendly++;else hostile++;}
+int hostile=0,friendly=0;for(uint i=0;i<players.length();i++)if(players[i].map==p.map and !players[i].death and players[i].name!=p.name and get_3d_distance(p.x,p.y,p.z,players[i].x,players[i].y,players[i].z)<=40 and contact_state(p,players[i],true)!=""){if(same_team(players[i].name,p.name))friendly++;else hostile++;}
 dobject_sound(o,o.type_id=="tv"?(o.on?"off":"on"):"loop");if(o.type_id=="tv"){o.on=!o.on;send_dobject_state(o);}
-send_reliable(peer,"The "+o.describe()+" reports "+friendly+" friendly and "+hostile+" hostile people on this map.",2);
+send_reliable(peer,"The "+o.describe()+" detects "+friendly+" friendly and "+hostile+" hostile movement contacts within forty tiles. Hidden contacts are not disclosed.",2);
 }
 else if(what=="team")
 {
@@ -264,36 +288,26 @@ else send_reliable(peer,o.describe()+(t.description!=""?": "+t.description:"."),
 }
 
 // Buying from a vending machine: dobj_buy <id> <offer index>.
-void dobject_buy(uint peer,int id,int offer_index)
+void dobject_buy(uint peer,int id,int offer_index,string payment="wallet")
 {
 int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
 dobject@ o=dobject_for_use(p,id);if(o is null){send_reliable(peer,"dobj_buy_error You must stay beside the machine.",0);return;}
 dobject_type@ t=o.type;if(t.interaction!="vend" or offer_index<0 or offer_index>=int(t.offers.length())){send_reliable(peer,"dobj_buy_error That is not sold here.",0);return;}
 dobject_offer@ offer=t.offers[offer_index];
-if(p.credits<offer.price){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error Not enough credits: it costs "+offer.price+" and you have "+p.credits+".",0);return;}
+if(payment=="wallet" and p.credits<offer.price){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error Not enough wallet credits.",0);return;}
 if(o.stock<=0){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error The machine is empty. It is refilled over time.",0);return;}
 if(!dobject_ready(o,p,t.cooldown_ms,"another purchase")){send_reliable(peer,"dobj_buy_error The machine is still dispensing.",0);return;}
-if(!change_player_credits(p,-offer.price)){send_reliable(peer,"dobj_buy_error Your balance could not be saved. Nothing was charged.",0);return;}
+if(!physical_payment(p,offer.price,payment)){send_reliable(peer,"dobj_buy_error Payment declined. Nothing was dispensed.",0);return;}
 o.stock--;o.restock_timer.restart();send_dobject_state(o);
 dobject_sound(o,"beep");dobject_sound(o,"dispense");if(offer.sound!="")dobject_sound(o,offer.sound);else dobject_sound(o,t.contact_sound);
 send_reliable(peer,"give "+offer.item+" 1",0);send_reliable(peer,"dobj_buy_ok "+p.credits+" "+offer.item+" "+o.stock,0);
 }
 
-// Paying a credit chip in at a cash machine: dobj_redeem <id> small|large <request>.
+// Legacy clients must sign in through the shared banking screen.
 void dobject_redeem(uint peer,const string[] &in parsed)
 {
-int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
 string request=parsed.length()>3?parsed[3]:"0";
-string prefix="dobj_redeem_reply "+request+" ";
-if(parsed.length()<3 or (parsed[2]!="small" and parsed[2]!="large")){send_reliable(peer,prefix+"error That is not a credit chip.",0);return;}
-dobject@ o=dobject_for_use(p,int(string_to_number(parsed[1])));
-if(o is null or o.type.interaction!="atm"){send_reliable(peer,prefix+"error You must stay beside the cash machine.",0);return;}
-string item=parsed[2]=="small"?"credit_chip_small":"credit_chip_large";
-if(credit_chip_count(p,item)<=0){send_reliable(peer,prefix+"error You have no "+parsed[2]+" credit chip the server knows about.",0);return;}
-if(!dobject_ready(o,p,1000,"another payment")){send_reliable(peer,prefix+"error The machine is still processing.",0);return;}
-if(!commit_credit_chip_deposit(p,item)){send_reliable(peer,prefix+"error Your balance could not be saved; the chip was not used.",0);return;}
-dobject_sound(o,"keypress");world_sound_from("collectable/pickup_cred_"+parsed[2],p);
-send_reliable(peer,prefix+"ok "+p.credits,0);
+send_reliable(peer,"dobj_redeem_reply "+request+" error Cash machines now deposit chips into checking. Open banking and sign in first.",0);
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +317,7 @@ send_reliable(peer,prefix+"ok "+p.credits,0);
 dictionary dobject_chargers; // player name -> "map:id"
 void dobject_start_charging(player@ p,dobject@ o)
 {
+if(!p.has_hypercomp){send_reliable(p.peer_id,"You need a HyperComp to connect to this charging station.",2);return;}
 dobject_chargers.set(string_to_lower_case(p.name),o.map+":"+o.id);dobject_sound(o,o.type.contact_sound);
 send_reliable(p.peer_id,"laptop_charging on",0);send_reliable(p.peer_id,"Your HyperComp is plugged into the "+o.describe()+". Stay beside it to charge.",2);
 }

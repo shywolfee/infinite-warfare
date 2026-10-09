@@ -34,6 +34,24 @@ position.
   `explode_distant`: the explosion when destroyed or after burning.
 - `loot_on_destroy=true`: drop its stock or loot when destroyed.
 
+## Fixture services
+
+The content editor exposes these files under Fixtures and world-object
+services. Reloading fixtures synchronizes their definitions to clients.
+
+- `interaction=medical` uses `service=coagulate`, `ventilate` or `resuscitate`.
+- `heal` sets resuscitation health; `stamina` sets breathing-treatment recovery.
+- `stock`, `restock_ms` and `cooldown_ms` govern consumable service supplies.
+- `interaction=news` opens announcements; `voice` opens voice rooms.
+- `interaction=report` surveys detectable nearby movement, not the whole map.
+- `interaction=atm` opens shared banking; `store` opens the marketplace.
+- `interaction=vend` uses authored offers and physical-currency payment choices.
+
+Dumpster deposits are a server-owned salvage dictionary on each object, not
+generated stock. Searches consume real deposited entries before random loot.
+Geometry/content reloads preserve those entries by object ID and origin type;
+server restarts do not persist them.
+
 ## Sounds
 
 Sounds come from the sound pack's `executioners_rage/<sound>/` folder.

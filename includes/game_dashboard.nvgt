@@ -142,18 +142,30 @@ speak("Dashboard mode.");
 
 string game_dashboard_current_option_state()
 {
-return (count_total_items()>0?"inventory":"empty")+"|"+(get_item_count("hypercomp")>0?"terminal":"offline")+"|"+client_arena_id+"|"+client_arena_state+"|"+((staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)?"staff":"player");
+return (companion_piloting?"pilot:"+piloted_companion_id:"body")+"|"+(count_total_items()>0?"inventory":"empty")+"|"+(client_market_device_available()?"terminal":"offline")+"|"+client_arena_id+"|"+client_arena_state+"|"+((staff_panel_available or dev_unlocked or !SCRIPT_COMPILED)?"staff":"player");
 }
 
 void game_dashboard_rebuild_options(bool force)
 {
 if(@game_dashboard_options==null)return;string state=game_dashboard_current_option_state();if(!force and state==game_dashboard_option_state)return;
 string selected=@game_dashboard_options.focused_item!=null?game_dashboard_options.focused_item.id:"stats";game_dashboard_option_state=state;game_dashboard_options.items.resize(0);
+if(companion_piloting)
+{
+game_dashboard_options.add("Review companion telemetry: Read the controlled actor's health, coordinates, heading and orders. Alt+S.","stats");
+game_dashboard_options.add("Return to your body: End direct control without moving your body. Alt+E.","equipment");
+game_dashboard_options.add("Use companion attack: Fire once at a valid nearby hostile when recharged. Alt+X.","spend");
+game_dashboard_options.add("Open companion command center: Manage this actor and the rest of your fleet. Alt+C.","companions");
+game_dashboard_options.add("Manage your groups: Keep communicating while controlling your companion. Alt+B.","groups");
+game_dashboard_options.add("Configure the game: Adjust accessibility and controls. Alt+O.","options");
+game_dashboard_options.add("Read companion help: Browse controls and mechanics. Alt+H.","help");
+for(uint i=0;i<game_dashboard_options.items.length();i++)if(game_dashboard_options.items[i].id==selected){game_dashboard_options.set_pos(i,false);return;}
+game_dashboard_options.set_pos(0,false);return;
+}
 game_dashboard_options.add("Review your current status: Display your weapon, location, stamina, effects, inventory total, map, player name and game version. Alt+S.","stats");
 game_dashboard_options.add("Manage your equipment: Review and change armour, holsters and other currently equipped gear. Alt+E.","equipment");
 game_dashboard_options.add("Manage your team: Control membership, roles, shared resources, team chat and team actions. Alt+T.","team");
 if(count_total_items()>0)game_dashboard_options.add("Open your complete inventory: Browse, inspect, configure, use, give or drop the items you carry. Alt+I.","inventory");
-if(get_item_count("hypercomp")>0)game_dashboard_options.add("Spend credits: Open the marketplace through your HyperComp Smart Terminal. Alt+X.","spend");
+if(client_market_device_available())game_dashboard_options.add("Spend credits: Open the marketplace through your SupplyLink ordering device. Alt+X.","spend");
 game_dashboard_options.add("Manage your groups: Review group conversations, invitations, membership and quick-chat selection. Alt+B.","groups");
 game_dashboard_options.add("Control deployed companions: View, command, recall or directly pilot every drone and chimp you own. Alt+C.","companions");
 game_dashboard_options.add("Enter automatic PK arenas: Create, join, spectate and manage public arena instances. Alt+K.","arenas");
@@ -205,8 +217,9 @@ string[] rows=string_split(announcements_text,";",true);nv_form f;f.create_windo
 
 void game_dashboard_open_action_id(const string &in chosen)
 {
+if(companion_piloting){if(chosen=="stats"){speak(companion_telemetry(companion_view()));return;}if(chosen=="equipment"){stop_companion_pilot();return;}if(chosen=="spend"){send_reliable(0,"companion fire "+piloted_companion_id+" now",0);return;}}
 if(chosen=="stats")show_info_list("Status",ingame_stats_lines());else if(chosen=="equipment")equipment_menu();else if(chosen=="team")team_menu();
-else if(chosen=="spend"){if(get_item_count("hypercomp")<=0)speak("Spend credits requires a HyperComp Smart Terminal in your inventory.");else online_supply_shop();}
+else if(chosen=="spend"){if(!client_market_device_available())speak("Spend credits requires a SupplyLink ordering device in your inventory.");else online_supply_shop();}
 else if(chosen=="inventory")inventory_menu();else if(chosen=="groups")groups_menu();else if(chosen=="companions")companion_remote_menu();
 else if(chosen=="arenas")arena_manager();
 else if(chosen=="options")optionsmenu();else if(chosen=="help")show_help_list();else if(chosen=="changes")show_changelog_form();
@@ -281,7 +294,7 @@ if(@f!=@game_dashboard_form and @f.cancel_control!=null){f.cancel_control.fire()
 f.focus_control(keyboard);return true;}
 if(game_dashboard_refresh_timer.elapsed>300){game_dashboard_rebuild_options(false);game_dashboard_refresh_shell(f);game_dashboard_refresh_timer.restart();}
 if(game_dashboard_player_timer.elapsed>5000){send_reliable(0,"lobby_playerlist",0);game_dashboard_player_timer.restart();}
-if(!game_dashboard_tab_mode and @f.current_control==@keyboard and key_pressed(KEY_TAB)){if(shift_is_down())cycle_inv(0);else cycle_inv(1);p.play_stationary("invmove.ogg",false);return true;}
+if(!game_dashboard_tab_mode and @f.current_control==@keyboard and key_pressed(KEY_TAB)){if(companion_piloting)companion_remote_menu();else{if(shift_is_down())cycle_inv(0);else cycle_inv(1);p.play_stationary("invmove.ogg",false);}return true;}
 if(@f.current_control==@game_dashboard_options and game_dashboard_option_shortcut(f))return true;
 if(@f.current_control!=@keyboard)
 {

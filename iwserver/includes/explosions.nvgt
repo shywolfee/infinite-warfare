@@ -180,6 +180,7 @@ play("playerhit"+random(1,6),target.x,target.y,target.z,target.map);
 }
 if(!non_lethal)
 {
+companion_blast_damage(x,y,z,map,b);
 for(uint i=0;i<planes.length();i++)
 {
 if(planes[i].map!=map)continue;double pressure=blast_overpressure(get_3d_distance(x,y,z,planes[i].x,planes[i].y,planes[i].z),b.radius);if(pressure<=0)continue;

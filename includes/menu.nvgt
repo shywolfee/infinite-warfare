@@ -80,7 +80,7 @@ list.add(entries[i].label,entries[i].id);
 if(entries[i].id==main_menu_last)list.set_pos(i);
 }
 nv_form_button@ open=f.add_button("Open","open",true);
-open.hidden=true;
+open.hidden=true;open.default_when_hidden=true;
 f.focus_control(list);
 while(selected=="")
 {
@@ -867,7 +867,7 @@ f.create_window(title,false,true);
 nv_form_list_box@ list=f.add_list(title,"choices");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
 nv_form_button@ ok=f.add_button("Choose","choose",true);
-ok.hidden=true;
+ok.hidden=true;ok.default_when_hidden=true;
 nv_form_button@ cancel=f.add_button("Cancel","cancel",false,true);
 f.focus_control(list);
 while(true)
@@ -1028,7 +1028,7 @@ list.add("Back to the match","resume");
 list.add("Leave the match","leave");
 for(uint i=0;i<list.items.length();i++)if(list.items[i].id==escape_menu_last)list.set_pos(i);
 nv_form_button@ open=f.add_button("Open","open",true);
-open.hidden=true;
+open.hidden=true;open.default_when_hidden=true;
 f.focus_control(list);
 string chosen="";
 while(chosen=="")
@@ -1098,7 +1098,7 @@ list.add(equipment_slot_label("Ring",equip_ring,equip_ring==""?"":round(equipped
 list.add("Total equipped weight: "+total_equipment_weight(),"total");
 list.set_pos(keep);
 nv_form_button@ remove=f.add_button("Take off","remove",true);
-remove.hidden=true;
+remove.hidden=true;remove.default_when_hidden=true;
 nv_form_button@ close=f.add_button("Close","close",false,true);
 f.focus_control(list);
 int sel=-1;
@@ -1296,7 +1296,7 @@ f.create_window("Learn the game's sounds", false, true);
 nv_form_list_box@ list=f.add_list("Sounds. Enter plays the one you are on.","sounds");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],""+i);
 nv_form_button@ again=f.add_button("Play","play",true);
-again.hidden=true;
+again.hidden=true;again.default_when_hidden=true;
 nv_form_button@ close=f.add_button("Close","close",false,true);
 f.focus_control(list);
 sound preview;
@@ -1457,6 +1457,7 @@ nv_form_tab_page@ online=tabs.add_tab_page("Online");
 nv_form_checkbox@ f_target_hp=gameplay.add_checkbox("Say the target's remaining health when you hit them", "target_hp", show_target_hp);
 nv_form_checkbox@ f_damage_readout=gameplay.add_checkbox("Say how much damage each hit did", "damage", show_damage_readout);
 nv_form_checkbox@ f_own_projectiles=gameplay.add_checkbox("Hear your own bullets and projectiles in flight", "own_projectiles", hear_own_projectile_audio);
+nv_form_checkbox@ f_object_compass=gameplay.add_checkbox("Describe nearby objects with compass directions instead of relative clock positions", "object_compass", nearby_object_compass);
 nv_form_checkbox@ f_auto_quickbar=gameplay.add_checkbox("Put your starting weapons and items on the quickbar automatically", "auto_quickbar", auto_bind_starting_loadout);
 nv_form_checkbox@ f_replace_attachments=gameplay.add_checkbox("Swap out an attachment when its slot is already taken", "replace_attachments", replace_occupied_attachments);
 
@@ -1565,6 +1566,7 @@ show_damage_readout=f_damage_readout.state;
 auto_bind_starting_loadout=f_auto_quickbar.state;
 replace_occupied_attachments=f_replace_attachments.state;
 hear_own_projectile_audio=f_own_projectiles.state;
+nearby_object_compass=f_object_compass.state;
 audio_form_sound_feedback=f_form_sounds.state;
 dashboard_form_sound_feedback=f_dashboard_sounds.state;
 acoustic_occlusion_enabled=f_occlusion.state;

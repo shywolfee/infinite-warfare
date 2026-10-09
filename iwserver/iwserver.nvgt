@@ -31,11 +31,15 @@ void load_vehicle_content_blob(const string &in blob){}
 #include "includes/grenade.nvgt"
 #include "includes/explosions.nvgt"
 #include "includes/companions.nvgt"
+#include "includes/service_requests.nvgt"
+#include "includes/field_devices.nvgt"
+#include "includes/bowling_bomb.nvgt"
 #include "includes/corpse.nvgt"
 #include "includes/citem.nvgt"
 #include "../includes/sd.nvgt"
 #include "includes/account_wallet.nvgt"
 #include "includes/smart_terminal.nvgt"
+#include "includes/physical_commerce.nvgt"
 #include "includes/arenas.nvgt"
 string[] killmsgs;
 timer spawn_chesttimer;
@@ -82,6 +86,15 @@ int player_index=get_player_index(peer);if(player_index>=0)return staff_can(play
 #if IW_WORLD_EDITOR_REGRESSION
 #include "includes/world_editor_regression.nvgt"
 #endif
+#if IW_COMMERCE_REGRESSION
+#include "../tools/tests/commerce_regression.nvgt"
+#endif
+#if IW_GRENADE_REGRESSION
+#include "../tools/tests/grenade_regression.nvgt"
+#endif
+#if IW_MOTION_REGRESSION
+#include "../tools/tests/companion_bowling_regression.nvgt"
+#endif
 void route_private_message(string sender,uint sender_peer,string target,string message)
 {
 recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=message;record.scope="pm:"+sender;record.timestamp=chat_timestamp(false);int target_player=get_player_index_from(target);if(target_player>=0){if(chat_is_blocked(players[target_player].name,sender)){send_reliable(sender_peer,"That player is not accepting messages from you.",2);return;}send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_chat_event(players[target_player].peer_id,record.scope,sender,message,record);recent_chat_messages.insert_last(record);send_reliable(sender_peer,"pm sent successfully",2);return;}
@@ -92,6 +105,15 @@ const string BUG_SECRET = "IW_bUg_rPt_K3y_zX5vN8mQ2wL9!";
 string bug_dir="administration/bugs";
 void main()
 {
+#if IW_MOTION_REGRESSION
+run_companion_bowling_regression();return;
+#endif
+#if IW_GRENADE_REGRESSION
+run_grenade_regression();return;
+#endif
+#if IW_COMMERCE_REGRESSION
+run_commerce_regression();return;
+#endif
 #if IW_WORLD_EDITOR_REGRESSION
 run_world_editor_regression();return;
 #endif
@@ -202,6 +224,7 @@ drop_supply_chest();
 if(terminal_storage_spawn_timer.elapsed>=240000)
 {
 terminal_storage_spawn_timer.restart();string[] storage={"usb_flash_drive_32","usb_flash_drive_32","memory_card_64","solid_state_module_256","quantum_storage_1tb"};int sx,sy,sz;string smap;if(choose_world_drop(sx,sy,sz,smap))spawn_citem(sx,sy,sz,smap,storage[random(0,storage.length()-1)]);
+spawn_physical_commerce_supply();
 }
 if(key_pressed(KEY_ESCAPE))
 {
@@ -685,7 +708,10 @@ if (e.channel==0)
 {
 if(handle_world_editor_request(e.peer_id,get_event_message()))return;
 if(handle_companion_command(e.peer_id,get_event_message()))return;
+if(handle_service_request(e.peer_id,get_event_message()))return;
 string[] parsed=string_split(get_event_message(), " ", true);
+int companion_sender=get_player_index(e.peer_id);
+if(companion_sender>=0 and companion_body_controlled(players[companion_sender].name) and parsed.length()>0 and (parsed[0]=="fire" or parsed[0]=="use" or parsed[0]=="grenade_pin"))return;
 if(parsed[0]=="lobby_maps")
 {
 int li=get_lobby_client_index(e.peer_id);
@@ -2064,6 +2090,10 @@ else if(parsed[0]=="account_balance")
 int pi=get_player_index(e.peer_id),li=get_lobby_client_index(e.peer_id);
 if(pi>=0 or li>=0){string account=pi>=0?players[pi].name:lobby_clients[li].name;int balance=load_player_credits(account);send_reliable(e.peer_id,balance<0?"Your saved credit balance is unavailable. Please contact a developer; transactions are blocked until it is recovered.":"Saved account balance: "+balance+" credits.",2);}
 }
+else if(parsed[0]=="dev_physical_item" and parsed.length()==3)
+{
+int pi=get_player_index(e.peer_id);if(pi>=0){int amount=int(string_to_number(parsed[2]));if(!(players[pi].dev or players[pi].admin))send_reliable(e.peer_id,"Physical item grants require administrator or developer permission.",2);else if(physical_tracked(parsed[1]) and item_info(parsed[1]) !is null and amount>0 and amount<=10000)send_reliable(e.peer_id,"give "+parsed[1]+" "+amount,0);}
+}
 else if(parsed[0]=="dev_credit_chip" and parsed.length()==3)
 {
 int pi=get_player_index(e.peer_id);if(pi>=0){int amount=string_to_number(parsed[2]);if(!(players[pi].dev or players[pi].admin))send_reliable(e.peer_id,"Developer credit-chip grants require server administrator or developer permission.",2);else if(is_credit_chip(parsed[1]) and amount>0 and amount<=10000){send_reliable(e.peer_id,"give "+parsed[1]+" "+amount,0);send_reliable(e.peer_id,"Granted "+amount+" authenticated "+string_replace(parsed[1],"_"," ",true)+"s.",2);}}
@@ -2084,13 +2114,27 @@ else if(parsed[0]=="dobj_use" and parsed.length()>1)
 {
 dobject_use(e.peer_id,int(string_to_number(parsed[1])));
 }
+else if(string_contains(parsed[0],"physical_",1)==0)
+{
+physical_handle(e.peer_id,parsed);
+}
 else if(parsed[0]=="dobj_buy" and parsed.length()>2)
 {
-dobject_buy(e.peer_id,int(string_to_number(parsed[1])),int(string_to_number(parsed[2])));
+dobject_buy(e.peer_id,int(string_to_number(parsed[1])),int(string_to_number(parsed[2])),parsed.length()>3?parsed[3]:"wallet");
 }
 else if(parsed[0]=="dobj_redeem")
 {
 dobject_redeem(e.peer_id,parsed);
+}
+else if(parsed[0]=="grenade_pin" and parsed.length()==2)
+{
+pin_grenade(e.peer_id,parsed[1]);
+}
+else if(parsed[0]=="grenade_release" and parsed.length()==4)
+{
+int aim=int(string_to_number(parsed[2]));if(aim<0)aim=0;if(aim>180)aim=180;
+string cabin=parsed[3];if(cabin!="window" and cabin!="cabin")cabin="foot";
+release_grenade(e.peer_id,parsed[1],aim,cabin);
 }
 else if(parsed[0]=="draw" and parsed.length()>1)
 {
@@ -2149,11 +2193,12 @@ if(index > -1)
 // carry a three-way "configuration" here instead.
 int throw_aim=parsed.length()>2?string_to_number(parsed[2]):90;if(throw_aim<0)throw_aim=0;if(throw_aim>180)throw_aim=180;
 string throw_cabin=parsed.length()>4?parsed[4]:"foot";if(throw_cabin!="window" and throw_cabin!="cabin")throw_cabin="foot";
-if(parsed[1]=="hypercomp"){players[index].has_hypercomp=true;send_reliable(players[index].peer_id,"terminal_open",0);}
+if(parsed[1]=="hypercomp"){if(physical_count(players[index],"hypercomp")<=0)send_reliable(players[index].peer_id,"terminal_error You do not own a server-issued HyperComp.",0);else{players[index].has_hypercomp=true;send_reliable(players[index].peer_id,"terminal_open",0);}}
+else if(parsed[1]=="portable_auction_terminal"){if(physical_count(players[index],parsed[1])<=0)send_reliable(players[index].peer_id,"terminal_error You do not own that terminal.",0);else{send_reliable(players[index].peer_id,"give portable_auction_terminal -1",0);send_reliable(players[index].peer_id,"give hypercomp 1",0);send_reliable(players[index].peer_id,"terminal_ok Legacy terminal upgraded into a HyperComp.",0);}}
 else if(item_prop(parsed[1],"use_kind")=="companion")deploy_companion(index,parsed[1]);
 else if(item_prop(parsed[1],"use_kind")=="terminal_storage")
 {
-if(!players[index].has_hypercomp)send_reliable(players[index].peer_id,"You need a HyperComp Smart Terminal before installing storage.",2);
+if(!players[index].has_hypercomp or physical_count(players[index],parsed[1])<=0)send_reliable(players[index].peer_id,"You need a HyperComp and an owned storage module before installing storage.",2);
 else
 {
 int capacity=item_prop_int(parsed[1],"storage_gb",0);if(capacity>0){players[index].terminal_storage+=capacity;send_reliable(players[index].peer_id,"give "+parsed[1]+" -1",0);send_reliable(players[index].peer_id,"Terminal storage expanded by "+capacity+" GB. Total capacity "+players[index].terminal_storage+" GB.",2);}
@@ -2729,12 +2774,12 @@ int index=get_player_index(e.peer_id);if(index>-1){string targets="";for(uint i=
 else if(parsed[0]=="inventory_transfer" and parsed.length()==3)
 {
 int index=get_player_index(e.peer_id),target=get_player_index_from(parsed[1]);string item_id=parsed[2];
-if(index>=0 and is_credit_chip(item_id) and credit_chip_count(players[index],item_id)<=0){send_reliable(e.peer_id,"You do not own that credit chip.",2);}
+if(index>=0 and physical_tracked(item_id) and physical_count(players[index],item_id)<=0){send_reliable(e.peer_id,"You do not own that physical item.",2);}
 else if(index>=0 and target>=0 and index!=target and item_id.length()>0 and item_id.length()<=80 and string_contains(item_id,"__partial__",1)<0){if(players[index].death or players[target].death or players[index].map!=players[target].map or get_3d_distance(players[index].x,players[index].y,players[index].z,players[target].x,players[target].y,players[target].z)>10)send_reliable(players[index].peer_id,"That player is no longer within ten tiles.",2);else{send_reliable(players[index].peer_id,"give "+item_id+" -1",0);send_reliable(players[target].peer_id,"give "+item_id+" 1",0);send_reliable(players[index].peer_id,"Gave "+string_replace(item_id,"_"," ",true)+" to "+players[target].name+".",2);send_reliable(players[target].peer_id,players[index].name+" gave you "+string_replace(item_id,"_"," ",true)+".",2);}}
 }
 else if(parsed[0]=="inventory_drop" and parsed.length()==2)
 {
-int index=get_player_index(e.peer_id);string item_id=parsed[1];if(index>=0 and is_credit_chip(item_id) and credit_chip_count(players[index],item_id)<=0){send_reliable(e.peer_id,"You do not own that credit chip.",2);}
+int index=get_player_index(e.peer_id);string item_id=parsed[1];if(index>=0 and physical_tracked(item_id) and physical_count(players[index],item_id)<=0){send_reliable(e.peer_id,"You do not own that physical item.",2);}
 else if(index>=0 and item_id.length()>0 and item_id.length()<=80 and string_contains(item_id,"__partial__",1)<0){vector destination;destination.x=players[index].x;destination.y=players[index].y;destination.z=players[index].z;for(int step=0;step<7;step++)destination=move(destination.x,destination.y,destination.z,players[index].facing,0);int drop_x=int(round(destination.x,0)),drop_y=int(round(destination.y,0)),drop_z=int(round(destination.z,0));if(spawn_tile_blocked(drop_x,drop_y,drop_z,players[index].map))send_reliable(players[index].peer_id,"There is no clear tile seven spaces ahead on which to drop that item.",2);else{spawn_item(drop_x,drop_y,drop_z,players[index].map,item_id,"");world_sound_at("collectable/drop_item",drop_x,drop_y,drop_z,players[index].map);send_reliable(players[index].peer_id,"give "+item_id+" -1",0);send_reliable(players[index].peer_id,"Dropped "+string_replace(item_id,"_"," ",true)+" seven tiles ahead.",2);}}
 }
 else if(parsed[0]=="whatnear")
@@ -3261,7 +3306,8 @@ n.send_unreliable(players[i].peer_id, mess, channel);
 }
 void send_reliable(uint peer, string mess, uint channel, int index=-1)
 {
-if(index<0 and peer!=0 and channel==0)track_credit_chip_grant(peer,mess);
+if(index<0 and peer!=0 and channel==0){track_credit_chip_grant(peer,mess);track_physical_grant(peer,mess);}
+mess=service_wrap_reply(peer,mess,channel);
 server_data_sent+=mess.length();
 mess=string_encrypt(mess, "masonandsamare2bitches");
 if(index>-1)
@@ -3364,6 +3410,7 @@ return;
 string active_ban_reason=moderation_ban_reason(user,comp);if(active_ban_reason!=""){send_reliable(peer_id,"banned "+active_ban_reason,0);return;}
 send_reliable(peer_id, "loggedin123", 0);
 sync_items_to(peer_id);
+sync_objects_to(peer_id);
 sync_vehicles_to(peer_id);
 group_presence_queue.insert_last(user);
 }

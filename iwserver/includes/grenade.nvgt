@@ -2,6 +2,10 @@
 // its item file says otherwise).
 string explosive_audio_prefix(string kind){return item_prop(kind,"sound_prefix",kind);}
 fraggrenade@[] fraggrenades(0);
+string grenade_audio_start(fraggrenade@ g){
+return "projectile_audio_start "+g.audio_id+" "+item_prop(g.kind,"flight_loop",explosive_audio_prefix(g.kind)+"_flight_loop.ogg")+" "+g.x+" "+g.y+" "+g.z+" "+g.map+" "+g.owner+" "+(item_flag(g.kind,"flight_mandatory")?"world":"optional")+" "+item_prop_number(g.kind,"flight_volume_db",0);
+}
+void sync_grenade_audio(uint peer,string map){for(uint i=0;i<fraggrenades.length();i++)if(fraggrenades[i].map==map and fraggrenades[i].audio_id>=0)send_reliable(peer,grenade_audio_start(fraggrenades[i]),0);}
 // A thrown or launched explosive in flight. Since 0.6 flight is a proper
 // little simulation, run in small steps so nothing tunnels through a wall:
 //
@@ -29,6 +33,7 @@ bool landed=false,in_water=false,splashed=false;
 int bounces=0;
 timer explodetimer,simulationtimer,audio_update_timer,flight_time;
 string map,owner,kind="frag_grenade";
+int held_peer=-1; // A pinned grenade follows its holder until released.
 int fuse=4500;
 int audio_id=-1;
 string stuck_to="";
@@ -36,6 +41,8 @@ int blast_dir=-1;
 int inside_vehicle=-1; // id of the closed vehicle this explosive is loose inside
 double drag=0;         // per-metre quadratic drag coefficient
 string last_struck="";
+bool momentum_rolling=false,rolling_grounded=false,rolling_detonate=false,owner_cleared=false;
+double rolling_distance=0,rolling_range=120;
 fraggrenade(double gx,double gy,int gz,double gdir,string gmap,string gowner,string gkind="frag_grenade",bool play_launch=true,int aim=90,int cooked_ms=0)
 {
 x=gx;y=gy;z=double(gz)+1.4;map=gmap;owner=gowner;kind=gkind;
@@ -52,12 +59,64 @@ drag=.5*1.2*item_prop_number(kind,"drag_coefficient",.5)*3.14159265358979323846*
 double speed=14.0;if(item_prop(kind,"launch_speed")!=""){double h=item_prop_number(kind,"launch_speed"),v=item_prop_number(kind,"launch_rise",7.25);speed=sqrt(h*h+v*v);}
 double elevation=30.0+(double(aim)-90.0)*.75;if(elevation<-20)elevation=-20;if(elevation>80)elevation=80;double er=elevation*3.14159265358979323846/180.0;
 vx=sine(radians)*cosine(er)*speed;vy=cosine(radians)*cosine(er)*speed;vz=sine(er)*speed;
+momentum_rolling=item_flag(kind,"momentum_rolling");
+if(momentum_rolling)
+{
+elevation=atan2(item_prop_number(kind,"launch_rise",2.1),item_prop_number(kind,"launch_speed",9.5))*180/3.14159265358979323846+(double(aim)-90)*.65;
+if(elevation<-25)elevation=-25;if(elevation>75)elevation=75;er=elevation*3.14159265358979323846/180;
+vx=sine(radians)*cosine(er)*speed;vy=cosine(radians)*cosine(er)*speed;vz=sine(er)*speed;
+double low=item_prop_number(kind,"rolling_range_min",90),high=item_prop_number(kind,"rolling_range_max",120);
+rolling_range=low+(high-low)*cosine(er);
+}
 // The thrower's own movement is part of the throw.
 int thrower=get_player_index_from(owner);if(thrower>=0 and !item_flag(kind,"launched")){vx+=players[thrower].model_vx;vy+=players[thrower].model_vy;}
 if(cooked_ms<0)cooked_ms=0;if(cooked_ms>fuse-1)cooked_ms=fuse-1;fuse-=cooked_ms;
 if(play_launch)play(item_prop(kind,"throw_sound",explosive_audio_prefix(kind)+"_throw"),int(x),int(y),int(z),map);
 simulationtimer.restart();
 }
+}
+
+int held_grenade_index(int peer)
+{
+int pi=get_player_index(peer);if(pi<0)return -1;
+for(uint i=0;i<fraggrenades.length();i++)if(fraggrenades[i].held_peer==peer and fraggrenades[i].owner==players[pi].name)return int(i);
+return -1;
+}
+void pin_grenade(int peer,string kind)
+{
+int pi=get_player_index(peer);if(pi<0)return;
+if(!item_is_thrown_explosive(kind) or item_flag(kind,"momentum_rolling") or players[pi].death or players[pi].arena_role=="spectator"){send_reliable(peer,"grenade_finished "+kind+" rejected",0);return;}
+int held=held_grenade_index(peer);
+if(held>=0){if(fraggrenades[held].kind!=kind)send_reliable(peer,"grenade_finished "+kind+" rejected",0);return;}
+// Pinning arms the grenade, not the old launcher mechanism. Once live it
+// cannot be cancelled by a throw cooldown or by closing an inventory menu.
+player@ holder=players[pi];end_spawn_grace(holder);
+fraggrenade g(holder.x,holder.y,holder.z,holder.facing,holder.map,holder.name,kind,false);
+g.held_peer=peer;g.landed=true;g.vx=0;g.vy=0;g.vz=0;g.explodetimer.restart();
+fraggrenades.insert_last(g);
+send_reliable(peer,"grenade_armed "+kind+" "+g.fuse,0);
+}
+void update_held_grenade(fraggrenade@ g)
+{
+int pi=get_player_index(g.held_peer);if(pi<0 or players[pi].name!=g.owner){g.held_peer=-1;return;}
+player@ holder=players[pi];g.x=holder.x;g.y=holder.y;g.z=holder.z+1.0;g.map=holder.map;
+int seat=-1,vi=occupied_vehicle_index(holder.name,holder.map,seat);
+g.inside_vehicle=vi<0?-1:authoritative_vehicles[vi].id;
+}
+void release_grenade(int peer,string kind,int aim,string cabin)
+{
+int gi=held_grenade_index(peer),pi=get_player_index(peer);
+if(gi<0 or pi<0){send_reliable(peer,"grenade_finished "+kind+" rejected",0);return;}
+fraggrenade@ held=fraggrenades[gi];if(held.kind!=kind)return;
+// An expired fuse must detonate at the holder, never be clamped to a new
+// one-millisecond projectile or have its expiry postponed by a late throw.
+if(int(held.explodetimer.elapsed)>=held.fuse or players[pi].death)return;
+int remaining=held.fuse-int(held.explodetimer.elapsed);
+player@ holder=players[pi];fraggrenades.remove_at(gi);
+spawn_fraggrenade(holder.x,holder.y,holder.z,holder.facing,holder.map,holder.name,kind,aim,0,cabin);
+fraggrenade@ thrown=fraggrenades[fraggrenades.length()-1];thrown.fuse=remaining;thrown.explodetimer.restart();
+send_reliable(peer,"give "+kind+" -1",0);holder.fraggrenadetimer.restart();
+send_reliable(peer,"grenade_finished "+kind+" released",0);
 }
 
 string grenade_sound(fraggrenade@ g,string key,string fallback){return item_prop(g.kind,key,fallback);}
@@ -67,6 +126,7 @@ string grenade_bounce_sound(fraggrenade@ g){return grenade_sound(g,"bounce_sound
 // One flight step of dt seconds. Returns false once it has come to rest.
 bool grenade_step(fraggrenade@ g,double dt)
 {
+if(g.momentum_rolling)return bowling_bomb_step(g,dt);
 map_wind@ air=wind_for(g.map);
 // Water slows everything enormously and lets it sink slowly.
 if(g.in_water){g.vx*=1.0-3.5*dt;g.vy*=1.0-3.5*dt;g.vz=-.6;}
@@ -157,22 +217,26 @@ void fraggrenadeloop()
 for(int i=int(fraggrenades.length())-1;i>=0;i--)
 {
 fraggrenade@ g=fraggrenades[i];
+if(g.held_peer>=0)update_held_grenade(g);
 // An explosive loose inside a vehicle rides along with it.
-if(g.inside_vehicle>=0){int iv=find_authoritative_vehicle(g.inside_vehicle,g.map);if(iv>=0){authoritative_vehicle@ cv=authoritative_vehicles[iv];update_authoritative_vehicle_model(cv);g.x=cv.model_x;g.y=cv.model_y;g.z=cv.model_z+.6;}}
+if(g.held_peer<0 and g.inside_vehicle>=0){int iv=find_authoritative_vehicle(g.inside_vehicle,g.map);if(iv>=0){authoritative_vehicle@ cv=authoritative_vehicles[iv];update_authoritative_vehicle_model(cv);g.x=cv.model_x;g.y=cv.model_y;g.z=cv.model_z+.6;}}
 // Something stuck to a person goes where they go.
 if(g.stuck_to!=""){int carrier=get_player_index_from(g.stuck_to);if(carrier>=0 and players[carrier].map==g.map and !players[carrier].death){g.x=players[carrier].x;g.y=players[carrier].y;g.z=players[carrier].z+1.0;}}
 if(!g.landed and g.simulationtimer.elapsed>0)
 {
 double elapsed=double(g.simulationtimer.elapsed)/1000.0;g.simulationtimer.restart();if(elapsed>.05)elapsed=.05;
-int steps=8;double dt=elapsed/double(steps);
+int steps=8;if(g.momentum_rolling){steps=int(ceil(sqrt(g.vx*g.vx+g.vy*g.vy+g.vz*g.vz)*elapsed/.15));if(steps<8)steps=8;if(steps>256)steps=256;}double dt=elapsed/double(steps);
 for(int step=0;step<steps;step++)if(!grenade_step(g,dt))break;
 if(g.audio_id>=0 and g.audio_update_timer.elapsed>=50){g.audio_update_timer.restart();send_unreliable_map(g.map,"projectile_audio_move "+g.audio_id+" "+g.x+" "+g.y+" "+g.z+" "+g.map,0);}
 }
 if(g.landed and g.audio_id>=0){send_reliable_map(g.map,"projectile_audio_stop "+g.audio_id,0);g.audio_id=-1;}
 bool impact_fuse=item_flag(g.kind,"impact_fuse") or g.kind=="impact_grenade";
-if(int(g.explodetimer.elapsed)<g.fuse and !(impact_fuse and g.bounces>0))continue;
+if(g.momentum_rolling){if(!g.rolling_detonate and g.explodetimer.elapsed<120000)continue;}
+else if(int(g.explodetimer.elapsed)<g.fuse and !(impact_fuse and g.bounces>0))continue;
 if(g.audio_id>=0)send_reliable_map(g.map,"projectile_audio_stop "+g.audio_id,0);
 blast_profile@ b=blast_profile_for(g.kind,g.owner);b.inside_vehicle=g.inside_vehicle;b.blast_dir=g.blast_dir;
+if(g.momentum_rolling){double power=bowling_bomb_power(g);b.damage=int(b.damage*power);b.fragment_damage=int(b.fragment_damage*power);}
+if(g.held_peer>=0){int holder=get_player_index(g.held_peer);if(holder>=0){send_reliable(g.held_peer,"give "+g.kind+" -1",0);players[holder].fraggrenadetimer.restart();send_reliable(g.held_peer,"grenade_finished "+g.kind+" detonated",0);}}
 fraggrenades.remove_at(i);
 detonate(g.x,g.y,g.z,g.map,b);
 }
@@ -260,11 +324,12 @@ e1.vx+=sine(rad)*v.velocity;e1.vy+=cosine(rad)*v.velocity;
 else
 {
 e1.inside_vehicle=v.id;e1.landed=true;e1.vx=0;e1.vy=0;e1.vz=0;e1.x=v.model_x;e1.y=v.model_y;e1.z=v.model_z+.6;
+if(e1.momentum_rolling)e1.rolling_detonate=true;
 for(uint s=0;s<v.occupants.length();s++){int occupant=get_player_index_from(v.occupants[s]);if(occupant>=0)send_reliable(players[occupant].peer_id,"A live "+string_replace(kind,"_"," ",true)+" is loose inside the "+v.type+"!",2);}
 }
 }
 if(pi>=0 and e1.inside_vehicle<0){string wind=wind_report(map);if(wind!="")send_reliable(players[pi].peer_id,wind,2);}
-e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();string loop=item_prop(kind,"flight_loop",explosive_audio_prefix(kind)+"_flight_loop.ogg");send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+loop+" "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner,0);
+e1.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;e1.audio_update_timer.restart();string loop=item_prop(kind,"flight_loop",explosive_audio_prefix(kind)+"_flight_loop.ogg");send_reliable_map(e1.map,"projectile_audio_start "+e1.audio_id+" "+loop+" "+e1.x+" "+e1.y+" "+e1.z+" "+e1.map+" "+e1.owner+" "+(item_flag(kind,"flight_mandatory")?"world":"optional")+" "+item_prop_number(kind,"flight_volume_db",0),0);
 fraggrenades.insert_last(e1);
 }
 

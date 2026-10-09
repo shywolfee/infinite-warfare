@@ -1,0 +1,50 @@
+# Field devices, modules and supply ordering
+
+## Choose hardware for the job
+
+Use a carried device from inventory or a quickbar slot. Each device lists only its own available tools; basic dashboard features never require a paid application.
+
+- **HyperComp Tactical Command Console:** inspect and detonate your placed C4, or manage intrusion monitoring and alarms for bunkers you own. You cannot control someone else's structures or charges.
+- **BankLink Banking PDA:** create or sign in to the same bank account used by cash machines. Manage checking, savings, debt, cards, physical chips and refillable credsticks.
+- **SupplyLink Ordering Device:** use the online supply marketplace wherever commerce is permitted.
+- **Frontier Navigation Tablet:** record your current position as a return waypoint and read its compass bearing, range and elevation difference. It does not find a walkable route through walls.
+- **Signal Environmental Handset:** measure current wind. This is an observation, not a forecast.
+- **Survey Contact Receiver:** inspect detectable nearby contacts within forty tiles. Concealment still applies.
+- **Clinical Field Scanner:** inspect health, bleeding, burns, medication toxicity and remaining treatment.
+
+All device tools require the actual hardware. They are unavailable while downed or in an arena. Devices can appear among physical supply drops and are also listed in the supply catalogue.
+
+## Useful optional modules
+
+Only the Frontier tablet and Signal handset have module marketplaces. The catalogue shows compatible modules, their purpose, cost, storage size and installation state. Install is unavailable when a module is already installed or storage or wallet credits are insufficient. Remove recovers space, not credits.
+
+The tablet supports contact surveying and a ballistic reference. The reference uses your drawn weapon to estimate muzzle-speed travel time and gravity drop to target coordinates and checks direct-line obstruction. It is not a firing solution: drag, wind and moving targets are excluded.
+
+The handset supports vehicle diagnostics for hull health and armour within ten tiles. Fuel is not reported because the server does not track a trustworthy shared fuel reading.
+
+Carried flash drives and memory cards expand one device you choose. The module is consumed only after a successful upgrade. Downloaded modules, waypoints and storage belong to that device session and disappear when your last copy of that device is lost. Losing a device never deletes your bank account. A downed player who is resuscitated without losing their inventory retains their devices.
+
+Legacy auction terminals can be exchanged for a SupplyLink at no cost. Old HyperComp applications are retained only for compatibility; the new launcher no longer charges for access to free dashboard screens.
+
+## Order supplies
+
+Carry a SupplyLink or stand beside a working public shopping terminal. Spend credits appears in the dashboard when you carry an ordering device.
+
+Choose a category and optionally search names or descriptions. Each offer describes its pack quantity, price and maximum order. Set the number of packs, add it to your cart, or select a cart entry and remove it. Nothing is bought by adding it to the cart.
+
+Checkout asks for a payment method and confirms the total, including bank-credstick fees. Wallet, physical chips and eligible credsticks are separate sources of money. Bank-linked payment requires authentication through BankLink or a nearby cash machine. The server validates the complete cart before taking payment; an invalid entry rejects the order.
+
+A successful checkout announces delivery, amount charged and remaining wallet balance. Closing the store before checkout discards the cart. A timeout does not prove failure: check inventory and balances before submitting another order. Late receipts are announced when they arrive.
+
+## Keep playing while managing devices
+
+In dashboard mode device forms retain the game keyboard area, conversations and player list. Alt+G returns to game controls without closing your work. Escape returns to the parent screen. In inventory mode these are ordinary forms.
+
+Gameplay options let nearby dynamic objects use compass bearings, such as five tiles north, or clock positions relative to the direction you are looking.
+
+## Content authoring
+
+Staff can edit devices in Items, compatible tools in Device modules, and prices and pack limits in Supply marketplace offers. Offers live under content/marketplace/category/id.offer. Modules live under content/device_modules and may be grouped in category folders. Reload these content types after editing files outside the game.
+
+Deploy the 0.5.9.3 client and server together: commerce uses request identifiers and receipts. Bank records remain compatible. Deploy the existing rebuilt sound pack from the audio fixes with the client; no additional recordings are needed for the bowling-bomb gain and mandatory-loop changes.
+

@@ -1,0 +1,75 @@
+// Purpose-built device launchers, with server-authoritative capabilities.
+bool client_market_device_available(){string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++)if(get_item_count(keys[i])>0 and item_prop_list(keys[i],"device_actions").find("market")>=0)return true;return false;}
+string device_action_label(string action){
+ if(action=="bank")return "Banking: Create or authenticate your account, manage balances and physical currency";
+ if(action=="market")return "Supply ordering: Search the catalogue, choose quantities and check out your cart";
+ if(action=="c4")return "Remote charges: Inspect and detonate your own placed C4";
+ if(action=="bunkers")return "Bunker controls: Manage monitoring and alarms for structures you own";
+ if(action=="navigation")return "Return waypoint: Read the bearing and distance to your recorded position";
+ if(action=="scanner")return "Contact survey: Read detectable players within forty tiles; concealment still applies";
+ if(action=="weather")return "Environment: Measure current wind conditions";
+ if(action=="medical")return "Clinical scan: Review bleeding, burns, medication toxicity and remaining treatment";
+ if(action=="vehicle_diagnostics")return "Vehicle diagnostics: Inspect nearby hull health and armour";
+ if(action=="ballistics")return "Ballistics reference: Estimate travel time, gravity drop and direct-line obstruction";
+ return action;
+}
+void device_modules_menu(string item){
+ string selected="";
+ while(connected and get_item_count(item)>0){
+  string response=terminal_request("device_catalog "+item,"device_");if(response.find("device_catalog ")!=0){terminal_speak_reply(response);return;}
+  string status=terminal_request("device_state "+item,"device_");string[] state=string_split(status.substr(13),"|",false);if(state.length()<6){terminal_speak_reply(status);return;}
+  int free=int(string_to_number(state[3])-string_to_number(state[4])),wallet=ask_balance();
+  nv_form f;f.create_window("Compatible modules",false,true);f.add_input("Device resources","resources",free+" GB free. Wallet "+wallet+" credits. Modules and storage are lost with this device; uninstalling does not refund credits.","",0,true,true);
+  nv_form_list_box@ list=f.add_list("Module catalogue","modules");string[] rows=string_split(response.substr(15),";",true);
+  for(uint i=0;i<rows.length();i++){string[] q=string_split(rows[i],"~",false);if(q.length()<7)continue;list.add(q[1]+": "+q[6]+". "+q[2]+" GB; "+q[3]+" credits. "+(q[4]=="1"?"Installed":"Not installed"),q[0]);}
+  nv_form_button@ install=f.add_button("Install selected module","install",true),remove=f.add_button("Remove selected module","remove"),close=f.add_button("Back to device","close",false,true);
+  for(uint i=0;i<list.items.length();i++)if(list.items[i].id==selected)list.set_pos(int(i),false);f.focus_control(list);
+  while(connected and get_item_count(item)>0){
+   string[] chosen;for(uint i=0;i<rows.length();i++){string[] q=string_split(rows[i],"~",false);if(q.length()>=7 and q[0]==list.focused_item_id){chosen=q;break;}}
+   install.enabled=chosen.length()>=7 and chosen[4]!="1" and string_to_number(chosen[2])<=free and string_to_number(chosen[3])<=wallet;remove.enabled=chosen.length()>=7 and chosen[4]=="1";
+   wait(5);f.monitor();netloop(false);if(f.is_pressed(close))return;
+   string command="";if(f.is_pressed(install))command="device_install ";else if(f.is_pressed(remove))command="device_remove ";
+   if(command!=""){selected=list.focused_item_id;terminal_speak_reply(terminal_request(command+item+" "+selected,"device_"));break;}
+  }
+ }
+}
+void device_upgrade_storage(string memory=""){
+ string[] names,ids;for(uint i=0;i<item_catalogue.length();i++){string item=item_catalogue[i].id;if(get_item_count(item)>0 and item_flag(item,"device_extensible")){names.insert_last(item_catalogue[i].name);ids.insert_last(item);}}
+ if(ids.length()==0){speak("Carry a Frontier tablet or Signal handset to install storage.");return;}
+ int choice=android_select("Choose the device to expand",names);if(choice<0)return;
+ if(memory==""){names.resize(0);string[] modules;for(uint i=0;i<item_catalogue.length();i++){string id=item_catalogue[i].id;if(get_item_count(id)>0 and item_prop(id,"use_kind")=="terminal_storage"){names.insert_last(item_catalogue[i].name+"; "+item_prop_int(id,"storage_gb")+" GB");modules.insert_last(id);}}int pick=android_select("Choose a carried storage module",names);if(pick<0)return;memory=modules[pick];}
+ terminal_speak_reply(terminal_request("device_expand "+ids[choice]+" "+memory,"device_"));
+}
+void device_run_tool(string item,string action){
+ if(action=="bank"){terminal_bank_menu();return;}if(action=="market"){online_supply_shop();return;}
+ if(action=="navigation"){string[] choices={"Read return bearing and distance","Record my current position as the return waypoint"};int pick=android_select("Return waypoint",choices);if(pick<0)return;if(pick==1){terminal_speak_reply(terminal_request("device_mark "+item,"device_"));return;}}
+ string command="device_run "+item+" "+action;
+ if(action=="ballistics"){string x=af_input("Target X coordinate","",true);if(x=="")return;string y=af_input("Target Y coordinate","",true);if(y=="")return;string z=af_input("Target Z coordinate","",true);if(z=="")return;command+=" "+x+" "+y+" "+z;}
+ string response=terminal_request(command,"device_");
+ if(action=="bunkers" and response.find("device_bunkers ")==0){
+  string[] rows=string_split(response.substr(15),";",true),labels,ids;for(uint i=0;i<rows.length();i++){string[] q=string_split(rows[i],"~",false);if(q.length()!=4)continue;labels.insert_last(q[1]+"; monitoring "+q[2]+"; alarm "+q[3]);ids.insert_last(q[0]);}
+  if(ids.length()==0){speak("You do not own any bunkers.");return;}int pick=android_select("Select an owned bunker",labels);if(pick<0)return;
+  string[] controls={"Toggle intrusion monitoring","Toggle bunker alarm"};int op=android_select("Bunker controls",controls);if(op>=0)terminal_speak_reply(terminal_request("device_bunker "+item+" "+ids[pick]+" "+(op==0?"monitor":"alarm"),"device_"));return;
+ }
+ if(response.find("device_output ")!=0){terminal_speak_reply(response);return;}
+ if(action=="c4"){speak(response.substr(14));string count=af_input("Number of owned C4 charges to detonate; cancel to leave them armed","",true);if(count!="" and yesno("Detonate "+count+" of your C4 charges now?")==1)terminal_speak_reply(terminal_request(command+" "+count,"device_"));return;}
+ show_readonly_audio_form(device_action_label(action),response.substr(14));
+}
+void device_menu(string item){
+ string selected="";
+ while(connected and get_item_count(item)>0){
+  string response=terminal_request("device_state "+item,"device_");if(response.find("device_state ")!=0){terminal_speak_reply(response);return;}
+  string[] state=string_split(response.substr(13),"|",false);if(state.length()<6)return;
+  nv_form f;f.create_window(state[1],false,true);f.add_input("Device details","details",item_info(item).summary+(item_flag(item,"device_extensible")?" Storage "+state[4]+" of "+state[3]+" GB used.":""),"",0,true,true);
+  nv_form_list_box@ actions=f.add_list("Available tools","tools");string[] tools=string_split(state[5],",",true);for(uint i=0;i<tools.length();i++)actions.add(device_action_label(tools[i]),tools[i]);
+  nv_form_button@ run=f.add_button("Run selected tool","run",true),modules=null,storage=null;
+  if(item_flag(item,"device_extensible")){@modules=f.add_button("Module marketplace: Install or remove compatible tools","modules");@storage=f.add_button("Expand storage: Install carried memory on a selected device","storage");}
+  nv_form_button@ close=f.add_button("Close device","close",false,true);for(uint i=0;i<actions.items.length();i++)if(actions.items[i].id==selected)actions.set_pos(int(i),false);f.focus_control(actions);
+  while(connected and get_item_count(item)>0){
+   run.enabled=actions.focused_item_id!="";wait(5);f.monitor();netloop(false);if(f.is_pressed(close))return;
+   if(f.is_pressed(run)){selected=actions.focused_item_id;device_run_tool(item,selected);break;}
+   if(modules !is null and f.is_pressed(modules)){device_modules_menu(item);break;}
+   if(storage !is null and f.is_pressed(storage)){device_upgrade_storage();break;}
+  }
+ }
+}

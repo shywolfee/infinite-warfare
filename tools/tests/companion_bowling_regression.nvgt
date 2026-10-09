@@ -1,0 +1,77 @@
+string motion_results;int motion_failures=0;
+void motion_check(bool ok,string label){motion_results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)motion_failures++;}
+void motion_tile(mapdata@ m,int x1,int x2,int y1,int y2,int z1,int z2,string material="concrete")
+{
+maptile t;t.minx=x1;t.maxx=x2;t.miny=y1;t.maxy=y2;t.minz=z1;t.maxz=z2;t.type=material;
+m.maptiles.insert_last(t);m.tile_grid.add(x1,x2,y1,y2,z1,z2);
+}
+mapdata@ motion_map(string id)
+{
+mapdata@ m=mapdata("freeforall");m.name=id;m.size_x=400;m.size_y=400;m.size_z=100;m.maptiles.resize(0);m.tile_grid.clear();m.objects.list.resize(0);m.objects.index();maps.insert_last(m);return m;
+}
+void run_companion_bowling_regression()
+{
+string dir=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-motion-regression-"+random(100000,999999999);directory_create(dir);
+try
+{
+load_item_catalogue();load_dobject_types(dobject_data_directory());init_mapsystem();load_wpn_stats();
+mapdata@ flat=motion_map("motion_flat");motion_tile(flat,0,400,0,400,0,0);
+mapdata@ ramp=motion_map("motion_ramp");for(int x=0;x<=60;x++)motion_tile(ramp,x,x,0,100,x,x);
+mapdata@ ledge=motion_map("motion_ledge");motion_tile(ledge,0,20,0,100,5,5);motion_tile(ledge,21,400,0,100,0,0);
+player body(200,200,0,"motion_flat","motion_owner",1);players.insert_last(body);player@ owner=players[0];
+deploy_companion(0,"auto_hover_drone");motion_check(companions.length()==1,"deployment creates an owned persistent actor");
+companion_actor@ c=companions[0];c.x=20;c.y=20;c.z=2;c.facing=0;
+handle_companion_command(1,"companion pilot "+c.id+" now");motion_check(c.piloted and companion_body_controlled(owner.name),"piloting is tracked by the server");
+handle_companion_command(1,"companion input "+c.id+" 100 100 100 100");motion_check(c.input_forward==1 and c.input_side==1 and c.input_vertical==1 and c.input_turn==1,"pilot inputs are clamped rather than accepting coordinates");
+double bx=owner.x,by=owner.y,bz=owner.z;companion_pilot_step(c,.1);
+motion_check(owner.x==bx and owner.y==by and owner.z==bz,"piloting never changes body coordinates");
+motion_check(sqrt((c.x-20)*(c.x-20)+(c.y-20)*(c.y-20)+(c.z-2)*(c.z-2))<=c.speed*.1+.001,"diagonal pilot movement respects authored speed");
+double cx=c.x;handle_companion_command(1,"companion move "+c.id+" 300 300 90 0");motion_check(c.x==cx,"legacy absolute-coordinate teleport requests are ignored");
+handle_companion_command(1,"companion stop");motion_check(!c.piloted and !companion_body_controlled(owner.name),"return-to-body ends server control");
+handle_companion_command(1,"companion mode "+c.id+" guard");motion_check(c.mode=="guard" and c.guard_x==c.x and c.guard_y==c.y,"guard orders capture an anchor");
+player intruder(25,25,0,"motion_flat","motion_intruder",2);players.insert_last(intruder);
+handle_companion_command(2,"companion pilot "+c.id+" now");motion_check(!c.piloted,"another player cannot pilot an owned actor");
+handle_companion_command(1,"companion pilot "+c.id+" now");c.input_forward=1;c.input_timer.restart();wait(260);cx=c.x;double cy=c.y;companion_pilot_step(c,.1);motion_check(c.x==cx and c.y==cy,"stale input stops movement when a form opens or packets stop");
+handle_companion_command(1,"companion stop");
+c.kind="chimp";c.x=10;c.y=10;c.z=0;companion_move_step(c,1,0,20);motion_check(c.z==0,"chimps remain grounded even when vertical movement is requested");
+motion_tile(flat,12,12,0,400,1,10,"concretewall");c.x=10;c.y=10;c.z=1;c.kind="drone";companion_move_step(c,5,0,0);motion_check(c.x<12,"swept companion movement does not pass through a wall");
+flat.maptiles.resize(0);flat.tile_grid.clear();motion_tile(flat,0,400,0,400,0,0);
+end_spawn_grace(owner);end_spawn_grace(players[1]);
+int health=c.health;weapon round_hit(c.x,c.y,c.z-.8,0,90,"glock17",players[1].name,"motion_flat");
+motion_check(projectile_hit_companion(round_hit) and c.health<health,"hostile projectiles damage actors through the real weapon collision path");
+health=c.health;blast_profile@ blast=blast_profile_for("frag_grenade",players[1].name);companion_blast_damage(c.x,c.y,c.z,c.map,blast);
+motion_check(c.health<health,"explosions damage companions");
+players[1].arena_role="spectator";motion_check(!companion_damage_allowed(c,players[1].name),"spectators cannot damage actors");players[1].arena_role="";
+c.health=0;companion_loop();motion_check(companions.length()==0,"destroyed actors are removed and cannot retain a pilot");
+fraggrenade bomb(20,20,0,90,"motion_flat",owner.name,"bowling_bomb",false,90);bomb.z=.28;bomb.vx=5;bomb.vy=0;bomb.vz=0;bomb.rolling_grounded=true;
+motion_check(bomb.momentum_rolling and bomb.rolling_range>=90 and bomb.rolling_range<=120,"bowling bomb uses authored range physics");
+double speed=bomb.vx;bowling_bomb_step(bomb,.05);motion_check(bomb.vx>speed,"level-ground rolling gains momentum");
+double initial_power=bowling_bomb_power(bomb);bomb.rolling_distance=80;bomb.vx=20;motion_check(bowling_bomb_power(bomb)>initial_power,"travel distance and impact speed increase blast damage");
+bomb.rolling_distance=0;bomb.rolling_range=90;
+for(int i=0;i<10000 and !bomb.rolling_detonate;i++)bowling_bomb_step(bomb,.005);
+motion_check(bomb.rolling_detonate and bomb.rolling_distance>=90 and bomb.rolling_distance<90.2,"bomb detonates at its path-length budget without waiting for a fuse");
+fraggrenade uphill(5,20,5,90,"motion_ramp",owner.name,"bowling_bomb",false);uphill.z=5.28;uphill.vx=3;uphill.vy=0;uphill.vz=0;uphill.rolling_grounded=true;
+for(int i=0;i<160;i++)bowling_bomb_step(uphill,.005);
+motion_check(!uphill.rolling_detonate and uphill.vx<0 and uphill.x<5.5,"a bomb thrown uphill reverses and rolls downhill");
+fraggrenade falling(19,20,5,90,"motion_ledge",owner.name,"bowling_bomb",false);falling.z=5.28;falling.vx=8;falling.vy=0;falling.vz=0;falling.rolling_grounded=true;
+bool airborne=false,landed=false;double before_landing=0,after_landing=0;
+for(int i=0;i<1000 and !falling.rolling_detonate;i++){bool old_ground=falling.rolling_grounded;double old_speed=falling.vx;bowling_bomb_step(falling,.005);if(!falling.rolling_grounded and falling.vz<0)airborne=true;if(!old_ground and falling.rolling_grounded){landed=true;before_landing=old_speed;after_landing=falling.vx;break;}}
+motion_check(airborne and landed and falling.bounces==1,"ledge departures arc downward and produce one landing event");
+motion_check(after_landing<before_landing,"landing reduces momentum");
+speed=falling.vx;for(int i=0;i<40;i++)bowling_bomb_step(falling,.005);motion_check(falling.vx>speed,"a landed bomb resumes gaining speed");
+owner.x=40;owner.y=20;owner.z=0;fraggrenade returning(42,20,0,270,"motion_flat",owner.name,"bowling_bomb",false);returning.z=.28;returning.vx=-8;returning.vy=0;returning.vz=0;returning.rolling_grounded=true;returning.owner_cleared=true;
+for(int i=0;i<200 and !returning.rolling_detonate;i++)bowling_bomb_step(returning,.005);
+motion_check(returning.rolling_detonate and returning.rolling_distance<3,"a returning bomb collides with its thrower");
+owner.x=200;owner.y=200;fraggrenade dodge(42,20,0,270,"motion_flat",owner.name,"bowling_bomb",false);dodge.z=.28;dodge.vx=-8;dodge.vy=0;dodge.vz=0;dodge.rolling_grounded=true;dodge.owner_cleared=true;
+for(int i=0;i<80;i++)bowling_bomb_step(dodge,.005);motion_check(!dodge.rolling_detonate and dodge.x<40,"dodging permits the bomb to pass and continue in reverse");
+motion_tile(flat,45,45,0,400,1,5,"concretewall");fraggrenade impact(44,20,1,90,"motion_flat",owner.name,"bowling_bomb",false);impact.z=1;impact.vx=10;impact.vy=0;impact.vz=0;
+for(int i=0;i<80 and !impact.rolling_detonate;i++)bowling_bomb_step(impact,.005);motion_check(impact.rolling_detonate,"wall impact detonates instead of bouncing");
+fraggrenades.resize(0);pin_grenade(1,"bowling_bomb");motion_check(fraggrenades.length()==0,"rolling bombs cannot accidentally arm an ordinary grenade fuse");
+players.remove_at(1);deploy_companion(0,"auto_hover_drone");owner.death=true;companion_loop();motion_check(companions.length()==0,"body death removes companions and ends control");owner.death=false;
+dobject@ obstacle=new_dobject(100001,"coke_machine",55,20,0,0,"motion_flat","Test vending machine");
+if(obstacle !is null){flat.objects.list.insert_last(obstacle);flat.objects.index();fraggrenade object_hit(52,20,0,90,"motion_flat",owner.name,"bowling_bomb",false);object_hit.z=.28;object_hit.vx=10;object_hit.vy=0;object_hit.vz=0;object_hit.rolling_grounded=true;
+for(int i=0;i<120 and !object_hit.rolling_detonate;i++)bowling_bomb_step(object_hit,.005);motion_check(object_hit.rolling_detonate,"fixture impact detonates the bomb");}else motion_check(false,"fixture test has a valid object definition");
+}
+catch{motion_check(false,"Exception: "+get_exception_info()+" at "+get_exception_file()+":"+get_exception_line());}
+motion_results+="Failures: "+motion_failures+"\n";file report;report.open(dir+"/results.txt","wb");report.write(motion_results);report.close();exit(motion_failures);
+}

@@ -19,6 +19,7 @@ int inv_category_index = 0;
 
 string get_item_category(string item)
 {
+if(item.find("__value__")>0)return "Utility";
 int database_index=content_find(item);
 if(database_index>=0)
 {
@@ -154,8 +155,8 @@ inv.set(item,a+amount);
 
 void give_developer_item(string item,int amount)
 {
-if(item=="credit_chip_small" or item=="credit_chip_large")
-{if(connected)send_reliable(0,"dev_credit_chip "+item+" "+amount,0);else speak("Credit chip grants require a server connection and administrator or developer permission.");return;}
+if(item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item_prop(item,"device_profile")!="" or item=="hypercomp" or item=="portable_auction_terminal" or item_prop(item,"use_kind")=="terminal_storage" or item_prop(item,"empty_container")!="")
+{if(connected)send_reliable(0,"dev_physical_item "+item+" "+amount,0);else speak("These physical item grants require a server connection and administrator or developer permission.");return;}
 give(item,amount);
 }
 
@@ -248,7 +249,7 @@ string display_name;
 if (is_weapon(key))
 display_name = get_weapon_display_name(key);
 else
-{int content_index=content_find(key);display_name=content_index>=0?content_database[content_index].display_name:string_replace(key, "_", " ", true);}
+{int content_index=content_find(key);display_name=content_index>=0?content_database[content_index].display_name:physical_item_name(key);}
 if (is_ammo_container(key))
 speak(display_name + " (" + a + "). " + (invpos+1) + " of " + filtered.length());
 else if(a==1)

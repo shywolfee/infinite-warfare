@@ -268,18 +268,24 @@ class nv_form {
 		if(command==8 or command==9){nv_form_tab_control@ active_tabs=cast<nv_form_tab_control@>(current_control);if(@active_tabs!=null and active_tabs.current_page.control_index<0){int next=active_tabs.pos+(command==9?1:-1);if(next<0)next=active_tabs.page_count-1;if(next>=active_tabs.page_count)next=0;active_tabs.set_pos(next);nv_form_play_feedback();speak(active_tabs.speak_tab_item(active_tabs.current_page));}}
 		if(command==10 or command==11){bool next=command==11;if(@tabs!=null and @tabs.current_page!=null){nv_form_tab_page@ page=tabs.current_page;if(page.control_index<0){if(next and page.controls.length()>0){speak(page.name+" property page");page.navigate_form(true);}else navigate_form(false);}else if(next and page.is_last_control){page.control_index=-1;navigate_form(true);}else if(!next and page.is_first_control){page.control_index=-1;speak_current_control();}else page.navigate_form(next);}else scope.navigate_form(next);return;}
 	}
+	bool activate_primary() {
+		nv_form_control@ action = primary_control;
+		if (@current_control != null && current_control.type == nv_form_ct_keyboard_area) return false;
+		if (@action == null || !action.enabled || action.type == nv_form_ct_keyboard_area || (action.hidden && !action.default_when_hidden)) return false;
+		action.fire();
+		return true;
+	}
 	void handle_input() {
 		nv_form_control@ ctrl = current_control;
-		nv_form_control@ pctrl = primary_control;
 		// Modifier navigation only belongs to forms, never to game control.
 		if (@ctrl != null && ctrl.type != nv_form_ct_keyboard_area && has_groups() && (key_down(KEY_LMENU) || key_down(KEY_RMENU)) && !shift_is_down() && !(key_down(KEY_LCONTROL) || key_down(KEY_RCONTROL))) {
 			if (key_pressed(KEY_DOWN) || key_pressed(KEY_RIGHT)) { jump_group(true); return; }
 			if (key_pressed(KEY_UP) || key_pressed(KEY_LEFT)) { jump_group(false); return; }
 		}
 		bool handled = @ctrl != null ? ctrl.handle_input() : false;
-		if (@pctrl != null && pctrl.enabled && !pctrl.hidden && pctrl.type != nv_form_ct_keyboard_area && ((@ctrl != null && ctrl.type != nv_form_ct_keyboard_area && !handled) || @ctrl == null)) {
+		if ((@ctrl != null && ctrl.type != nv_form_ct_keyboard_area && !handled) || @ctrl == null) {
 			if (key_pressed(KEY_RETURN) || key_pressed(KEY_NUMPAD_ENTER))
-				pctrl.fire();
+				activate_primary();
 		}
 		if (@cancel_control != null) {
 			if (key_pressed(KEY_ESCAPE)) {

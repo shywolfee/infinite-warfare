@@ -5,7 +5,7 @@ It combines detailed server-authoritative combat, large three-dimensional maps,
 touch access, live communications, accessible interfaces, and an optional
 top-down visual presentation.
 
-Current source release: **0.5.9.2, build 102**
+Current source release: **0.5.9.3, build 103**
 
 > Infinite Warfare is an active alpha. Expect unfinished systems, balance
 > changes, server maintenance, bugs, and possible data resets.

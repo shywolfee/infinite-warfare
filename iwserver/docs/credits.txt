@@ -1,11 +1,52 @@
-# Credits
+# Credits, cash and bank accounts
 
-Credits are the persistent account currency earned through combat. Each kill awards 10 to 20 credits; five kills awards 40 bonus credits and ten kills awards 75. Every award is saved to the account immediately and does not reset on death. The lobby account-information interface retrieves the current balance from the server. Kill credit also contributes to the killer's shared team point pool when applicable.
+## Three kinds of money
 
-Arena kills do not grant ordinary-world kill rewards, credits or team points. Arena loadouts are temporary and the player returns with their original inventory and equipment when the arena ends.
+Your saved wallet is the persistent credit balance earned through combat. A bank account has its own checking and savings balances. Physical credit chips and prepaid credsticks are items you carry: they are not automatically part of either balance.
 
-Type /credits in the global chat box in a map or lobby to privately read your saved balance. Small credit chips contain 15 credits and large chips contain 60. Using a chip opens a read-only scanner showing the value per chip, the number carried and the total value. Scanning does not spend or consume anything. You must be within three tiles of a functioning map ATM to deposit chips; the scanner can open that nearby ATM. Each chip must have been granted by the server. Developer chip grants require server developer or administrator permission.
+Each kill awards 10 to 20 wallet credits; five kills awards 40 bonus credits and ten kills awards 75. Ordinary rewards do not apply inside arenas. Wallet and bank balances survive death; carried currency can be lost with your inventory.
 
-Deposits and purchases complete only after the server saves and verifies the new balance. A failed save leaves credits and the chip unchanged. A delayed network response does not mean a deposit failed: check /credits and the remaining chips before retrying.
+Type /credits in chat or use account information to read wallet credits. Use banking to read checking, savings and credit debt.
 
-Server operators: back up and retain the entire accounts directory, including each account's .dat, .wallet0 and .wallet1 files. The two encrypted wallet records alternate so a failed write does not overwrite the previous committed balance. Existing .dat credit balances migrate automatically on the first successful transaction. If both wallet records are unreadable, transactions are blocked rather than resetting the account to zero. Restore the wallet files from a known-good backup; do not delete them to recreate the balance.
+## Create and connect your account
+
+Stand within reach of a functioning cash machine and interact with it, or use a BankLink Banking PDA. Both interfaces access the same account.
+
+Create an account once and choose a numeric PIN of four to twelve digits. Then sign in. Your account receives a number; existing accounts and balances are retained.
+
+Successful sign-in authorizes your bank-linked credsticks for five minutes. Back closes banking without immediately locking them. Sign out locks them; changing your terminal OS, uninstalling banking or losing your terminal also clears authorization.
+
+## Credit chips
+
+The supplied denominations are 1, 5, 15, 25, 60, 100 and 500 credits. Chips appear as world drops and can be withdrawn from checking.
+
+At banking, deposit one carried chip into checking, or choose a denomination and quantity to withdraw physical cash. At a shop or vending machine, choose credit chips as your payment method. The server consumes enough carried chips and returns any change as one-credit chips. An insufficient payment consumes nothing.
+
+Inspecting a chip does not consume it. Physical currency is server-issued; developer grants require server administrator or developer permission.
+
+## Credsticks and cards
+
+- Sealed prepaid sticks start with 250 credits. Payments retain the unused balance on the stick. An exhausted stick becomes an empty sealed credstick and cannot be refilled.
+- Reloadable sticks start with 100 credits and hold up to 500. Reload from checking through banking; the supplied refill surcharge is five percent. Exhausted sticks become empty reloadable sticks.
+- Standard bank sticks debit checking and charge a three-percent service fee. Premium bank sticks charge one percent. Sign in to banking before paying with either.
+- Credit-line sticks charge purchases and a five-percent service fee to account debt. The supplied limit is 2000 credits, shared by the account rather than multiplied by the number of sticks. Repay debt from checking through banking.
+
+Fees round up to whole credits. The item files define values, capacities and fees; staff can change them through the content editor.
+
+Card issuance records the card on your account and supplies its physical payment device. Checking pays the issuance charge shown in the menu. Debit cards supply standard bank sticks, prepaid cards supply funded sealed sticks, premium cards supply premium bank sticks, and credit cards supply credit-line sticks.
+
+## Disposal and salvage
+
+Finishing a medicine bottle leaves an empty bottle. Food and drinks leave the packaging specified by their item definitions.
+
+Select a disposable container or empty credstick beside a working dumpster and use its discard action. This moves one owned item into that particular dumpster's salvage pool; it does not destroy it. Press O to hear nearby deposited salvage. Searching the dumpster retrieves deposited items before its ordinary random loot, even if its ordinary stock is exhausted.
+
+Empty reloadable sticks can be recovered and reloaded. Other rubbish has no payment value. Deposited salvage survives map/content reloads during the running server session; it is not permanent storage across server restarts.
+
+## Delayed or failed transactions
+
+Do not assume that a timeout means a transaction failed. Inspect your balances and inventory before retrying.
+
+Bank and wallet records are verified before a successful financial operation is reported. An interrupted wallet/checking transfer has a recovery journal so reopening banking or making a wallet transaction can finish recovery without transferring the amount twice. Unreadable records block transactions instead of resetting a balance.
+
+Server operators must back up the entire accounts directory, including .dat, .wallet0, .wallet1, .bank, .bank0, .bank1 and .bank.transfer files. Legacy bank accounts migrate when their next successful change is saved. Do not delete financial records to recreate a balance.

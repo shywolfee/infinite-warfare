@@ -69,9 +69,9 @@ acoustic_tasks_remaining--;
 item.extra_data="acoustic";
 // Identify genuinely local physical sounds rather than reverberating all UI.
 if(item.stationary and !acoustic_local_world_source(item.filename))continue;
-float sx=item.stationary?me.x:item.x,sy=item.stationary?me.y:item.y,sz=item.stationary?me.z:item.z;
+float sx=item.stationary?view_x():item.x,sy=item.stationary?view_y():item.y,sz=item.stationary?view_z():item.z;
 int source_space=acoustic_effective_space_at(sx,sy,sz);
-int walls=acoustic_occlusion_enabled and !item.stationary?acoustic_walls_between(me.x,me.y,me.z,sx,sy,sz):0;
+int walls=acoustic_occlusion_enabled and !item.stationary?acoustic_walls_between(view_x(),view_y(),view_z(),sx,sy,sz):0;
 // An unclassified outdoor source must not inherit the listener's indoor room.
 if(walls>0){audio_low_pass_filter@ filter=acoustic_wall_filter(walls);item.handle.effects_chain.add_node(filter);item.start_volume-=3*walls;item.handle.set_volume(item.start_volume);}
 }

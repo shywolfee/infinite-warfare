@@ -82,7 +82,7 @@ void arena_close(int ai,string winner="")
 if(ai<0 or ai>=int(arenas.length()))return;arena_instance@ a=arenas[ai];
 for(uint i=0;i<a.members.length();i++){int pi=get_player_index_from(a.members[i].name);if(pi>=0){send_reliable(players[pi].peer_id,"arena_finished "+a.id+" "+winner,0);arena_return_player(players[pi]);}}
 for(int i=int(weapons.length())-1;i>=0;i--)if(weapons[i].map==a.map){stop_projectile_audio(weapons[i]);weapons.remove_at(i);}
-for(int i=int(fraggrenades.length())-1;i>=0;i--)if(fraggrenades[i].map==a.map){if(fraggrenades[i].audio_id>=0)send_reliable_map(a.map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades.remove_at(i);}
+for(int i=int(fraggrenades.length())-1;i>=0;i--)if(fraggrenades[i].map==a.map){if(fraggrenades[i].held_peer>=0)send_reliable(fraggrenades[i].held_peer,"grenade_finished "+fraggrenades[i].kind+" rejected",0);if(fraggrenades[i].audio_id>=0)send_reliable_map(a.map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades.remove_at(i);}
 for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].map==a.map)deployable_explosives.remove_at(i);
 clear_map_vehicles(a.map);
 for(int i=int(maps.length())-1;i>=0;i--)if(maps[i].name==a.map)maps.remove_at(i);

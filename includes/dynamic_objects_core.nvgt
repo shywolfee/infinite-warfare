@@ -40,6 +40,7 @@ class dobject_type
 {
 string id,name,description,category,material="wallmetal",interaction="",sound="",contact_sound="collide",destroy_sound="dest",debris="",item="";
 string[] loot;
+string service="";
 double length=1,width=1,height=1.8,bullet_factor=1,blast_factor=1;
 bool solid=true,loot_on_destroy=false;
 int health=0,impact_sounds=0,respawn_ms=900000,stock=0,restock_ms=0,cooldown_ms=1000,heal=0,heal_ceiling=0,stamina=0,burn_ms=0,charge_rate=0;
@@ -66,6 +67,7 @@ if(k=="name")t.name=v;else if(k=="description")t.description=v;else if(k=="categ
 else if(k=="material")t.material=v;else if(k=="interaction")t.interaction=v;else if(k=="sound")t.sound=v;
 else if(k=="contact_sound")t.contact_sound=v;else if(k=="destroy_sound")t.destroy_sound=v;else if(k=="debris")t.debris=v;else if(k=="item")t.item=v;
 else if(k=="loot")t.loot=string_split(v,",",false);
+else if(k=="service")t.service=v;
 else if(k=="length")t.length=dobject_number(v,1);else if(k=="width")t.width=dobject_number(v,1);else if(k=="height")t.height=dobject_number(v,1.8);
 else if(k=="bullet_factor")t.bullet_factor=dobject_number(v,1);else if(k=="blast_factor")t.blast_factor=dobject_number(v,1);
 else if(k=="solid")t.solid=v=="true";else if(k=="loot_on_destroy")t.loot_on_destroy=v=="true";
@@ -132,6 +134,7 @@ dobject_type@ type;
 double x,y,z;
 int facing=0;
 int health,max_health,stock,max_stock;
+dictionary salvage; // Deposited items are separate from generated stock.
 bool active=true,open=false,on=true,burning=false;
 double bullet_factor=1,blast_factor=1;
 string hit_sound,break_sound; // authored furniture's own sounds

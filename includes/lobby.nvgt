@@ -187,6 +187,8 @@ else if (e.channel==2)
 else if (e.channel==0 and handle_chat_protocol(msg)) {}
 else if (e.channel==0 and handle_group_packet(msg)) {}
 else if (e.channel==0 and handle_content_sync(msg)) {refresh_content_database();}
+else if (e.channel==0 and handle_grenade_packet(msg)) {}
+else if (e.channel==0 and handle_dynamic_object_packet(msg)) {}
 else if (e.channel==0 and msg.substr(0,11)=="lobby_maps|") {lobby_server_maps=msg.substr(11);if(lobby_server_maps=="")lobby_server_maps=" ";}
 else if (e.channel==0 and handle_world_editor_packet(msg)) {}
 else if (msg=="updating")
@@ -723,6 +725,8 @@ const string IW_RETURN_TO_LOBBY="iw:return-to-lobby";
 bool lobby_running=false;
 void lobby()
 {
+cooked_grenade="";cooked_grenade_releasing=false;cooked_grenade_warning_stage=0;
+stop_companion_pilot(false);client_companions.resize(0);companion_remote_pending=false;
 if(lobby_running)throw(IW_RETURN_TO_LOBBY);
 lobby_running=true;
 while(true)
@@ -769,7 +773,7 @@ list.add("Armoury","armoury");
 list.add("Leave the lobby","leave");
 for(uint i=0;i<list.items.length();i++)if(list.items[i].id==last)list.set_pos(i);
 nv_form_button@ open=f.add_button("Open","open",true);
-open.hidden=true;
+open.hidden=true;open.default_when_hidden=true;
 f.focus_control(list);
 string chosen="";
 while(chosen=="")

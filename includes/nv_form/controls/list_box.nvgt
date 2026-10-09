@@ -15,7 +15,7 @@ class nv_form_list_box: nv_form_control {
 		if (items.length() > 0) this.items.extend(items);
 	}
 	nv_form_list_item@get_focused_item() const property {
-		if (items.length() <= 0 || list_position < 0) return null;
+		if (items.length() <= 0 || list_position < 0 || list_position >= int(items.length())) return null;
 		return items[list_position];
 	}
 	string get_focused_item_id() const property {

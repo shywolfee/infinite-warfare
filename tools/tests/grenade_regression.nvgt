@@ -1,0 +1,46 @@
+// Exercise the real server fuse/throw lifecycle without a live connection.
+string grenade_results;int grenade_failures=0;
+void grenade_check(bool ok,string label){grenade_results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)grenade_failures++;}
+void run_grenade_regression()
+{
+string report_dir=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-grenade-regression-"+random(100000,999999999);directory_create(report_dir);
+try
+{
+load_item_catalogue();load_dobject_types(dobject_data_directory());init_mapsystem();
+player tester(40,40,0,"freeforall","grenade_tester",1);players.insert_last(tester);player@ holder=players[0];
+holder.fraggrenadetimer.restart();pin_grenade(1,"frag_grenade");
+grenade_check(held_grenade_index(1)==0 and fraggrenades.length()==1,"pinning starts a live grenade while the legacy cooldown is active");
+fraggrenade@ held=fraggrenades[0];int fuse=held.fuse;
+grenade_check(fuse>=4000 and fuse<=5000 and held.landed and held.audio_id==-1,"held grenade uses the authored variable fuse without flight audio");
+pin_grenade(1,"frag_grenade");pin_grenade(1,"flash_grenade");
+grenade_check(fraggrenades.length()==1,"repeated pin requests cannot duplicate or replace an armed grenade");
+holder.x=46;holder.y=47;holder.z=2;update_held_grenade(held);
+grenade_check(held.x==46 and held.y==47 and held.z==3 and held.map==holder.map,"held fuse follows the holder at hand height");
+wait(60);int remaining=fuse-int(held.explodetimer.elapsed);holder.fraggrenadetimer.restart();release_grenade(1,"frag_grenade",90,"foot");
+fraggrenade@ thrown=fraggrenades[0];
+grenade_check(fraggrenades.length()==1 and held_grenade_index(1)==-1 and !thrown.landed,"an armed throw bypasses the old cooldown and enters flight");
+grenade_check(thrown.fuse<=remaining and thrown.fuse>=remaining-50 and thrown.fuse<fuse,"throwing preserves the server fuse instead of rerolling it");
+release_grenade(1,"frag_grenade",90,"foot");
+grenade_check(fraggrenades.length()==1,"replaying release cannot spawn another grenade");
+fraggrenades.resize(0);holder.x=40;holder.y=40;holder.z=0;holder.health=1000;
+pin_grenade(1,"frag_grenade");@held=fraggrenades[0];held.fuse=0;
+release_grenade(1,"frag_grenade",90,"foot");
+grenade_check(held_grenade_index(1)==0 and held.landed and held.audio_id==-1,"a late throw leaves an expired fuse in the holder's hand");
+fraggrenadeloop();
+grenade_check(fraggrenades.length()==0 and holder.health<1000,"expired held fuse detonates through the normal blast model and harms its owner");
+int health=holder.health;fraggrenadeloop();release_grenade(1,"frag_grenade",90,"foot");
+grenade_check(fraggrenades.length()==0 and holder.health==health,"resolved grenades cannot detonate or launch a second time");
+pin_grenade(1,"frag_grenade");@held=fraggrenades[0];holder.map="grenade_test_map";update_held_grenade(held);
+grenade_check(held.map==holder.map,"held grenade follows map transfers rather than expiring on the old map");
+holder.name="new_session";update_held_grenade(held);
+grenade_check(held.held_peer==-1 and held_grenade_index(1)==-1,"a reused connection does not inherit another player's live grenade");
+fraggrenades.resize(0);holder.death=true;pin_grenade(1,"frag_grenade");
+grenade_check(fraggrenades.length()==0,"downed players cannot arm new grenades");
+holder.death=false;holder.arena_role="spectator";pin_grenade(1,"frag_grenade");
+grenade_check(fraggrenades.length()==0,"arena spectators cannot arm grenades");
+holder.arena_role="";pin_grenade(1,"hypercomp");
+grenade_check(fraggrenades.length()==0,"non-grenade pin requests are rejected");
+}
+catch{grenade_check(false,"Exception: "+get_exception_info()+" at "+get_exception_file()+":"+get_exception_line());}
+grenade_results+="Failures: "+grenade_failures+"\n";file report;report.open(report_dir+"/results.txt","wb");report.write(grenade_results);report.close();exit(grenade_failures);
+}

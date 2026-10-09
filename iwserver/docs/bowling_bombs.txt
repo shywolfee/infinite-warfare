@@ -1,0 +1,28 @@
+# Momentum bowling bombs
+
+Press Enter to throw: bowling bombs do not have a pin or a cookable fuse.
+A near-level throw gives the longest path, roughly 120 tiles. Steeper throws
+reduce the budget toward 90 tiles. The budget measures the path travelled,
+including direction changes, not the distance from the thrower.
+
+## Rolling, ramps and ledges
+
+The bomb gains speed on level ground. Ramp gravity slows uphill throws and
+then pulls them back downhill. Downhill travel builds momentum. If it comes
+back toward you, move aside: it can hit its owner and explode, or pass beside
+you and continue rolling in the opposite direction.
+
+Leaving a ledge sends it into a downward arc. Hitting the ground plays its
+landing sound and removes some momentum. It then resumes accelerating.
+The rolling sound follows the bomb throughout its journey.
+
+## Detonation
+
+Hitting a player, companion, object, vehicle or wall detonates the bomb.
+Landing on the ground does not. Exhausting its path budget detonates it too.
+Greater travel distance and speed increase blast and fragment damage; cover
+and the game's normal damage rules still apply. An abandoned, trapped bomb
+also has a two-minute safety detonation rather than remaining forever.
+
+Its range, acceleration, speed ceiling, landing retention and damage bonuses
+are editable properties of the bowling bomb in the content editor.

@@ -13,6 +13,7 @@ bool use_provision(player@ user,string item)
 {
 string kind=item_prop(item,"provision");if(kind=="" or user is null)return false;
 if(user.death){send_reliable(user.peer_id,"You cannot use that while dead.",2);return true;}
+if(physical_tracked(item) and physical_count(user,item)<=0){send_reliable(user.peer_id,"You do not own that provision.",2);return true;}
 int heal=item_prop_int(item,"provision_heal",0),stamina=item_prop_int(item,"provision_stamina",0);
 double stimulant=item_prop_int(item,"provision_stimulant",0);
 if(kind=="medical" and user.health>=1000){send_reliable(user.peer_id,"You are not hurt; save it for when you are.",2);return true;}
@@ -20,6 +21,7 @@ if(heal>1000-user.health)heal=1000-user.health;if(heal<0)heal=0;
 user.health+=heal;user.energy_stimulant_load+=stimulant;
 if(stamina>0)send_reliable(user.peer_id,"stamina_restore "+stamina,0);
 send_reliable(user.peer_id,"give "+item+" -1",0);
+string container=item_prop(item,"empty_container");if(container!="")send_reliable(user.peer_id,"give "+container+" 1",0);
 string effect=item_prop(item,"provision_sound"),effect2=item_prop(item,"provision_sound2");
 if(effect!="")world_sound_from(world_sound_variant(effect),user);
 if(effect2!="")world_sound_from(world_sound_variant(effect2),user);

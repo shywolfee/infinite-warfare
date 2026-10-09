@@ -1,73 +1,40 @@
-bool online_shop_offer(const string &in key,string &out item,int &out quantity,int &out cost)
-{
-item="";quantity=0;cost=0;
-if(key=="9mm_sidearm_bundle"){item="9x19mm_15_round_magazine";quantity=2;cost=20;}
-else if(key=="556_rifle_bundle"){item="5.56mm_stanag_magazine";quantity=2;cost=30;}
-else if(key=="76239_rifle_bundle"){item="7.62x39mm_30_round_magazine";quantity=2;cost=34;}
-else if(key=="76251_rifle_bundle"){item="7.62x51mm_20_round_magazine";quantity=2;cost=42;}
-else if(key=="shotgun_bundle"){item="12_gauge_shell_box";quantity=2;cost=30;}
-else if(key=="bolt_bundle"){item="bolt_quiver";quantity=2;cost=30;}
-else if(key=="pulse_cell_bundle"){item="pulse_cell";quantity=2;cost=36;}
-else if(key=="nanocyte_solution"){item="nanocyte_solution_bottle";quantity=1;cost=50;}
-else if(key=="coagulant_serum"){item="coagulant_serum_bottle";quantity=1;cost=42;}
-else if(key=="antitoxin_tablets"){item="antitoxin_tablet_bottle";quantity=1;cost=38;}
-else if(key=="frag_pair"){item="frag_grenade";quantity=2;cost=45;}
-else if(key=="smoke_pair"){item="smoke_bomb";quantity=2;cost=32;}
-else if(key=="flash_pair"){item="flashbang";quantity=2;cost=38;}
-else if(key=="impact_grenade_single"){item="impact_grenade";quantity=1;cost=42;}
-else if(key=="claymore_single"){item="claymore";quantity=1;cost=65;}
-else if(key=="translocator_cell_pair"){item="translocator_cell";quantity=2;cost=45;}
-else if(key=="grapple_line"){item="grapple_line_cartridge";quantity=1;cost=30;}
-else if(key=="tire_patch_pair"){item="tire_patch_kit";quantity=2;cost=40;}
-else if(key=="gasoline_topup"){item="gasoline_can";quantity=1;cost=30;}
-else if(key=="diesel_topup"){item="diesel_can";quantity=1;cost=32;}
-else if(key=="aviation_topup"){item="aviation_fuel_can";quantity=1;cost=40;}
-else if(key=="soft_armor_patch_pair"){item="soft_armor_patch";quantity=2;cost=28;}
-else
-{
-item_data@ data=item_info(key);if(data !is null and !item_flag(key,"market_excluded") and string_contains(key,"corpse_",1)!=0 and !is_credit_chip(key)){item=key;quantity=data.give_amount;if(quantity<1)quantity=1;cost=item_prop_int(key,"market_price",0);if(cost<=0){string category=string_to_lower_case(data.category);cost=category=="weapons"?180:(category=="ammunition"?32:(category=="medical"?45:(category=="explosives"?65:(category=="electronics"?90:(category=="armour"?120:55)))));cost+=int(data.summary.length()/18);}}
+// Explicit, editable offers. Validate an entire cart before taking payment.
+class market_offer {string id,item,name,category,summary;int quantity,price,max_order;}
+market_offer@[] market_offers;
+bool market_offer_valid(market_offer@ a){return !item_flag(a.item,"market_excluded") and item_prop(a.item,"currency_kind")=="" and a.id!="" and (item_info(a.item)!is null or find_wpn_stats(a.item)>=0) and a.quantity>0 and a.quantity<=1000 and a.price>0 and a.price<=1000000 and a.max_order>0 and a.max_order<=100 and a.name.find("~")<0 and a.name.find(";")<0 and a.category.find("~")<0 and a.category.find(";")<0 and a.summary.find("~")<0 and a.summary.find(";")<0;}
+void load_market_offers(){
+ market_offers.resize(0);string root="content/marketplace";string[] dirs=find_directories(root+"/*");
+ for(uint d=0;d<dirs.length();d++){string[] files=find_files(root+"/"+dirs[d]+"/*.offer");for(uint i=0;i<files.length();i++){
+  file f;if(!f.open(root+"/"+dirs[d]+"/"+files[i],"rb"))continue;item_data@ data=parse_item_file(files[i].substr(0,files[i].length()-6),f.read());f.close();string value;if(!data.props.get("enabled",value) or value!="true")continue;
+  market_offer a;a.id=data.id;a.name=data.name;a.category=data.category;a.summary=data.summary;data.props.get("item",a.item);data.props.get("quantity",value);a.quantity=int(string_to_number(value));data.props.get("price",value);a.price=int(string_to_number(value));data.props.get("max_order",value);a.max_order=int(string_to_number(value));if(market_offer_valid(a))market_offers.insert_last(a);
+ }}
 }
-return item!="" and quantity>0 and cost>0;
+market_offer@ market_find(string id){if(market_offers.length()==0)load_market_offers();for(uint i=0;i<market_offers.length();i++)if(market_offers[i].id==id)return market_offers[i];return null;}
+bool online_shop_offer(const string &in key,string &out item,int &out quantity,int &out cost){market_offer@ a=market_find(key);item="";quantity=0;cost=0;if(a is null)return false;item=a.item;quantity=a.quantity;cost=a.price;return true;}
+string online_shop_catalogue_packet(){if(market_offers.length()==0)load_market_offers();string packet="market_catalog ";for(uint i=0;i<market_offers.length();i++){market_offer@ a=market_offers[i];if(i>0)packet+=";";packet+=a.id+"~"+a.name+"~"+a.category+"~"+a.summary+"~"+a.quantity+"~"+a.price+"~"+a.max_order;}return packet;}
+bool market_access(player@ p){
+ if(p.death or p.arena_return_map!="")return false;if(device_market_access(p))return true;
+ dobject_set@ objects=dobjects_on(p.map);if(objects !is null)for(uint i=0;i<objects.list.length();i++){dobject@ o=objects.list[i];if(o.active and !o.burning and o.type.interaction=="store" and o.distance_to(p.x,p.y)<=2.2 and absolute(o.z-p.z)<=2.5)return true;}return false;
 }
-
-string online_shop_catalogue_packet()
-{
-string packet="market_catalog ";int count=0;for(uint i=0;i<item_catalogue.length();i++){item_data@ d=item_catalogue[i];string item;int quantity,cost;if(!online_shop_offer(d.id,item,quantity,cost) or item!=d.id)continue;if(count++>0)packet+=";";packet+=d.id+"~"+string_replace(d.name," ","_",true)+"~"+string_replace(d.category," ","_",true)+"~"+string_replace(d.summary," ","_",true)+"~"+quantity+"~"+cost;}return packet;
-}
-
-void handle_online_shop_request(uint peer,const string[] &in parsed)
-{
-int index=get_player_index(peer);
-if(index<0)return;
-if(parsed[0]=="market_balance")
-{
-send_reliable(peer,"market_balance "+players[index].credits,0);
-return;
-}
-if(parsed[0]=="market_catalog"){send_reliable(peer,online_shop_catalogue_packet(),0);return;}
-if(parsed.length()<2)
-{
-send_reliable(peer,"market_purchase_error Missing catalogue selection.",0);
-return;
-}
-if(players[index].online_shop_timer.elapsed<250)
-{
-send_reliable(peer,"market_purchase_error The terminal is still processing the previous transaction.",0);
-return;
-}
-players[index].online_shop_timer.restart();
-string item;int quantity,cost;
-if(!online_shop_offer(parsed[1],item,quantity,cost))
-{
-send_reliable(peer,"market_purchase_error That listing is not in the authoritative catalogue.",0);
-return;
-}
-if(players[index].credits<cost)
-{
-send_reliable(peer,"market_purchase_error Insufficient credits. Balance "+players[index].credits+", price "+cost+".",0);
-return;
-}
-if(!change_player_credits(players[index],-cost)){send_reliable(peer,"market_purchase_error The balance could not be saved. Nothing was charged or delivered.",0);return;}
-send_reliable(peer,"give "+item+" "+quantity,0);
-send_reliable(peer,"market_purchase_ok "+players[index].credits+" "+item+" "+quantity+" "+cost,0);
+void handle_online_shop_request(uint peer,const string[] &in parsed){
+ int index=get_player_index(peer);if(index<0 or parsed.length()==0)return;player@ p=players[index];
+ if(parsed[0]=="market_balance"){send_reliable(peer,"market_balance "+p.credits,0);return;}
+ if(!market_access(p)){send_reliable(peer,"market_purchase_error Carry a SupplyLink device or stand beside a public store terminal; commerce is unavailable in arenas or while downed.",0);return;}
+ if(parsed[0]=="market_catalog"){send_reliable(peer,online_shop_catalogue_packet(),0);return;}
+ string payment,cart;
+ if(parsed[0]=="market_checkout" and parsed.length()==3){payment=parsed[1];cart=parsed[2];}
+ else if(parsed[0]=="market_buy" and (parsed.length()==2 or parsed.length()==3)){payment=parsed.length()==3?parsed[2]:"wallet";cart=parsed[1]+",1";}
+ else{send_reliable(peer,"market_purchase_error Invalid purchase request.",0);return;}
+ string[] rows=string_split(cart,";",true),ids;market_offer@[] chosen;int[] counts;int64 total=0;int units=0;
+ if(rows.length()<1 or rows.length()>32){send_reliable(peer,"market_purchase_error A cart must contain one to thirty-two distinct listings.",0);return;}
+ for(uint i=0;i<rows.length();i++){
+  string[] fields=string_split(rows[i],",",false);if(fields.length()!=2){send_reliable(peer,"market_purchase_error Invalid cart entry.",0);return;}
+  market_offer@ a=market_find(fields[0]);int count=int(string_to_number(fields[1]));
+  if(a is null or ids.find(fields[0])>=0 or count<1 or fields[1]!=count+"" or count>a.max_order){send_reliable(peer,"market_purchase_error A listing is unavailable, duplicated or exceeds its whole-quantity order limit. Nothing was charged.",0);return;}
+  ids.insert_last(a.id);chosen.insert_last(a);counts.insert_last(count);total+=int64(a.price)*count;units+=a.quantity*count;
+ }
+ if(total<1 or total>2000000000){send_reliable(peer,"market_purchase_error Order total is outside supported limits.",0);return;}
+ if(!physical_payment(p,int(total),payment)){send_reliable(peer,"market_purchase_error Payment declined. Nothing was delivered.",0);return;}
+ for(uint i=0;i<chosen.length();i++)send_reliable(peer,"give "+chosen[i].item+" "+(chosen[i].quantity*counts[i]),0);
+ send_reliable(peer,"market_purchase_ok Delivered "+units+" inventory units across "+chosen.length()+" listings. Charged "+total+" credits using "+payment+". Wallet balance "+p.credits+" credits.",0);
 }

@@ -23,6 +23,8 @@ int index=-1;if(content_database_index.get(id,index) and index>=0 and index<int(
 void content_register(string id, string name, string category, string summary, int give_amount=1)
 {
 if(id=="" or content_find(id)>=0) return;
+if(id=="translocator_cell")category="Utility";
+if(id=="bomb_vest")category="Explosives";
 // Normalize broad legacy groups into the focused live-inventory categories.
 if(category=="Consumables")
 category=(string_contains(id,"potion",1)>=0 or string_contains(id,"syringe",1)>=0 or id=="life_injection")?"Healing":"Utility";
@@ -212,7 +214,7 @@ nv_form_list_box@ list=f.add_list(title,"list");
 for(uint i=0;i<labels.length();i++)list.add(labels[i],ids[i]);
 if(position>=0 and position<int(labels.length()))list.set_pos(position);
 nv_form_button@ open=f.add_button("Open","open",true);
-open.hidden=true;
+open.hidden=true;open.default_when_hidden=true;
 nv_form_button@ back=f.add_button("Back","back",false,true);
 f.focus_control(list);
 while(true)
@@ -263,7 +265,7 @@ for(uint i=0;i<facts.length();i++)list.add(facts[i],"fact");
 if(sounds.length()==0)list.add("This entry has no sounds of its own.","fact");
 for(uint i=0;i<sounds.length();i++)list.add("Sound: "+string_replace(string_replace(sounds[i],".ogg","",true),"_"," ",true),"sound:"+i);
 nv_form_button@ play=f.add_button("Play","play",true);
-play.hidden=true;
+play.hidden=true;play.default_when_hidden=true;
 nv_form_button@ back=f.add_button("Back","back",false,true);
 f.focus_control(list);
 int slot=-1;

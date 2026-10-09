@@ -1,8 +1,12 @@
 #include "bgt_compat.nvgt"
 #include "../../includes/sd.nvgt"
+// This isolated wallet suite uses legacy chips; the commerce suite tests data.
+string item_prop(string item,string key){return "";}
+int physical_item_value(string item){return 0;}
 #include "../../iwserver/includes/account_wallet.nvgt"
 const string ACCOUNT_SECRET="isolated regression test key, not a live account key";
-class player {string name;int credits=0,er_small_chips=0,er_large_chips=0;uint peer_id=1;}
+class player {string name;dictionary physical_items;bool bank_transfer_writing=false;int credits=0,er_small_chips=0,er_large_chips=0;uint peer_id=1;}
+bool recover_bank_transfer(player@ p){return true;}
 player@[] players;
 int get_player_index(uint peer){for(uint i=0;i<players.length();i++)if(players[i].peer_id==peer)return int(i);return -1;}
 void send_reliable(uint peer,string message,uint channel){if(channel==0)track_credit_chip_grant(peer,message);}

@@ -64,6 +64,7 @@ p.play_3d(path,me.x,me.y,me.z,x,y,z,calculate_theta(facing),false);
 int overdrive_sound=-1;
 bool handle_dynamic_object_packet(const string &in message)
 {
+if(message.substr(0,16)=="content_objects|"){string[] records=string_split(message.substr(16),"\x1e",false);dobject_types.delete_all();for(uint i=0;i<records.length();i++){int split=records[i].find("\x1f");if(split>0)dobject_types.set(records[i].substr(0,split),@parse_dobject_type(records[i].substr(0,split),records[i].substr(split+1)));}for(uint i=0;i<client_dobjects.list.length();i++){dobject@ o=client_dobjects.list[i];int health=o.health,flags=o.flags(),stock=o.stock;o.become(o.type_id);o.apply_state(health,flags,stock,o.type_id);dobject_reshape(o);}return true;}
 string[] parsed=string_split(message," ",true);if(parsed.length()==0)return false;
 string kind=parsed[0];
 if(kind=="world_sound")
@@ -85,6 +86,8 @@ if(kind=="dobj_open")
 {
 if(parsed.length()<3)return true;int id=int(string_to_number(parsed[2]));
 if(parsed[1]=="atm")dobject_atm_screen(id);
+else if(parsed[1]=="news")show_staff_announcements();
+else if(parsed[1]=="voice")voice_room_menu();
 else if(parsed[1]=="vend")dobject_vend_screen(id);
 else if(parsed[1]=="store")online_supply_shop();
 return true;
@@ -129,6 +132,11 @@ if(o.max_stock>0)status+=", "+o.stock+" of "+o.max_stock+" left";
 return status;
 }
 // Objects within the radius, nearest first, for the nearby-things key.
+string dynamic_object_direction(double x,double y,double tx,double ty){
+if(!nearby_object_compass)return clock_direction(calculate_x_y_angle(x,y,tx,ty,view_facing()));
+double angle=atan2(tx-x,ty-y)*180/3.14159265358979323846;if(angle<0)angle+=360;
+string[] compass={"north","northeast","east","southeast","south","southwest","west","northwest"};return compass[int(round(angle/45,0))%8];
+}
 string nearby_dobjects(double x,double y,double z,double radius=30)
 {
 dobject@[] found;double[] distances;
@@ -143,9 +151,9 @@ string result="";
 for(uint i=0;i<found.length() and i<12;i++)
 {
 dobject@ o=found[i];
-string direction=clock_direction(calculate_x_y_angle(x,y,o.centre_x(),o.centre_y(),facing));
+string direction=dynamic_object_direction(x,y,o.centre_x(),o.centre_y());
 if(result!="")result+=" ";
-result+=o.describe()+", "+(distances[i]<1?"beside you":int(round(distances[i],0))+" tiles at "+direction)+dobject_status(o)+".";
+result+=o.describe()+", "+(distances[i]<1?"beside you":int(round(distances[i],0))+" tiles "+direction)+dobject_status(o)+".";
 }
 return result;
 }
@@ -174,8 +182,8 @@ return best;
 
 int ask_balance()
 {
-send_reliable(0,"market_balance",0);string response;
-if(!wait_for_service_response("market_balance ",response,3000))return -1;
+string response=identified_service_request("market_balance");
+if(response.find("market_balance ")!=0)return -1;
 return int(string_to_number(string_replace(response,"market_balance ","",false)));
 }
 
@@ -186,7 +194,7 @@ if(!connected){speak("The machine needs a server connection.");return;}
 int credits=ask_balance();if(credits<0){speak("The machine could not reach your account.");return;}
 string root="executioners_rage/"+o.type.sound+"/";
 nv_form f;f.create_window(o.describe(),false,true);
-nv_form_input@ balance=f.add_input("Your balance","balance",credits+" credits, "+o.stock+" items in the machine","",0,true,true);
+nv_form_input@ balance=f.add_input("Saved wallet and machine stock","balance",credits+" wallet credits, "+o.stock+" items in the machine. Physical chips and checking balances are separate.","",0,true,true);
 nv_form_list_box@ list=f.add_list("Products","products");
 for(uint i=0;i<o.type.offers.length();i++)
 {
@@ -200,17 +208,19 @@ f.focus_control(list);
 while(true)
 {
 wait(5);f.monitor();if(connected)netloop();else return;
+buy.enabled=o.active and !o.burning and o.stock>0 and o.distance_to(me.x,me.y)<=DOBJECT_REACH and absolute(o.z-me.z)<=2.5;
 if(f.is_pressed(close))return;
 if(!f.is_pressed(buy))continue;
 int selected=list.list_position;if(selected<0 or selected>=int(o.type.offers.length())){speak("Choose a product first.");continue;}
 p.play_stationary(root+"beep.wav",false);
-send_reliable(0,"dobj_buy "+id+" "+selected,0);string response;
+string payment=physical_choose_payment();if(payment=="")continue;
+send_reliable(0,"dobj_buy "+id+" "+selected+" "+payment,0);string response;
 if(!wait_for_service_response("dobj_buy_",response,3000)){speak("The machine did not answer. You have not been charged.");continue;}
 if(string_contains(response,"dobj_buy_ok ",1)==0)
 {
 string[] fields=string_split(response," ",true);if(fields.length()>1)credits=int(string_to_number(fields[1]));int left=fields.length()>3?int(string_to_number(fields[3])):o.stock;
-balance.default_text=credits+" credits, "+left+" items in the machine";
-speak("Bought. You have "+credits+" credits left.");
+balance.default_text=credits+" wallet credits, "+left+" items in the machine";
+speak("Bought. Saved wallet balance: "+credits+" credits.");
 }
 else speak(string_replace(response,"dobj_buy_error ","",false));
 }
@@ -221,25 +231,9 @@ void dobject_atm_screen(int id)
 {
 dobject@ o=client_dobjects.find(id);if(o is null)return;
 if(!connected){speak("The cash machine needs a server connection.");return;}
-int credits=ask_balance();if(credits<0){speak("The cash machine could not reach your account.");return;}
 string root="executioners_rage/"+o.type.sound+"/";
-nv_form f;f.create_window(o.describe(),false,true);
-nv_form_input@ balance=f.add_input("Your balance","balance",credits+" credits","",0,true,true);
-nv_form_button@ small=f.add_button("Pay in a small credit chip, worth 15 credits","small");
-nv_form_button@ large=f.add_button("Pay in a large credit chip, worth 60 credits","large");
-nv_form_button@ close=f.add_button("Take your card and close","close",false,true);
-f.focus_control(balance);p.play_stationary(root+"insert_card.wav",false);
-while(true)
-{
-wait(5);f.monitor();if(connected)netloop();else return;
-if(f.is_pressed(close)){p.play_stationary(root+"remove_card.wav",false);p.play_stationary(root+"door_close.wav",false);return;}
-string size="";if(f.is_pressed(small))size="small";else if(f.is_pressed(large))size="large";if(size=="")continue;
-if(get_item_count("credit_chip_"+size)<=0){speak("You have no "+size+" credit chip.");continue;}
-string request=""+(++cash_request),prefix="dobj_redeem_reply "+request+" ";
-send_reliable(0,"dobj_redeem "+id+" "+size+" "+request,0);string reply;
-if(!wait_for_service_response(prefix,reply,5000)){speak("The machine is slow to answer. Check your balance and chips before trying again.");continue;}
-reply=string_replace(reply,prefix,"",false);
-if(string_contains(reply,"ok ",1)==0){credits=int(string_to_number(string_replace(reply,"ok ","",false)));balance.default_text=credits+" credits";speak("Paid in. Your balance is "+credits+" credits.");}
-else speak(string_replace(reply,"error ","",false));
-}
+p.play_stationary(root+"insert_card.wav",false);
+terminal_bank_menu();
+p.play_stationary(root+"remove_card.wav",false);
+p.play_stationary(root+"door_close.wav",false);
 }

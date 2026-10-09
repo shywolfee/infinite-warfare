@@ -1,0 +1,58 @@
+# Companion command center and direct control
+
+Deploy an Automatic Hover Drone, Bomber Hover Drone or Bioengineered Chimp
+Scout Beacon from your inventory. Each item creates a separate actor with
+its own health, location, heading, attack and sounds. You can have eight out
+at once. Open **Control deployed companions** in the dashboard, or use a
+Companion Command Remote.
+
+## Live command center
+
+Select an actor in **Deployed companions**, then Tab to its live telemetry
+and orders. Health, coordinates, map, heading and orders update without
+closing the screen. Execute an order for the selected actor or your entire
+fleet. Direct piloting always controls just one actor.
+
+| Order | What it does |
+| --- | --- |
+| Follow | Travel with your body and defend against nearby targets |
+| Stay | Hold position without automatically attacking |
+| Guard | Defend the selected position and return there after combat |
+| Seek and attack | Pursue visible hostile targets within acquisition range |
+| Use attack once | Attack an unobstructed hostile within weapon range |
+| Recall | Travel back to your body before returning the item to inventory |
+| Pilot directly | Switch movement and perception to this actor |
+
+Attacks have an individual recharge time. Walls block targeting; team-mates
+and arena spectators are not targets. Acquisition range is not weapon range:
+an autonomous actor may need to approach before attacking. Piloted attacks
+select targets in front of the actor, so turn toward the enemy first.
+
+## Piloting
+
+Your body stays where it really is and remains vulnerable. Sounds, heading,
+zone reads, coordinates and the visual camera now come from the companion.
+Your inventory and equipped weapons stay with your body.
+
+- Movement keys move the companion; Q and E turn it by default.
+- Page Up and Page Down raise or lower drones. Chimps stay on the ground.
+- The fire key uses the companion's attack, respecting its recharge time.
+- H or F reads telemetry, C reads coordinates and B reads its current zone.
+- Escape returns to your body. You can also choose Return to your body from
+  the companion dashboard or command center.
+- O opens the command center (the configured vehicle-door interaction key).
+- Tab works with your selected dashboard/inventory mode. The piloting
+  dashboard offers telemetry, attacks, commands and communication; ordinary
+  body-use actions are unavailable until you return.
+  In inventory mode, Tab opens companion control instead of cycling the
+  body's inventory while piloting.
+
+Movement, turning, altitude and fire reuse your configured keys. On touch,
+the existing movement drags control the actor, rotation gestures turn it,
+aim gestures change drone altitude, the fire gesture attacks, and status or
+facing reads telemetry. The context-actions gesture opens companion control;
+the game-menu gesture returns to your body. Dashboard gestures still work.
+
+Recall companions before leaving a map. Map transfers, death, disconnects
+and destruction remove deployed actors and end piloting safely. Returning
+from piloting alone leaves the companion in Stay mode, ready for new orders.

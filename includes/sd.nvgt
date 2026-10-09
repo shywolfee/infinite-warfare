@@ -50,8 +50,7 @@ d.set(name,value);
 double readn(string name)
 {
 double tmp;
-d.get(name,tmp);
-return tmp;
+return d.get(name,tmp)?tmp:0;
 }
 //overloaded function of add to add a string.
 void add(string name, string value)

@@ -92,8 +92,24 @@ return item_catalogue.length();
 item_data@ item_info(const string &in id)
 {
 int index=-1;
-if(!item_catalogue_index.get(id,index) or index<0 or index>=int(item_catalogue.length()))return null;
+string base=id;int marker=id.find("__value__");
+if(marker>0)base=id.substr(0,marker);
+if(!item_catalogue_index.get(base,index) or index<0 or index>=int(item_catalogue.length()))return null;
+if(marker>0){string kind,capacity;item_catalogue[index].props.get("currency_kind",kind);item_catalogue[index].props.get("currency_capacity",capacity);string value=id.substr(marker+9);if(kind!="stored" or value.length()==0 or value.length()>9)return null;for(uint i=0;i<value.length();i++)if(value.substr(i,1)<"0" or value.substr(i,1)>"9")return null;double amount=string_to_number(value);if(amount<1 or amount>string_to_number(capacity))return null;}
 return item_catalogue[index];
+}
+int physical_item_value(const string &in id)
+{
+item_data@ d=item_info(id);if(d is null)return 0;
+string kind,value,capacity;d.props.get("currency_kind",kind);d.props.get("currency_value",value);d.props.get("currency_capacity",capacity);
+int marker=id.find("__value__");
+if(kind=="stored" and marker>0){double n=string_to_number(id.substr(marker+9));return n>=0 and n==floor(n) and n<=string_to_number(capacity)?int(n):0;}
+return int(string_to_number(value));
+}
+string physical_item_name(const string &in id)
+{
+item_data@ d=item_info(id);if(d is null)return string_replace(id,"_"," ",true);
+return d.name+(id.find("__value__")>0?" ("+physical_item_value(id)+" credits remaining)":"");
 }
 string item_prop(const string &in id,const string &in key,const string &in fallback="")
 {
@@ -160,6 +176,12 @@ string[] item_stats_lines(const string &in id)
 string[] l;
 item_data@ d=item_info(id);
 if(d is null)return l;
+string currency=item_prop(id,"currency_kind");
+if(currency=="chip" or currency=="stored")l.insert_last("Physical value: "+physical_item_value(id)+" credits.");
+if(currency=="bank" or currency=="credit" or item_flag(id,"currency_refillable"))l.insert_last("Service charge: "+item_prop_int(id,"currency_fee_percent")+" percent, rounded up to whole credits.");
+if(item_prop_int(id,"currency_capacity")>0)l.insert_last("Stored-value capacity or account credit-line limit: "+item_prop_int(id,"currency_capacity")+" credits.");
+if(item_flag(id,"disposable"))l.insert_last("Can be placed in a nearby dumpster's salvage pool.");
+if(item_prop(id,"empty_container")!="")l.insert_last("Leaves "+physical_item_name(item_prop(id,"empty_container"))+" when fully consumed.");
 string form=medication_form(id);
 if(form!="")
 {
@@ -180,7 +202,8 @@ if(item_prop(id,"blast_radius")!="")
 {
 string how=item_is_thrown_explosive(id)?"Thrown":(item_is_launched_explosive(id)?"Launched":"Placed");
 int damage=item_prop_int(id,"blast_damage");
-l.insert_last(how+". Blast radius "+item_prop_int(id,"blast_radius")+" tiles, "+(damage>0?damage+" damage at the centre":"no blast damage")+", fuse "+item_number_text(explosive_fuse_ms(id)/1000.0)+" seconds"+(item_is_thrown_explosive(id)?"; the fuse starts when you pull the pin, so it can be cooked":"")+".");
+if(item_flag(id,"momentum_rolling"))l.insert_last("Momentum explosive: Throw immediately; no cookable fuse. Travels "+item_prop_number(id,"rolling_range_min",90)+" to "+item_prop_number(id,"rolling_range_max",120)+" tiles according to aim. Collisions and range exhaustion detonate it. Blast radius "+item_prop_int(id,"blast_radius")+" tiles; damage increases with speed and distance. Uphill throws can reverse and strike you.");
+else l.insert_last(how+". Blast radius "+item_prop_int(id,"blast_radius")+" tiles, "+(damage>0?damage+" damage at the centre":"no blast damage")+", fuse "+item_number_text(explosive_fuse_ms(id)/1000.0)+" seconds"+(item_is_thrown_explosive(id)?"; the fuse starts when you pull the pin, so it can be cooked":"")+".");
 if(item_prop(id,"launch_speed")!="")l.insert_last("Flies at "+item_number_text(item_prop_number(id,"launch_speed"))+" tiles a second, rising "+item_number_text(item_prop_number(id,"launch_rise"))+".");
 }
 if(armour_slot(id)!="")

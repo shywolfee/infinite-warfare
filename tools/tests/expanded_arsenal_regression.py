@@ -29,12 +29,44 @@ assert len(catalogue['weapons'])==197
 for r in catalogue['weapons']:
     assert r['id'] in weapons and weapons[r['id']][1]['name']==r['name'], r['id']
     p=weapons[r['id']][1]
-    assert p['sound_profile']==r['id'] and p['class_modes']=='false', r['id']
-    owned=[j for j in recipes if j['destination'].startswith(r['id'])]
+    assert p['sound_profile']=='ars_'+r['id'] and p['class_modes']=='false', r['id']
+    owned=[j for j in recipes if j['destination'].startswith(p['sound_profile'])]
     assert any(s.startswith(r['library']+':'+r['bank']) for j in owned for s in j['sources']), r['id']
+    assert not r['id'].startswith('ars_'), r['id']
+    assert p == {k: str(v) for k, v in r['properties'].items()}, r['id']
     if p['melee']=='false':
+        assert not p['reserve_item'].endswith('_reserve'), r['id']
         reserve=ROOT/'iwserver/content/items/ammo'/f"{p['reserve_item']}.item"
         assert reserve.is_file() and properties(reserve)['category']=='Ammo', r['id']
+# Exercise compatibility against existing receivers, not just catalogue copies.
+expected = {
+    'akm_laminate_rifle': '7.62x39mm_30_round_magazine',
+    'benelli_m3_super_90': '12_gauge_shell_box',
+    'benelli_m1014_joint_service': '12_gauge_shell_box',
+    'underboss_heavy_revolver': '.357_magnum_ammo_belt',
+    'arcwright_wrist_cannon': 'pulse_cell',
+    'dragonheart_pressure_flamer': 'fuel_canister',
+    'mercyfield_rescue_crossbow': 'bolt_quiver',
+    'butchers_flight_cleaver': 'throwing_blade_quiver',
+}
+for wid, reserve in expected.items():
+    assert weapons[wid][1]['reserve_item'] == reserve, wid
+for wid, ammo in {
+    'adrenaline_needle_gun': 'medical syringe',
+    'bloodline_injector_carbine': 'medical syringe',
+    'sunburst_flare_launcher': 'signal flare',
+    'ember_signal_launcher': 'signal flare',
+    'ravenwood_war_bow': 'hunting arrow',
+    'recon_dart_projector': 'recon dart',
+    'broadside_ball_cannon': 'cannonball',
+}.items():
+    assert weapons[wid][1]['ammo_type'] == ammo, wid
+containers = {}
+for wid, (_, p) in weapons.items():
+    if p.get('is_magazine') == 'true' and p.get('ammo_display') != 'fuel':
+        containers.setdefault(p['reserve_item'], set()).add(int(p['capacity']))
+assert all(len(capacities) == 1 for capacities in containers.values()), containers
+assert weapons['dl_44_heavy_blaster'][1]['reserve_item'] != weapons['a180_modular_blaster'][1]['reserve_item']
 for j in recipes:
     path=ROOT/'sounds'/j['destination']
     assert path.is_file(), path

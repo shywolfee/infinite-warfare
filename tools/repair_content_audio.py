@@ -58,13 +58,11 @@ def plan():
                          operation=operation, gain=gain))
         return dest if role in {"flight_loop", "distant_sound"} else dest[:-4]
 
-    for index, path in enumerate(sorted(p for p in (ROOT / "iwserver/content/items").rglob("*.item") if not p.stem.startswith("ars_"))):
+    for index, path in enumerate(sorted(p for p in (ROOT / "iwserver/content/items").rglob("*.item") if p.parent.name != "ammo" and not properties(p).get("explosion_sound", "").startswith("ars_"))):
         props = properties(path)
         if props.get("thrown") != "true":
             continue
         item = path.stem
-        if item.startswith("ars_"):
-            continue  # Owned and validated by the expanded arsenal importer.
         # Pin and throw are separate events. Do not replay a pin pull on release.
         pin = recording("bf4", f"Sound/Weapons/Handheld/M67/M67_Remove_Safety_Pin_Wave 0 0 {index % 5}.wav")
         pin_sources = [pin]

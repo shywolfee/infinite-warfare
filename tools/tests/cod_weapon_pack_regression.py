@@ -9,7 +9,8 @@ VARIANT_SUFFIXES=("_field_rifle","_modular_rifle","_compact_carbine","_personal_
 
 paths={p.stem:p for p in WEAPONS.rglob("*.wpn")}
 renamed={r['id']:r['old_id'] for r in json.loads((ROOT/'tools/weapon_receiver_renames.json').read_text(encoding='utf-8'))}
-added={wid for wid in paths if renamed.get(wid,wid) in HEADLINE or (renamed.get(wid,wid).endswith(VARIANT_SUFFIXES) and not wid.startswith(('er_','ars_')))}
+expanded={w["id"] for w in json.loads((ROOT/"tools/expanded_arsenal.json").read_text(encoding="utf-8"))["weapons"]}
+added={wid for wid in paths if wid not in expanded if renamed.get(wid,wid) in HEADLINE or (renamed.get(wid,wid).endswith(VARIANT_SUFFIXES) and not wid.startswith(('er_','ars_')))}
 assert len(added)==90, f"expected 90 release weapons, found {len(added)}"
 manifest=SOUNDS/"COD_WEAPON_AUDIO_SOURCES.tsv"
 rows=manifest.read_text(encoding="utf-8-sig").splitlines()

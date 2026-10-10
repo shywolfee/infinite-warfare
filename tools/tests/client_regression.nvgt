@@ -250,12 +250,13 @@ client_companions=saved_actors;companion_piloting=old_pilot;piloted_companion_id
 }
 {
 string arsenal_root=SCRIPT_MAIN_PATH+"/../../iwserver/content/weapons";
-load_weapon_file(arsenal_root,"shotguns","ars_benelli_m1014_joint_service.wpn");
-load_weapon_file(arsenal_root,"shotguns","ars_benelli_m3_super_90.wpn");
-load_weapon_file(arsenal_root,"shotguns","ars_thunderclap_twin_scattergun.wpn");
-string automatic="ars_benelli_m1014_joint_service",pump="ars_benelli_m3_super_90",double_gun="ars_thunderclap_twin_scattergun";
+load_weapon_file(arsenal_root,"shotguns","benelli_m1014_joint_service.wpn");
+load_weapon_file(arsenal_root,"shotguns","benelli_m3_super_90.wpn");
+load_weapon_file(arsenal_root,"shotguns","thunderclap_twin_scattergun.wpn");
+string automatic="benelli_m1014_joint_service",pump="benelli_m3_super_90",double_gun="thunderclap_twin_scattergun";
 int ai=find_gun(automatic),pi=find_gun(pump),di=find_gun(double_gun);
 client_check(ai>=0 and pi>=0 and di>=0,"expanded shotguns load their production ammunition definitions");
+client_check(ammunition_reserve_item(automatic)=="12_gauge_shell_box" and ammunition_reserve_item(pump)=="12_gauge_shell_box" and ammunition_reserve_item(double_gun)=="12_gauge_shell_box","expanded shotguns accept the existing shared shell reserve across capacities");
 if(ai>=0 and pi>=0 and di>=0){gun_ammos[ai].mag_loaded=2;gun_ammos[pi].mag_loaded=2;gun_ammos[di].mag_loaded=1;manual_weapon_after_fire(automatic);manual_weapon_after_fire(pump);manual_weapon_after_fire(double_gun);client_check(gun_ammos[ai].chamber_ready and !manual_weapon_requires_cycle(automatic),"automatic tube shotgun chambers its next shell");client_check(!gun_ammos[pi].chamber_ready and manual_weapon_requires_cycle(pump),"pump shotgun still requires cycling");client_check(gun_ammos[di].chamber_ready and gun_ammos[di].mag_capacity==2,"break-action twin gun keeps its second barrel available");}
 }
 client_test_results+="Failures: "+client_test_failures+"\n";

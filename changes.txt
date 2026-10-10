@@ -2,6 +2,8 @@
 
 ## New in 0.5.10, build 104 (2026-10-09)
 
+- The expanded arsenal now shares compatible calibre- and capacity-specific magazines, shells, revolver rounds, bolts, fuel and energy cells. Syringe guns, flare launchers, bows, cleavers, recon darts and the ball cannon use appropriate ammunition. Removed the ars prefix from all 197 new weapon IDs and seven explosive item IDs. Deploy client and server content together; old saved inventory IDs must be replaced with the renamed weapons and typed reserves. Existing sound bindings are retained, so no sound-pack rebuild is needed for this correction.
+
 - Healing readouts identify restored health as healing rather than damage. Added import provenance, collision checks, audio-level tests, packed-audio decoding and gameplay regression coverage for the expanded arsenal. Retired-file tooling also recognizes renamed files before staging, and the obsolete generator cannot recreate removed receiver IDs.
 - Galactic sidearms, carbines, repeaters, scatter cannons and precision rifles have role-specific damage and reach rather than one shared combat template. Bolt rifles require cycling their recorded action; tube-fed automatic shotguns can declare automatic cycling, while two- and four-barrel guns use their proper break-action capacities.
 - Added classic fragmentation, flash, smoke and timed demolition explosives, plus mercenary gas and disorientation throwables, with their recorded payload sounds and editable properties. Timer-only placed charges cannot accidentally act as proximity mines.

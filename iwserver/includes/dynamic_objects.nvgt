@@ -32,6 +32,7 @@ maps[mi].objects.map=maps[mi].name;
 dobject@[] old=maps[mi].objects.list;
 maps[mi].objects.list=parse_map_dobjects(maps[mi].rawdata,maps[mi].name);
 for(uint i=0;i<maps[mi].objects.list.length();i++)for(uint j=0;j<old.length();j++)if(old[j].id==maps[mi].objects.list[i].id and old[j].origin_type==maps[mi].objects.list[i].origin_type){maps[mi].objects.list[i].salvage=old[j].salvage;break;}
+for(uint i=0;i<old.length();i++)if(old[i].id>=9000000)maps[mi].objects.list.insert_last(old[i]);
 maps[mi].objects.index();
 }
 void load_all_map_dobjects(){for(uint i=0;i<maps.length();i++)load_map_dobjects(int(i));}
@@ -42,6 +43,7 @@ void sync_dobjects(uint peer,string map)
 {
 sync_grenade_audio(peer,map);
 dobject_set@ s=dobjects_on(map);if(s is null)return;
+for(uint i=0;i<s.list.length();i++)if(s.list[i].id>=9000000){dobject@ o=s.list[i];send_reliable(peer,"dobj_spawn "+o.id+" "+o.type_id+" "+o.x+" "+o.y+" "+o.z+" "+o.facing+" "+map,0);}
 string prefix="dobj_batch "+world_token(map)+" ",packet=prefix;int entries=0;
 for(uint i=0;i<s.list.length();i++)
 {
@@ -116,6 +118,8 @@ dobject_type@ t=o.type;
 dobject_sound(o,o.type_id=="furniture"?"dest":t.destroy_sound);
 string debris=t.debris;
 if(debris!="")o.become(debris);else o.active=false;
+if(o.type_id=="redspot_base_computer")redspot_base_destroyed(o.id);
+if(o.type_id=="redspot_spy_camera")redspot_camera_destroyed(o.id);
 o.burning=false;o.respawn_timer.restart();
 send_dobject_state(o);
 if(t.explode_damage>0)
@@ -212,6 +216,7 @@ if(what=="atm"){dobject_sound(o,"door_open");send_reliable(peer,"dobj_open atm "
 else if(what=="news" or what=="voice"){dobject_sound(o,t.contact_sound);send_reliable(peer,"dobj_open "+what+" "+o.id,0);}
 else if(what=="vend")send_reliable(peer,"dobj_open vend "+o.id+" "+o.stock,0);
 else if(what=="store"){dobject_sound(o,t.contact_sound);send_reliable(peer,"dobj_open store "+o.id,0);}
+else if(what=="base")redspot_base_open(p,o.id);
 else if(what=="door")
 {
 o.open=!o.open;dobject_sound(o,o.open?"open":"close");send_dobject_state(o);

@@ -1,0 +1,27 @@
+bool turret_piloting=false;int piloted_turret_id=-1,turret_heading=0,turret_elevation=90,turret_rounds=0;
+double turret_x=0,turret_y=0,turret_z=0;string turret_kind="";timer turret_input_timer;
+void turret_return(bool tell_server=true){if(!turret_piloting)return;if(tell_server)send_reliable(0,"turret toggle",0);turret_piloting=false;piloted_turret_id=-1;update_all_listeners();game_dashboard_rebuild_options(true);speak("Returned to your body.");}
+bool turret_packet(const string[] &in f)
+{
+if(f.length()==0)return false;
+if(f[0]=="turret_end"){turret_return(false);return true;}
+if(f[0]=="turret_sync" and f.length()>=7){if(turret_piloting and int(string_to_number(f[1]))==piloted_turret_id){turret_kind=f[2];turret_heading=int(string_to_number(f[3]));turret_elevation=int(string_to_number(f[4]));turret_rounds=int(string_to_number(f[5]));update_all_listeners();}return true;}
+if(f[0]=="turret_pilot" and f.length()>=8){if(f[7]!=mapname)return true;if(companion_piloting)stop_companion_pilot();if(missile_piloting)missile_return();piloted_turret_id=int(string_to_number(f[1]));turret_heading=int(string_to_number(f[2]));turret_elevation=int(string_to_number(f[3]));turret_x=string_to_number(f[4]);turret_y=string_to_number(f[5]);turret_z=string_to_number(f[6]);turret_piloting=true;update_all_listeners();game_dashboard_rebuild_options(true);game_dashboard_focus_game();speak("Turret control. Left and right swivel where supported; up and down adjust elevation where supported. F reports the bearing from true north. Fire shoots; O returns to your body.");return true;}
+return false;
+}
+bool turret_try_control()
+{
+if(turret_piloting){turret_return();return true;}
+for(uint i=0;i<client_dobjects.list.length();i++){dobject@ o=client_dobjects.list[i];if(!o.active or o.type_id.find("turret_")!=0 or o.distance_to(me.x,me.y)>2.2 or absolute(o.z-me.z)>2.5)continue;send_reliable(0,"turret toggle",0);return true;}
+return false;
+}
+void turret_pilot_controls()
+{
+if(key_pressed(KEY_O) or key_pressed(KEY_ESCAPE)){turret_return();return;}
+if(key_pressed(KEY_F))speak(turret_heading+" degrees clockwise from true north, "+(90-turret_elevation)+" degrees vertical; "+turret_rounds+" rounds remain.");
+if(action_pressed("fire") or gk_fire)send_reliable(0,"turret fire "+piloted_turret_id,0);
+if(turret_input_timer.elapsed<100)return;turret_input_timer.restart();
+int side=(action_down("move_right")?1:0)-(action_down("move_left")?1:0);
+int up=(action_down("move_forward")?1:0)-(action_down("move_backward")?1:0);
+if(side!=0 or up!=0)send_unreliable(0,"turret aim "+piloted_turret_id+" "+side+" "+up,0);
+}

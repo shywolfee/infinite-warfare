@@ -12,10 +12,10 @@ client_companion@ companion_view()
 {
 int at=client_companion_index(piloted_companion_id);return companion_piloting and at>=0?client_companions[at]:null;
 }
-double view_x(){client_companion@ c=companion_view();return c is null?me.x:c.x;}
-double view_y(){client_companion@ c=companion_view();return c is null?me.y:c.y;}
-double view_z(){client_companion@ c=companion_view();return c is null?me.z:c.z;}
-int view_facing(){client_companion@ c=companion_view();return c is null?facing:c.facing;}
+double view_x(){client_companion@ c=companion_view();return missile_piloting?missile_x:(turret_piloting?turret_x:(c is null?me.x:c.x));}
+double view_y(){client_companion@ c=companion_view();return missile_piloting?missile_y:(turret_piloting?turret_y:(c is null?me.y:c.y));}
+double view_z(){client_companion@ c=companion_view();return missile_piloting?missile_z:(turret_piloting?turret_z:(c is null?me.z:c.z));}
+int view_facing(){client_companion@ c=companion_view();return missile_piloting?int(atan2(missile_vx,missile_vy)*180/3.14159265358979323846+360)%360:(turret_piloting?turret_heading:(c is null?facing:c.facing));}
 string companion_telemetry(client_companion@ c)
 {
 if(c is null)return "No companion selected.";

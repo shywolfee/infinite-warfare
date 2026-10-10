@@ -35,6 +35,23 @@ REVOICE = (
 )
 ROLES = ("pin_sound", "throw_sound", "bounce_sound", "landing_sound",
          "explosion_sound", "distant_sound", "flight_loop")
+# Pin variants are tied to item IDs. Enumeration order changes whenever an
+# item is added or moved; it must not silently rewrite existing audio recipes.
+PIN_VARIANTS = {
+    "flashbang": 0, "airburst_charge": 4,
+    "an_m14_thermite_grenade": 0, "bowling_bomb": 3,
+    "concussion_grenade": 0, "cs_riot_grenade": 3,
+    "defensive_fragmentation_grenade": 4, "emp_disruption_grenade": 2,
+    "f1_defensive_grenade": 3, "field_frag_grenade": 4,
+    "frag_grenade": 0, "gas_grenade": 1,
+    "impact_grenade": 3, "incendiary_grenade": 4,
+    "m18_red_smoke_grenade": 0, "m67_fragmentation_grenade": 1,
+    "m7a3_gas_grenade": 2, "m84_stun_grenade": 3,
+    "mini_impact_charge": 4, "mk2_pineapple_grenade": 0,
+    "mk3a2_concussion_grenade": 1, "rgd2_impact_grenade": 1,
+    "rgd5_grenade": 2, "sticky_semtex_charge": 2,
+    "v40_mini_grenade": 0,
+}
 
 
 def properties(path):
@@ -64,7 +81,10 @@ def plan():
             continue
         item = path.stem
         # Pin and throw are separate events. Do not replay a pin pull on release.
-        pin = recording("bf4", f"Sound/Weapons/Handheld/M67/M67_Remove_Safety_Pin_Wave 0 0 {index % 5}.wav")
+        variant = PIN_VARIANTS.get(item)
+        if variant is None:
+            variant = int.from_bytes(hashlib.sha256(item.encode()).digest()[:2], "big") % 5
+        pin = recording("bf4", f"Sound/Weapons/Handheld/M67/M67_Remove_Safety_Pin_Wave 0 0 {variant}.wav")
         pin_sources = [pin]
         if item == "molotov_cocktail":
             pin_sources = [recording("raw", "sandstorm_character_foli/molotov_lighter_open.ogg"), recording("raw", "sandstorm_character_foli/molotov_lighter_strike.ogg")]

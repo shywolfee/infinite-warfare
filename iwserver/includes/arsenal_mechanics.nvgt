@@ -2,6 +2,12 @@ string server_weapon_property(string id,string key)
 {
 int i=find_wpn_stats(id);string value;if(i>=0)wpn_stats_cache[i].mechanics.get(key,value);return value;
 }
+bool server_weapon_has_effect(string id,string effect)
+{
+string[] effects=string_split(server_weapon_property(id,"on_hit"),",",false);
+for(uint i=0;i<effects.length();i++)if(effects[i]==effect)return true;
+return false;
+}
 double server_weapon_value(string id,string key){return string_to_number(server_weapon_property(id,key));}
 arsenal_thermal_state@ server_thermal_state(player@ p,string id)
 {
@@ -42,8 +48,12 @@ send_reliable(players[owner].peer_id,"target_hp "+target.health+" "+amount+" hea
 }
 void projectile_content_effect(weapon@ w,player@ target,int damage)
 {
-string effect=server_weapon_property(w.type,"on_hit");
-if(effect=="burn"){target.burning=true;target.burning_owner=w.cn;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
-if(effect=="slow" or effect=="ion"){int duration=int(server_weapon_value(w.type,"effect_ms"));if(duration<0)duration=0;if(duration>10000)duration=10000;send_reliable(target.peer_id,"combat_slow "+duration,0);}
-if(effect=="lifesteal"){int owner=get_player_index_from(w.cn);if(owner<0 or players[owner].death or players[owner].map!=w.map)return;double percent=server_weapon_value(w.type,"life_return_percent");if(percent<0)percent=0;if(percent>100)percent=100;int amount=int(damage*percent/100);if(amount>1000-players[owner].health)amount=1000-players[owner].health;if(amount>0)players[owner].health+=amount;}
+if(server_weapon_has_effect(w.type,"burn")){target.burning=true;target.burning_owner=w.cn;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
+if(server_weapon_has_effect(w.type,"bloodletting")){target.bleeding=true;target.bleeding_owner=w.cn;target.bleeding_duration_timer.restart();target.bleeding_tick_timer.restart();send_reliable(target.peer_id,"play_s bleeding_start.ogg",0);}
+if(server_weapon_has_effect(w.type,"poison") and !target.redspot_mask){target.poisoned=true;target.poison_owner=w.cn;target.poison_duration_timer.restart();target.poison_tick_timer.restart();send_reliable(target.peer_id,"You have been poisoned.",2);}
+if(server_weapon_has_effect(w.type,"tracking")){target.tagged_by=w.cn;target.tag_timer.restart();send_reliable(target.peer_id,"A tracking projectile has tagged you.",2);}
+if(server_weapon_has_effect(w.type,"stat_ping")){int owner=get_player_index_from(w.cn);if(owner>=0)send_reliable(players[owner].peer_id,target.name+": "+target.health+" health, "+target.redspot_shield+" shield charges, "+target.redspot_air+" seconds of air.",2);}
+if(server_weapon_has_effect(w.type,"slow") or server_weapon_has_effect(w.type,"ion")){int duration=int(server_weapon_value(w.type,"effect_ms"));if(duration<0)duration=0;if(duration>10000)duration=10000;send_reliable(target.peer_id,"combat_slow "+duration,0);}
+if(server_weapon_has_effect(w.type,"pushback")){int distance=int(server_weapon_value(w.type,"pushback_tiles"));if(distance<1)distance=1;if(distance>3)distance=3;double rad=double(w.dir)*3.14159265358979323846/180.0;for(int step=0;step<distance;step++){int nx=target.x+int(round(sine(rad),0)),ny=target.y+int(round(cosine(rad),0));if(projectile_solid_tile(get_tile_at(nx,ny,target.z,target.map)))break;dobject_set@ obstacles=dobjects_on(target.map);if(obstacles !is null){dobject@ wall=obstacles.at(nx,ny,target.z+1);if(wall !is null and wall.active and wall.solid_at(nx,ny,target.z+1))break;}target.x=nx;target.y=ny;}set_player_model_target(target,target.x,target.y,target.z);send_reliable(target.peer_id,"setcoords "+target.x+" "+target.y+" "+target.z,0);}
+if(server_weapon_has_effect(w.type,"lifesteal")){int owner=get_player_index_from(w.cn);if(owner<0 or players[owner].death or players[owner].map!=w.map)return;double percent=server_weapon_value(w.type,"life_return_percent");if(percent<0)percent=0;if(percent>100)percent=100;int amount=int(damage*percent/100);if(amount>1000-players[owner].health)amount=1000-players[owner].health;if(amount>0)players[owner].health+=amount;}
 }

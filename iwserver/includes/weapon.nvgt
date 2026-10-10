@@ -87,7 +87,7 @@ string last_solid_key="";
 double gravity,drag,mass_grams,diameter_mm,damage_retention,collision_radius,explosive_radius,muzzle_velocity;
 timer simulation_timer;
 timer audio_update_timer;
-int audio_id=-1;
+int audio_id=-1;int ricochets=0;bool guided=false,auto_homing=false;int pilot_peer=-1,steer_input=0,pitch_input=0;string guided_target="";timer guided_input_timer,guided_sync_timer;
 weapon(double wx,double wy,double wz,double wdir,int wfacing,string wtype,string wcn,string wmap,double yaw_jitter=0,double pitch_jitter=0)
 {
 x=wx;y=wy;z=wz+.8;start_x=x;start_y=y;start_z=z;dir=int(wdir);facing=wfacing;type=wtype;cn=wcn;map=wmap;ammunition="standard_ammunition";hit_players="|";whiz_players="|";path_distance=0;age=0;penetration=0;pellet_index=0;pellet_count=1;int si=find_wpn_stats(type);if(si<0)return;wpn_server_stats@ s=wpn_stats_cache[si];range=s.range;mindammage=s.mindammage;maxdammage=s.maxdammage;wclass=s.wclass;sound_profile=s.sound_profile;projectile_kind=s.projectile_kind;gravity=s.gravity;drag=s.drag;mass_grams=s.mass_grams;diameter_mm=s.diameter_mm;damage_retention=s.damage_retention;collision_radius=s.collision_radius;explosive_radius=s.explosive_radius;muzzle_velocity=s.muzzle_velocity;penetration=s.penetration;pellet_count=s.pellet_count;projectile_loop=s.projectile_loop;explosion_sound=s.explosion_sound;explosion_distant=s.explosion_distant;explosion_impact=s.explosion_impact;kill_label=s.kill_label;blast_damage=s.blast_damage;double yaw=(wdir+yaw_jitter)*3.14159265358979323846/180.0;double elevation=(double(wfacing)-90.0+pitch_jitter)*3.14159265358979323846/180.0;double horizontal=cosine(elevation)*muzzle_velocity;vx=sine(yaw)*horizontal;vy=cosine(yaw)*horizontal;vz=sine(elevation)*muzzle_velocity;simulation_timer.restart();
@@ -173,8 +173,8 @@ for(int e=0;e<int(players.length());e++)
 player@ target=players[e];
 if(target.map!=w.map or target.name==w.cn or target.death or target.in_plane or player_has_spawn_grace(target) or string_contains(w.hit_players,"|"+target.name+"|",1)>=0)continue;
 string region=projectile_player_region(w,target);if(region=="")continue;
-if(server_weapon_property(w.type,"on_hit")=="heal"){if(projectile_support_player(w,target,owner))return true;continue;}
-if(server_weapon_property(w.type,"on_hit")=="repair")continue;
+if(server_weapon_has_effect(w.type,"heal")){if(projectile_support_player(w,target,owner))return true;continue;}
+if(server_weapon_has_effect(w.type,"repair"))continue;
 // Rounds pass through team-mates and through anyone the shooter cannot hurt
 // (arena spectators, players outside the shooter's arena). This is decided
 // before armour is touched: such hits used to wear armour down and play
@@ -212,6 +212,7 @@ for(int e=0;e<int(planes.length());e++)if(planes[e].map==w.map and get_3d_distan
 }
 bool projectile_step(weapon@ w,double dt)
 {
+if(w.guided)guided_missile_steer(w,dt);
 double drag_factor=1.0-w.drag*dt;if(drag_factor<0)drag_factor=0;w.vx*=drag_factor;w.vy*=drag_factor;w.vz*=drag_factor;w.vz-=w.gravity*dt;double dx=w.vx*dt,dy=w.vy*dt,dz=w.vz*dt;w.x+=dx;w.y+=dy;w.z+=dz;w.path_distance+=sqrt(dx*dx+dy*dy+dz*dz);w.age+=dt;
 // Explosive shells used to vanish silently when their path length passed the
 // weapon's range, so a lobbed grenade or mortar round could simply disappear
@@ -219,11 +220,21 @@ double drag_factor=1.0-w.drag*dt;if(drag_factor<0)drag_factor=0;w.vx*=drag_facto
 // self-destruct at their range; anything left over detonates when its flight
 // time runs out.
 if(w.projectile_kind=="shell"){if((w.wclass=="rocket_launcher" and w.path_distance>w.range) or w.age>20 or w.z<-2){projectile_detonate(w);return true;}}
-else if(w.path_distance>w.range or w.age>8 or w.z<-2)return true;projectile_flyby(w);if(projectile_hit_vehicle(w)){projectile_detonate(w);return true;}if(projectile_hit_companion(w)){projectile_detonate(w);return true;}if(projectile_hit_player(w)){projectile_detonate(w);return true;}if(projectile_hit_structures(w)){projectile_detonate(w);return true;}int rx=int(round(w.x,0)),ry=int(round(w.y,0)),rz=int(floor(w.z));string tile=get_tile_at(rx,ry,rz,w.map);if(projectile_solid_tile(tile)){string solid_key=rx+":"+ry+":"+rz;if(!projectile_penetrate_tile(w,tile,solid_key)){if(!world_sound_wall_impact(tile,w.wclass,rx,ry,rz,w.map))play("bullet_rico"+random(1,9),rx,ry,rz,w.map);projectile_detonate(w);return true;}}else w.last_solid_key="";double surface=projectile_surface_height(w.x,w.y,w.z,w.map);if(w.vz<0 and surface>-9000 and w.z<=surface+w.collision_radius*.25){projectile_detonate(w);return true;}return false;
+else if(w.path_distance>w.range or w.age>8 or w.z<-2)return true;projectile_flyby(w);if(projectile_hit_vehicle(w)){projectile_detonate(w);return true;}if(projectile_hit_companion(w)){projectile_detonate(w);return true;}if(projectile_hit_player(w)){projectile_detonate(w);return true;}if(projectile_hit_redspot_cargo(w)){projectile_detonate(w);return true;}if(projectile_hit_deployable(w)){projectile_detonate(w);return true;}if(projectile_hit_structures(w)){projectile_detonate(w);return true;}int rx=int(round(w.x,0)),ry=int(round(w.y,0)),rz=int(floor(w.z));string tile=get_tile_at(rx,ry,rz,w.map);if(projectile_solid_tile(tile)){string solid_key=rx+":"+ry+":"+rz;if(!projectile_penetrate_tile(w,tile,solid_key)){
+int chance=int(server_weapon_value(w.type,"ricochet_chance"));if(chance>100)chance=100;
+if(w.ricochets==0 and chance>0 and random(1,100)<=chance and w.projectile_kind!="shell"){
+w.ricochets++;w.x-=dx;w.y-=dy;w.z-=dz;
+if(int(round(w.x,0))!=rx)w.vx=-w.vx*.55;
+else if(int(round(w.y,0))!=ry)w.vy=-w.vy*.55;
+else w.vz=-w.vz*.55;
+w.mindammage=int(w.mindammage*.55);w.maxdammage=int(w.maxdammage*.55);
+play("bullet_rico"+random(1,9),rx,ry,rz,w.map);return false;
+}
+if(!world_sound_wall_impact(tile,w.wclass,rx,ry,rz,w.map))play("bullet_rico"+random(1,9),rx,ry,rz,w.map);projectile_detonate(w);return true;}}else w.last_solid_key="";double surface=projectile_surface_height(w.x,w.y,w.z,w.map);if(w.vz<0 and surface>-9000 and w.z<=surface+w.collision_radius*.25){projectile_detonate(w);return true;}return false;
 }
 void weaponloop()
 {
-for(int i=int(weapons.length())-1;i>=0;i--){double elapsed=double(weapons[i].simulation_timer.elapsed)/1000.0;if(elapsed<.005)continue;if(elapsed>.12)elapsed=.12;weapons[i].simulation_timer.restart();double speed=sqrt(weapons[i].vx*weapons[i].vx+weapons[i].vy*weapons[i].vy+weapons[i].vz*weapons[i].vz);int steps=int(ceil((speed*elapsed)/.3));if(steps<1)steps=1;if(steps>120)steps=120;double dt=elapsed/double(steps);bool remove=false;for(int s=0;s<steps and !remove;s++)remove=projectile_step(weapons[i],dt);if(remove){stop_projectile_audio(weapons[i]);weapons.remove_at(i);}}
+for(int i=int(weapons.length())-1;i>=0;i--){double elapsed=double(weapons[i].simulation_timer.elapsed)/1000.0;if(elapsed<.005)continue;if(elapsed>.12)elapsed=.12;weapons[i].simulation_timer.restart();double speed=sqrt(weapons[i].vx*weapons[i].vx+weapons[i].vy*weapons[i].vy+weapons[i].vz*weapons[i].vz);int steps=int(ceil((speed*elapsed)/.3));if(steps<1)steps=1;if(steps>120)steps=120;double dt=elapsed/double(steps);bool remove=false;for(int s=0;s<steps and !remove;s++)remove=projectile_step(weapons[i],dt);if(remove){if(weapons[i].guided and weapons[i].pilot_peer>=0)send_reliable(weapons[i].pilot_peer,"missile_end",0);stop_projectile_audio(weapons[i]);weapons.remove_at(i);}else if(weapons[i].guided and weapons[i].pilot_peer>=0 and weapons[i].guided_sync_timer.elapsed>=80){weapons[i].guided_sync_timer.restart();send_unreliable(weapons[i].pilot_peer,"missile_sync "+weapons[i].audio_id+" "+weapons[i].x+" "+weapons[i].y+" "+weapons[i].z+" "+weapons[i].vx+" "+weapons[i].vy+" "+weapons[i].vz+" "+weapons[i].map+" "+(weapons[i].z-projectile_surface_height(weapons[i].x,weapons[i].y,weapons[i].z,weapons[i].map)),0);}}
 flush_projectile_audio_updates();
 }
 

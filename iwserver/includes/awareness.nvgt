@@ -103,7 +103,7 @@ return o.suppressed_weapons.find(o.current_weapon)>=0;
 // asked for directly (tracking) and out to sixty tiles on the tracker.
 string contact_state(player@ me,player@ o,bool tracking)
 {
-if(o.death or o.map!=me.map or o.invisible or !me.see)return "";
+if(o.death or o.map!=me.map or o.invisible or (o.redspot_invisible and o.redspot_invisible_timer.elapsed<30000) or !me.see)return "";
 int my_team=get_team_index_for_member(me.name);
 bool ally=(my_team>=0 and get_team_index_for_member(o.name)==my_team);
 double d=straight_distance(me.x,me.y,me.z,o.x,o.y,o.z);
@@ -113,6 +113,7 @@ bool moving=o.move_timer.elapsed<AWARENESS_MOVE_WINDOW;
 bool firing=o.fire_timer.elapsed<AWARENESS_FIRE_WINDOW and o.fire_timer.elapsed+100<o.spawn_grace_timer.elapsed;
 // A suppressed weapon carries no further than footsteps do.
 double gunfire_range=player_weapon_suppressed(o)?AWARENESS_RANGE:AWARENESS_GUNFIRE_RANGE;
+if(tracking and o.tagged_by==me.name and o.tag_timer.elapsed<12000)return "tagged";
 if(ally)
 {
 if(!tracking and d>AWARENESS_GUNFIRE_RANGE)return "";

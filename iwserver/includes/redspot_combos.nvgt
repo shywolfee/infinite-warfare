@@ -1,0 +1,101 @@
+// Redspot's hand-to-hand sequences. Number keys in self-use mode are server
+// validated; a move must land before its successor can continue the combo.
+class redspot_combo_def
+{
+string keys,name,effect,needs;int minimum,maximum;
+}
+redspot_combo_def@[] redspot_combos;
+void redspot_define_combo(string keys,string name,int minimum,int maximum,string effect="",string needs="")
+{
+redspot_combo_def c;c.keys=keys;c.name=name;c.minimum=minimum;c.maximum=maximum;c.effect=effect;c.needs=needs;redspot_combos.insert_last(c);
+}
+void init_redspot_combos()
+{
+redspot_combos.resize(0);
+redspot_define_combo("123","upper_cut",400,900,"stun");
+redspot_define_combo("111","knuckle_punch",250,550);
+redspot_define_combo("222","hay_maker",350,800);
+redspot_define_combo("333","chin_punch",500,1100,"stun");
+redspot_define_combo("121","left_hook",300,650);
+redspot_define_combo("212","right_hook",320,700);
+redspot_define_combo("131","left_cross",380,820);
+redspot_define_combo("313","right_cross",400,860);
+redspot_define_combo("232","temple_punch",450,1000,"stun");
+redspot_define_combo("32","backhand_chop",260,600);
+redspot_define_combo("444","ass_kick",280,620);
+redspot_define_combo("555","torso_kick",380,850);
+redspot_define_combo("666","temple_kick",520,1200,"stun");
+redspot_define_combo("456","flying_kick",600,1400,"throw");
+redspot_define_combo("454","small_leg_break",300,700);
+redspot_define_combo("565","leg_break",450,1000,"stun");
+redspot_define_combo("464","single_leg_takedown",350,780,"throw");
+redspot_define_combo("646","double_leg_takedown",420,940,"throw");
+redspot_define_combo("71","choke",300,700,"stun");
+redspot_define_combo("72","disarm",100,250,"disarm");
+redspot_define_combo("74","nut_cracker",500,1100,"stun");
+redspot_define_combo("77","shove",120,300,"throw");
+redspot_define_combo("78","throw",350,800,"throw");
+redspot_define_combo("79","body_slam",600,1300,"stun");
+redspot_define_combo("87","arm_breaker",480,1050,"stun");
+redspot_define_combo("89","double_leg_face_stomp",700,1500);
+redspot_define_combo("97","back_breaker",750,1600,"stun");
+redspot_define_combo("98","neck_cracker",900,2000);
+redspot_define_combo("73","stomach_stab",1400,3200,"","blade");
+redspot_define_combo("83","2_by_4_throw",800,1800,"throw","club");
+}
+string redspot_move_name(string key)
+{
+if(key=="1")return "light_punch";if(key=="2")return "punch";if(key=="3")return "heavy_punch";
+if(key=="4")return "light_kick";if(key=="5")return "kick";if(key=="6")return "heavy_kick";
+if(key=="7")return "grab";if(key=="8")return "throw";if(key=="9")return "slam";return "";
+}
+int redspot_move_time(string key){if(key=="1" or key=="4")return 300;if(key=="2" or key=="5")return 450;if(key=="3" or key=="6")return 700;if(key=="7")return 500;if(key=="8")return 650;return 900;}
+int redspot_move_min(string key){if(key=="1" or key=="4")return 40;if(key=="2" or key=="5")return 80;if(key=="3" or key=="6")return 140;if(key=="9")return 200;return 20;}
+int redspot_move_max(string key){if(key=="1" or key=="4")return 110;if(key=="2" or key=="5")return 220;if(key=="3" or key=="6")return 380;if(key=="9")return 520;return 90;}
+string redspot_weapon_family(string id){int wi=find_wpn_stats(id);if(wi<0)return "";string kind=wpn_stats_cache[wi].wclass;if(kind=="melee_short_blade" or kind=="melee_long_blade")return "blade";if(kind=="melee_blunt" or kind=="tool")return "club";return "";}
+redspot_combo_def@ redspot_combo_match(string keys,string weapon)
+{
+for(uint i=0;i<redspot_combos.length();i++)if(redspot_combos[i].keys==keys and (redspot_combos[i].needs=="" or redspot_combos[i].needs==redspot_weapon_family(weapon)))return redspot_combos[i];return null;
+}
+bool redspot_combo_prefix(string keys){for(uint i=0;i<redspot_combos.length();i++)if(redspot_combos[i].keys.length()>keys.length() and redspot_combos[i].keys.substr(0,keys.length())==keys)return true;return false;}
+int redspot_hand_target(player@ p)
+{
+int best=-1;double closest=2.2;
+for(uint i=0;i<players.length();i++){player@ t=players[i];if(t.name==p.name or t.death or t.map!=p.map or t.arena_role=="spectator" or t.arena_id!=p.arena_id or same_team(p.name,t.name))continue;double d=get_3d_distance(p.x,p.y,p.z,t.x,t.y,t.z);if(d>=closest or blast_line_blocked(p.x,p.y,p.z+1,t.x,t.y,t.z+1,p.map))continue;bool barrier=false;for(uint w=0;w<walls.length();w++)if(walls[w].map==p.map and walls[w].health>0 and walls[w].x==t.x and walls[w].y==t.y and t.z>=walls[w].miniz and t.z<=walls[w].maxz){barrier=true;break;}if(barrier)continue;best=int(i);closest=d;}
+return best;
+}
+void redspot_combo_effect(player@ attacker,player@ target,string effect)
+{
+if(effect=="stun")send_reliable(target.peer_id,"combat_slow 4000",0);
+else if(effect=="disarm"){
+target.current_weapon="fists";target.server_walktime=get_wpn_walktime("fists");send_reliable(target.peer_id,"combat_disarm",0);
+}
+else if(effect=="throw"){
+double rad=double(attacker.facing)*3.14159265358979323846/180.0;
+int nx=target.x+int(round(sine(rad),0)),ny=target.y+int(round(cosine(rad),0));
+if(projectile_solid_tile(get_tile_at(nx,ny,target.z,target.map)))return;
+dobject_set@ objects=dobjects_on(target.map);if(objects !is null and objects.at(nx,ny,target.z+1)!is null)return;
+target.x=nx;target.y=ny;set_player_model_target(target,nx,ny,target.z);send_reliable(target.peer_id,"setcoords "+nx+" "+ny+" "+target.z,0);
+}
+}
+bool redspot_combo_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="combat_move")return false;
+int pi=get_player_index(peer);if(pi<0 or f.length()!=2 or redspot_move_name(f[1])=="")return true;player@ p=players[pi];
+if(p.death or p.arena_role=="spectator" or companion_body_controlled(p.name) or controlled_turret(peer)!is null)return true;
+for(uint i=0;i<weapons.length();i++)if(weapons[i].guided and weapons[i].pilot_peer==int(peer))return true;
+string key=f[1];if(p.combo_sequence!="" and p.combo_timer.elapsed>1800)p.combo_sequence="";
+if(p.combo_sequence!="" and p.combo_timer.elapsed<redspot_move_time(p.combo_sequence.substr(p.combo_sequence.length()-1))){p.combo_sequence="";send_reliable(peer,"You rushed the sequence; start again after this move lands.",2);}
+p.combo_sequence+=key;p.combo_timer.restart();redspot_combo_def@ combo=redspot_combo_match(p.combo_sequence,p.current_weapon);
+int target_index=redspot_hand_target(p);string move=redspot_move_name(key);
+if(combo !is null){
+play("redspot_"+combo.name+"_combo",p.x,p.y,p.z,p.map,pi);
+if(target_index>=0){player@ target=players[target_index];int damage=random(combo.minimum,combo.maximum)/3;apply_player_damage(target,damage,p.name+"'s "+string_replace(combo.name,"_"," ",true));redspot_combo_effect(p,target,combo.effect);send_reliable(peer,"Landed "+string_replace(combo.name,"_"," ",true)+" on "+target.name+" for "+damage+" damage.",2);}
+else send_reliable(peer,"Performed "+string_replace(combo.name,"_"," ",true)+" on empty air.",2);
+p.combo_sequence="";return true;
+}
+if(!redspot_combo_prefix(p.combo_sequence))p.combo_sequence=key;
+play("redspot_"+move+"_fire"+random(1,3),p.x,p.y,p.z,p.map,pi);
+if(target_index>=0){player@ target=players[target_index];int damage=random(redspot_move_min(key),redspot_move_max(key))/2;apply_player_damage(target,damage,p.name+"'s "+string_replace(move,"_"," ",true));play("redspot_"+move+"_hit"+random(1,3),target.x,target.y,target.z,target.map,target_index);if(key=="7")send_reliable(target.peer_id,"combat_slow 2500",0);}
+return true;
+}

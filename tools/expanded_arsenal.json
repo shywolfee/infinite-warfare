@@ -3597,8 +3597,8 @@
         "heat_capacity": "100",
         "cooling_per_second": "20",
         "vent_ms": "2200",
-        "on_hit": "slow",
-        "effect_ms": "2600"
+        "on_hit": "tracking",
+        "effect_ms": "12000"
       },
       "folder": "energy"
     },
@@ -4005,7 +4005,8 @@
         "is_magazine": "true",
         "starting_reserve": "8",
         "reload_ms": "2200",
-        "ammo_display": "rounds"
+        "ammo_display": "rounds",
+        "ricochet_chance": "18"
       },
       "folder": "sniper_rifles"
     },
@@ -5574,8 +5575,8 @@
         "ammo_type": "cannonball",
         "feed_device": "single projectile chamber",
         "capacity": "4",
-        "reserve_item": "cannonball_supply",
-        "reserve_label": "cannonball supply",
+        "reserve_item": "cannon_ball",
+        "reserve_label": "cannonballs",
         "is_magazine": "false",
         "starting_reserve": "8",
         "reload_ms": "2200",
@@ -5634,7 +5635,7 @@
         "starting_reserve": "8",
         "reload_ms": "2200",
         "ammo_display": "rounds",
-        "on_hit": "lifesteal",
+        "on_hit": "poison,lifesteal",
         "life_return_percent": "20"
       },
       "folder": "submachine_guns",
@@ -5775,7 +5776,7 @@
         "starting_reserve": "8",
         "reload_ms": "2200",
         "ammo_display": "rounds",
-        "on_hit": "slow",
+        "on_hit": "slow,poison",
         "effect_ms": "2600"
       },
       "folder": "submachine_guns",
@@ -6570,7 +6571,8 @@
         "is_magazine": "true",
         "starting_reserve": "8",
         "reload_ms": "2200",
-        "ammo_display": "charge"
+        "ammo_display": "charge",
+        "ricochet_chance": "35"
       },
       "folder": "energy",
       "ammo_type": "energy pulse"
@@ -8188,7 +8190,8 @@
         "is_magazine": "false",
         "starting_reserve": "8",
         "reload_ms": "2200",
-        "ammo_display": "rounds"
+        "ammo_display": "rounds",
+        "on_hit": "bloodletting"
       },
       "folder": "archery",
       "ammo_type": "throwing blade"
@@ -8299,8 +8302,8 @@
         "dispersion_degrees": "0.6",
         "penetration": "0",
         "damage_retention": "0.8",
-        "on_hit": "lifesteal",
-        "life_return_percent": "20"
+        "on_hit": "bloodletting,lifesteal",
+        "life_return_percent": "18"
       },
       "folder": "melee_long_blade"
     },

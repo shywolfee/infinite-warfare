@@ -1,4 +1,4 @@
-#include "includes/sizer.nvgt"
+﻿#include "includes/sizer.nvgt"
 #include "bgt_compat.nvgt"
 #include"includes/constants.nvgt"
 #include "includes/key_hold.nvgt"
@@ -50,6 +50,11 @@ bool fixture_revived=false;
 #include "sound_pool.nvgt"
 #include "includes/acoustics.nvgt"
 #include "includes/item_usage.nvgt"
+#include "includes/guided_missile.nvgt"
+#include "includes/turrets.nvgt"
+#include "includes/redspot_bases.nvgt"
+#include "includes/redspot_cameras.nvgt"
+#include "includes/packs.nvgt"
 #include "includes/companions.nvgt"
 #include "includes/src.nvgt"
 #include "includes/sd.nvgt"
@@ -112,6 +117,9 @@ int world_volume=0;
 mixer gameplay_mixer, interface_mixer, notification_mixer, world_mixer;
 bool dev_unlocked=false;
 bool staff_panel_available=false;
+bool use_self_mode=false;
+bool redspot_candy_active=false;timer redspot_candy_timer;
+bool redspot_deafened=false;timer redspot_deafen_timer;int redspot_deafen_duration=0;
 bool packet_monitor_enabled=false;
 bool packet_viewer_active=false;
 int client_network_drain_depth=0;
@@ -403,10 +411,10 @@ menu_music_save_timer.restart();
 // `version` stays a bare number because it travels inside the space-delimited
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
-double version=0.591;
-string version_name="0.5.10";
-int build_number=104;
-string build_date="2026-10-09";
+double version=0.60;
+string version_name="0.6.0";
+int build_number=105;
+string build_date="2026-10-10";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
@@ -437,6 +445,7 @@ int movetime;
 string motd;
 timer xtimer;
 bool falling=false;
+bool parachute_open=false,spring_boots_equipped=false;
 timer falltimer;
 int falltime=50;
 int falldistance=0;
@@ -975,6 +984,7 @@ f.create_window("Developer Suite", false, true);
 int f_giveall=f.create_button("Give &all items");
 int f_giveitem=f.create_button("Give item from &database");
 int f_spawnveh=f.create_button("&Spawn vehicle");
+int f_spawnturret=f.create_button("Spawn &turret");
 int f_runtime=f.create_button("Runtime &diagnostics");
 int f_validate=f.create_button("Run live &validation");
 int f_packets=f.create_button("Packet diagnostic &tools");
@@ -994,6 +1004,7 @@ else if (f.is_pressed(f_spawnveh))
 {
 dev_spawn_vehicle();
 }
+else if(f.is_pressed(f_spawnturret)) dev_spawn_turret();
 else if(f.is_pressed(f_giveitem)) dev_database_give();
 else if(f.is_pressed(f_runtime))dev_runtime_report();
 else if(f.is_pressed(f_validate))dev_validation_report();
@@ -1119,6 +1130,13 @@ int[] sorted=get_sorted_poi_indices();iw_form f;f.create_window("Developer POI T
 while(true){wait(5);f.monitor();if(connected)netloop();if(f.is_pressed(cancel))return;if(f.is_pressed(go)){int pos=f.get_list_position(list);if(pos<0 or pos>=int(sorted.length()))return;int pi=sorted[pos];me.x=pois[pi].x;me.y=pois[pi].y;me.z=pois[pi].z;mr.x=round(me.x,0);mr.y=round(me.y,0);send_reliable(1,"move_to "+mr.x+" "+mr.y+" "+me.z,0);speak("Teleported to "+string_replace(pois[pi].name,"_"," ",true)+".");return;}}
 }
 // Asks the server to place a vehicle beside you (builders and developers).
+void dev_spawn_turret()
+{
+string[] labels={"20 mm swiveling turret","30 mm elevating turret","Laser turret","Fixed heavy turret","Redspot base machinegun"};
+string[] ids={"20mm","30mm","laser","fixed","base_machinegun"};
+string chosen=pick_from_list("Spawn a turret",labels,ids);
+if(chosen!="")send_reliable(0,"turret spawn "+chosen,0);
+}
 void dev_spawn_vehicle()
 {
 if(vehicle_types.length()==0)init_vehicle_types();
@@ -2369,13 +2387,49 @@ void inventory_menu_legacy()
 bool item_handled_on_client(string item)
 {
 if(item=="credit_chip_small" or item=="credit_chip_large" or is_attachment_item(item) or is_holster_item(item) or is_ammo_reserve_item(item))return true;
+if(item.find("health_pod__value__")==0)return true;
 if(item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item=="portable_auction_terminal" or item_prop(item,"device_profile")!="" or item_prop(item,"use_kind")=="terminal_storage")return true;
 if(item_is_thrown_explosive(item) or item_is_deployable_explosive(item) or item_is_launched_explosive(item))return true;
 string[] client_items={"bomb_vest","translocator","translocator_cell","adrenaline_syringe","biomonitor_bracelet","wirenet","c4","hypercomp","repair_kit"};
 return client_items.find(item)>=0;
 }
+void launch_redspot_cargo()
+{
+if(get_item_count("item_carying_projectile")<=0){speak("Carry an item carrying projectile first.");return;}
+string[] labels,ids;string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++){string item=keys[i];if(item=="item_carying_projectile" or get_item_count(item)<=0 or is_weapon(item))continue;if(!item_flag(item,"disposable") and item_prop(item,"device_profile")=="" and item.find("pack_containing_")!=0 and item.find("shipment_")!=0 and item.find("health_pod__value__")!=0)continue;labels.insert_last(physical_item_name(item));ids.insert_last(item);}
+if(ids.length()==0){speak("Carry a physical item to send first.");return;}
+string payload=pick_from_list("Item to send",labels,ids);if(payload=="")return;
+string destination=af_input("Delivery coordinates","X Y Z on your current map",true).trim_whitespace();string[] parts=string_split(destination," ",false);if(parts.length()!=3){speak("Enter X, Y and Z separated by spaces.");return;}
+string activation=pick_from_list("Delivery action",{"Drop the item for pickup","Activate compatible items when it lands"},{"0","1"});if(activation=="")return;
+send_reliable(0,"cargo launch "+payload+" "+parts[0]+" "+parts[1]+" "+parts[2]+" "+activation,0);
+}
 void on_item_used(string item)
 {
+if(item_prop(item,"turret_ammo_kind")!=""){send_reliable(0,"turret load "+item,0);return;}
+if(item=="guided_missile_controller"){if(get_item_count("piloted_guided_missile")<=0)speak("Carry a piloted guided missile before launching.");else send_reliable(0,"missile launch",0);return;}
+if(item=="wood"){send_reliable(0,"use wood",0);return;}
+if(item=="lockpick"){send_reliable(0,"use lockpick",0);return;}
+if(item=="empty_pack"){fill_empty_pack();return;}
+if(item.find("health_pod__value__")==0){send_reliable(0,"use "+item,0);return;}
+if(item=="robot"){send_reliable(0,"use robot",0);return;}
+if(item=="item_carying_projectile"){launch_redspot_cargo();return;}
+if(item=="spy_camera"){send_reliable(0,"spy_camera place",0);return;}
+if(item=="spy_camera_controller"){send_reliable(0,"spy_camera list",0);return;}
+if(item=="battery_pack"){send_reliable(0,"spy_camera charge_near",0);return;}
+if(item=="satellite_bomb" or item=="satellite_bomb_remote"){
+string code=af_input(item=="satellite_bomb"?"Program satellite bomb":"Satellite bomb launch code","Enter a four-digit code",true).trim_whitespace();
+if(code!="")send_reliable(0,"redspot_explosive "+(item=="satellite_bomb"?"sat_place":"sat_fire")+" "+code,0);return;
+}
+if(item=="programmable_timebomb"){
+string seconds=af_input("Program timebomb","Seconds until detonation, 1 to 3600",true).trim_whitespace();
+if(seconds!="")send_reliable(0,"redspot_explosive timer_place "+seconds,0);return;
+}
+if(item_prop(item,"use_kind")=="redspot_item"){send_reliable(0,"use "+item,0);return;}
+if(item_prop(item,"use_kind")=="redspot_explosive"){
+if(item_is_thrown_explosive(item)){if(cooked_grenade!="" or confirm_explosive_in_vehicle(item,false))grenade_pin_or_throw(item);}
+else if(item_is_deployable_explosive(item) and confirm_explosive_in_vehicle(item,true))send_reliable(0,explosive_use_command(item),0);
+return;}
+if(item_prop(item,"use_kind")=="parachute" or item_prop(item,"use_kind")=="spring_boots" or item_prop(item,"use_kind")=="propulsion_jet"){send_reliable(0,"use "+item,0);return;}
 if(item_prop(item,"device_profile")!=""){device_menu(item);return;}
 if(item_prop(item,"use_kind")=="terminal_storage"){device_upgrade_storage(item);return;}
 if(item_prop(item,"currency_kind")!="" or item_flag(item,"disposable")){physical_item_menu(item);return;}
@@ -3657,6 +3711,8 @@ process_touch_gestures();
 game_dashboard_tick();
 if(resume_nested_dashboard and !game_dashboard_keyboard_active())return;
 if(!game_dashboard_keyboard_active())continue;
+if(turret_piloting){turret_pilot_controls();continue;}
+if(missile_piloting){missile_pilot_controls();continue;}
 if(companion_piloting){companion_pilot_controls();continue;}
 if(pingtimer.elapsed > 20000 and pinging==true)
 {
@@ -3721,10 +3777,9 @@ show_poi_list();
 bool item_shortcut_alt=(key_down(KEY_LMENU) or key_down(KEY_RMENU));
 bool item_shortcut_shift=(key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT));
 bool item_inspect_pressed=false;
+if(item_shortcut_alt and item_shortcut_shift and action_pressed("usage_mode")){use_self_mode=!use_self_mode;speak(use_self_mode?"Using yourself":"Using items");}
 if(item_shortcut_alt and item_shortcut_shift)
 {
-item_inspect_pressed=action_pressed("item_inspect");
-if(item_inspect_pressed){string inspect_item=get_selected_item();if(inspect_item=="" or is_weapon(inspect_item))speak("Select an inventory item first.");else speak(item_mechanic_description(inspect_item));}
 if(action_pressed("extract_pill")){string pill_item=get_selected_item();if(!item_is_pill_bottle(pill_item))speak("Select a pill bottle first.");else send_reliable(0,"extract_pill "+pill_item,0);}
 }
 if (!item_shortcut_alt and !item_inspect_pressed and action_pressed("next_category"))
@@ -4160,9 +4215,12 @@ speak("No item selected.");
 }
 if (key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT) and key_up(KEY_LMENU) and key_up(KEY_RMENU))
 {
-if((action_pressed("use_item") or mouse_pressed(2) or gk_use) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true)
+if(base_picking and (action_pressed("use_item") or mouse_pressed(2) or gk_use)){send_reliable(0,"base pick click "+base_pick_id,0);}
+else if((action_pressed("use_item") or mouse_pressed(2) or gk_use) and usetimer.elapsed>n.get_peer_average_round_trip_time(1)+100 and can_move==true)
 {
 usetimer.restart();
+if(use_self_mode){gk_interact=true;}else
+{
 string sel_item = get_selected_item();
 if (sel_item == "")
 speak("Your inventory is empty.");
@@ -4177,10 +4235,12 @@ if (!item_handled_on_client(sel_item))
 send_reliable(0,item_use_command(sel_item),0);
 }
 }
+}
 bool vehicle_key_alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),vehicle_key_shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
 if(((action_pressed("vehicle_door") and !vehicle_key_alt and !vehicle_key_shift) or gk_interact) and can_move==true)
 {
-if (in_vehicle)
+if(turret_try_control()){}
+else if (in_vehicle)
 vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
 else
 {
@@ -4269,7 +4329,7 @@ if (walktime>=300) speak("Your current heavy weapon is lowered until you stand."
 else {p.play_stationary("modeleave.ogg",false);speak("Standing.");}
 send_reliable(0, sitting ? "posture sitting" : "posture standing", 0);
 }
-if((action_pressed("jump") or gk_jump) and jumping==false and falling==false and can_move==true and !in_vehicle and (!sitting or seated_jump_timer.elapsed>=7000))
+if((action_pressed("jump") or gk_jump) and !parachute_open and jumping==false and falling==false and can_move==true and !in_vehicle and (!sitting or seated_jump_timer.elapsed>=7000))
 {
 p.play_stationary("executioners_rage/jump.wav", false);
 send_reliable(0, "jump", 0);
@@ -4279,6 +4339,7 @@ jumpup=1;
 jumplandz=me.z;
 jump_vertical_position=me.z;
 jump_vertical_velocity=9.7-total_equipment_weight()*.055-double(walktime>200?walktime-200:0)*.004;
+if(redspot_candy_active and redspot_candy_timer.elapsed<30000)jump_vertical_velocity+=4;
 if(sitting)jump_vertical_velocity=4.8;
 if(jump_vertical_velocity<5.2)jump_vertical_velocity=5.2;
 if (sitting)
@@ -4390,7 +4451,7 @@ else
 {
 // Normal on-foot movement.
 bool wants_sprint=(shift_is_down() or touch_sprint) and !sitting and (action_down("move_forward") or action_down("move_backward") or action_down("move_left") or action_down("move_right"));
-bool sprinting=wants_sprint and weapon_allows_sprint(weapons[w]);
+bool sprinting=wants_sprint and !parachute_open and weapon_allows_sprint(weapons[w]);
 if(wants_sprint and !sprinting and sprint_heavy_warning_timer.elapsed>2500){sprint_heavy_warning_timer.restart();speak("This weapon is too heavy to sprint with.");}
 if(action_down("move_up") and walktimer.elapsed>movetime)
 {
@@ -4405,6 +4466,7 @@ move(Down);
 string desired_move="";
 if(action_down("move_forward"))desired_move=Forward;else if(action_down("move_backward"))desired_move=Backward;else if(action_down("move_left"))desired_move=Left;else if(action_down("move_right"))desired_move=Right;
 double weight_factor=(1.0+total_equipment_weight()/80.0+double(walktime>200?walktime-200:0)/900.0)*handling_movement_penalty(weapons[w]);
+if(parachute_open)weight_factor*=2.4;
 if(desired_move!="")
 {
 if(momentum_direction!="" and momentum_direction!=desired_move)movement_momentum*=.45;
@@ -4449,6 +4511,20 @@ if(key_pressed(KEY_0)) bind_quickbar(9);
 // Number key without modifiers: activate quickbar slot.
 if(!MENU_is_down() and key_up(KEY_LSHIFT) and key_up(KEY_RSHIFT))
 {
+if(use_self_mode)
+{
+if(key_pressed(KEY_1)) send_reliable(0,"combat_move 1",0);
+if(key_pressed(KEY_2)) send_reliable(0,"combat_move 2",0);
+if(key_pressed(KEY_3)) send_reliable(0,"combat_move 3",0);
+if(key_pressed(KEY_4)) send_reliable(0,"combat_move 4",0);
+if(key_pressed(KEY_5)) send_reliable(0,"combat_move 5",0);
+if(key_pressed(KEY_6)) send_reliable(0,"combat_move 6",0);
+if(key_pressed(KEY_7)) send_reliable(0,"combat_move 7",0);
+if(key_pressed(KEY_8)) send_reliable(0,"combat_move 8",0);
+if(key_pressed(KEY_9)) send_reliable(0,"combat_move 9",0);
+}
+else
+{
 if(key_pressed(KEY_1)) use_quickbar_slot(0);
 if(key_pressed(KEY_2)) use_quickbar_slot(1);
 if(key_pressed(KEY_3)) use_quickbar_slot(2);
@@ -4459,6 +4535,7 @@ if(key_pressed(KEY_7)) use_quickbar_slot(6);
 if(key_pressed(KEY_8)) use_quickbar_slot(7);
 if(key_pressed(KEY_9)) use_quickbar_slot(8);
 if(key_pressed(KEY_0)) use_quickbar_slot(9);
+}
 }
 // Grave accent: give all (only when running from source) — legacy shortcut.
 }
@@ -4889,6 +4966,11 @@ else if(parsed[0]=="reset_ammo")
 {
 reset_ammo();
 }
+else if(parsed[0]=="combat_disarm")
+{
+for(uint w=0;w<weapons.length();w++)weapons[w]="fists";
+apply_weapon_stats("fists");speak("You have been disarmed.");
+}
 else if(parsed[0]=="fixture_revive")
 {
 fixture_revived=true;can_move=true;send_reliable(0,"health",0);speak("You have been resuscitated.");
@@ -5022,7 +5104,7 @@ int x=string_to_number(parsed[1]);
 int y=string_to_number(parsed[2]);
 int z=string_to_number(parsed[3]);
 string map=parsed[4];
-spawn_wall(x,y,z,z+10,map,"wallwood");
+spawn_wall(x,y,z,z+(parsed.length()>5?string_to_number(parsed[5]):10),map,"wallwood");
 }
 else if(parsed[0]=="ladder_spawned" and parsed.length()>4)
  {
@@ -5030,8 +5112,12 @@ int x=string_to_number(parsed[1]);
 int y=string_to_number(parsed[2]);
 int z=string_to_number(parsed[3]);
 string map=parsed[4];
-spawn_ladder(x,y,z,z+10,map,"wallwood");
+spawn_ladder(x,y,z,z+(parsed.length()>5?string_to_number(parsed[5]):10),map,"wallwood");
 }
+else if(guided_missile_packet(parsed)){}
+else if(turret_packet(parsed)){}
+else if(redspot_base_packet(parsed)){}
+else if(redspot_camera_packet(parsed)){}
 else if(handle_vehicle_packet(parsed)){}
 else if(parsed[0]=="ping" and pinging==true)
 {
@@ -5072,6 +5158,36 @@ me.x=string_to_number(parsed[1]);
 me.y=string_to_number(parsed[2]);
 me.z=string_to_number(parsed[3]);
 mr.x=me.x;mr.y=me.y;movement_momentum=0;momentum_direction="";
+}
+else if(parsed[0]=="mobility_state" and parsed.length()>2)
+{
+if(parsed[1]=="parachute")parachute_open=parsed[2]=="1";
+else if(parsed[1]=="boots")spring_boots_equipped=parsed[2]=="1";
+}
+else if(parsed[0]=="redspot_candy")
+{
+redspot_candy_active=true;redspot_candy_timer.restart();
+}
+else if(parsed[0]=="redspot_deafen" and parsed.length()>1)
+{
+redspot_deafen_duration=string_to_number(parsed[1]);if(redspot_deafen_duration>10000)redspot_deafen_duration=10000;if(redspot_deafen_duration<0)redspot_deafen_duration=0;redspot_deafened=true;redspot_deafen_timer.restart();p.play_stationary("redspot_sound_grenade_noise.ogg",false);
+}
+else if(parsed[0]=="redspot_concussion")
+{
+jumping=false;falling=true;falldistance=0;falltimer.restart();speak("The concussive blast launched you into the air.");
+}
+else if(parsed[0]=="mobility_spring")
+{
+if(jumping){jump_vertical_velocity+=10;jumptimer.restart();}
+}
+else if(parsed[0]=="mobility_jump_blocked")
+{
+jumping=false;spring_boots_equipped=false;
+}
+else if(parsed[0]=="mobility_jet")
+{
+if(falling){falling=false;jumping=true;jumplandz=me.z;jump_vertical_position=me.z;}
+if(jumping){jump_vertical_velocity+=12;jumptimer.restart();}
 }
 else if(parsed[0]=="tracking" and parsed.length()>4)
 {
@@ -5490,7 +5606,7 @@ send_reliable(1, "fall", 0);
 }
 void fallingloop()
 {
-if(falling==true and falltimer.elapsed > falltime and in_plane==false)
+if(falling==true and falltimer.elapsed > (parachute_open?220:falltime) and in_plane==false)
 {
 if(get_tile_at(mr.x, mr.y, me.z)!="" and get_tile_at(mr.x, mr.y, me.z)!="blank")
 {
@@ -5499,6 +5615,11 @@ if(falldistance <= 3)
 {
 p.play_stationary(surface_land_sound(get_tile_at(mr.x, mr.y, me.z)), false);
 send_reliable(1, "land", 0);
+}
+else if(parachute_open)
+{
+p.play_stationary(surface_land_sound(get_tile_at(mr.x,mr.y,me.z)),false);
+send_reliable(1,"hardland "+falldistance,0);
 }
 else
 {
@@ -5527,12 +5648,14 @@ stamina_loop();
 vehicle_loop();
 grenade_cook_loop();
 effects_loop();
+if(redspot_deafened){if(redspot_deafen_timer.elapsed<redspot_deafen_duration){gameplay_mixer.volume=gameplay_volume-25;world_mixer.volume=world_volume-25;}else{redspot_deafened=false;gameplay_mixer.volume=gameplay_volume;world_mixer.volume=world_volume;}}
 update_all_listeners();
 acoustics_loop();
 map_ambience_loop();
 mr.x=round(me.x,0);
 mr.y=round(me.y,0);
 movetime=walktime;
+if(redspot_candy_active){if(redspot_candy_timer.elapsed<30000)movetime=int(double(movetime)*.65);else redspot_candy_active=false;}
 // Adrenaline Rush halves movement time.
 if (has_effect("Adrenaline Rush")) movetime = walktime / 2;
 if (has_effect("Energy Crash")) movetime = int(double(movetime) * 1.45);

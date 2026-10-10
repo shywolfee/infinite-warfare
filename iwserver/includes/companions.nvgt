@@ -3,6 +3,7 @@ class companion_actor
 {
 int id;string owner,item,kind,map,mode="follow",sound;double x,y,z,guard_x,guard_y,guard_z;int facing=0,health,speed,follow_distance,attack_range,damage_min,damage_max,attack_cooldown;timer move_timer,attack_timer,sync_timer,sound_timer;
 bool piloted=false;int owner_peer=-1,input_forward=0,input_side=0,input_vertical=0,input_turn=0;timer input_timer;
+int lifetime_ms=0;timer lifetime_timer;
 }
 companion_actor@[] companions;
 int next_companion_id=1;
@@ -19,12 +20,14 @@ if(reliable)send_reliable_map(c.map,packet,0);else send_unreliable_map(c.map,pac
 void deploy_companion(int player_index,string item)
 {
 if(player_index<0 or item_prop(item,"use_kind")!="companion")return;player@ owner=players[player_index];if(owner.death or owner.arena_role=="spectator")return;int owned=0;for(uint i=0;i<companions.length();i++)if(companions[i].owner==owner.name)owned++;if(owned>=8){send_reliable(owner.peer_id,"You may control no more than eight companions at once.",2);return;}
+if(item=="robot" and physical_count(owner,item)<=0){send_reliable(owner.peer_id,"You do not carry a Redspot robot.",2);return;}
 companion_actor@ c=companion_actor();c.id=next_companion_id++;c.owner=owner.name;c.owner_peer=owner.peer_id;c.item=item;c.kind=item_prop(item,"companion_kind","drone");c.map=owner.map;c.x=owner.x;c.y=owner.y;c.z=owner.z+(c.kind=="drone"?1.5:0);c.facing=owner.facing;c.health=item_prop_int(item,"companion_health",500);c.speed=item_prop_int(item,"companion_speed",7);c.follow_distance=item_prop_int(item,"companion_follow_distance",3);c.attack_range=item_prop_int(item,"companion_attack_range",20);c.damage_min=item_prop_int(item,"companion_damage_min",80);c.damage_max=item_prop_int(item,"companion_damage_max",120);c.attack_cooldown=item_prop_int(item,"companion_attack_cooldown_ms",2200);c.sound=item_prop(item,"companion_sound");companions.insert_last(c);
+c.lifetime_ms=item_prop_int(item,"companion_lifetime_ms",0);if(c.kind=="robot")c.mode="attack";
 end_spawn_grace(owner);send_reliable(owner.peer_id,"give "+item+" -1",0);if(c.sound!="")world_sound_from(c.kind=="chimp"?"animals/chimpanzee/phrases/vocal"+random(1,4):c.sound+"/activate",owner);companion_sync(c,true);send_reliable(owner.peer_id,"Deployed "+companion_label(c)+". Use a Companion Command Remote to direct or pilot it.",2);
 }
 int companion_nearest_hostile(companion_actor@ c)
 {
-int owner=get_player_index_from(c.owner),found=-1;double nearest=999999;if(owner<0)return -1;for(uint i=0;i<players.length();i++){if(players[i].death or players[i].map!=c.map or players[i].name==c.owner or players[i].arena_role=="spectator" or same_team(c.owner,players[i].name) or !player_can_be_damaged_by(players[i],c.owner))continue;double d=actor_distance(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z);double r=c.facing*3.14159265358979323846/180;if(c.piloted and d>.01 and ((players[i].x-c.x)*sine(r)+(players[i].y-c.y)*cosine(r))/d<.5)continue;if(d<=c.attack_range and d<nearest and !blast_line_blocked(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z+1,c.map)){nearest=d;found=int(i);}}return found;
+int owner=get_player_index_from(c.owner),found=-1;double nearest=999999;if(owner<0)return -1;for(uint i=0;i<players.length();i++){if(players[i].death or players[i].map!=c.map or players[i].name==c.owner or players[i].arena_role=="spectator" or same_team(c.owner,players[i].name) or !player_can_be_damaged_by(players[i],c.owner) or (c.kind=="robot" and players[i].redspot_scrambled and players[i].redspot_scrambler_timer.elapsed<30000))continue;double d=actor_distance(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z);double r=c.facing*3.14159265358979323846/180;if(c.piloted and d>.01 and ((players[i].x-c.x)*sine(r)+(players[i].y-c.y)*cosine(r))/d<.5)continue;if(d<=c.attack_range and d<nearest and !blast_line_blocked(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z+1,c.map)){nearest=d;found=int(i);}}return found;
 }
 bool companion_fire_once(companion_actor@ c,player@ owner,bool report=true)
 {
@@ -38,6 +41,7 @@ double d=actor_distance(c.x,c.y,c.z,players[target].x,players[target].y,players[
 if(d>item_prop_number(c.item,"companion_weapon_range",c.kind=="chimp"?1.8:8))
 {if(report)send_reliable(owner.peer_id,"The companion must approach before its weapon can reach that target.",2);return false;}
 end_spawn_grace(owner);c.attack_timer.restart();
+if(c.kind=="robot"){world_sound_at("redspot_robot/fire",c.x,c.y,c.z,c.map);if(random(1,100)<=55){if(report)send_reliable(owner.peer_id,"The robot fired wide of "+players[target].name+".",2);return true;}}
 int damage=apply_player_damage(players[target],random(c.damage_min,c.damage_max),c.owner+"'s "+c.item);
 if(c.kind=="chimp")
 {
@@ -93,13 +97,13 @@ double length=sqrt(dx*dx+dy*dy+dz*dz);int steps=int(ceil(length/.15));if(steps<1
 for(int i=0;i<steps;i++)
 {
 double nx=c.x+dx/steps,ny=c.y+dy/steps,nz=c.z+dz/steps;
-if(c.kind=="chimp"){double h=projectile_surface_height(nx,ny,c.z+.7,c.map);if(h<-9000 or absolute(h-.18-c.z)>1.05)break;nz=h-.18;}
+if(c.kind=="chimp" or c.kind=="robot"){double h=projectile_surface_height(nx,ny,c.z+.7,c.map);if(h<-9000 or absolute(h-.18-c.z)>1.05)break;nz=h-.18;}
 if(!companion_position_clear(c,nx,ny,nz))break;c.x=nx;c.y=ny;c.z=nz;
 }
 }
 void companion_step_toward(companion_actor@ c,double tx,double ty,double tz,double dt)
 {
-double dx=tx-c.x,dy=ty-c.y,dz=c.kind=="chimp"?0:tz-c.z,d=sqrt(dx*dx+dy*dy+dz*dz);if(d<.05)return;
+double dx=tx-c.x,dy=ty-c.y,dz=(c.kind=="chimp" or c.kind=="robot")?0:tz-c.z,d=sqrt(dx*dx+dy*dy+dz*dz);if(d<.05)return;
 double step=c.speed*dt;if(step>d)step=d;companion_move_step(c,dx/d*step,dy/d*step,dz/d*step);
 c.facing=(int(atan2(dx,dy)*180/3.14159265358979323846)+360)%360;
 }
@@ -118,7 +122,7 @@ void companion_loop()
 for(int i=int(companions.length())-1;i>=0;i--)
 {
 companion_actor@ c=companions[i];int oi=get_player_index_from(c.owner);
-if(oi<0 or (c.owner_peer>=0 and players[oi].peer_id!=c.owner_peer) or players[oi].death or players[oi].map!=c.map or c.health<=0){companion_end_pilot(c);send_reliable_map(c.map,"companion_remove "+c.id,0);companions.remove_at(i);continue;}
+if(oi<0 or (c.owner_peer>=0 and players[oi].peer_id!=c.owner_peer) or players[oi].death or players[oi].map!=c.map or c.health<=0 or (c.lifetime_ms>0 and c.lifetime_timer.elapsed>=c.lifetime_ms)){companion_end_pilot(c);send_reliable_map(c.map,"companion_remove "+c.id,0);companions.remove_at(i);continue;}
 player@ owner=players[oi];
 if(c.mode=="recall")
 {

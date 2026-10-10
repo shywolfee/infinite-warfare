@@ -66,6 +66,13 @@ bool handle_dynamic_object_packet(const string &in message)
 {
 if(message.substr(0,16)=="content_objects|"){string[] records=string_split(message.substr(16),"\x1e",false);dobject_types.delete_all();for(uint i=0;i<records.length();i++){int split=records[i].find("\x1f");if(split>0)dobject_types.set(records[i].substr(0,split),@parse_dobject_type(records[i].substr(0,split),records[i].substr(split+1)));}for(uint i=0;i<client_dobjects.list.length();i++){dobject@ o=client_dobjects.list[i];int health=o.health,flags=o.flags(),stock=o.stock;o.become(o.type_id);o.apply_state(health,flags,stock,o.type_id);dobject_reshape(o);}return true;}
 string[] parsed=string_split(message," ",true);if(parsed.length()==0)return false;
+if(parsed[0]=="dobj_spawn" and parsed.length()>=8){
+if(parsed[7]!=mapname)return true;
+int id=int(string_to_number(parsed[1]));if(client_dobjects.find(id) !is null)return true;
+dobject@ o=new_dobject(id,parsed[2],string_to_number(parsed[3]),string_to_number(parsed[4]),string_to_number(parsed[5]),int(string_to_number(parsed[6])),parsed[7],"");
+if(o !is null){client_dobjects.list.insert_last(o);client_dobjects.index();dobject_reshape(o);}return true;
+}
+
 string kind=parsed[0];
 if(kind=="world_sound")
 {

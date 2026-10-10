@@ -1,0 +1,39 @@
+// Checks the server's client-version gate: it compares version text part by
+// part, and it never treats a client as old merely because a floating-point
+// version cannot express a later release. Run from the repository root:
+//   C:/nvgt/nvgt.exe tools/tests/version_gate_regression.nvgt
+// Not part of the game.
+#include "bgt_compat.nvgt"
+#include "../../iwserver/includes/version_gate.nvgt"
+
+int failures=0;
+void check(const string &in what,bool got,bool want)
+{
+if(got!=want){println("FAIL "+what+" got="+got+" want="+want);failures++;}
+else println("ok   "+what);
+}
+
+void main()
+{
+check("0.6.1 is newer than 0.6.0",server_version_compare("0.6.1","0.6.0")>0,true);
+check("0.5.10 is newer than 0.5.9",server_version_compare("0.5.10","0.5.9")>0,true);
+check("0.5.9.1 is newer than 0.5.9",server_version_compare("0.5.9.1","0.5.9")>0,true);
+check("0.5.9 is older than 0.5.9.1",server_version_compare("0.5.9","0.5.9.1")<0,true);
+check("equal versions compare equal",server_version_compare("0.6.0","0.6.0")==0,true);
+check("0.5.0 is old (text)",server_version_is_old(0.5,"0.5.0"),true);
+check("0.6.0 is not old (text)",server_version_is_old(0.60,"0.6.0"),false);
+check("0.6.1 is not old (text)",server_version_is_old(0.61,"0.6.1"),false);
+check("9.9.9 is not old (text)",server_version_is_old(0.99,"9.9.9"),false);
+check("legacy 0.50 is old (number only)",server_version_is_old(0.50,""),true);
+check("legacy 0.60 is not old (number only)",server_version_is_old(0.60,""),false);
+// The point of comparing text: under a 0.5.9 floor, 0.5.10 must be seen as
+// newer, even though its number, 0.51, is below 0.59.
+string saved=minversion;double saved_number=minversion_number;
+minversion="0.5.9";minversion_number=0.59;
+check("0.5.10 is not old under a 0.5.9 floor (text)",server_version_is_old(0.51,"0.5.10"),false);
+check("legacy 0.51 would look old under a 0.5.9 floor (number only)",server_version_is_old(0.51,""),true);
+minversion=saved;minversion_number=saved_number;
+if(failures==0){println("PASS version gate");exit(0);}
+println("FAILURES "+failures);
+exit(1);
+}

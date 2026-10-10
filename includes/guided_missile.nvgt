@@ -1,0 +1,42 @@
+bool missile_piloting=false;int piloted_missile_id=-1;
+double missile_x=0,missile_y=0,missile_z=0,missile_vx=0,missile_vy=1,missile_vz=0;
+timer missile_input_timer;
+void missile_return(bool tell_server=true)
+{
+if(!missile_piloting)return;
+if(tell_server)send_reliable(0,"missile return "+piloted_missile_id,0);
+destroy_source(piloted_missile_id);missile_piloting=false;piloted_missile_id=-1;
+update_all_listeners();game_dashboard_rebuild_options(true);speak("Returned to your body. The missile continues on its momentum.");
+}
+bool guided_missile_packet(const string[] &in f)
+{
+if(f.length()==0)return false;
+if(f[0]=="missile_end"){missile_return(false);return true;}
+if(f[0]=="missile_pilot" and f.length()>=6){
+if(f[5]!=mapname)return true;
+if(companion_piloting)stop_companion_pilot();
+missile_piloting=true;piloted_missile_id=int(string_to_number(f[1]));missile_x=string_to_number(f[2]);missile_y=string_to_number(f[3]);missile_z=string_to_number(f[4]);
+destroy_source(piloted_missile_id);spawn_source(int(missile_x),int(missile_x),int(missile_y),int(missile_y),int(missile_z),int(missile_z),"conventional_guided_missile_flight_loop.ogg",1,false,piloted_missile_id);
+update_all_listeners();game_dashboard_rebuild_options(true);game_dashboard_focus_game();speak("Guided missile control. Arrow keys steer and climb or dive. T locks onto your tracked player. O returns to your body while the missile continues flying.");return true;
+}
+if(f[0]=="missile_sync" and f.length()>=10){
+if(!missile_piloting or int(string_to_number(f[1]))!=piloted_missile_id or f[8]!=mapname)return true;
+missile_x=string_to_number(f[2]);missile_y=string_to_number(f[3]);missile_z=string_to_number(f[4]);missile_vx=string_to_number(f[5]);missile_vy=string_to_number(f[6]);missile_vz=string_to_number(f[7]);
+move_src(piloted_missile_id,int(missile_x),int(missile_x),int(missile_y),int(missile_y),int(missile_z),int(missile_z));
+double altitude=string_to_number(f[9]);if(altitude<0)altitude=0;if(altitude>50)altitude=50;
+update_all_listeners();
+for(uint i=0;i<sources.length();i++)if(sources[i].id==piloted_missile_id and sources[i].source_sound>=0)p.items[sources[i].source_sound].handle.pitch=100+int(altitude*1.2);return true;
+}
+return false;
+}
+void missile_pilot_controls()
+{
+if(key_pressed(KEY_O) or key_pressed(KEY_ESCAPE)){missile_return();return;}
+if(key_pressed(KEY_T)){if(tracking!="")send_reliable(0,"missile track "+piloted_missile_id+" "+tracking,0);else speak("Track a player first with the tracking menu.");}
+if(action_pressed("facing"))speak("Missile bearing "+int(atan2(missile_vx,missile_vy)*180/3.14159265358979323846+360)%360+" degrees from true north.");
+if(action_pressed("coordinates"))speak("Missile at "+round(missile_x,1)+", "+round(missile_y,1)+", "+round(missile_z,1)+".");
+if(missile_input_timer.elapsed<50)return;missile_input_timer.restart();
+int steer=(action_down("move_right")?1:0)-(action_down("move_left")?1:0);
+int pitch=(action_down("move_forward")?1:0)-(action_down("move_backward")?1:0);
+send_unreliable(0,"missile input "+piloted_missile_id+" "+steer+" "+pitch,0);
+}

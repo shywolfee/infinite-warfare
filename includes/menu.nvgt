@@ -49,6 +49,7 @@ e.insert_last(main_menu_entry("gesturepractice","Practise touch gestures"));
 e.insert_last(main_menu_entry("changelog","What's new"));
 e.insert_last(main_menu_entry("readme","Manual"));
 e.insert_last(main_menu_entry("cfu","Check for updates"));
+e.insert_last(main_menu_entry("updatesource","Update source"));
 e.insert_last(main_menu_entry("repostatus","Repository status"));
 if(SCRIPT_COMPILED==false or dev_unlocked)e.insert_last(main_menu_entry("adminpanel","Staff panel"));
 if(!SCRIPT_COMPILED)e.insert_last(main_menu_entry("releasebuild","Build a release"));
@@ -127,10 +128,30 @@ else if(selected=="gesturepractice")practice_android_gestures();
 else if(selected=="changelog")changelogmenu();
 else if(selected=="readme")show_readme();
 else if(selected=="cfu")cfu("iw","iw.zip");
+else if(selected=="updatesource")updater_source_menu();
 else if(selected=="repostatus")repo_status_menu();
 else if(selected=="adminpanel")adminpanel();
 else if(selected=="releasebuild")compress_release_build();
 else if(selected=="exit"){m.fade_music(10);exit();}
+}
+
+// Points updates at a fork, another branch or a particular commit. An
+// open-source game should not force everyone onto one repository, so the
+// choice is remembered in updater/source.txt and used by Check for updates.
+// It lives here rather than in updater.nvgt because it needs af_input, which
+// the updater's own regression test does not provide.
+void updater_source_menu()
+{
+string current_repository=updater_repository();
+string current_branch=updater_branch();
+string repository=af_input("Repository to update from, as owner/name",current_repository,false).trim_whitespace();
+if(repository=="")return;
+if(string_contains(repository,"/",1)<0 or string_contains(repository," ",1)>=0 or string_contains(repository,"..",1)>=0){dlg("A repository looks like owner/name, for example shywolfee/infinite-warfare.");return;}
+string branch=af_input("Branch or commit to update from",current_branch,false).trim_whitespace();
+if(branch=="")return;
+if(string_contains(branch," ",1)>=0 or string_contains(branch,"..",1)>=0){dlg("Enter a branch name or a commit hash, with no spaces.");return;}
+updater_set_source(repository,branch);
+speak("Updates will now come from "+repository+" ("+branch+").");
 }
 
 // Check authorization mode from the server.

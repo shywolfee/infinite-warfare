@@ -9,10 +9,10 @@ def props(path):
     return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8-sig").splitlines()
                 if "=" in line and not line.startswith("#"))
 
-assert (ROOT / "version.txt").read_text().strip() == "0.5.10"
+assert (ROOT / "version.txt").read_text().strip() == "0.6.0"
 client = (ROOT / "Infinite Warfare.nvgt").read_text(encoding="utf-8-sig")
-assert 'string version_name="0.5.10";' in client
-assert re.search(r"int build_number\s*=\s*104;", client)
+assert 'string version_name="0.6.0";' in client
+assert re.search(r"int build_number\s*=\s*105;", client)
 items = {p.stem: props(p) for p in (CONTENT / "items").rglob("*.item")}
 weapons = {p.stem: props(p) for p in (CONTENT / "weapons").rglob("*.wpn")}
 offers = {}
@@ -37,7 +37,7 @@ assert "does not provide armour" in items["bomb_vest"]["summary"].lower()
 assert items["bowling_bomb"]["flight_mandatory"] == "true"
 assert float(items["bowling_bomb"]["flight_volume_db"]) > 0
 devices = {id: d for id, d in items.items() if d.get("device_profile")}
-assert len(devices) == 7
+assert len(devices) == 8
 assert {id for id, d in devices.items() if d.get("device_extensible") == "true"} == {"field_tablet", "signal_handset"}
 for path in (CONTENT / "device_modules").rglob("*.app"):
     d = props(path)
@@ -45,4 +45,4 @@ for path in (CONTENT / "device_modules").rglob("*.app"):
     assert int(d["size"]) > 0 and int(d["price"]) >= 0, path
     for id in d["devices"].split(","):
         assert devices[id]["device_extensible"] == "true", path
-print(f"PASS 0.5.10: {len(offers)} offers, {len(devices)} devices, valid release metadata")
+print(f"PASS 0.6.0: {len(offers)} offers, {len(devices)} devices, valid release metadata")

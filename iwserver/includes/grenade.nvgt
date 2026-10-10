@@ -86,6 +86,7 @@ void pin_grenade(int peer,string kind)
 {
 int pi=get_player_index(peer);if(pi<0)return;
 if(!item_is_thrown_explosive(kind) or item_flag(kind,"momentum_rolling") or players[pi].death or players[pi].arena_role=="spectator"){send_reliable(peer,"grenade_finished "+kind+" rejected",0);return;}
+if(item_prop(kind,"use_kind")=="redspot_explosive" and physical_count(players[pi],kind)<=0){send_reliable(peer,"grenade_finished "+kind+" rejected",0);return;}
 int held=held_grenade_index(peer);
 if(held>=0){if(fraggrenades[held].kind!=kind)send_reliable(peer,"grenade_finished "+kind+" rejected",0);return;}
 // Pinning arms the grenade, not the old launcher mechanism. Once live it
@@ -230,6 +231,31 @@ for(int step=0;step<steps;step++)if(!grenade_step(g,dt))break;
 if(g.audio_id>=0 and g.audio_update_timer.elapsed>=50){g.audio_update_timer.restart();send_unreliable_map(g.map,"projectile_audio_move "+g.audio_id+" "+g.x+" "+g.y+" "+g.z+" "+g.map,0);}
 }
 if(g.landed and g.audio_id>=0){send_reliable_map(g.map,"projectile_audio_stop "+g.audio_id,0);g.audio_id=-1;}
+}
+// Resolve all armed explosions after moving every bomb. A pair of bombs
+// marked by the same collision detonates in this same server tick.
+// Propagate the impact through a packed line of touching bombs before any
+// member is removed. This keeps the chain independent of array order.
+bool more_rolling_impacts=true;
+while(more_rolling_impacts)
+{
+more_rolling_impacts=false;
+for(uint a=0;a<fraggrenades.length();a++)
+{
+fraggrenade@ first=fraggrenades[a];
+if(!first.momentum_rolling or !first.rolling_detonate)continue;
+for(uint b=0;b<fraggrenades.length();b++)
+{
+fraggrenade@ next=fraggrenades[b];
+if(next is first or !next.momentum_rolling or next.rolling_detonate or next.map!=first.map or next.held_peer>=0)continue;
+if(actor_distance(first.x,first.y,first.z,next.x,next.y,next.z)>.65)continue;
+next.rolling_detonate=true;more_rolling_impacts=true;
+}
+}
+}
+for(int i=int(fraggrenades.length())-1;i>=0;i--)
+{
+fraggrenade@ g=fraggrenades[i];
 bool impact_fuse=item_flag(g.kind,"impact_fuse") or g.kind=="impact_grenade";
 if(g.momentum_rolling){if(!g.rolling_detonate and g.explodetimer.elapsed<120000)continue;}
 else if(int(g.explodetimer.elapsed)<g.fuse and !(impact_fuse and g.bounces>0))continue;
@@ -336,22 +362,25 @@ fraggrenades.insert_last(e1);
 deployable_explosive@[] deployable_explosives;
 class deployable_explosive
 {
-int x,y,z,dir,arming_ms=1200;double sensor_mult=1;string map,owner,kind;timer armed_timer;timer life_timer;timer trigger_timer;bool triggered=false;
+int x,y,z,dir,arming_ms=1200,health=0,detonate_ms_override=0;double sensor_mult=1;string map,owner,kind,launch_code="";timer armed_timer;timer life_timer;timer trigger_timer;bool triggered=false;
 int vehicle_id=-1; // a charge placed inside a vehicle travels with it
-deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;arming_ms=item_prop_int(kind,"arming_ms",1200);play(item_prop(kind,"place_sound",explosive_audio_prefix(kind)+"_place"),x,y,z,map);string countdown=item_prop(kind,"countdown_sound");if(countdown!="")play(countdown,x,y,z,map);}
+deployable_explosive(int px,int py,int pz,int pdir,string pmap,string powner,string pkind){x=px;y=py;z=pz;dir=pdir;map=pmap;owner=powner;kind=pkind;arming_ms=item_prop_int(kind,"arming_ms",1200);health=item_prop_int(kind,"shoot_health",0);play(item_prop(kind,"place_sound",explosive_audio_prefix(kind)+"_place"),x,y,z,map);string countdown=item_prop(kind,"countdown_sound");if(countdown!="")play(countdown,x,y,z,map);}
 }
 void detonate_deployable(int index)
 {
 deployable_explosive@ d=deployable_explosives[index];deployable_explosives.remove_at(index);
+if(d.kind=="sm2_missile_plate"){for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].kind=="sm2_missile" and deployable_explosives[i].owner==d.owner and deployable_explosives[i].map==d.map){deployable_explosives.remove_at(i);play("redspot_sm2_missile_launch",d.x,d.y,d.z,d.map);blast_profile@ missile=blast_profile_for("sm2_missile",d.owner);detonate(d.x,d.y,double(d.z)+.5,d.map,missile);break;}return;}
+if(d.kind=="dynamite_detonator"){for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].kind=="dynamite" and deployable_explosives[i].owner==d.owner and deployable_explosives[i].map==d.map)detonate_deployable(i);return;}
 blast_profile@ b=blast_profile_for(d.kind,d.owner);b.inside_vehicle=d.vehicle_id;
 if(item_prop(d.kind,"sensor_kind")=="directional")b.blast_dir=d.dir;
 detonate(d.x,d.y,double(d.z)+.3,d.map,b);
+if(d.kind=="bullet_bomb"){while(true){int linked=-1;for(uint i=0;i<deployable_explosives.length();i++)if(deployable_explosives[i].kind=="bullet_bomb" and deployable_explosives[i].map==d.map and get_3d_distance(d.x,d.y,d.z,deployable_explosives[i].x,deployable_explosives[i].y,deployable_explosives[i].z)<=b.radius){linked=int(i);break;}if(linked<0)break;detonate_deployable(linked);}}
 }
 void deployable_explosive_loop()
 {
 for(int i=int(deployable_explosives.length())-1;i>=0;i--)
 {
-deployable_explosive@ d=deployable_explosives[i];if(d.vehicle_id>=0){int dv=find_authoritative_vehicle(d.vehicle_id,d.map);if(dv>=0){authoritative_vehicle@ carrier=authoritative_vehicles[dv];update_authoritative_vehicle_model(carrier);d.x=int(round(carrier.model_x,0));d.y=int(round(carrier.model_y,0));d.z=int(round(carrier.model_z,0));}}int timed=item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
+deployable_explosive@ d=deployable_explosives[i];if(d.vehicle_id>=0){int dv=find_authoritative_vehicle(d.vehicle_id,d.map);if(dv>=0){authoritative_vehicle@ carrier=authoritative_vehicles[dv];update_authoritative_vehicle_model(carrier);d.x=int(round(carrier.model_x,0));d.y=int(round(carrier.model_y,0));d.z=int(round(carrier.model_z,0));}}int timed=d.detonate_ms_override>0?d.detonate_ms_override:item_prop_int(d.kind,"detonate_ms");if(timed>0 and d.life_timer.elapsed>=timed){detonate_deployable(i);continue;}int trigger_delay=item_prop_int(d.kind,"trigger_delay_ms");if(d.triggered and trigger_delay>0 and d.trigger_timer.elapsed>=trigger_delay){detonate_deployable(i);continue;}if(d.armed_timer.elapsed<d.arming_ms)continue;
 int owner_index=get_player_index_from(d.owner);bool triggered=false;
 double sensor=item_prop_number(d.kind,"sensor_radius",3.2)*d.sensor_mult;string sensor_kind=item_prop(d.kind,"sensor_kind","proximity");
 if(sensor_kind=="timer")continue;
@@ -385,3 +414,7 @@ else if(delay<=0){string trigger=item_prop(d.kind,"detonate_sound");if(trigger!=
 }
 }
 void spawn_deployable_explosive(int x,int y,int z,int dir,string map,string owner,string kind){deployable_explosive d(x,y,z,dir,map,owner,kind);int seat=-1,vi=occupied_vehicle_index(owner,map,seat);if(vi>=0){d.vehicle_id=authoritative_vehicles[vi].id;for(uint s=0;s<authoritative_vehicles[vi].occupants.length();s++){int occupant=get_player_index_from(authoritative_vehicles[vi].occupants[s]);if(occupant>=0)send_reliable(players[occupant].peer_id,"A "+string_replace(kind,"_"," ",true)+" has been armed inside the vehicle.",2);}}deployable_explosives.insert_last(d);}
+bool projectile_hit_deployable(weapon@ w)
+{
+for(int i=int(deployable_explosives.length())-1;i>=0;i--){deployable_explosive@ d=deployable_explosives[i];if(d.map!=w.map or !item_flag(d.kind,"shootable") or get_3d_distance(w.x,w.y,w.z,d.x,d.y,double(d.z)+.5)>w.collision_radius+.7)continue;d.health-=projectile_damage(w,"torso");play("redspot_bullet_bomb_hit",d.x,d.y,d.z,d.map);if(d.health<=0)detonate_deployable(i);return true;}return false;
+}

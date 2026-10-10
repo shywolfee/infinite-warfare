@@ -39,6 +39,14 @@ double d=actor_distance(nx,ny,0,t.x,t.y,0);
 if(t.name==g.owner){if(d>1)g.owner_cleared=true;if(!g.owner_cleared)continue;}
 if(d<=.55 and nz>=t.z-.1 and nz<=t.z+1.9){g.x=nx;g.y=ny;g.z=nz;g.rolling_detonate=true;return false;}
 }
+// Two rolling bombs detonate together when their bodies touch. Flagging both
+// before the detonation pass also makes the result independent of array order.
+for(uint i=0;i<fraggrenades.length();i++)
+{
+fraggrenade@ other=fraggrenades[i];
+if(other is g or !other.momentum_rolling or other.rolling_detonate or other.held_peer>=0 or other.map!=g.map)continue;
+if(actor_distance(nx,ny,nz,other.x,other.y,other.z)<=.65){g.x=nx;g.y=ny;g.z=nz;g.rolling_detonate=true;other.rolling_detonate=true;return false;}
+}
 for(uint i=0;i<companions.length();i++)if(companions[i].map==g.map and companions[i].health>0 and actor_distance(nx,ny,nz,companions[i].x,companions[i].y,companions[i].z)<=.6){g.rolling_detonate=true;return false;}
 bool grounded_before=g.rolling_grounded;
 if(ground>-9000 and ((g.rolling_grounded and absolute(ground-g.z)<.45) or (g.vz<=0 and nz<=ground+.1)))

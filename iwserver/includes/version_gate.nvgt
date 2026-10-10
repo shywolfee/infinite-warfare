@@ -1,0 +1,26 @@
+// The server's client-version gate. It lives in its own module so
+// tools/tests/version_gate_regression.nvgt can exercise the real code.
+//
+// minversion is compared as text, part by part: a floating-point version
+// cannot represent a later release such as 0.5.10, which as a number sorts
+// below 0.5.9. A client below minversion is warned and let in, never
+// disconnected, because an open-source game must let people run a build newer
+// (or older) than the repository's.
+string minversion="0.6.0";
+double minversion_number=0.60; // fallback floor for clients that send only a number
+// Compares dotted version text the way people read it: 0.5.10 is newer than
+// 0.5.9, which is newer than 0.5.9.1. Returns -1, 0 or 1.
+int server_version_compare(string left,string right)
+{
+string[] a=string_split(left,".",false),b=string_split(right,".",false);uint count=a.length()>b.length()?a.length():b.length();
+for(uint i=0;i<count;i++){int av=i<a.length()?string_to_number(a[i]):0,bv=i<b.length()?string_to_number(b[i]):0;if(av<bv)return -1;if(av>bv)return 1;}
+return 0;
+}
+// True when a client is below the supported floor. Clients that send their
+// readable version as text are judged by it; older ones that send only the
+// number fall back to minversion_number.
+bool server_version_is_old(double version_number,string version_text)
+{
+if(version_text!="")return server_version_compare(version_text,minversion)<0;
+return version_number<minversion_number;
+}

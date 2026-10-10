@@ -108,6 +108,9 @@ e=n.request();
 string connect_msg="connect_me "+name+" "+version+" "+comp;
 if(SCRIPT_COMPILED==false and !dev_unlocked)
 connect_msg+=" from_source";
+// The readable version travels too, so the server can judge compatibility by
+// the version people see instead of the lossy floating-point number.
+connect_msg+=" "+version_name;
 send_reliable(0, connect_msg, 0);
 speak("logging in");
 }
@@ -179,6 +182,7 @@ peer_id=e.peer_id;
 string connect_msg2="connect_me "+name+" "+version+" "+comp;
 if(SCRIPT_COMPILED==false and !dev_unlocked)
 connect_msg2+=" from_source";
+connect_msg2+=" "+version_name;
 send_reliable(0, connect_msg2, 0);
 connected=true;
 last_server_msg.restart();
@@ -195,9 +199,16 @@ last_server_msg.restart();
 p.play_stationary("executioners_rage/ui/connect.wav",false);
 lobby();
 }
+else if(e.type==event_receive and string_contains(get_event_message(),"version_warning",1)==0)
+{
+// The server supports a newer version than this client, but it lets us in
+// anyway. Say so and carry on; an open-source game must not disconnect people
+// for running a different build.
+dlg("This server is built for a newer version of Infinite Warfare ("+string_replace(get_event_message(),"version_warning ","",false)+"). You can still play; some newer features may be missing. Use Check for updates on the main menu to get the current version.");
+}
 else if(e.type==event_receive and get_event_message()=="ver")
 {
-dlg("Your Infinite Warfare client is out of date. Return to the main menu and use Check for updates to install the current main branch directly from GitHub.");
+dlg("This server only accepts its own version of Infinite Warfare. Return to the main menu and use Check for updates, or connect to a different server.");
 
 reset_connection_attempt();
 mainmenu();

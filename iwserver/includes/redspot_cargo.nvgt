@@ -1,0 +1,50 @@
+// Physical item carrier with momentum, gravity, map collision and a finite
+// battery. Shooting it down drops its sealed payload at the crash site.
+class redspot_cargo
+{
+double x,y,z,vx,vy,vz;int tx,ty,tz,audio_id,health=150;string map,owner,item;bool activate=false;timer step,age,sync;
+}
+redspot_cargo@[] redspot_cargoes;
+bool redspot_cargo_item(string item)
+{
+return physical_tracked(item) and (item_info(item)!is null or item.find("pack_containing_")==0 or item.find("shipment_")==0 or item.find("health_pod__value__")==0);
+}
+bool redspot_cargo_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="cargo")return false;
+int pi=get_player_index(peer);if(pi<0 or f.length()!=7 or f[1]!="launch")return true;player@ p=players[pi];string item=f[2];
+int x=int(string_to_number(f[3])),y=int(string_to_number(f[4])),z=int(string_to_number(f[5]));int mi=get_map_index(p.map);
+if(p.death or p.arena_role=="spectator" or item=="item_carying_projectile" or !redspot_cargo_item(item) or physical_count(p,item)<1 or physical_count(p,"item_carying_projectile")<1 or mi<0 or (f[6]!="0" and f[6]!="1")){send_reliable(peer,"Carry the projectile and one server-owned payload before launching.",2);return true;}
+if(f[3]!=x+"" or f[4]!=y+"" or f[5]!=z+"" or x<0 or y<0 or z<0 or x>maps[mi].size_x or y>maps[mi].size_y or z>maps[mi].size_z or get_3d_distance(p.x,p.y,p.z,x,y,z)>350){send_reliable(peer,"Choose whole coordinates within 350 tiles on this map.",2);return true;}
+redspot_cargo c;c.x=p.x;c.y=p.y;c.z=p.z+2;c.tx=x;c.ty=y;c.tz=z;c.map=p.map;c.owner=p.name;c.item=item;c.activate=f[6]=="1";c.audio_id=next_projectile_audio_id++;if(next_projectile_audio_id>900000)next_projectile_audio_id=500000;
+double dx=x-c.x,dy=y-c.y,d=sqrt(dx*dx+dy*dy);if(d<.1)d=.1;c.vx=dx/d*20;c.vy=dy/d*20;c.vz=5;
+redspot_cargoes.insert_last(c);send_reliable(peer,"give item_carying_projectile -1",0);send_reliable(peer,"give "+item+" -1",0);send_reliable_map(p.map,"projectile_audio_start "+c.audio_id+" redspot_item_cargo_loop.ogg "+c.x+" "+c.y+" "+c.z+" "+c.map+" "+c.owner+" world 0",0);play("redspot_item_cargo_fire",p.x,p.y,p.z,p.map);send_reliable(peer,"Item carrier launched toward "+x+", "+y+", "+z+".",2);return true;
+}
+void redspot_cargo_finish(int index,bool arrived)
+{
+redspot_cargo@ c=redspot_cargoes[index];send_reliable_map(c.map,"projectile_audio_stop "+c.audio_id,0);
+int drop_x=int(round(c.x,0)),drop_y=int(round(c.y,0)),drop_z=int(floor(c.z));double surface=projectile_surface_height(c.x,c.y,c.z,c.map);if(surface> -9000)drop_z=int(floor(surface));if(arrived){drop_x=c.tx;drop_y=c.ty;drop_z=c.tz;}
+bool used=false;
+if(arrived and c.activate){
+if(c.item=="spy_camera")used=redspot_camera_place_at(c.owner,c.map,drop_x,drop_y,drop_z);
+else if(c.item=="battery_pack")used=redspot_camera_charge_at(c.owner,c.map,drop_x,drop_y,drop_z);
+else if(item_is_thrown_explosive(c.item)){spawn_fraggrenade(drop_x,drop_y,drop_z,0,c.map,c.owner,c.item);used=true;}
+else if(item_is_deployable_explosive(c.item) and item_prop(c.item,"use_kind")!="redspot_special_explosive"){spawn_deployable_explosive(drop_x,drop_y,drop_z,0,c.map,c.owner,c.item);used=true;}
+else if(c.item=="stored_health" or c.item=="antibiotic" or c.item=="poison_drink" or c.item=="water" or c.item.find("health_pod__value__")==0){for(uint i=0;i<players.length();i++)if(!players[i].death and players[i].map==c.map and get_3d_distance(players[i].x,players[i].y,players[i].z,drop_x,drop_y,drop_z)<=2){player@ target=players[i];if(c.item=="water")target.burning=false;else if(c.item=="poison_drink"){target.poisoned=false;target.health+=300;}else if(c.item=="antibiotic")start_residual_healing(target,500,45);else if(c.item=="stored_health")target.health+=90;else target.health+=int(string_to_number(c.item.substr(19)));if(target.health>1000)target.health=1000;used=true;break;}}
+}
+if(!used)spawn_citem(drop_x,drop_y,drop_z,c.map,c.item);
+play(arrived?"redspot_item_cargo_deploy":"redspot_item_cargo_destroy",drop_x,drop_y,drop_z,c.map);redspot_cargoes.remove_at(index);
+}
+void redspot_cargo_loop()
+{
+for(int i=int(redspot_cargoes.length())-1;i>=0;i--){redspot_cargo@ c=redspot_cargoes[i];double dt=double(c.step.elapsed)/1000.0;if(dt<.02)continue;if(dt>.1)dt=.1;c.step.restart();double dx=c.tx-c.x,dy=c.ty-c.y,dz=c.tz+1-c.z,d=sqrt(dx*dx+dy*dy+dz*dz);if(d<1.5){redspot_cargo_finish(i,true);continue;}if(c.age.elapsed>30000){redspot_cargo_finish(i,false);continue;}
+double horizontal=sqrt(dx*dx+dy*dy);if(horizontal<.1)horizontal=.1;double speed=sqrt(c.vx*c.vx+c.vy*c.vy);if(speed<1)speed=1;double desired=horizontal<8?12:28;c.vx+=(dx/horizontal*desired-c.vx)*dt*1.8;c.vy+=(dy/horizontal*desired-c.vy)*dt*1.8;
+double target_height=c.tz+1;if(horizontal>5 and target_height<c.tz+5)target_height=c.tz+5;c.vz+=(target_height-c.z)*dt*3.5;c.vz-=9.81*dt;c.vx*=1-.02*dt;c.vy*=1-.02*dt;c.vz*=1-.02*dt;
+c.x+=c.vx*dt;c.y+=c.vy*dt;c.z+=c.vz*dt;int bx=int(round(c.x,0)),by=int(round(c.y,0)),bz=int(floor(c.z));dobject_set@ objects=dobjects_on(c.map);bool barrier=false;for(uint wi=0;wi<walls.length();wi++)if(walls[wi].health>0 and walls[wi].map==c.map and walls[wi].x==bx and walls[wi].y==by and bz>=walls[wi].miniz and bz<=walls[wi].maxz){barrier=true;break;}if(c.z<0 or barrier or projectile_solid_tile(get_tile_at(bx,by,bz,c.map)) or (objects !is null and objects.at(bx,by,bz)!is null)){redspot_cargo_finish(i,false);continue;}
+if(c.sync.elapsed>=100){c.sync.restart();send_reliable_map(c.map,"projectile_audio_move "+c.audio_id+" "+c.x+" "+c.y+" "+c.z+" "+c.map,0);}
+}
+}
+bool projectile_hit_redspot_cargo(weapon@ w)
+{
+for(int i=int(redspot_cargoes.length())-1;i>=0;i--){redspot_cargo@ c=redspot_cargoes[i];if(c.map!=w.map or get_3d_distance(w.x,w.y,w.z,c.x,c.y,c.z)>w.collision_radius+.5)continue;c.health-=projectile_damage(w,"torso");if(c.health<=0)redspot_cargo_finish(i,false);return true;}return false;
+}

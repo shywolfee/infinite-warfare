@@ -1,0 +1,82 @@
+// Turrets are real dynamic map objects. Their aim and ammunition are owned by
+// the server; every shot enters the ordinary projectile simulation.
+class turret_actor
+{
+int id,object_id,peer=-1,heading=0,elevation=90,rounds=0,capacity=0,reload_size=0,arc=0;
+string kind,map,weapon,ammo,controller="";bool swivels=false,aims_up=false;timer fired;
+}
+turret_actor@[] turrets;
+int next_turret_id=9000000;
+void turret_configure(turret_actor@ t)
+{
+if(t.kind=="20mm"){t.weapon="vehicle_20mm_cannon";t.ammo="turret_20mm_belt";t.capacity=240;t.reload_size=120;t.swivels=true;t.arc=360;}
+else if(t.kind=="30mm"){t.weapon="vehicle_30mm_autocannon";t.ammo="turret_30mm_box";t.capacity=120;t.reload_size=60;t.swivels=true;t.aims_up=true;t.arc=180;}
+else if(t.kind=="laser"){t.weapon="laser_rifle";t.ammo="turret_laser_cell";t.capacity=100;t.reload_size=50;t.swivels=true;t.aims_up=true;t.arc=360;}
+else if(t.kind=="base_machinegun"){t.weapon="browning_m2_heavy_50_cal_machinegun";t.ammo="base_machinegun_ammo_drum";t.capacity=450;t.reload_size=225;t.swivels=true;t.arc=360;}
+else{t.weapon="field_cannon";t.ammo="turret_heavy_shell";t.capacity=8;t.reload_size=2;t.arc=0;}
+}
+int turret_index(int id){for(uint i=0;i<turrets.length();i++)if(turrets[i].id==id)return int(i);return -1;}
+turret_actor@ controlled_turret(uint peer){for(uint i=0;i<turrets.length();i++)if(turrets[i].peer==int(peer))return turrets[i];return null;}
+string turret_report(turret_actor@ t){return t.kind+" turret, "+t.rounds+" rounds; "+t.heading+" degrees from true north, vertical angle "+(90-t.elevation)+" degrees; "+(t.swivels?"swivels":"fixed bearing")+", "+(t.aims_up?"vertical aim enabled":"fixed elevation")+".";}
+void turret_send(turret_actor@ t){send_reliable_map(t.map,"turret_sync "+t.id+" "+t.kind+" "+t.heading+" "+t.elevation+" "+t.rounds+" "+t.map,0);}
+void turret_release(turret_actor@ t){if(t.peer>=0)send_reliable(t.peer,"turret_end",0);t.peer=-1;t.controller="";}
+void turret_spawn(player@ p,string kind)
+{
+if(!p.dev or (kind!="20mm" and kind!="30mm" and kind!="laser" and kind!="fixed" and kind!="base_machinegun"))return;
+dobject_set@ objects=dobjects_on(p.map);if(objects is null)return;
+int id=next_turret_id++;string type="turret_"+kind;
+dobject@ o=new_dobject(id,type,p.x+2,p.y,p.z,p.facing,p.map,"");if(o is null)return;
+objects.list.insert_last(o);objects.index();
+turret_actor t;t.id=id;t.object_id=id;t.kind=kind;t.map=p.map;t.heading=p.facing;turret_configure(t);
+turrets.insert_last(t);
+send_reliable_map(p.map,"dobj_spawn "+id+" "+type+" "+o.x+" "+o.y+" "+o.z+" "+o.facing+" "+p.map,0);
+turret_send(turrets[turrets.length()-1]);send_reliable(p.peer_id,"Spawned a "+kind+" turret two tiles ahead.",2);
+}
+void turret_fire(turret_actor@ t,player@ owner)
+{
+if(t.rounds<=0){send_reliable(owner.peer_id,"The turret is empty. Load "+t.ammo+" beside it.",2);return;}
+int si=find_wpn_stats(t.weapon);if(si<0)return;
+int delay=wpn_stats_cache[si].firetime;if(delay<80)delay=80;if(t.fired.elapsed<delay)return;
+dobject@ o=find_dobject(t.map,t.object_id);if(o is null or !o.active){turret_release(t);return;}
+t.fired.restart();t.rounds--;
+double rad=double(t.heading)*3.14159265358979323846/180.0;double mx=o.centre_x()+sine(rad)*1.45,my=o.centre_y()+cosine(rad)*1.45;
+weapon shot(mx,my,o.z+1,t.heading,t.elevation,t.weapon,owner.name,t.map);if(t.kind=="base_machinegun")shot.sound_profile="redspot_base_machinegun_";start_projectile_audio(shot);weapons.insert_last(shot);
+play(t.kind=="base_machinegun"?"redspot_base_machinegun_fire":get_wpn_sound_profile(t.weapon)+"fire1",o.centre_x(),o.centre_y(),o.z+1,t.map);turret_send(t);
+}
+bool handle_turret_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="turret")return false;
+int pi=get_player_index(peer);if(pi<0)return true;player@ p=players[pi];if(f.length()<2)return true;
+if(f[1]=="spawn" and f.length()>=3){turret_spawn(p,f[2]);return true;}
+if(f[1]=="list"){for(uint i=0;i<turrets.length();i++)if(turrets[i].map==p.map){dobject@ o=find_dobject(p.map,turrets[i].object_id);if(o !is null)send_reliable(peer,"dobj_spawn "+o.id+" "+o.type_id+" "+o.x+" "+o.y+" "+o.z+" "+o.facing+" "+p.map,0);}return true;}
+if(f[1]=="toggle"){
+turret_actor@ current=controlled_turret(peer);if(current !is null){turret_release(current);return true;}
+if(p.death or p.arena_role=="spectator")return true;
+for(uint wi=0;wi<weapons.length();wi++)if(weapons[wi].guided and weapons[wi].pilot_peer==int(peer)){send_reliable(peer,"Return from the missile before taking a turret.",2);return true;}
+if(companion_body_controlled(p.name)){send_reliable(peer,"Return from the companion before taking a turret.",2);return true;}
+for(uint i=0;i<turrets.length();i++){turret_actor@ t=turrets[i];if(t.map!=p.map or t.peer>=0)continue;dobject@ o=find_dobject(t.map,t.object_id);if(o is null or !o.active or o.distance_to(p.x,p.y)>2.2 or absolute(o.z-p.z)>2.5)continue;t.peer=int(peer);t.controller=p.name;send_reliable(peer,"turret_pilot "+t.id+" "+t.heading+" "+t.elevation+" "+o.centre_x()+" "+o.centre_y()+" "+o.z+" "+t.map,0);return true;}
+return true;
+}
+if(f[1]=="load" and f.length()>=3){string ammo=f[2];if(item_prop(ammo,"turret_ammo_kind")=="")return true;
+if(physical_count(p,ammo)<=0){send_reliable(peer,"You do not carry that turret ammunition.",2);return true;}
+for(uint i=0;i<turrets.length();i++){turret_actor@ t=turrets[i];if(t.map!=p.map or t.ammo!=ammo)continue;dobject@ o=find_dobject(t.map,t.object_id);if(o is null or !o.active or o.distance_to(p.x,p.y)>2.2 or absolute(o.z-p.z)>2.5)continue;if(t.rounds+t.reload_size>t.capacity){send_reliable(peer,"This turret has no room for a full ammunition pack.",2);return true;}t.rounds+=t.reload_size;send_reliable(peer,"give "+ammo+" -1",0);send_reliable(peer,"Loaded "+t.reload_size+" rounds. "+turret_report(t),2);turret_send(t);return true;}
+send_reliable(peer,"Stand beside a matching turret to load it.",2);return true;
+}
+if(f.length()<3)return true;
+int at=turret_index(int(string_to_number(f[2])));if(at<0)return true;turret_actor@ t=turrets[at];if(t.peer!=int(peer) or t.controller!=p.name or p.death or p.map!=t.map){turret_release(t);return true;}
+dobject@ o=find_dobject(t.map,t.object_id);if(o is null or !o.active or o.distance_to(p.x,p.y)>3){turret_release(t);return true;}
+if(f[1]=="status")send_reliable(peer,turret_report(t),2);
+else if(f[1]=="aim" and f.length()>=5){int side=int(string_to_number(f[3])),up=int(string_to_number(f[4]));if(side<-1)side=-1;if(side>1)side=1;if(up<-1)up=-1;if(up>1)up=1;if(t.swivels and side!=0){int next=(t.heading+side*2+360)%360;int difference=(next-o.facing+540)%360-180;if(t.arc==360 or absolute(difference)<=t.arc/2)t.heading=next;}if(t.aims_up and up!=0){t.elevation+=up*2;if(t.elevation<45)t.elevation=45;if(t.elevation>135)t.elevation=135;}turret_send(t);}
+else if(f[1]=="fire")turret_fire(t,p);
+return true;
+}
+
+void turret_loop()
+{
+for(uint i=0;i<turrets.length();i++){
+turret_actor@ t=turrets[i];dobject@ o=find_dobject(t.map,t.object_id);
+if(t.peer<0)continue;
+int pi=get_player_index(t.peer);
+if(o is null or !o.active or pi<0 or players[pi].death or players[pi].name!=t.controller or players[pi].map!=t.map or o.distance_to(players[pi].x,players[pi].y)>3)turret_release(t);
+}
+}

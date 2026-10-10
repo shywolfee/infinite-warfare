@@ -1,0 +1,120 @@
+// Buildable player bases are map objects with persistent computer state.
+// The server owns stock, access control and shipment delivery.
+class redspot_base
+{
+int id,x,y,z;string map,owner,team;bool powered=true;int fuel_seconds=300,lock_boosters=0,generator_boosters=0,fuel_meter=0,structure_health=1000,structure_max_health=1000,fridge_coolant=0;timer fuel_timer,fridge_timer;dictionary storage;
+string picked_by="";timer picked_timer;
+int picking_peer=-1,pick_stage=0,pick_target_ms=0;bool click_sent=false;timer pick_timer;
+}
+redspot_base@[] redspot_bases;
+int next_redspot_base_id=9100000;
+timer redspot_base_fuel_save_timer;
+string redspot_base_store_directory="bases";
+redspot_base@ redspot_base_find(int id){for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].id==id)return redspot_bases[i];return null;}
+bool redspot_base_near(player@ p,redspot_base@ b){return p.map==b.map and get_3d_distance(p.x,p.y,p.z,b.x,b.y,b.z)<=3.5;}
+bool redspot_base_access(player@ p,redspot_base@ b){return p.name==b.owner or same_team(p.name,b.owner) or (b.picked_by==p.name and b.picked_timer.elapsed<60000);}
+int redspot_base_stock(redspot_base@ b,string item){int count;return b.storage.get(item,count)?count:0;}
+int redspot_base_used(redspot_base@ b){int total=0;string[] keys=b.storage.get_keys();for(uint i=0;i<keys.length();i++){int units=pack_units(keys[i]);if(units<1)units=1;total+=redspot_base_stock(b,keys[i])*units;}return total;}
+void redspot_base_add(redspot_base@ b,string item,int amount){int n=redspot_base_stock(b,item)+amount;if(n<=0)b.storage.delete(item);else b.storage.set(item,n);}
+void save_redspot_bases()
+{
+directory_create(redspot_base_store_directory);string data="";
+for(uint i=0;i<redspot_bases.length();i++){
+redspot_base@ b=redspot_bases[i];dobject@ current=find_dobject(b.map,b.id);if(current !is null and current.active){b.structure_health=current.health;b.structure_max_health=current.max_health;}data+=b.id+"|"+b.x+"|"+b.y+"|"+b.z+"|"+b.map+"|"+b.owner+"|"+(b.team==""?"-":b.team)+"|"+(b.powered?"1":"0")+"|"+b.fuel_seconds+"|"+b.lock_boosters+"|"+b.generator_boosters+"|"+b.structure_health+"|"+b.structure_max_health+"|"+b.fridge_coolant+"|";
+string[] keys=b.storage.get_keys();if(keys.length()==0)data+="-";for(uint j=0;j<keys.length();j++){if(j>0)data+=";";data+=keys[j]+","+redspot_base_stock(b,keys[j]);}data+="\n";
+}
+file_put_contents(redspot_base_store_directory+"/records.txt",data,false);
+}
+void redspot_base_object(redspot_base@ b)
+{
+dobject_set@ objects=dobjects_on(b.map);if(objects is null)return;dobject@ existing=find_dobject(b.map,b.id);if(existing !is null){existing.health=b.structure_health;existing.max_health=b.structure_max_health;send_dobject_state(existing);return;}
+dobject@ o=new_dobject(b.id,"redspot_base_computer",b.x,b.y,b.z,0,b.map,b.owner+"'s base computer");if(o is null)return;o.health=b.structure_health;o.max_health=b.structure_max_health;
+objects.list.insert_last(o);objects.index();
+send_reliable_map(b.map,"dobj_spawn "+b.id+" redspot_base_computer "+b.x+" "+b.y+" "+b.z+" 0 "+b.map,0);
+}
+void redspot_base_destroyed(int id)
+{
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].id==id){redspot_base@ b=redspot_bases[i];string[] keys=b.storage.get_keys();for(uint j=0;j<keys.length();j++){int count=redspot_base_stock(b,keys[j]);if(count>50)count=50;for(int n=0;n<count;n++)spawn_citem(b.x,b.y,b.z,b.map,keys[j]);}redspot_bases.remove_at(i);save_redspot_bases();return;}
+}
+void load_redspot_bases()
+{
+redspot_bases.resize(0);next_redspot_base_id=9100000;string path=redspot_base_store_directory+"/records.txt";if(!file_exists(path))return;
+string[] lines=string_split(file_get_contents(path),"\n",false);
+for(uint i=0;i<lines.length();i++){
+string[] f=string_split(lines[i],"|",true);if(f.length()!=9 and f.length()!=12 and f.length()!=14 and f.length()!=15)continue;
+redspot_base b;b.id=int(string_to_number(f[0]));b.x=int(string_to_number(f[1]));b.y=int(string_to_number(f[2]));b.z=int(string_to_number(f[3]));b.map=f[4];b.owner=f[5];b.team=f[6]=="-"?"":f[6];b.powered=f[7]=="1";
+if(f.length()>=12){b.fuel_seconds=int(string_to_number(f[8]));b.lock_boosters=int(string_to_number(f[9]));b.generator_boosters=int(string_to_number(f[10]));}
+if(f.length()>=14){b.structure_health=int(string_to_number(f[11]));b.structure_max_health=int(string_to_number(f[12]));}
+if(f.length()==15)b.fridge_coolant=int(string_to_number(f[13]));
+if(b.id<9100000 or get_map_index(b.map)<0 or b.owner=="")continue;
+string[] rows=string_split(f[f.length()-1],";",false);for(uint j=0;j<rows.length();j++){string[] row=string_split(rows[j],",",false);if(row.length()!=2)continue;int count=int(string_to_number(row[1]));if(count>0)b.storage.set(row[0],count);}
+redspot_bases.insert_last(b);if(b.id>=next_redspot_base_id)next_redspot_base_id=b.id+1;redspot_base_object(redspot_bases[redspot_bases.length()-1]);
+}
+}
+void build_redspot_base(player@ p)
+{
+if(p.death)return;
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i]) and redspot_base_access(p,redspot_bases[i])){
+if(physical_count(p,"wood")<1){send_reliable(p.peer_id,"You need wood to repair this base.",2);return;}dobject@ computer=find_dobject(p.map,redspot_bases[i].id);if(computer is null or !computer.active or computer.health>=computer.max_health){send_reliable(p.peer_id,"This base computer is already intact.",2);return;}computer.health+=15;if(computer.health>computer.max_health)computer.health=computer.max_health;send_dobject_state(computer);send_reliable(p.peer_id,"give wood -1",0);save_redspot_bases();send_reliable(p.peer_id,"Repaired the base computer to "+computer.health+" health.",2);return;
+}
+if(p.death or p.arena_return_map!="" or physical_count(p,"wood")<100){send_reliable(p.peer_id,"Building a base requires 100 pieces of wood outside an arena.",2);return;}
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i])){send_reliable(p.peer_id,"Build farther from an existing base.",2);return;}
+double rad=double(p.facing)*3.14159265358979323846/180.0;int x=p.x+int(round(sine(rad)*2,0)),y=p.y+int(round(cosine(rad)*2,0));
+if(projectile_solid_tile(get_tile_at(x,y,p.z,p.map))){send_reliable(p.peer_id,"The proposed base site is obstructed.",2);return;}
+dobject_set@ objects=dobjects_on(p.map);if(objects is null or objects.at(x,y,p.z+1)!is null){send_reliable(p.peer_id,"The proposed base site is occupied.",2);return;}
+redspot_base b;b.id=next_redspot_base_id++;b.x=x;b.y=y;b.z=p.z;b.map=p.map;b.owner=p.name;int ti=get_team_index_for_member(p.name);if(ti>=0)b.team=teams[ti].name;
+redspot_bases.insert_last(b);redspot_base_object(redspot_bases[redspot_bases.length()-1]);
+if(find_dobject(p.map,b.id) is null){redspot_bases.remove_at(redspot_bases.length()-1);send_reliable(p.peer_id,"The base computer could not be placed.",2);return;}
+send_reliable(p.peer_id,"give wood -100",0);save_redspot_bases();send_reliable(p.peer_id,"Built a base computer at "+x+", "+y+". Press O beside it for storage and supply orders.",2);
+}
+bool redspot_base_market_access(player@ p)
+{
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].powered and redspot_base_near(p,redspot_bases[i]) and redspot_base_access(p,redspot_bases[i]))return true;
+return false;
+}
+int redspot_base_delivery_id(player@ p)
+{
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].powered and redspot_base_near(p,redspot_bases[i]) and redspot_base_access(p,redspot_bases[i]))return redspot_bases[i].id;
+return -1;
+}
+void redspot_base_open(player@ p,int id)
+{
+redspot_base@ b=redspot_base_find(id);if(b is null or !redspot_base_near(p,b))return;
+if(!redspot_base_access(p,b)){send_reliable(p.peer_id,"This base computer is locked. Use a lockpick beside it.",2);return;}
+send_reliable(p.peer_id,"base_open "+id,0);
+}
+bool redspot_base_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="base")return false;
+int pi=get_player_index(peer);if(pi<0 or f.length()<2)return true;player@ p=players[pi];
+if(f[1]=="pick" and f.length()>=3){
+redspot_base@ b=null;for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i]) and !redspot_base_access(p,redspot_bases[i])){@b=redspot_bases[i];break;}
+if(b is null or physical_count(p,"lockpick")<=0){send_reliable(peer,"Stand beside a locked base with a lockpick.",2);return true;}
+if(f[2]=="start"){if(b.picking_peer>=0 and b.picking_peer!=int(peer)){send_reliable(peer,"Someone is already working that lock.",2);return true;}b.picking_peer=int(peer);b.pick_stage=0;b.pick_target_ms=random(600,1400);b.click_sent=false;b.pick_timer.restart();send_reliable(peer,"base_pick_start "+b.id,0);return true;}
+if(f[2]=="click" and f.length()>=4 and b.id==int(string_to_number(f[3])) and b.picking_peer==int(peer)){
+int timing=int(b.pick_timer.elapsed);if(!b.click_sent or timing>b.pick_target_ms+500){b.picking_peer=-1;send_reliable(peer,"base_pick_end failed",0);return true;}
+b.pick_stage++;if(b.pick_stage>=5+b.lock_boosters*2){b.picking_peer=-1;b.picked_by=p.name;b.picked_timer.restart();send_reliable(peer,"base_pick_end opened",0);redspot_base_open(p,b.id);return true;}
+b.pick_target_ms=random(600,1400);b.click_sent=false;b.pick_timer.restart();send_reliable(peer,"Lock pin "+b.pick_stage+" of "+(5+b.lock_boosters*2)+" released. Listen for the next click.",2);return true;
+}
+return true;
+}
+if(f.length()<3)return true;redspot_base@ b=redspot_base_find(int(string_to_number(f[2])));if(b is null or !redspot_base_near(p,b) or !redspot_base_access(p,b))return true;
+if(f[1]=="status")send_reliable(peer,"Base computer: "+b.owner+" owns this base. Power "+(b.powered?"on":"off")+", fuel "+b.fuel_seconds+" seconds, fridge coolant "+b.fridge_coolant+" seconds, lock boosters "+b.lock_boosters+", generator boosters "+b.generator_boosters+". Storage holds "+redspot_base_used(b)+" of 2000 item units.",2);
+else if(f[1]=="list"){string[] keys=b.storage.get_keys();string report="Base storage: ";if(keys.length()==0)report+="empty.";else for(uint i=0;i<keys.length();i++){if(i>0)report+=", ";report+=redspot_base_stock(b,keys[i])+" "+string_replace(keys[i],"_"," ",true);}send_reliable(peer,report,2);}
+else if(f[1]=="power" and p.name==b.owner){if(!b.powered and b.fuel_seconds<=0){send_reliable(peer,"The generator needs gas.",2);return true;}b.powered=!b.powered;b.fuel_timer.restart();save_redspot_bases();send_reliable(peer,b.powered?"Base power on.":"Base power off.",2);}
+else if(f[1]=="deposit" and f.length()>=5){string item=f[3];int amount=int(string_to_number(f[4]));if(amount<1 or amount>1000 or !physical_tracked(item) or physical_count(p,item)<amount or redspot_base_used(b)+pack_units(item)*amount>2000){send_reliable(peer,"Deposit owned physical items within the base's 2000-unit capacity. Packed contents count at full size.",2);return true;}redspot_base_add(b,item,amount);send_reliable(peer,"give "+item+" -"+amount,0);save_redspot_bases();send_reliable(peer,"Stored "+amount+" "+string_replace(item,"_"," ",true)+".",2);}
+else if(f[1]=="withdraw" and f.length()>=5){string item=f[3];int amount=int(string_to_number(f[4]));if(amount<1 or amount>1000 or redspot_base_stock(b,item)<amount){send_reliable(peer,"The base does not hold that quantity.",2);return true;}redspot_base_add(b,item,-amount);save_redspot_bases();send_reliable(peer,"give "+item+" "+amount,0);send_reliable(peer,"Withdrew "+amount+" "+string_replace(item,"_"," ",true)+".",2);}
+return true;
+}
+void redspot_base_loop()
+{
+if(redspot_base_fuel_save_timer.elapsed>=30000){redspot_base_fuel_save_timer.restart();if(redspot_bases.length()>0)save_redspot_bases();}
+for(uint i=0;i<redspot_bases.length();i++){
+redspot_base@ b=redspot_bases[i];if(b.powered and b.fuel_timer.elapsed>=1000){b.fuel_meter+=int(b.fuel_timer.elapsed/1000);b.fuel_timer.restart();int divisor=1+b.generator_boosters;int burn=b.fuel_meter/divisor;b.fuel_meter%=divisor;if(burn>0){b.fuel_seconds-=burn;if(b.fuel_seconds<=0){b.fuel_seconds=0;b.powered=false;save_redspot_bases();send_reliable_map(b.map,"Base "+b.id+" has run out of generator fuel.",2);}}}
+if(b.powered and b.fridge_coolant>0 and b.fridge_timer.elapsed>=60000){b.fridge_timer.restart();if(redspot_base_stock(b,"food")>0){redspot_base_add(b,"food",-1);redspot_base_add(b,"cold_food",1);b.fridge_coolant-=60;if(b.fridge_coolant<0)b.fridge_coolant=0;save_redspot_bases();}}
+if(b.picking_peer<0)continue;
+int pi=get_player_index(b.picking_peer);if(pi<0 or players[pi].death or !redspot_base_near(players[pi],b) or physical_count(players[pi],"lockpick")<=0){b.picking_peer=-1;continue;}
+if(!b.click_sent and b.pick_timer.elapsed>=b.pick_target_ms){b.click_sent=true;send_reliable(b.picking_peer,"base_lock_click "+b.id,0);}
+else if(b.click_sent and b.pick_timer.elapsed>b.pick_target_ms+500){send_reliable(b.picking_peer,"base_pick_end failed",0);b.picking_peer=-1;}
+}
+}

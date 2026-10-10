@@ -1,0 +1,11 @@
+bool redspot_camera_packet(const string[] &in f)
+{
+if(f.length()==0 or f[0]!="spy_camera_list")return false;
+if(f.length()<2 or f[1]=="-"){speak("You do not own an active spy camera.");return true;}
+string[] rows=string_split(f[1],";",false),labels,ids;
+for(uint i=0;i<rows.length();i++){string[] fields=string_split(rows[i],",",false);if(fields.length()!=6)continue;ids.insert_last(fields[0]);labels.insert_last("Camera "+fields[0]+" on "+fields[1]+" at "+fields[2]+", "+fields[3]+", "+fields[4]+", battery "+fields[5]+" percent");}
+if(ids.length()==0){speak("No usable spy camera was returned.");return true;}
+string camera=pick_from_list("Connect to a spy camera",labels,ids);if(camera=="")return true;
+while(connected){string action=pick_from_list("Spy camera "+camera,{"Photograph nearby players and items","Fire stun zapper","Self-destruct","Disconnect"},{"photo","zap","detonate","close"});if(action=="" or action=="close")return true;send_reliable(0,"spy_camera action "+camera+" "+action,0);if(action=="detonate")return true;}
+return true;
+}

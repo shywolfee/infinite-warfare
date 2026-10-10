@@ -1,6 +1,6 @@
 // Physical ownership comes only from authoritative inventory grants.
 void spawn_physical_commerce_supply(){int total=0;for(uint i=0;i<item_catalogue.length();i++)total+=item_prop_int(item_catalogue[i].id,"economy_drop_weight",0);if(total<=0)return;int roll=random(1,total);for(uint i=0;i<item_catalogue.length();i++){roll-=item_prop_int(item_catalogue[i].id,"economy_drop_weight",0);if(roll>0)continue;int x,y,z;string map;if(choose_world_drop(x,y,z,map))spawn_citem(x,y,z,map,item_catalogue[i].id);return;}}
-bool physical_tracked(string item){return is_credit_chip(item) or item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item_prop(item,"device_profile")!="" or item=="hypercomp" or item=="portable_auction_terminal" or item_prop(item,"use_kind")=="terminal_storage" or item_prop(item,"empty_container")!="";}
+bool physical_tracked(string item){return item.find("health_pod__value__")==0 or item.find("pack_containing_")==0 or item.find("shipment_")==0 or is_credit_chip(item) or item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item_prop(item,"device_profile")!="" or item=="hypercomp" or item=="portable_auction_terminal" or item_prop(item,"use_kind")=="terminal_storage" or item_prop(item,"empty_container")!="";}
 int physical_count(player@ p,string item){if(is_credit_chip(item))return credit_chip_count(p,item);int count;return p.physical_items.get(item,count)?count:0;}
 void track_physical_grant(uint peer,string message)
 {

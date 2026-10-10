@@ -1,0 +1,32 @@
+bool base_picking=false;int base_pick_id=-1;
+void redspot_base_menu(int id)
+{
+while(connected){
+string choice=pick_from_list("Base computer",{
+"Read base status","Read storage","Deposit selected physical item",
+"Withdraw an item","Open supply marketplace","Toggle power","Close"
+},{"status","list","deposit","withdraw","shop","power","close"});
+if(choice=="" or choice=="close")return;
+if(choice=="shop"){online_supply_shop();continue;}
+if(choice=="deposit"){
+string item=get_selected_item();if(item==""){speak("Select an inventory item first.");continue;}
+string input=af_input("Deposit how many "+string_replace(item,"_"," ",true)+"?","1",true);if(input=="")continue;
+send_reliable(0,"base deposit "+id+" "+item+" "+input,0);continue;
+}
+if(choice=="withdraw"){
+string item=af_input("Item ID from the storage listing","",true);if(item=="")continue;
+string input=af_input("Withdraw how many?","1",true);if(input=="")continue;
+send_reliable(0,"base withdraw "+id+" "+item+" "+input,0);continue;
+}
+send_reliable(0,"base "+choice+" "+id,0);
+}
+}
+bool redspot_base_packet(const string[] &in f)
+{
+if(f.length()==0)return false;
+if(f[0]=="base_open" and f.length()>=2){redspot_base_menu(int(string_to_number(f[1])));return true;}
+if(f[0]=="base_pick_start" and f.length()>=2){base_picking=true;base_pick_id=int(string_to_number(f[1]));speak("Listen for each lock click and press Enter immediately. Five pins must release. Moving away or pressing early resets the lock.");return true;}
+if(f[0]=="base_lock_click" and f.length()>=2){if(base_picking and base_pick_id==int(string_to_number(f[1])))p.play_stationary("lockpick"+random(1,10)+".ogg",false);return true;}
+if(f[0]=="base_pick_end" and f.length()>=2){base_picking=false;base_pick_id=-1;if(f[1]=="opened"){p.play_stationary("lockpicksuccess.ogg",false);speak("The base lock opens for one minute.");}else speak("The lockpick slipped. Start again.");return true;}
+return false;
+}

@@ -12,9 +12,13 @@
 // installed version by version.txt rather than by the program actually
 // running, and restarted a source install with an unquoted path, so the game
 // never came back.
+// Where updates come from. It defaults to the upstream repository, but an
+// installation may point anywhere -- a fork, another branch or a particular
+// commit -- through Update source on the main menu, which writes
+// updater/source.txt. An open-source game must not force everyone onto the
+// upstream version.
 const string IW_GITHUB_REPOSITORY="shywolfee/infinite-warfare";
 const string IW_GITHUB_BRANCH="main";
-const string IW_GITHUB_VERSION="https://raw.githubusercontent.com/shywolfee/infinite-warfare/main/version.txt";
 
 string updater_read_text(string path)
 {file f;if(!f.open(path,"rb"))return "";string result=f.read();f.close();return result.trim_whitespace();}
@@ -26,20 +30,49 @@ for(uint i=0;i<count;i++){int av=i<a.length()?string_to_number(a[i]):0,bv=i<b.le
 return 0;
 }
 
+// The update source as configured for this installation. updater/source.txt
+// holds "repository=owner/name" and "branch=main" lines; anything missing
+// falls back to upstream. A branch may also be a commit hash, which the
+// updater script accepts.
+string updater_source_file(){return SCRIPT_MAIN_PATH+"/updater/source.txt";}
+string updater_source_value(const string &in key,const string &in fallback)
+{
+string text=updater_read_text(updater_source_file());if(text=="")return fallback;
+string[] lines=string_split(string_replace(text,"\r","",true),"\n",true);
+for(uint i=0;i<lines.length();i++)
+{
+string line=lines[i].trim_whitespace();
+if(line.substr(0,key.length()+1)==key+"="){string value=line.substr(key.length()+1).trim_whitespace();if(value!="")return value;}
+}
+return fallback;
+}
+string updater_repository(){return updater_source_value("repository",IW_GITHUB_REPOSITORY);}
+string updater_branch(){return updater_source_value("branch",IW_GITHUB_BRANCH);}
+string updater_version_url(){return "https://raw.githubusercontent.com/"+updater_repository()+"/"+updater_branch()+"/version.txt";}
+void updater_set_source(string repository,string branch)
+{
+file_put_contents(updater_source_file(),"repository="+repository+"\nbranch="+branch+"\n",false);
+}
+
 void cfu(string legacy_name,string legacy_archive)
 {
 // The version of the program that is running, not version.txt: an update
 // that brought new files but no rebuilt executable must not count as done.
 string local_version=version_name;
-speak("Checking GitHub for updates.");string latest=url_get(IW_GITHUB_VERSION).trim_whitespace();
-if(latest=="" or string_contains(latest,"html",1)>=0 or string_contains(latest," ",1)>=0 or latest.length()>32){dlg("Unable to read version.txt from the Infinite Warfare GitHub repository.");return;}
+string repository=updater_repository();
+string branch=updater_branch();
+speak("Checking "+repository+" ("+branch+") for updates.");string latest=url_get(updater_version_url()).trim_whitespace();
+if(latest=="" or string_contains(latest,"html",1)>=0 or string_contains(latest," ",1)>=0 or latest.length()>32){dlg("Unable to read version.txt from "+repository+" ("+branch+").");return;}
 int comparison=updater_compare_versions(local_version,latest);
-if(comparison>=0){speak(comparison==0?"Infinite Warfare is up to date.":"This client is newer than the public GitHub version.");return;}
-if(!system_is_windows){dlg("Version "+latest+" is available. The automatic updater needs Windows PowerShell; download the new version from github.com/"+IW_GITHUB_REPOSITORY+".");return;}
+// Running a version other than the update source's is fine. A newer build is
+// never told to roll back, and an older one is offered the update.
+if(comparison==0){speak("Infinite Warfare is up to date, version "+local_version+".");return;}
+if(comparison>0){speak("You are running version "+local_version+", newer than "+repository+"'s "+latest+". Nothing to update.");return;}
+if(!system_is_windows){dlg("Version "+latest+" is available. The automatic updater needs Windows PowerShell; download it from github.com/"+repository+".");return;}
 string script=SCRIPT_MAIN_PATH+"/updater/iw-update.ps1";
-if(!file_exists(script)){dlg("Version "+latest+" is available, but this installation is missing updater/iw-update.ps1. Download the new version from github.com/"+IW_GITHUB_REPOSITORY+".");return;}
-if(question("Update Infinite Warfare?","Version "+latest+" is available. You have "+local_version+". Infinite Warfare will close, download only the files that changed, and restart. If anything goes wrong, your installation is put back as it was.")!=1)return;
-string[] args={"powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",script,"-Root",SCRIPT_MAIN_PATH,"-Restart",SCRIPT_EXECUTABLE,"-Mode",SCRIPT_COMPILED?"compiled":"source","-Repository",IW_GITHUB_REPOSITORY,"-Branch",IW_GITHUB_BRANCH};
+if(!file_exists(script)){dlg("Version "+latest+" is available, but this installation is missing updater/iw-update.ps1. Download it from github.com/"+repository+".");return;}
+if(question("Update Infinite Warfare?","Version "+latest+" is available from "+repository+" ("+branch+"). You have "+local_version+". Infinite Warfare will close, download only the files that changed, and restart. If anything goes wrong, your installation is put back as it was.")!=1)return;
+string[] args={"powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",script,"-Root",SCRIPT_MAIN_PATH,"-Restart",SCRIPT_EXECUTABLE,"-Mode",SCRIPT_COMPILED?"compiled":"source","-Repository",repository,"-Branch",branch};
 process@ update_process=run(args,PROCESS_BACKGROUND,SCRIPT_MAIN_PATH);
 if(@update_process==null or !update_process.valid){dlg("The updater could not start PowerShell. Nothing was changed.");return;}
 speak("Infinite Warfare will close now and restart when the update is done. This can take a minute.");wait(1500);exit();

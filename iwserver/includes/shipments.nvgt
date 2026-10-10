@@ -1,0 +1,69 @@
+// Marketplace purchases travel as sealed physical parcels to the location
+// where the order was placed. Contents are kept server-side until unpacked.
+class shipment_record
+{
+int id,x,y,z,base_id=-1;string map,owner,carrier="";string[] items;int[] amounts;
+int state=0; // 0 in transit, 1 on ground, 2 carried, 3 opened
+timer travel;
+}
+shipment_record@[] shipments;
+int next_shipment_id=1;
+string shipment_store_directory="shipments";
+string shipment_name(int id){return "shipment_"+id;}
+shipment_record@ shipment_find(int id){for(uint i=0;i<shipments.length();i++)if(shipments[i].id==id)return shipments[i];return null;}
+void save_shipments()
+{
+directory_create(shipment_store_directory);string contents="";
+for(uint i=0;i<shipments.length();i++){
+shipment_record@ s=shipments[i];contents+=s.id+"|"+s.x+"|"+s.y+"|"+s.z+"|"+s.map+"|"+s.owner+"|"+(s.carrier==""?"-":s.carrier)+"|"+s.state+"|"+s.base_id+"|";
+for(uint j=0;j<s.items.length();j++){if(j>0)contents+=";";contents+=s.items[j]+","+s.amounts[j];}contents+="\n";
+}
+file_put_contents(shipment_store_directory+"/records.txt",contents,false);
+}
+void load_shipments()
+{
+shipments.resize(0);next_shipment_id=1;if(!file_exists(shipment_store_directory+"/records.txt"))return;
+string[] lines=string_split(file_get_contents(shipment_store_directory+"/records.txt"),"\n",false);
+for(uint i=0;i<lines.length();i++){
+string[] f=string_split(lines[i],"|",true);if(f.length()!=9 and f.length()!=10)continue;
+shipment_record s;s.id=int(string_to_number(f[0]));s.x=int(string_to_number(f[1]));s.y=int(string_to_number(f[2]));s.z=int(string_to_number(f[3]));s.map=f[4];s.owner=f[5];s.carrier=f[6]=="-"?"":f[6];s.state=int(string_to_number(f[7]));
+if(f.length()==10)s.base_id=int(string_to_number(f[8]));
+if(s.id<=0 or get_map_index(s.map)<0 or s.state<0 or s.state>3)continue;
+string[] rows=string_split(f[f.length()-1],";",false);for(uint j=0;j<rows.length();j++){string[] row=string_split(rows[j],",",false);if(row.length()!=2 or int(string_to_number(row[1]))<1 or item_info(row[0]) is null and find_wpn_stats(row[0])<0)continue;s.items.insert_last(row[0]);s.amounts.insert_last(int(string_to_number(row[1])));}
+if(s.items.length()==0)continue;if(s.id>=next_shipment_id)next_shipment_id=s.id+1;
+shipments.insert_last(s);if(s.state==1)spawn_citem(s.x,s.y,s.z,s.map,shipment_name(s.id));
+}
+}
+int queue_market_shipment(player@ p,market_offer@[] &in chosen,int[] &in counts)
+{
+shipment_record s;s.id=next_shipment_id++;s.x=p.x;s.y=p.y;s.z=p.z;s.map=p.map;s.owner=p.name;s.base_id=redspot_base_delivery_id(p);
+if(s.base_id>=0){redspot_base@ b=redspot_base_find(s.base_id);if(b !is null){s.x=b.x;s.y=b.y;s.z=b.z;}}
+for(uint i=0;i<chosen.length();i++){s.items.insert_last(chosen[i].item);s.amounts.insert_last(chosen[i].quantity*counts[i]);}
+shipments.insert_last(s);save_shipments();return s.id;
+}
+void shipment_loop()
+{
+for(uint i=0;i<shipments.length();i++){
+shipment_record@ s=shipments[i];if(s.state!=0 or s.travel.elapsed<10000)continue;
+s.state=1;redspot_base@ destination=redspot_base_find(s.base_id);
+if(destination !is null){redspot_base_add(destination,shipment_name(s.id),1);save_redspot_bases();s.state=2;}
+else spawn_citem(s.x,s.y,s.z,s.map,shipment_name(s.id));
+int pi=get_player_index_from(s.owner);if(pi>=0)send_reliable(players[pi].peer_id,"Shipment "+s.id+" has arrived at "+s.x+", "+s.y+", "+s.z+" on "+s.map+".",2);
+save_shipments();
+}
+}
+void shipment_picked(int id,string carrier)
+{
+shipment_record@ s=shipment_find(id);if(s is null or s.state!=1)return;s.state=2;s.carrier=carrier;save_shipments();
+}
+bool shipment_open(player@ p,string item)
+{
+if(item.find("shipment_")!=0)return false;
+int id=int(string_to_number(item.substr(9)));shipment_record@ s=shipment_find(id);
+if(s is null or s.state!=2 or physical_count(p,item)<=0){send_reliable(p.peer_id,"That shipment is unavailable or has already been opened.",2);return true;}
+s.state=3;save_shipments();send_reliable(p.peer_id,"give "+item+" -1",0);
+for(uint i=0;i<s.items.length();i++)send_reliable(p.peer_id,"give "+s.items[i]+" "+s.amounts[i],0);
+send_reliable(p.peer_id,"give empty_pack 1",0);
+send_reliable(p.peer_id,"Opened shipment "+s.id+" and collected "+s.items.length()+" kinds of supplies.",2);
+return true;
+}

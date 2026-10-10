@@ -1,0 +1,51 @@
+// Redspot spy cameras are shootable map objects with server-owned batteries.
+// Their controller can act across the map, but only on its owner's cameras.
+class redspot_camera
+{
+int id,x,y,z,battery=100;string map,owner;timer drain;
+}
+redspot_camera@[] redspot_cameras;int next_redspot_camera_id=9300000;
+int redspot_camera_index(int id){for(uint i=0;i<redspot_cameras.length();i++)if(redspot_cameras[i].id==id)return int(i);return -1;}
+void redspot_camera_destroyed(int id)
+{
+int ci=redspot_camera_index(id);if(ci<0)return;redspot_camera@ c=redspot_cameras[ci];play("redspot_spy_camera_destroy",c.x,c.y,c.z,c.map);redspot_cameras.remove_at(ci);
+}
+bool redspot_camera_place_at(string owner,string map,int x,int y,int z)
+{
+int count=0;for(uint i=0;i<redspot_cameras.length();i++)if(redspot_cameras[i].owner==owner)count++;if(count>=8)return false;
+dobject_set@ objects=dobjects_on(map);if(objects is null or projectile_solid_tile(get_tile_at(x,y,z,map)) or objects.at(x,y,z+1)!is null)return false;
+int id=next_redspot_camera_id++;dobject@ o=new_dobject(id,"redspot_spy_camera",x,y,z,0,map,owner+"'s spy camera");if(o is null)return false;objects.list.insert_last(o);objects.index();redspot_camera c;c.id=id;c.x=x;c.y=y;c.z=z;c.map=map;c.owner=owner;redspot_cameras.insert_last(c);send_reliable_map(map,"dobj_spawn "+id+" redspot_spy_camera "+x+" "+y+" "+z+" 0 "+map,0);play("redspot_spy_camera_place",x,y,z,map);return true;
+}
+bool redspot_camera_charge_at(string owner,string map,int x,int y,int z)
+{
+for(uint i=0;i<redspot_cameras.length();i++){redspot_camera@ c=redspot_cameras[i];if(c.owner!=owner or c.map!=map or get_3d_distance(c.x,c.y,c.z,x,y,z)>2)continue;c.battery+=80;if(c.battery>100)c.battery=100;play("redspot_spy_camera_battery",c.x,c.y,c.z,c.map);return true;}return false;
+}
+void redspot_camera_loop()
+{
+for(int i=int(redspot_cameras.length())-1;i>=0;i--){redspot_camera@ c=redspot_cameras[i];dobject@ o=find_dobject(c.map,c.id);if(o is null or !o.active){redspot_camera_destroyed(c.id);continue;}if(c.drain.elapsed<3000)continue;c.battery-=int(c.drain.elapsed/3000);c.drain.restart();if(c.battery>0)continue;o.active=false;send_dobject_state(o);redspot_camera_destroyed(c.id);}
+}
+bool redspot_camera_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="spy_camera")return false;int pi=get_player_index(peer);if(pi<0 or f.length()<2)return true;player@ p=players[pi];if(p.death or p.arena_role=="spectator")return true;
+if(f[1]=="place"){
+if(physical_count(p,"spy_camera")<=0)return true;double rad=double(p.facing)*3.14159265358979323846/180.0;int x=p.x+int(round(sine(rad),0)),y=p.y+int(round(cosine(rad),0));if(!redspot_camera_place_at(p.name,p.map,x,y,p.z)){send_reliable(peer,"Choose a clear site; you may own at most eight cameras.",2);return true;}send_reliable(peer,"give spy_camera -1",0);send_reliable(peer,"Spy camera placed. Use its controller from anywhere to connect.",2);return true;
+}
+if(f[1]=="charge_near"){
+if(physical_count(p,"battery_pack")<=0){send_reliable(peer,"Carry a battery pack first.",2);return true;}if(!redspot_camera_charge_at(p.name,p.map,p.x,p.y,p.z)){send_reliable(peer,"Stand beside one of your cameras to insert the battery.",2);return true;}send_reliable(peer,"give battery_pack -1",0);send_reliable(peer,"Camera battery recharged.",2);return true;
+}
+if(physical_count(p,"spy_camera_controller")<=0){send_reliable(peer,"Carry a spy camera controller first.",2);return true;}
+if(f[1]=="list"){
+string report="spy_camera_list ";int count=0;for(uint i=0;i<redspot_cameras.length();i++)if(redspot_cameras[i].owner==p.name){redspot_camera@ c=redspot_cameras[i];if(count>0)report+=";";report+=c.id+","+c.map+","+c.x+","+c.y+","+c.z+","+c.battery;count++;}if(count==0)report+="-";send_reliable(peer,report,0);return true;
+}
+if(f[1]!="action" or f.length()!=4)return true;int ci=redspot_camera_index(int(string_to_number(f[2])));if(ci<0)return true;redspot_camera@ c=redspot_cameras[ci];if(c.owner!=p.name or c.battery<=0)return true;
+if(f[3]=="photo"){
+if(c.battery<3){send_reliable(peer,"Camera battery is too low for a photograph.",2);return true;}c.battery-=3;play("redspot_spy_camera_click",c.x,c.y,c.z,c.map);string report="Camera "+c.id+" sees ";int found=0;for(uint i=0;i<players.length();i++)if(!players[i].death and players[i].map==c.map and get_3d_distance(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z)<=12){if(found>0)report+=", ";report+=players[i].name+" at "+players[i].x+","+players[i].y;found++;}for(uint i=0;i<citems.length() and found<8;i++)if(citems[i].map==c.map and get_3d_distance(c.x,c.y,c.z,citems[i].x,citems[i].y,citems[i].z)<=12){if(found>0)report+=", ";report+=citem_display_name(citems[i].name)+" at "+citems[i].x+","+citems[i].y;found++;}if(found==0)report+="nothing nearby";send_reliable(peer,report+".",2);return true;
+}
+if(f[3]=="zap"){
+if(c.battery<20){send_reliable(peer,"Camera battery is too low for a zap.",2);return true;}int target=-1;double nearest=5;for(uint i=0;i<players.length();i++)if(!players[i].death and players[i].map==c.map and players[i].name!=p.name and !same_team(p.name,players[i].name) and player_can_be_damaged_by(players[i],p.name)){double d=get_3d_distance(c.x,c.y,c.z,players[i].x,players[i].y,players[i].z);if(d<nearest and !blast_line_blocked(c.x,c.y,c.z+1,players[i].x,players[i].y,players[i].z+1,c.map)){target=int(i);nearest=d;}}if(target<0){send_reliable(peer,"No exposed hostile within five tiles of the camera.",2);return true;}c.battery-=20;apply_player_damage(players[target],50,p.name+"'s spy camera zap");send_reliable(players[target].peer_id,"combat_slow 5000",0);play("redspot_spy_camera_zap",c.x,c.y,c.z,c.map);send_reliable(peer,"Camera zapped "+players[target].name+".",2);return true;
+}
+if(f[3]=="detonate"){
+dobject@ o=find_dobject(c.map,c.id);string map=c.map;int x=c.x,y=c.y,z=c.z;if(o !is null){o.active=false;send_dobject_state(o);}redspot_camera_destroyed(c.id);blast_profile@ blast=blast_profile_simple(p.name,p.name+"'s spy camera",350,5,0,"redspot_spy_camera_explode","redspot_spy_camera_dist.ogg","fraggrenadehit");detonate(x,y,z,map,blast);send_reliable(peer,"Spy camera self-destructed.",2);return true;
+}
+return true;
+}

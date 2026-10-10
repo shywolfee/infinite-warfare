@@ -1,0 +1,38 @@
+// Portable packs encode their contents in the item ID, so nested packs can
+// change hands without an owner-keyed side table.
+bool pack_split(string id,string &out inner,int &out amount)
+{
+if(id.find("pack_containing_")!=0)return false;
+string rest=id.substr(16);int separator=rest.find("_");if(separator<=0)return false;
+string digits=rest.substr(0,separator);amount=int(string_to_number(digits));inner=rest.substr(separator+1);
+return amount>0 and amount<=20 and digits==amount+"" and inner!="";
+}
+int pack_depth(string id)
+{
+int depth=0;string inner;int amount;
+while(pack_split(id,inner,amount)){depth++;id=inner;if(depth>3)return depth;}
+return depth;
+}
+int pack_units(string id)
+{
+int total=1;string inner;int amount;
+while(pack_split(id,inner,amount)){total*=amount;if(total>20)return total;id=inner;}
+return total;
+}
+bool pack_handle_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="pack")return false;
+int pi=get_player_index(peer);if(pi<0 or f.length()<4 or f[1]!="fill")return true;player@ p=players[pi];
+string item=f[2];int amount=int(string_to_number(f[3]));if(p.death or amount<1 or amount>20 or f[3]!=amount+"" or physical_count(p,"empty_pack")<=0 or !physical_tracked(item) or physical_count(p,item)<amount or item=="empty_pack"){send_reliable(peer,"A pack needs an empty pack and a positive quantity of physical items you own.",2);return true;}
+if(item_info(item) is null and item.find("pack_containing_")!=0 and item.find("shipment_")!=0){send_reliable(peer,"This item cannot be packed.",2);return true;}
+int units=pack_units(item)*amount;if(units>20 or pack_depth(item)>=3){send_reliable(peer,"A pack holds at most 20 items and nests at most three packs deep.",2);return true;}
+string result="pack_containing_"+amount+"_"+item;if(result.length()>80){send_reliable(peer,"That nested pack name is too long to transfer safely.",2);return true;}
+send_reliable(peer,"give empty_pack -1",0);send_reliable(peer,"give "+item+" -"+amount,0);send_reliable(peer,"give "+result+" 1",0);send_reliable(peer,"Packed "+amount+" "+string_replace(item,"_"," ",true)+".",2);
+return true;
+}
+bool pack_open(player@ p,string id)
+{
+if(id.find("pack_containing_")!=0)return false;
+string inner;int amount;if(!pack_split(id,inner,amount) or physical_count(p,id)<=0){send_reliable(p.peer_id,"That pack is unavailable or malformed.",2);return true;}
+send_reliable(p.peer_id,"give "+id+" -1",0);send_reliable(p.peer_id,"give "+inner+" "+amount,0);send_reliable(p.peer_id,"give empty_pack 1",0);send_reliable(p.peer_id,"Opened a pack of "+amount+" "+string_replace(inner,"_"," ",true)+".",2);return true;
+}

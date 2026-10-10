@@ -141,7 +141,7 @@ if(b.explode_sound!="")play(b.explode_sound,int(x),int(y),int(z),map);
 if(b.distant_sound!="")send_distant_sound(map,b.distant_sound,int(x),int(y),int(z),35);
 bool in_water=blast_tile_water(get_tile_at(int(round(x,0)),int(round(y,0)),int(floor(z)),map));
 double confinement=in_water?1.0:blast_confinement(x,y,z,map);
-bool non_lethal=b.payload=="flash" or b.payload=="smoke" or b.payload=="gas" or b.payload=="emp";
+bool non_lethal=b.payload=="flash" or b.payload=="smoke" or b.payload=="gas" or b.payload=="emp" or b.payload=="oxygen" or b.payload=="antibiotic" or b.payload=="deafen";
 int owner_index=get_player_index_from(b.owner);bool pinged=false;
 for(uint i=0;i<players.length();i++)
 {
@@ -171,6 +171,10 @@ if(!covered and !in_water)dealt+=blast_fragment_damage(b,distance,occupant?blast
 bool reached=distance<=b.radius or occupant;
 if(reached and b.payload=="flash" and !covered){send_reliable(target.peer_id,"play_s flashbang_effect.ogg",0);send_reliable(target.peer_id,"combat_slow "+b.effect_ms,0);}
 else if(reached and (b.payload=="concussion" or b.payload=="emp"))send_reliable(target.peer_id,"combat_slow "+(covered?b.effect_ms/2:b.effect_ms),0);
+if(reached and b.kind=="concussive_grenade" and !covered){int lift=int(8.0*(1.0-distance/b.radius));if(lift<2)lift=2;int raised=0;for(int step=1;step<=lift;step++){string above=get_tile_at(target.x,target.y,target.z+step,target.map);if(above!="" and above!="blank")break;raised++;}if(raised>0){target.z+=raised;set_player_model_target(target,target.x,target.y,target.z);send_reliable(target.peer_id,"setcoords "+target.x+" "+target.y+" "+target.z,0);send_reliable(target.peer_id,"redspot_concussion",0);}}
+else if(reached and b.payload=="oxygen" and !covered){target.redspot_air+=random(20,40);if(target.redspot_air>180)target.redspot_air=180;send_reliable(target.peer_id,"Fresh air refilled your gas mask to "+target.redspot_air+" seconds.",2);}
+else if(reached and b.payload=="antibiotic" and !covered){int restored=120;if(restored>1000-target.health)restored=1000-target.health;if(restored>0)target.health+=restored;send_reliable(target.peer_id,"An airborne antibiotic restored "+restored+" health.",2);}
+else if(reached and b.payload=="deafen" and !covered)send_reliable(target.peer_id,"redspot_deafen "+b.effect_ms,0);
 else if(reached and (b.payload=="incendiary" or b.payload=="thermite") and !covered){target.burning=true;target.burning_owner=b.owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
 if(dealt<=0)continue;
 dealt=apply_player_damage(target,dealt,b.label);if(dealt<=0)continue;
@@ -242,7 +246,7 @@ for(uint p=0;p<players.length();p++)
 player@ t=players[p];if(t.map!=c.map or t.death or t.in_plane)continue;
 double density=cloud_density(c,t.x,t.y,t.z+1);if(density<=0)continue;
 if(c.kind=="smoke"){t.see=false;t.invisible=true;t.invisibilitytimer.restart();}
-else if(c.kind=="gas"){if(!player_can_be_damaged_by(t,c.owner))continue;send_reliable(t.peer_id,"combat_slow 1500",0);apply_player_damage(t,int(18*density*dt*2),c.label);}
+else if(c.kind=="gas"){if(t.redspot_mask or !player_can_be_damaged_by(t,c.owner))continue;send_reliable(t.peer_id,"combat_slow 1500",0);apply_player_damage(t,int(18*density*dt*2),c.label);}
 else if(c.kind=="incendiary"){if(!player_can_be_damaged_by(t,c.owner))continue;if(!t.burning){t.burning=true;t.burning_owner=c.owner;t.burning_duration_timer.restart();t.burning_tick_timer.restart();}}
 }
 }

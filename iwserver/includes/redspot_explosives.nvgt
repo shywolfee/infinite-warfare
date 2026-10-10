@@ -1,0 +1,23 @@
+// Programmable Redspot charges use server-owned codes and timers. The client
+// supplies only a requested code or duration; it cannot choose coordinates.
+bool redspot_launch_code(string code)
+{
+if(code.length()!=4)return false;string digits="0123456789";for(uint i=0;i<code.length();i++)if(digits.find(code.substr(i,1))<0)return false;return true;
+}
+bool redspot_explosive_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="redspot_explosive")return false;
+int pi=get_player_index(peer);if(pi<0 or f.length()!=3)return true;player@ p=players[pi];if(p.death or p.arena_role=="spectator")return true;
+if(f[1]=="sat_fire"){
+if(physical_count(p,"satellite_bomb_remote")<=0 or !redspot_launch_code(f[2])){send_reliable(peer,"A satellite remote and four-digit code are required.",2);return true;}
+int fired=0;while(true){int found=-1;for(uint i=0;i<deployable_explosives.length();i++)if(deployable_explosives[i].kind=="satellite_bomb" and deployable_explosives[i].launch_code==f[2] and deployable_explosives[i].map==p.map){found=int(i);break;}if(found<0)break;detonate_deployable(found);fired++;}
+send_reliable(peer,"Satellite code "+f[2]+" detonated "+fired+" matching bombs on this map.",2);return true;
+}
+string item=f[1]=="sat_place"?"satellite_bomb":(f[1]=="timer_place"?"programmable_timebomb":"");if(item=="")return true;
+if(physical_count(p,item)<=0){send_reliable(peer,"You do not carry that charge.",2);return true;}
+int owned=0;for(uint i=0;i<deployable_explosives.length();i++)if(deployable_explosives[i].owner==p.name)owned++;if(owned>=8){send_reliable(peer,"You may have no more than eight armed placed explosives.",2);return true;}
+if(item=="satellite_bomb" and !redspot_launch_code(f[2])){send_reliable(peer,"Enter exactly four digits for the satellite bomb.",2);return true;}
+int seconds=0;if(item=="programmable_timebomb"){seconds=int(string_to_number(f[2]));if(seconds<1 or seconds>3600 or f[2]!=seconds+""){send_reliable(peer,"Enter a whole number from one to 3600 seconds.",2);return true;}}
+spawn_deployable_explosive(p.x,p.y,p.z,p.facing,p.map,p.name,item);deployable_explosive@ charge=deployable_explosives[deployable_explosives.length()-1];if(item=="satellite_bomb")charge.launch_code=f[2];else charge.detonate_ms_override=seconds*1000;
+send_reliable(peer,"give "+item+" -1",0);send_reliable(peer,item=="satellite_bomb"?"Satellite bomb armed with code "+f[2]+".":"Timebomb set for "+seconds+" seconds.",2);return true;
+}

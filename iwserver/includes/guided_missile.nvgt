@@ -1,0 +1,48 @@
+// Player steering changes acceleration; the projectile keeps its own velocity,
+// drag and gravity in projectile_step, including after its pilot returns.
+void guided_missile_steer(weapon@ w,double dt)
+{
+if(w.pilot_peer<0 and !w.auto_homing)return;
+int oi=w.auto_homing?get_player_index_from(w.cn):get_player_index(w.pilot_peer);
+if(oi<0 or players[oi].death or players[oi].map!=w.map){w.pilot_peer=-1;w.guided_target="";return;}
+if(w.guided_input_timer.elapsed>350){w.steer_input=0;w.pitch_input=0;}
+double speed=sqrt(w.vx*w.vx+w.vy*w.vy),ax=0,ay=0,az=0;
+if(w.guided_target!=""){
+int ti=get_player_index_from(w.guided_target);
+if(ti>=0 and !players[ti].death and players[ti].map==w.map and !same_team(players[oi].name,players[ti].name)){
+double dx=players[ti].x-w.x,dy=players[ti].y-w.y,dz=players[ti].z+1-w.z,d=sqrt(dx*dx+dy*dy+dz*dz);
+if(d>.1){ax=dx/d*20;ay=dy/d*20;az=dz/d*20;}
+}else w.guided_target="";
+}
+if(w.guided_target=="" and !w.auto_homing){
+double fx=speed>.1?w.vx/speed:sine(double(w.dir)*3.14159265358979323846/180.0),fy=speed>.1?w.vy/speed:cosine(double(w.dir)*3.14159265358979323846/180.0);
+ax=fx*16+fy*w.steer_input*12;ay=fy*16-fx*w.steer_input*12;az=w.pitch_input*13;
+}
+w.vx+=ax*dt;w.vy+=ay*dt;w.vz+=az*dt;
+double total=sqrt(w.vx*w.vx+w.vy*w.vy+w.vz*w.vz);if(total>52){w.vx*=52/total;w.vy*=52/total;w.vz*=52/total;}
+}
+weapon@ piloted_missile(uint peer,int id)
+{
+for(uint i=0;i<weapons.length();i++)if(weapons[i].guided and weapons[i].pilot_peer==int(peer) and weapons[i].audio_id==id)return weapons[i];
+return null;
+}
+bool handle_guided_missile_request(uint peer,const string[] &in f)
+{
+if(f.length()==0 or f[0]!="missile")return false;
+int pi=get_player_index(peer);if(pi<0)return true;
+player@ owner=players[pi];
+if(f.length()<2)return true;
+if(f[1]=="launch"){
+if(owner.death or owner.arena_role=="spectator" or physical_count(owner,"guided_missile_controller")<=0 or physical_count(owner,"piloted_guided_missile")<=0){send_reliable(peer,"A controller and a guided missile are required.",2);return true;}
+if(controlled_turret(peer)!is null or companion_body_controlled(owner.name)){send_reliable(peer,"Return from the current actor before piloting a missile.",2);return true;}
+for(uint i=0;i<weapons.length();i++)if(weapons[i].guided and weapons[i].pilot_peer==int(peer)){send_reliable(peer,"Return from the current missile first.",2);return true;}
+weapon shot(owner.x,owner.y,owner.z+1,owner.facing,90,"m72_guided_rocket_launcher",owner.name,owner.map);shot.guided=true;shot.pilot_peer=int(peer);shot.range=350;shot.drag=.08;shot.gravity=9.81;shot.kill_label="piloted guided missile";shot.projectile_loop="conventional_guided_missile_flight_loop.ogg";
+weapons.insert_last(shot);weapon@ missile=weapons[weapons.length()-1];start_projectile_audio(missile);send_reliable(peer,"give piloted_guided_missile -1",0);send_reliable(peer,"missile_pilot "+missile.audio_id+" "+missile.x+" "+missile.y+" "+missile.z+" "+missile.map,0);play("conventional_guided_missile_throw",owner.x,owner.y,owner.z,owner.map);return true;
+}
+if(f.length()<3)return true;
+int id=int(string_to_number(f[2]));weapon@ missile=piloted_missile(peer,id);if(missile is null)return true;
+if(f[1]=="return"){missile.pilot_peer=-1;missile.guided_target="";missile.steer_input=0;missile.pitch_input=0;send_reliable(peer,"missile_end",0);return true;}
+if(f[1]=="input" and f.length()>=5){int side=int(string_to_number(f[3])),pitch=int(string_to_number(f[4]));missile.steer_input=side<-1?-1:(side>1?1:side);missile.pitch_input=pitch<-1?-1:(pitch>1?1:pitch);missile.guided_input_timer.restart();return true;}
+if(f[1]=="track" and f.length()>=4){int ti=get_player_index_from(f[3]);if(ti>=0 and !players[ti].death and players[ti].map==owner.map and !same_team(owner.name,players[ti].name)){missile.guided_target=players[ti].name;send_reliable(peer,"Missile tracking "+players[ti].name+".",2);}else send_reliable(peer,"That target is unavailable.",2);return true;}
+return true;
+}

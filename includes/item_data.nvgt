@@ -95,7 +95,7 @@ int index=-1;
 string base=id;int marker=id.find("__value__");
 if(marker>0)base=id.substr(0,marker);
 if(!item_catalogue_index.get(base,index) or index<0 or index>=int(item_catalogue.length()))return null;
-if(marker>0){string kind,capacity;item_catalogue[index].props.get("currency_kind",kind);item_catalogue[index].props.get("currency_capacity",capacity);string value=id.substr(marker+9);if(kind!="stored" or value.length()==0 or value.length()>9)return null;for(uint i=0;i<value.length();i++)if(value.substr(i,1)<"0" or value.substr(i,1)>"9")return null;double amount=string_to_number(value);if(amount<1 or amount>string_to_number(capacity))return null;}
+if(marker>0){string kind,capacity;item_catalogue[index].props.get("currency_kind",kind);item_catalogue[index].props.get("currency_capacity",capacity);string value=id.substr(marker+9);if(value.length()==0 or value.length()>9)return null;for(uint i=0;i<value.length();i++)if(value.substr(i,1)<"0" or value.substr(i,1)>"9")return null;double amount=string_to_number(value);if(base=="health_pod"){if(amount<20 or amount>200)return null;}else if(kind!="stored" or amount<1 or amount>string_to_number(capacity))return null;}
 return item_catalogue[index];
 }
 int physical_item_value(const string &in id)
@@ -109,6 +109,7 @@ return int(string_to_number(value));
 string physical_item_name(const string &in id)
 {
 item_data@ d=item_info(id);if(d is null)return string_replace(id,"_"," ",true);
+if(id.find("health_pod__value__")==0)return "Health Pod ("+id.substr(19)+" health stored)";
 return d.name+(id.find("__value__")>0?" ("+physical_item_value(id)+" credits remaining)":"");
 }
 string item_prop(const string &in id,const string &in key,const string &in fallback="")

@@ -72,7 +72,7 @@ $timer.Add_Tick({
         $amount = 0
         if (-not [int]::TryParse($parts[1], [ref]$amount)) { return }
         $progress.Value = [Math]::Max(0, [Math]::Min(100, $amount))
-        if ($parts[0] -eq 'Stopped') { $heading.Text = 'Server stopped'; $stop.Enabled = $false }
+        if ($parts[0] -eq 'Stopped') { $timer.Stop(); $form.Close(); return }
         elseif ($parts[0] -eq 'Ready') { $heading.Text = 'Server ready' }
         else { $heading.Text = 'Server startup' }
         $phase.Text = "$amount% - $($parts[2])"

@@ -218,6 +218,7 @@ for(uint i=2;i<m.spawn_points.length();i+=3)if(levels.find(m.spawn_points[i])<0)
 int columns=4,rows=(MAP_VEHICLE_COUNT+columns-1)/columns,placed_water=0;
 for(int i=0;i<MAP_VEHICLE_COUNT;i++)
 {
+if(!startup_ready)startup_pump();
 int gx=int((double((i%columns)+1)/double(columns+1))*m.size_x),gy=int((double((i/columns)+1)/double(rows+1))*m.size_y);
 double x,y,facing;int level=0;
 // Every fourth spot is a boat if there is water near it.
@@ -236,6 +237,7 @@ bool find_vehicle_spot_on_levels(vehicle_kind@ k,int mi,int ox,int oy,int[]@ lev
 {
 for(int r=0;r<=radius;r+=4)
 {
+if(!startup_ready)startup_pump();
 for(uint l=0;l<levels.length();l++)
 {
 if(find_vehicle_spot(k,mi,ox,oy,levels[l],r+3,x,y,facing,r)){found_level=levels[l];return true;}
@@ -243,7 +245,7 @@ if(find_vehicle_spot(k,mi,ox,oy,levels[l],r+3,x,y,facing,r)){found_level=levels[
 }
 return false;
 }
-void spawn_all_map_vehicles(){for(uint i=0;i<maps.length();i++)spawn_map_vehicles(int(i));}
+void spawn_all_map_vehicles(){for(uint i=0;i<maps.length();i++){if(!startup_ready)startup_phase(79,"Placing vehicles on "+maps[i].name);spawn_map_vehicles(int(i));}}
 void clear_map_vehicles(string map)
 {
 for(int i=int(authoritative_vehicles.length())-1;i>=0;i--)if(authoritative_vehicles[i].map==map)authoritative_vehicles.remove_at(i);

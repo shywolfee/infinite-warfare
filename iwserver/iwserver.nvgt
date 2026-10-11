@@ -142,10 +142,10 @@ run_world_editor_regression();return;
 #endif
 // Bind first so clients can see startup and wait instead of timing out.
 if(!n.setup_server(port,20,500)){alert("Server port unavailable","Could not open UDP port "+port+". Close another server using it, then try again.");return;}
-startup_status_path=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-server-startup-"+port+".txt";
+startup_status_path="startup-status.txt";
 file_delete(startup_status_path+".stop");
 startup_write_status();
-run("powershell.exe","-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"server_status_gui.ps1\" \""+startup_status_path+"\"",false,false);
+run("powershell.exe","-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File server_status_gui.ps1 startup-status.txt",false,false);
 // Armour, patches and launched explosives are defined in content/items; a
 // server that cannot find them would treat every item as ordinary.
 startup_phase(5,"Loading groups and item definitions");

@@ -403,7 +403,9 @@ spawn_bunker(bd.x, bd.y, bd.z, maps[mi].name, "", bd.name);
 void spawn_all_map_bunkers()
 {
 for(uint i=0; i<maps.length(); i++)
+{if(!startup_ready)startup_phase(79,"Placing bunkers on "+maps[i].name);
 spawn_bunkers_for_map(i);
+}
 }
 int get_map_index(string name)
 {

@@ -1864,6 +1864,7 @@ if(!file_exists(path))return;
 string[] lines=string_split(file_get_contents(path),"\n",false);
 for(uint i=0;i<lines.length();i++)
 {
+if(!startup_ready and i%16==0)startup_pump();
 if(lines[i].trim_whitespace()=="")continue;
 string[] f=string_split(lines[i],"|",true);
 // The current record is Redspot's field list, extended with this engine's

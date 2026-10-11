@@ -62,6 +62,8 @@ return d;
 }
 
 // Returns how many items were loaded.
+funcdef void item_load_tick();
+item_load_tick@ item_load_progress=null;
 int load_item_catalogue(const string &in from="")
 {
 item_catalogue.resize(0);
@@ -76,6 +78,7 @@ string dir=folders[f]==""?root:root+"/"+folders[f];
 string[] files=find_files(dir+"/*.item");
 for(uint i=0;i<files.length();i++)
 {
+if(i%16==0 and @item_load_progress!=null)item_load_progress();
 file fh;
 if(!fh.open(dir+"/"+files[i],"rb"))continue;
 string text=fh.read();

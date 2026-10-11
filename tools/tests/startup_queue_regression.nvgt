@@ -1,0 +1,32 @@
+#include "bgt_compat.nvgt"
+network n;
+string[] packets;
+void send_reliable(uint peer,string message,uint channel){packets.insert_last(""+peer+":"+message);}
+#include "../../iwserver/includes/startup_queue.nvgt"
+int failures=0;
+void check(bool ok,string label){println((ok?"PASS ":"FAIL ")+label);if(!ok)failures++;}
+bool has_packet(string packet){return packets.find(packet)>=0;}
+void main()
+{
+startup_percent=40;startup_step="Loading maps";
+check(startup_status_packet()=="startup_status 40 Loading maps","status packet names the current startup phase");
+startup_waiting.insert_last(startup_guest(1,"Alice"));startup_waiting.insert_last(startup_guest(2,"Bob"));startup_waiting.insert_last(startup_guest(3,"Cara"));startup_broadcast();
+check(startup_waiting.length()==3 and startup_waiting[0].name=="Alice" and startup_waiting[1].name=="Bob" and startup_waiting[2].name=="Cara","joining records FIFO order");
+check(has_packet("2:startup_queued 2 3"),"each player receives their position and queue length");
+startup_guest_gone(2);check(startup_waiting.length()==2 and startup_waiting[1].name=="Cara" and has_packet("3:startup_queued 2 2"),"leaving closes the gap and updates the remaining positions");
+packets.resize(0);startup_ready=true;startup_admit_next();check(startup_admitted==1 and has_packet("1:startup_admit"),"first remaining player enters first");
+startup_waiting.insert_last(startup_guest(4,"Dana"));check(startup_waiting.length()==2 and startup_waiting[0].name=="Cara" and startup_waiting[1].name=="Dana","late arrival joins the tail");
+packets.resize(0);startup_login_finished(1);check(startup_admitted==3 and has_packet("3:startup_admit"),"next player enters only after the prior login finishes");
+startup_guest_gone(3);check(startup_admitted==4 and has_packet("4:startup_admit"),"an admitted disconnect advances the queue");
+startup_login_finished(4);check(startup_admitted<0 and startup_waiting.length()==0,"queue drains without leaving a blocked admission");
+startup_ready=false;startup_percent=40;startup_step="Loading maps";packets.resize(0);
+int test_port=random(30000,50000);n.setup_server(test_port,4,100);network client;client.setup_client(1,100);client.connect("localhost",test_port);
+timer connect_wait;bool linked=false;while(connect_wait.elapsed<3000 and !linked){wait(5);network_event incoming=client.request();if(incoming.type==event_connect)linked=true;startup_pump();}
+check(linked,"the open startup port accepts a transport connection");
+if(linked){client.send_reliable(0,string_encrypt("startup_hello Dave","_';'_clickclick!"),0);timer packet_wait;while(packet_wait.elapsed<2000 and !has_packet("0:startup_offer 40 Loading maps") and !has_packet("1:startup_offer 40 Loading maps")){wait(5);startup_pump();}check(packets.length()>0 and packets[packets.length()-1].find("startup_offer 40 Loading maps")>=0,"the live startup handshake returns the current phase");
+client.send_reliable(0,string_encrypt("startup_join Dave","_';'_clickclick!"),0);packet_wait.restart();while(packet_wait.elapsed<2000 and startup_waiting.length()==0){wait(5);startup_pump();}check(startup_waiting.length()==1 and startup_waiting[0].name=="Dave","the live join packet enters the holding queue");
+if(startup_waiting.length()==1){packets.resize(0);client.send_reliable(0,string_encrypt("startup_status_request","_';'_clickclick!"),0);client.send_reliable(0,string_encrypt("startup_queue_list","_';'_clickclick!"),0);packet_wait.restart();while(packet_wait.elapsed<2000 and packets.length()<2){wait(5);startup_pump();}string prefix=""+startup_waiting[0].peer+":";check(has_packet(prefix+"startup_status 40 Loading maps") and has_packet(prefix+"startup_queue_list Nobody else is waiting."),"Space and F1 requests return progress and other waiting players");}
+packets.resize(0);startup_finish();check(startup_admitted>=0 and packets.find(""+startup_admitted+":startup_admit")>=0,"ready state admits the first queued connection");}
+client.destroy();n.destroy();
+exit(failures);
+}

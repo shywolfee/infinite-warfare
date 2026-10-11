@@ -1,0 +1,103 @@
+// The listener is opened before content loads. Only startup packets are
+// accepted until the world is ready; admitted peers enter one at a time.
+class startup_guest {uint peer;string name;startup_guest(uint p,string n){peer=p;name=n;}}
+startup_guest@[] startup_waiting;
+bool startup_ready=false;
+int startup_percent=0;
+string startup_step="Opening the server port";
+int startup_admitted=-1;
+timer startup_admission_timer;
+string startup_status_path="";
+string[] startup_history;
+bool startup_running=true;
+timer startup_gui_heartbeat;
+
+string startup_clean_name(string name)
+{
+name=name.trim_whitespace();if(name.length()>32)name=name.substr(0,32);
+for(uint i=0;i<name.length();i++){string c=name.substr(i,1);if(c=="|" or c=="\n" or c=="\r")name=name.substr(0,i)+"_"+name.substr(i+1);}
+return name==""?"Guest":name;
+}
+int startup_waiting_index(uint peer){for(uint i=0;i<startup_waiting.length();i++)if(startup_waiting[i].peer==peer)return int(i);return -1;}
+string startup_status_packet(){return "startup_status "+startup_percent+" "+startup_step;}
+void startup_write_status()
+{
+if(startup_status_path=="")return;
+string state=(startup_running?(startup_ready?"Ready":"Loading"):"Stopped")+"|"+startup_percent+"|"+startup_step+"|"+startup_waiting.length()+" waiting\n";
+for(uint i=0;i<startup_history.length();i++)state+=startup_history[i]+"\n";
+file_put_contents(startup_status_path,state,false);
+}
+void startup_broadcast()
+{
+startup_write_status();
+for(uint i=0;i<startup_waiting.length();i++){
+send_reliable(startup_waiting[i].peer,startup_status_packet(),0);
+send_reliable(startup_waiting[i].peer,"startup_queued "+(i+1)+" "+startup_waiting.length(),0);
+}
+}
+void startup_admit_next()
+{
+if(!startup_ready or startup_admitted>=0 or startup_waiting.length()==0)return;
+startup_guest@ guest=startup_waiting[0];startup_waiting.remove_at(0);
+startup_admitted=int(guest.peer);startup_admission_timer.restart();
+send_reliable(guest.peer,"startup_admit",0);startup_broadcast();
+}
+void startup_guest_gone(uint peer)
+{
+int index=startup_waiting_index(peer);if(index>=0){startup_waiting.remove_at(index);startup_broadcast();}
+if(startup_admitted==int(peer)){startup_admitted=-1;startup_admit_next();}
+}
+void startup_login_finished(uint peer)
+{
+if(startup_admitted==int(peer)){startup_admitted=-1;startup_admit_next();}
+}
+bool startup_handle_event(network_event@ event)
+{
+if(event.type==event_connect)return true;
+if(event.type==event_disconnect){if(startup_waiting_index(event.peer_id)>=0 or startup_admitted==int(event.peer_id)){startup_guest_gone(event.peer_id);return true;}return false;}
+if(event.type!=event_receive or event.channel!=0)return false;
+string message=string_decrypt(event.message,"_';'_clickclick!");
+string[] fields=string_split(message," ",true);if(fields.length()==0)return false;
+if(fields[0]=="startup_hello"){
+send_reliable(event.peer_id,startup_ready and startup_waiting.length()==0 and startup_admitted<0?"startup_ready":"startup_offer "+startup_percent+" "+startup_step,0);return true;
+}
+if(fields[0]=="startup_status_request"){send_reliable(event.peer_id,startup_status_packet(),0);return true;}
+if(fields[0]=="startup_queue_list"){
+string names="";for(uint i=0;i<startup_waiting.length();i++){if(startup_waiting[i].peer==event.peer_id)continue;if(names!="")names+="|";names+=startup_waiting[i].name;}
+send_reliable(event.peer_id,"startup_queue_list "+(names==""?"Nobody else is waiting.":names),0);return true;
+}
+if(fields[0]=="startup_leave"){startup_guest_gone(event.peer_id);return true;}
+if(fields[0]=="startup_join"){
+if(startup_waiting_index(event.peer_id)<0 and startup_admitted!=int(event.peer_id)){
+string name=fields.length()>1?startup_clean_name(fields[1]):"Guest";startup_waiting.insert_last(startup_guest(event.peer_id,name));
+}startup_broadcast();startup_admit_next();return true;
+}
+if(fields[0]=="connect_me" and (!startup_ready or startup_waiting.length()>0 or startup_admitted>=0)){
+if(startup_admitted==int(event.peer_id))return false;
+send_reliable(event.peer_id,"startup_offer "+startup_percent+" "+startup_step,0);return true;
+}
+return false;
+}
+void startup_pump()
+{
+for(int i=0;i<64;i++){network_event pending=n.request();if(pending.type!=event_connect and pending.type!=event_receive and pending.type!=event_disconnect)break;startup_handle_event(pending);}
+if(startup_status_path!="" and file_exists(startup_status_path+".stop")){file_delete(startup_status_path+".stop");startup_stop();}
+}
+void startup_phase(int percent,string step)
+{
+startup_percent=percent;startup_step=step;startup_history.insert_last(percent+"% "+step);startup_broadcast();startup_pump();
+}
+void startup_finish()
+{
+startup_ready=true;startup_percent=100;startup_step="World ready; admitting players";startup_history.insert_last("100% "+startup_step);startup_broadcast();startup_admit_next();
+}
+void startup_stop()
+{
+startup_running=false;startup_step="Server stopped";startup_write_status();exit();
+}
+void startup_queue_tick()
+{
+if(startup_status_path!="" and file_exists(startup_status_path+".stop")){file_delete(startup_status_path+".stop");startup_stop();}
+if(startup_gui_heartbeat.elapsed>=1000){startup_gui_heartbeat.restart();startup_write_status();}
+if(startup_admitted>=0 and startup_admission_timer.elapsed>15000){startup_admitted=-1;startup_admit_next();}
+}

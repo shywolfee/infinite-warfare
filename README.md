@@ -120,13 +120,21 @@ try {
 }
 ```
 
+On Windows, the server opens its network port first and starts a separate status
+window showing each loading phase and the holding-queue count. The window stays
+responsive during long loads; its Stop server button shuts down the server.
+Clients connecting during startup can join the queue. Space reads progress and
+queue position, F1 lists waiting players, and Escape leaves the queue. Deploy
+the rebuilt client and server together for this startup handshake.
+
 For staff tools and server administration, see the [player and operator
 manual](player_manual.md#12-staff-and-server-operation). Keep accounts, administrator
 files, MOTD changes, and logs local.
 
 ### Sound assets
 
-Source recordings and `sounds.dat` are ignored by Git. Obtain the required audio
+The committed source recordings are packed into `sounds.dat`, which is ignored
+by Git. Obtain any additional required audio
 separately before trying to play or run the audio suites. Import tools under `tools/`
 describe their source libraries and keep provenance records; some require recordings
 from local external libraries.

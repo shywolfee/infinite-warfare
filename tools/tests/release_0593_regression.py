@@ -12,7 +12,7 @@ def props(path):
 assert (ROOT / "version.txt").read_text().strip() == "0.6.1"
 client = (ROOT / "Infinite Warfare.nvgt").read_text(encoding="utf-8-sig")
 assert 'string version_name="0.6.1";' in client
-assert re.search(r"int build_number\s*=\s*106;", client)
+assert re.search(r"int build_number\s*=\s*107;", client)
 items = {p.stem: props(p) for p in (CONTENT / "items").rglob("*.item")}
 weapons = {p.stem: props(p) for p in (CONTENT / "weapons").rglob("*.wpn")}
 offers = {}

@@ -56,6 +56,7 @@ string[] map=delinear(rawdata);
 f.close();
 for(uint i=0; i<map.length(); i++)
 {
+if(!startup_ready and i%128==0)startup_pump();
 string[] parsed=string_split(map[i], ":", false);
 if(parsed.length()==4 and parsed[0]=="spawn")
 {
@@ -371,6 +372,7 @@ maps.resize(0);
 index_map_files();
 for(uint i=0;i<map_file_ids.length();i++)
 {
+if(!startup_ready)startup_phase(54,"Loading map "+map_file_ids[i]);
 mapdata temp(map_file_ids[i]);
 maps.insert_last(temp);
 }

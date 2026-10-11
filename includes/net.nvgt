@@ -57,6 +57,39 @@ pinging=false;
 e=network_event();
 n.setup_client(20,500);
 }
+void send_login_handshake()
+{
+string message="connect_me "+name+" "+version+" "+comp;
+if(SCRIPT_COMPILED==false and !dev_unlocked)message+=" from_source";
+message+=" "+version_name;
+send_reliable(0,message,0);
+speak("signing in");
+}
+bool startup_queue_wait(string offer)
+{
+string status=offer;int split=string_contains(offer," ",1);if(split>=0)status=offer.substr(split+1);
+if(yesno("The server is still starting: "+status+". Would you like to wait in the holding queue?")!=1){reset_connection_attempt();mainmenu();return false;}
+send_reliable(0,"startup_join "+name,0);
+speak("Waiting in the server startup queue. Press Space for progress, F1 for the queue, or Escape to leave.");
+string position="Waiting for a queue position.";
+while(true)
+{
+wait(5);e=n.request();
+if(server_event_disconnect(e)){dlg("The server disconnected while you were waiting.");reset_connection_attempt();mainmenu();return false;}
+if(e.type==event_receive)
+{
+string message=get_event_message();
+if(message=="startup_admit"){speak("It is your turn. Entering the server.");return true;}
+if(string_contains(message,"startup_status ",1)==0)status=message.substr(15);
+else if(string_contains(message,"startup_queued ",1)==0){string[] fields=string_split(message," ",true);if(fields.length()>=3)position="Position "+fields[1]+" of "+fields[2]+" in the holding queue.";}
+else if(string_contains(message,"startup_queue_list ",1)==0)speak("Holding queue: "+message.substr(19));
+}
+if(key_pressed(KEY_SPACE)){speak(position+" Server "+status);send_reliable(0,"startup_status_request",0);}
+if(key_pressed(KEY_F1))send_reliable(0,"startup_queue_list",0);
+if(key_pressed(KEY_ESCAPE)){send_reliable(0,"startup_leave",0);reset_connection_attempt();mainmenu();return false;}
+}
+return false;
+}
 void connect()
 {
 reset_connection_attempt();
@@ -102,24 +135,14 @@ if(connected==false and prevconnected==false)
 n.connect(netaddress, netport);
 speak("connecting to the server.");
 }
-if(connected==true or prevconnected==true)
-{
-e=n.request();
-string connect_msg="connect_me "+name+" "+version+" "+comp;
-if(SCRIPT_COMPILED==false and !dev_unlocked)
-connect_msg+=" from_source";
-// The readable version travels too, so the server can judge compatibility by
-// the version people see instead of the lossy floating-point number.
-connect_msg+=" "+version_name;
-send_reliable(0, connect_msg, 0);
-speak("logging in");
-}
 connectiontimer.restart();
+timer startup_hello_timer;bool login_handshake_sent=false;
 while(true)
 {
 wait(5);
 if(!connected and reconnect_sound_timer.elapsed>=3000){p.play_stationary("reconnecting.ogg",false);reconnect_sound_timer.restart();}
 e=n.request();
+if(connected and !login_handshake_sent and startup_hello_timer.elapsed>1500 and e.type!=event_receive){send_login_handshake();login_handshake_sent=true;}
 if (key_pressed(KEY_ESCAPE))
 {
 reset_connection_attempt();
@@ -179,14 +202,16 @@ if(e.type!=event_connect) continue;
 if(e.type==event_connect and connected==false)
 {
 peer_id=e.peer_id;
-string connect_msg2="connect_me "+name+" "+version+" "+comp;
-if(SCRIPT_COMPILED==false and !dev_unlocked)
-connect_msg2+=" from_source";
-connect_msg2+=" "+version_name;
-send_reliable(0, connect_msg2, 0);
 connected=true;
 last_server_msg.restart();
-speak("signing in");
+startup_hello_timer.restart();
+send_reliable(0,"startup_hello "+name,0);
+}
+else if(e.type==event_receive and get_event_message()=="startup_ready"){if(!login_handshake_sent){send_login_handshake();login_handshake_sent=true;}}
+else if(e.type==event_receive and string_contains(get_event_message(),"startup_offer ",1)==0)
+{
+if(startup_queue_wait(get_event_message())){send_login_handshake();login_handshake_sent=true;}
+else return;
 }
 else if(e.type==event_receive and get_event_message()=="loggedin123")
 {

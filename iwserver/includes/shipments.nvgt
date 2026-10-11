@@ -25,6 +25,7 @@ void load_shipments()
 shipments.resize(0);next_shipment_id=1;if(!file_exists(shipment_store_directory+"/records.txt"))return;
 string[] lines=string_split(file_get_contents(shipment_store_directory+"/records.txt"),"\n",false);
 for(uint i=0;i<lines.length();i++){
+if(!startup_ready and i%16==0)startup_pump();
 string[] f=string_split(lines[i],"|",true);if(f.length()!=9 and f.length()!=10)continue;
 shipment_record s;s.id=int(string_to_number(f[0]));s.x=int(string_to_number(f[1]));s.y=int(string_to_number(f[2]));s.z=int(string_to_number(f[3]));s.map=f[4];s.owner=f[5];s.carrier=f[6]=="-"?"":f[6];s.state=int(string_to_number(f[7]));
 if(f.length()==10)s.base_id=int(string_to_number(f[8]));

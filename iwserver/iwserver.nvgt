@@ -63,6 +63,7 @@ string[] dev_list = {"velan"};
 const string SERVER_DEV_KEY = "Fluttershy";
 network n;
 network_event e;
+#include "includes/startup_queue.nvgt"
 timer uptimer;
 uint64 server_data_received=0;
 uint64 server_data_sent=0;
@@ -139,11 +140,20 @@ run_commerce_regression();return;
 #if IW_WORLD_EDITOR_REGRESSION
 run_world_editor_regression();return;
 #endif
-show_window("Infinite Warfare server!, version "+ minversion);
+// Bind first so clients can see startup and wait instead of timing out.
+if(!n.setup_server(port,20,500)){alert("Server port unavailable","Could not open UDP port "+port+". Close another server using it, then try again.");return;}
+startup_status_path=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-server-startup-"+port+".txt";
+file_delete(startup_status_path+".stop");
+startup_write_status();
+run("powershell.exe","-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"server_status_gui.ps1\" \""+startup_status_path+"\"",false,false);
 // Armour, patches and launched explosives are defined in content/items; a
 // server that cannot find them would treat every item as ordinary.
+startup_phase(5,"Loading groups and item definitions");
 load_groups();
+@item_load_progress=@startup_pump;
 if(load_item_catalogue()==0)alert("Item data missing","The server could not find content/items, so armour and patches will not work. Run the server from its own folder.");
+@item_load_progress=null;
+startup_phase(16,"Reading server settings and administration records");
 file pr;
 if(file_exists("admins.txt"))
 {
@@ -207,23 +217,31 @@ nf.open(bug_dir+"/next_id.txt", "rb");
 next_bug_id=string_to_number(nf.read());
 nf.close();
 }
+startup_phase(32,"Loading weapon data");
 load_wpn_stats();
+startup_phase(43,"Loading Redspot combos and map objects");
 init_redspot_combos();
 load_dobject_types(dobject_data_directory());
+startup_phase(54,"Loading vehicles and maps");
 load_vehicle_kinds();
 init_mapsystem();
+startup_phase(68,"Loading bases and shipments");
 load_redspot_bases();
 load_shipments();
-n.setup_server(port, 20, 500);
+startup_phase(79,"Spawning map bunkers and vehicles");
 spawn_all_map_bunkers();
 spawn_all_map_vehicles();
+startup_phase(88,"Loading teams, moderation and staff roles");
 load_teams();
 load_moderation();
 load_staff_roles();
+startup_phase(96,"Starting bunker alarms");
 init_bunker_alarms();
+startup_finish();
 while(true)
 {
 wait(5);
+startup_queue_tick();
 // Service simulation once, then drain a bounded packet burst without
 // multiplying world updates or starving the next frame.
 for(int packet_drain=0;packet_drain<32;packet_drain++)
@@ -237,6 +255,7 @@ send_reliable(0, "Server rebooting now. Reason: "+reboot_reason, 2);
 for (int ri=0; ri<int(players.length()); ri++) send_reliable(0, "offline "+players[ri].x+" "+players[ri].y+" "+players[ri].z+" "+players[ri].name+" "+players[ri].map, 0);
 wait(300);
 run("iwserver.exe", "", false, false);
+startup_running=false;startup_step="Rebooting";startup_write_status();
 exit();
 }
 if(spawn_chesttimer.elapsed>=300000)
@@ -253,7 +272,7 @@ spawn_physical_commerce_supply();
 }
 if(key_pressed(KEY_ESCAPE))
 {
-exit();
+startup_stop();
 }
 }
 }
@@ -294,6 +313,7 @@ vehicle_upkeep_loop();
 chat_maintenance();
 }
 e=n.request();
+if(startup_handle_event(e))return;
 if(service_world and key_pressed(KEY_H))
 {
 hide_window();
@@ -303,7 +323,7 @@ if(service_world and file_exists("updating.txt"))
 send_reliable(0, "updating", 0);
 file_delete("updating.txt");
 wait(500);
-exit();
+startup_stop();
 }
 if(e.type==event_disconnect)
 {
@@ -760,6 +780,7 @@ bool from_source=(parsed.length()>4 and parsed[4]=="from_source");
 uint version_token=from_source?5:4;
 string version_text=parsed.length()>version_token?parsed[version_token]:"";
 login(parsed[1], e.peer_id, string_to_number(parsed[2]),parsed[3],from_source,version_text);
+startup_login_finished(e.peer_id);
 }
 else if(parsed[0]=="lobby_players")
 {

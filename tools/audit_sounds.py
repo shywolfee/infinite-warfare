@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import sys
 from collections import defaultdict
@@ -53,6 +54,27 @@ MANUAL_CLASSES = {"shotgun", "revolver", "grenade_launcher"}
 MODE_NAMES = {"semi": "semi-automatic", "auto": "full automatic",
               "burst": "burst", "scattershot": "scattershot",
               "focused": "focused"}
+
+
+def imported_cues():
+    """The recordings an imported weapon profile is expected to have.
+
+    GUN_CONTRACT below is this game's own lifecycle: a weapon holsters, clicks
+    on an empty chamber, finishes a reload and unloads, so every weapon of ours
+    is asked for those recordings. Redspot's weapons were never recorded with
+    any of them -- Redspot is silent -- so applying our contract to them asks
+    for recordings that do not exist, and the first import answered by copying
+    another weapon's, which is how a Redspot rifle came to holster with a
+    pistol's slide. An imported profile is therefore judged by the recordings
+    the import actually took from Redspot, recorded in its manifest, and by
+    nothing else. tools/audit_redspot_import.py checks that list against the
+    Redspot source itself.
+    """
+    manifest = ROOT / "sounds/REDSPOT_AUDIO_SOURCES.json"
+    if not manifest.is_file():
+        return set()
+    return {entry["destination"] for entry in json.loads(manifest.read_text(encoding="utf-8"))
+            if not entry["source"].startswith("Infinite Warfare sounds/")}
 
 
 def load_pack_listing():
@@ -116,8 +138,16 @@ def main():
     for condition, count in re.findall(r"if\((.*?)\)return (\d+);", hit_function):
         for profile in re.findall(r'profile=="([^"]+)"', condition):
             impact_counts[profile] = int(count)
+    # An imported weapon answers to its own recordings instead of ours.
+    imported = imported_cues()
     for w in weapons.values():
         p = w["profile"]
+        owned = sorted(name for name in imported if name.startswith(p))
+        if owned:
+            for name in owned:
+                if not present(name):
+                    missing["required"].append((f"{w['name']} ({w['class'] or 'melee'})", name))
+            continue
         contract = list(MELEE_CONTRACT if w["melee"] else GUN_CONTRACT)
         contract += [(f"hit{i}.ogg", "required") for i in range(2, impact_counts.get(p, 3)+1)]
         if not w["melee"] and w["manual"]:

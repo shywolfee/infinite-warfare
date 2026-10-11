@@ -20,6 +20,9 @@ string grenade_pin_audio(string item){string audio_name=item_prop(item,"pin_soun
 bool grenade_pin_or_throw(string item)
 {
 if(!item_is_thrown_explosive(item))return false;
+// Redspot throws its items directly. None of these items has a pin or a
+// cookable held state in the source's item_use.nvgt.
+if(item_prop(item,"use_kind")=="redspot_explosive"){send_reliable(0,explosive_use_command(item),0);return true;}
 if(item_flag(item,"momentum_rolling")){if(cooked_grenade!=""){speak("Throw the grenade you are holding first.");return true;}send_reliable(0,explosive_use_command(item),0);return true;}
 if(cooked_grenade==""){cooked_grenade=item;cooked_grenade_warning_stage=0;cooked_grenade_fuse=grenade_fuse_ms(item);cooked_grenade_releasing=false;cooked_grenade_timer.restart();send_reliable(0,"grenade_pin "+item,0);p.play_stationary(grenade_pin_audio(item),false);speak("Pin pulled from "+string_replace(item,"_"," ",true)+". Press enter again to throw. The fuse is running.");return true;}
 if(cooked_grenade!=item){speak("You are already cooking a "+string_replace(cooked_grenade,"_"," ",true)+". Return to it before selecting another grenade.");return true;}
@@ -147,13 +150,13 @@ void online_supply_shop()
  for(uint i=0;i<entries.length();i++){string[] q=string_split(entries[i],"~",false);if(q.length()<7)continue;offers.insert_last(online_shop_offer(q[0],q[1],q[2],q[3],q[0],int(string_to_number(q[4])),int(string_to_number(q[5]))));limits.insert_last(int(string_to_number(q[6])));if(categories.find(q[2])<0)categories.insert_last(q[2]);}
  if(offers.length()==0){speak("No supply offers are currently available.");return;}
  nv_form f;f.create_window("SupplyLink marketplace",false,true);
- nv_form_input@ balance=f.add_input("Wallet balance and payment","balance",ask_balance()+" wallet credits. Physical cash and bank-linked credsticks can be selected at checkout.","",0,true,true);
+ nv_form_input@ balance=f.add_input("Bank balance and payment","balance",ask_balance()+" bank checking credits. Physical cash and bank-linked credsticks can be selected at checkout.","",0,true,true);
  nv_form_list_box@ category=f.add_list("Catalogue category","category");for(uint i=0;i<categories.length();i++)category.add(categories[i],categories[i]);
  nv_form_input@ search=f.add_input("Search names and descriptions","search");nv_form_list_box@ listings=f.add_list("Matching offers","offers");
  nv_form_input@ details=f.add_input("Selected offer and order limit","details","","",0,true,true),quantity=f.add_input("Number of offer packs to add","quantity","1");
  nv_form_button@ add=f.add_button("Add selected offer to cart","add",true);
  nv_form_list_box@ cart=f.add_list("Shopping cart: Select an entry to remove","cart");nv_form_input@ total_view=f.add_input("Order total","total","Cart empty.","",0,true,true);
- nv_form_button@ remove=f.add_button("Remove selected cart entry","remove"),checkout=f.add_button("Checkout: Confirm total and choose payment","checkout"),refresh=f.add_button("Refresh wallet balance","refresh"),close=f.add_button("Close store without purchasing","close",false,true);
+ nv_form_button@ remove=f.add_button("Remove selected cart entry","remove"),checkout=f.add_button("Checkout: Confirm total and choose payment","checkout"),refresh=f.add_button("Refresh bank balance","refresh"),close=f.add_button("Close store without purchasing","close",false,true);
  int[] counts(offers.length());string previous="\x01",last_detail="";f.focus_control(category);
  while(connected){
   string filter=category.focused_item_id+"|"+search.text.lower();
@@ -162,7 +165,7 @@ void online_supply_shop()
   if(listings.focused_item_id!=last_detail){details.text=selected>=0?offers[selected].description+" Pack contains "+offers[selected].quantity+". Price "+offers[selected].price+" credits per pack. Maximum "+limits[selected]+" packs per checkout.": "No matching offer.";last_detail=listings.focused_item_id;}
   add.enabled=selected>=0;remove.enabled=cart.items.length()>0;checkout.enabled=cart.items.length()>0;
   wait(5);f.monitor();netloop(false);if(f.is_pressed(close))return;
-  if(f.is_pressed(refresh))balance.text=ask_balance()+" wallet credits. Other payment balances are separate.";
+  if(f.is_pressed(refresh))balance.text=ask_balance()+" bank checking credits. Physical payment balances are separate.";
   bool changed=false;
   if(f.is_pressed(add) and selected>=0){int n=int(string_to_number(quantity.text));if(n<1 or quantity.text!=n+"" or n+counts[selected]>limits[selected]){speak("Choose a positive whole number within this offer's remaining order limit.");continue;}counts[selected]+=n;changed=true;speak("Added "+n+" packs of "+offers[selected].label+" to the cart.");}
   if(f.is_pressed(remove)){for(uint i=0;i<offers.length();i++)if(offers[i].key==cart.focused_item_id){counts[i]=0;changed=true;break;}}
@@ -174,7 +177,7 @@ void online_supply_shop()
    int fee=(kind=="bank" or kind=="credit")?int(ceil(double(cost)*item_prop_int(payment,"currency_fee_percent")/100)):0;
    if(yesno("Buy "+distinct+" listings for "+cost+" credits"+(fee>0?" plus "+fee+" credits in payment fees":"")+" using "+physical_item_name(payment)+"?")==1){
     string result=terminal_request("market_checkout "+payment+" "+packet,"market_");
-    if(result.find("market_purchase_ok ")==0){speak(result.substr(19));for(uint i=0;i<counts.length();i++)counts[i]=0;changed=true;balance.text=ask_balance()+" wallet credits.";}
+    if(result.find("market_purchase_ok ")==0){speak(result.substr(19));for(uint i=0;i<counts.length();i++)counts[i]=0;changed=true;balance.text=ask_balance()+" bank checking credits.";}
     else if(result!="")speak(string_replace(result,"market_purchase_error ","Purchase declined: ",false));
    }
   }

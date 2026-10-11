@@ -129,5 +129,20 @@ defined |= set(re.findall(r"\bclass\s+(\w+)", client_sources))
 for name in sorted(called - defined):
     problems.append(f"the client calls {name}() but never defines it")
 
+# Every sound the server asks for by name must exist in sounds/. The ported
+# Redspot content named a great many cues that were never imported, so sandbag
+# walls used a wooden wall's thump, a raised shield was silent and the item
+# grabber and rocket battery made no noise at all. This catches a name nothing
+# will ever play. Only literal names count: one built at run time from a weapon
+# profile or a random variant cannot be judged here.
+sound_root = ROOT / "sounds"
+for name, text in {"iwserver.nvgt": server, **server_includes}.items():
+    for match in re.finditer(r'\bplay(?:_s)?\s*\(\s*"([^"]+)"\s*[,)]', text):
+        recording = match.group(1)
+        if not recording.endswith((".ogg", ".wav")):
+            recording += ".ogg"
+        if not (sound_root / recording).is_file():
+            problems.append(f"{name}: plays {recording!r}, which is not in sounds/")
+
 assert not problems, "\n".join(problems)
 print("PASS mechanics wiring: corpses, collectables, equipment, healing, anti-cheat, ammunition, vehicles and arenas")

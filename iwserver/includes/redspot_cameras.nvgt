@@ -18,7 +18,7 @@ int id=next_redspot_camera_id++;dobject@ o=new_dobject(id,"redspot_spy_camera",x
 }
 bool redspot_camera_charge_at(string owner,string map,int x,int y,int z)
 {
-for(uint i=0;i<redspot_cameras.length();i++){redspot_camera@ c=redspot_cameras[i];if(c.owner!=owner or c.map!=map or get_3d_distance(c.x,c.y,c.z,x,y,z)>2)continue;c.battery+=80;if(c.battery>100)c.battery=100;play("redspot_spy_camera_battery",c.x,c.y,c.z,c.map);return true;}return false;
+for(uint i=0;i<redspot_cameras.length();i++){redspot_camera@ c=redspot_cameras[i];if(c.owner!=owner or c.map!=map or get_3d_distance(c.x,c.y,c.z,x,y,z)>2)continue;c.battery+=80;if(c.battery>100)c.battery=100;play("redspot_spy_camera_battery_pack",c.x,c.y,c.z,c.map);return true;}return false;
 }
 void redspot_camera_loop()
 {

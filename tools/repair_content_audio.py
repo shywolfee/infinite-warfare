@@ -79,6 +79,10 @@ def plan():
         props = properties(path)
         if props.get("thrown") != "true":
             continue
+        # Redspot throws have no pin event. They use the source's immediate
+        # throw recording, so no synthetic pin recipe belongs to them.
+        if props.get("use_kind") == "redspot_explosive":
+            continue
         item = path.stem
         # Pin and throw are separate events. Do not replay a pin pull on release.
         variant = PIN_VARIANTS.get(item)

@@ -36,7 +36,7 @@ terminal_app_def@ app=null;for(uint i=0;i<device_module_definitions.length();i++
 if(app is null or !terminal_os_supports(item,app.systems)){send_reliable(peer,"device_error That module is incompatible with this hardware.",0);return;}
 if(cmd=="device_remove"){if(!device_installed(p,item,app.id)){send_reliable(peer,"device_error That module is not installed.",0);return;}p.device_modules.delete(item+":"+app.id);send_reliable(peer,"device_ok Removed "+app.name+" and recovered "+app.size+" GB.",0);return;}
 if(device_installed(p,item,app.id) or device_used(p,item)+app.size>device_capacity(p,item)){send_reliable(peer,"device_error Already installed or insufficient device storage.",0);return;}
-if(!change_player_credits(p,-app.price)){send_reliable(peer,"device_error Insufficient wallet credits or payment could not be saved.",0);return;}p.device_modules.set(item+":"+app.id,true);send_reliable(peer,"device_ok Installed "+app.name+" on "+item_info(item).name+" for "+app.price+" credits.",0);return;
+ if(!change_player_credits(p,-app.price)){send_reliable(peer,"device_error Insufficient bank credits or payment could not be saved.",0);return;}p.device_modules.set(item+":"+app.id,true);send_reliable(peer,"device_ok Installed "+app.name+" on "+item_info(item).name+" for "+app.price+" credits.",0);return;
 }
 if(cmd=="device_expand" and parsed.length()==3)
 {

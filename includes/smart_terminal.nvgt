@@ -34,9 +34,8 @@ string selected_operation="";
   string status=terminal_request("bank_status "+pin,"bank_");if(status.find("bank_status ")!=0){terminal_speak_reply(status);return;}
   string[] fields=string_split(status.substr(12),"|",false);if(fields.length()<4)return;
   nv_form f;f.create_window("Bank account "+fields[0],false,true);
-  f.add_input("Account summary","summary","Checking "+fields[1]+" credits. Savings "+fields[2]+". Credit debt "+fields[3]+". Wallet is separate. Sign-in authorizes your bank credsticks for five minutes.","",0,true,true);
+  f.add_input("Account summary","summary","Checking "+fields[1]+" credits. Savings "+fields[2]+". Credit debt "+fields[3]+". Bank balances persist; physical chips and credsticks are lost on logout. Sign-in authorizes your bank credsticks for five minutes.","",0,true,true);
   nv_form_list_box@ actions=f.add_list("Banking operations","operations");
-  actions.add("Deposit wallet credits: Transfer your saved wallet balance to checking.","deposit");actions.add("Withdraw to wallet: Transfer checking credits to your saved wallet.","withdraw");
   actions.add("Move funds to savings: Transfer from checking.","save");actions.add("Move funds to checking: Transfer from savings.","unsave");
 if(string_to_number(fields[3])>0)actions.add("Repay your credit line: Transfer checking funds to reduce debt.","repay");
 actions.add("Withdraw physical credit chips: Choose a denomination and quantity from checking.","cash");

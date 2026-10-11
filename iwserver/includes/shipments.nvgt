@@ -61,6 +61,14 @@ bool shipment_open(player@ p,string item)
 if(item.find("shipment_")!=0)return false;
 int id=int(string_to_number(item.substr(9)));shipment_record@ s=shipment_find(id);
 if(s is null or s.state!=2 or physical_count(p,item)<=0){send_reliable(p.peer_id,"That shipment is unavailable or has already been opened.",2);return true;}
+// Opened over a working storage area, a shipment goes straight onto the shelf
+// as Redspot's does, rather than through the pockets of whoever opened it.
+if(redspot_base_storage_here(p)>=0)
+{
+s.state=3;save_shipments();send_reliable(p.peer_id,"give "+item+" -1",0);
+send_reliable(p.peer_id,redspot_base_unload_shipment(p,s),2);
+return true;
+}
 s.state=3;save_shipments();send_reliable(p.peer_id,"give "+item+" -1",0);
 for(uint i=0;i<s.items.length();i++)send_reliable(p.peer_id,"give "+s.items[i]+" "+s.amounts[i],0);
 send_reliable(p.peer_id,"give empty_pack 1",0);

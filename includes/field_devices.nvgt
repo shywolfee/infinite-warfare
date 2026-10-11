@@ -19,7 +19,7 @@ void device_modules_menu(string item){
   string response=terminal_request("device_catalog "+item,"device_");if(response.find("device_catalog ")!=0){terminal_speak_reply(response);return;}
   string status=terminal_request("device_state "+item,"device_");string[] state=string_split(status.substr(13),"|",false);if(state.length()<6){terminal_speak_reply(status);return;}
   int free=int(string_to_number(state[3])-string_to_number(state[4])),wallet=ask_balance();
-  nv_form f;f.create_window("Compatible modules",false,true);f.add_input("Device resources","resources",free+" GB free. Wallet "+wallet+" credits. Modules and storage are lost with this device; uninstalling does not refund credits.","",0,true,true);
+  nv_form f;f.create_window("Compatible modules",false,true);f.add_input("Device resources","resources",free+" GB free. Bank checking "+wallet+" credits. Modules and storage are lost with this device; uninstalling does not refund credits.","",0,true,true);
   nv_form_list_box@ list=f.add_list("Module catalogue","modules");string[] rows=string_split(response.substr(15),";",true);
   for(uint i=0;i<rows.length();i++){string[] q=string_split(rows[i],"~",false);if(q.length()<7)continue;list.add(q[1]+": "+q[6]+". "+q[2]+" GB; "+q[3]+" credits. "+(q[4]=="1"?"Installed":"Not installed"),q[0]);}
   nv_form_button@ install=f.add_button("Install selected module","install",true),remove=f.add_button("Remove selected module","remove"),close=f.add_button("Back to device","close",false,true);

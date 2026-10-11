@@ -1,32 +1,234 @@
-bool base_picking=false;int base_pick_id=-1;
+// Redspot bases on the client.
+//
+// The base is a map of its own, so everything inside it is a tile: standing on
+// the computer at 0 0 0 and pressing the use key opens it, the exit at 10 0 0
+// takes you out, the generator at 20 0 0 turns the power over, the fridge at
+// 0 20 0 is the fridge and storage at 20 20 0 is the shelf. The door is the
+// only thing outside, and it is knocked on with the same key.
+//
+// The menus are the source's own tree: alarms with Redspot's six states, door
+// controls, base information, the message log, the scanning system, owner
+// management, the store and the weapons terminal.
+
+int client_base_id=-1;
+string client_base_name="";
+bool base_picking=false;
+int base_pick_id=-1;
+
+bool client_in_base(){return client_base_id>=0;}
+
+string base_item_name(string id)
+{
+int index=content_find(id);
+if(index>=0)return content_database[index].display_name;
+return string_replace(id,"_"," ",true);
+}
+
+// The use key inside a base: whatever tile you are standing on is what you use,
+// exactly as it is in the source.
+bool base_fitting_use()
+{
+if(client_base_id<0)return false;
+send_reliable(0,"base here",0);
+return true;
+}
+
+void base_ask_code(int id,string name)
+{
+string answer=af_input("Enter the door code for "+name+".","",true);
+if(answer=="")return;
+send_reliable(0,"base enter "+id+" "+answer,0);
+}
+
+void base_ask_name()
+{
+string answer=af_input("What should this base be called?","",true);
+if(answer=="")return;
+send_reliable(0,"base name "+answer,0);
+}
+
+void base_fridge_menu(int id,int food,int cold,int max_food,int max_cold,int coolant)
+{
+while(connected and client_base_id>=0)
+{
+string choice=pick_from_list("Fridge: "+food+" food of "+max_food+", "+cold+" cold food of "+max_cold+", "+coolant+" coolant",{
+"Put food in","Take food out","Take cold food out","What is in here","Close"
+},{"put","take","takecold","info","close"});
+if(choice=="" or choice=="close")return;
+send_reliable(0,"base fridge "+id+" "+choice,0);
+if(choice!="info")return;
+}
+}
+
+void base_storage_list(int id,string entries)
+{
+if(entries==""){speak("The storage area is empty.");return;}
+string[] rows=string_split(entries,";",false);
+string[] labels;
+string[] ids;
+for(uint i=0;i<rows.length();i++)
+{
+string[] row=string_split(rows[i],":",false);
+if(row.length()!=2)continue;
+labels.insert_last(row[1]+" "+base_item_name(row[0]));
+ids.insert_last(row[0]);
+}
+if(ids.length()==0){speak("The storage area is empty.");return;}
+string item=pick_from_list("Retrieve which item?",labels,ids);
+if(item=="")return;
+string answer=af_input("How many "+base_item_name(item)+"?","1",true);
+if(answer=="")return;
+send_reliable(0,"base storage withdraw "+id+" "+item+" "+answer,0);
+}
+
+void base_storage_menu(int id,int items,int max_items,int rounds,int max_rounds)
+{
+while(connected and client_base_id>=0)
+{
+string choice=pick_from_list("Storage area: "+items+" items of "+max_items+", "+rounds+" rounds of "+max_rounds,{
+"Store an item","Retrieve an item","Read the listing","Close"
+},{"store","retrieve","list","close"});
+if(choice=="" or choice=="close")return;
+if(choice=="list"){send_reliable(0,"base storage list "+id,0);return;}
+if(choice=="retrieve"){send_reliable(0,"base storage list "+id,0);return;}
+string item=get_selected_item();
+if(item==""){speak("Select an inventory item first.");continue;}
+string answer=af_input("Store how many "+base_item_name(item)+"?","1",true);
+if(answer=="")continue;
+send_reliable(0,"base storage deposit "+id+" "+item+" "+answer,0);
+return;
+}
+}
+
 void redspot_base_menu(int id)
 {
-while(connected){
-string choice=pick_from_list("Base computer",{
-"Read base status","Read storage","Deposit selected physical item",
-"Withdraw an item","Open supply marketplace","Toggle power","Close"
-},{"status","list","deposit","withdraw","shop","power","close"});
+while(connected and client_base_id>=0)
+{
+string choice=pick_from_list(client_base_name+" computer",{
+"Alarms","Door controls","Base information","Message log","Scanning system",
+"Owner management","Store","Weapons terminal","Read base status","Close"
+},{"alarms","doors","info","log","scan","owners","store","weapons","status","close"});
 if(choice=="" or choice=="close")return;
-if(choice=="shop"){online_supply_shop();continue;}
-if(choice=="deposit"){
-string item=get_selected_item();if(item==""){speak("Select an inventory item first.");continue;}
-string input=af_input("Deposit how many "+string_replace(item,"_"," ",true)+"?","1",true);if(input=="")continue;
-send_reliable(0,"base deposit "+id+" "+item+" "+input,0);continue;
+if(choice=="alarms")
+{
+string which=pick_from_list("Which alarm?",{
+"No alarm","Yellow, danger of attack","Red, under attack","Blue, infiltration","Fire","Critical, evacuate","Back"
+},{"none","yellow","red","blue","fire","critical",""});
+if(which=="")continue;
+send_reliable(0,"base alarm "+id+" "+which,0);
+continue;
 }
-if(choice=="withdraw"){
-string item=af_input("Item ID from the storage listing","",true);if(item=="")continue;
-string input=af_input("Withdraw how many?","1",true);if(input=="")continue;
-send_reliable(0,"base withdraw "+id+" "+item+" "+input,0);continue;
+if(choice=="doors")
+{
+string what=pick_from_list("Door controls",{"Change the door code","Unlock the door","Back"},{"code","unlock",""});
+if(what=="")continue;
+if(what=="code")
+{
+string answer=af_input("Enter the new door code, at least three digits.","",true);
+if(answer=="")continue;
+send_reliable(0,"base setcode "+id+" "+answer,0);
 }
-send_reliable(0,"base "+choice+" "+id,0);
+else send_reliable(0,"base door "+id,0);
+continue;
+}
+if(choice=="info")
+{
+string what=pick_from_list("Base information",{
+"General overview","Location","Fridge","Health","Generator","Operating system","Computer and fittings","Uncategorised","Back"
+},{"general","location","fridge","health","generator","os","fittings","misc",""});
+if(what=="")continue;
+send_reliable(0,"base info "+id+" "+what,0);
+continue;
+}
+if(choice=="log")
+{
+string what=pick_from_list("Message log",{"Read the log","Leave a message","Back"},{"read","write",""});
+if(what=="")continue;
+if(what=="read")send_reliable(0,"base log "+id,0);
+else
+{
+string body=af_input("What should the log say?","",true);
+if(body=="")continue;
+send_reliable(0,"base message "+id+" "+body,0);
+}
+continue;
+}
+if(choice=="scan")
+{
+string what=pick_from_list("Scanning system",{"Scan for players","Scan for items","Back"},{"players","items",""});
+if(what=="")continue;
+send_reliable(0,"base scan "+id+" "+what,0);
+continue;
+}
+if(choice=="owners")
+{
+string what=pick_from_list("Owner management",{"List owners","Add an owner","Remove an owner","Back"},{"list","add","remove",""});
+if(what=="")continue;
+if(what=="add")
+{
+string who=af_input("Who should be added as an owner?","",true);
+if(who=="")continue;
+send_reliable(0,"base owners "+id+" add "+who,0);
+}
+else send_reliable(0,"base owners "+id+" "+what,0);
+continue;
+}
+if(choice=="store"){send_reliable(0,"base market "+id,0);return;}
+if(choice=="weapons")
+{
+string what=pick_from_list("Weapons terminal",{"Turn the machinegun on or off","Check machinegun ammo","Who is in range","Back"},{"fire","ammo","range",""});
+if(what=="")continue;
+send_reliable(0,"base weapons "+id+" "+what,0);
+continue;
+}
+send_reliable(0,"base status "+id,0);
 }
 }
+
 bool redspot_base_packet(const string[] &in f)
 {
 if(f.length()==0)return false;
+// Entering a base: the interior is a map of its own, so this is the same kind
+// of transfer the arena uses, and the client is told before it is told the
+// player went offline.
+if(f[0]=="base_transfer" and f.length()>4)
+{
+we_map_transfer_active=true;
+client_base_id=int(string_to_number(string_replace(f[1],"base_","",false)));
+client_base_name=world_decode(f[5]);
+me.x=string_to_number(f[2]);me.y=string_to_number(f[3]);me.z=string_to_number(f[4]);
+mr.x=me.x;mr.y=me.y;movement_momentum=0;momentum_direction="";
+destroy_all_sources();distpool.destroy_all();ambpool.destroy_all();
+speak("Entering "+(client_base_name==""?"the base":client_base_name)+".");
+return true;
+}
+if(f[0]=="base_outside")
+{
+client_base_id=-1;
+client_base_name="";
+return true;
+}
+if(f[0]=="base_ask_code" and f.length()>=3)
+{
+string name=world_decode(f[2]);
+base_ask_code(int(string_to_number(f[1])),name==""?"the base":name);
+return true;
+}
+if(f[0]=="base_name_request"){base_ask_name();return true;}
 if(f[0]=="base_open" and f.length()>=2){redspot_base_menu(int(string_to_number(f[1])));return true;}
-if(f[0]=="base_pick_start" and f.length()>=2){base_picking=true;base_pick_id=int(string_to_number(f[1]));speak("Listen for each lock click and press Enter immediately. Five pins must release. Moving away or pressing early resets the lock.");return true;}
+if(f[0]=="base_market" and f.length()>=2){online_supply_shop();return true;}
+if(f[0]=="base_fridge" and f.length()>=6){base_fridge_menu(int(string_to_number(f[1])),int(string_to_number(f[2])),int(string_to_number(f[3])),int(string_to_number(f[4])),int(string_to_number(f[5])),int(string_to_number(f[6])));return true;}
+if(f[0]=="base_storage" and f.length()>=6){base_storage_menu(int(string_to_number(f[1])),int(string_to_number(f[2])),int(string_to_number(f[3])),int(string_to_number(f[4])),int(string_to_number(f[5])));return true;}
+if(f[0]=="base_storage_list" and f.length()>=2)
+{
+int id=int(string_to_number(f[1]));
+string entries=f.length()>=3?f[2]:"";
+if(entries=="-" or entries==""){speak("The storage area is empty.");return true;}
+base_storage_list(id,entries);
+return true;
+}
+if(f[0]=="base_pick_start" and f.length()>=2){base_picking=true;base_pick_id=int(string_to_number(f[1]));speak("Listen for each lock click and press Enter immediately, and only then. "+(f.length()>=3?f[2]:"Six")+" pins to go. Moving away or pressing early resets the lock.");return true;}
 if(f[0]=="base_lock_click" and f.length()>=2){if(base_picking and base_pick_id==int(string_to_number(f[1])))p.play_stationary("lockpick"+random(1,10)+".ogg",false);return true;}
-if(f[0]=="base_pick_end" and f.length()>=2){base_picking=false;base_pick_id=-1;if(f[1]=="opened"){p.play_stationary("lockpicksuccess.ogg",false);speak("The base lock opens for one minute.");}else speak("The lockpick slipped. Start again.");return true;}
+if(f[0]=="base_pick_end" and f.length()>=2){base_picking=false;base_pick_id=-1;if(f[1]=="opened"){p.play_stationary("lockpicksuccess.ogg",false);speak("The lock opens.");}else speak("The lockpick slipped. Start again.");return true;}
 return false;
 }

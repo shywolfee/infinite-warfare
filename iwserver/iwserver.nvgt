@@ -108,6 +108,9 @@ int player_index=get_player_index(peer);if(player_index>=0)return staff_can(play
 #if IW_ARSENAL_REGRESSION
 #include "../tools/tests/arsenal_regression.nvgt"
 #endif
+#if IW_BASE_REGRESSION
+#include "../tools/tests/redspot_bases_regression.nvgt"
+#endif
 void route_private_message(string sender,uint sender_peer,string target,string message)
 {
 recent_chat_message record;record.id=next_chat_message_id++;record.sender=sender;record.body=message;record.scope="pm:"+sender;record.timestamp=chat_timestamp(false);int target_player=get_player_index_from(target);if(target_player>=0){if(chat_is_blocked(players[target_player].name,sender)){send_reliable(sender_peer,"That player is not accepting messages from you.",2);return;}send_reliable(players[target_player].peer_id,"play_s pm.ogg",0);send_chat_event(players[target_player].peer_id,record.scope,sender,message,record);recent_chat_messages.insert_last(record);send_reliable(sender_peer,"pm sent successfully",2);return;}
@@ -120,6 +123,9 @@ void main()
 {
 #if IW_ARSENAL_REGRESSION
 run_arsenal_regression();return;
+#endif
+#if IW_BASE_REGRESSION
+run_redspot_bases_regression();return;
 #endif
 #if IW_MOTION_REGRESSION
 run_companion_bowling_regression();return;
@@ -1827,7 +1833,7 @@ int index=get_player_index(e.peer_id);
 if(index > -1)
 {
 if(players[index].parachute_open){send_reliable(e.peer_id,"mobility_jump_blocked",0);return;}
-if(players[index].spring_boots_equipped){if(physical_count(players[index],"spring_coil")>0){send_reliable(e.peer_id,"give spring_coil -1",0);send_reliable(e.peer_id,"mobility_spring",0);play("spring_bootsjump",players[index].x,players[index].y,players[index].z,players[index].map,index);}else{players[index].spring_boots_equipped=false;send_reliable(e.peer_id,"mobility_state boots 0",0);send_reliable(e.peer_id,"The spring boots have no coils left.",2);}}
+if(players[index].spring_boots_equipped){if(physical_count(players[index],"spring_coil")>0){send_reliable(e.peer_id,"give spring_coil -1",0);send_reliable(e.peer_id,"mobility_spring",0);play("spring_bootsjump",players[index].x,players[index].y,players[index].z,players[index].map,index);}else{players[index].spring_boots_equipped=false;send_reliable(e.peer_id,"give spring_boots -1",0);send_reliable(e.peer_id,"mobility_state boots 0",0);play("spring_bootskill",players[index].x,players[index].y,players[index].z,players[index].map);send_reliable(e.peer_id,"You ran out of coils and your spring boots broke under you.",2);}}
 send_reliable(0, "jump "+players[index].name+" "+players[index].x+" "+players[index].y+" "+players[index].z+" "+players[index].map, 0, index);
 }
 }
@@ -2154,7 +2160,7 @@ physical_handle(e.peer_id,parsed);
 }
 else if(parsed[0]=="dobj_buy" and parsed.length()>2)
 {
-dobject_buy(e.peer_id,int(string_to_number(parsed[1])),int(string_to_number(parsed[2])),parsed.length()>3?parsed[3]:"wallet");
+dobject_buy(e.peer_id,int(string_to_number(parsed[1])),int(string_to_number(parsed[2])),parsed.length()>3?parsed[3]:"bank");
 }
 else if(parsed[0]=="dobj_redeem")
 {
@@ -2242,7 +2248,8 @@ else{pilot.parachute_open=!pilot.parachute_open;pilot.parachute_handling_timer.r
 else if(parsed[1]=="spring_boots")
 {
 player@ pilot=players[index];if(physical_count(pilot,"spring_boots")<=0)send_reliable(e.peer_id,"You do not own spring boots.",2);
-else{pilot.spring_boots_equipped=!pilot.spring_boots_equipped;send_reliable(e.peer_id,"mobility_state boots "+(pilot.spring_boots_equipped?"1":"0"),0);send_reliable(e.peer_id,pilot.spring_boots_equipped?"Spring boots equipped. Each powered jump consumes a spring coil.":"Spring boots removed.",2);}
+else if(!pilot.spring_boots_equipped and physical_count(pilot,"spring_coil")<=0)send_reliable(e.peer_id,"The boots have no coils in them.",2);
+else{pilot.spring_boots_equipped=!pilot.spring_boots_equipped;send_reliable(e.peer_id,"mobility_state boots "+(pilot.spring_boots_equipped?"1":"0"),0);play("spring_boots",pilot.x,pilot.y,pilot.z,pilot.map);send_reliable(e.peer_id,pilot.spring_boots_equipped?"Spring boots clamped on.":"Spring boots off.",2);}
 }
 else if(parsed[1]=="propulsion_jet")
 {
@@ -2653,12 +2660,7 @@ players[index].move_timer.restart();
 else if(parsed[0]=="health")
 {
 int index=get_player_index(e.peer_id);
-if(index > -1)
-{
-int hp_pct=(players[index].health*100)/1000;
-if(hp_pct<0) hp_pct=0;
-send_reliable(e.peer_id,players[index].health+" health: "+hp_pct+"%, last hit by "+players[index].hitby, 0);
-}
+if(index > -1)send_reliable(e.peer_id,player_health_report(players[index]), 0);
 }
 else if(parsed[0]=="wirenet_equip" and parsed.length()>1)
 {

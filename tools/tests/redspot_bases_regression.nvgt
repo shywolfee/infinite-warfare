@@ -1,0 +1,64 @@
+// Exercise Redspot base building, naming, spawning and the nearby-things key,
+// plus sandbag structures and the shield report, against the real server code
+// and with no live connection. Run from iwserver via its runner.
+string rb_results;int rb_failures=0;
+void rb_check(bool ok,string label){rb_results+=(ok?"PASS ":"FAIL ")+label+"\n";if(!ok)rb_failures++;}
+void run_redspot_bases_regression()
+{
+string report_dir=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-bases-regression-"+random(100000,999999999);directory_create(report_dir);
+try
+{
+redspot_base_store_directory=report_dir+"/bases";
+load_item_catalogue();load_dobject_types(dobject_data_directory());load_vehicle_kinds();init_mapsystem();load_wpn_stats();load_redspot_bases();
+redspot_bases.resize(0);redspot_build_jobs.resize(0);
+player builder(40,40,0,"freeforall","base_builder",1);players.insert_last(builder);
+player@ p=players[0];
+p.physical_items.set("wood",200);
+// Asking to build only asks for a name; nothing is charged yet.
+build_redspot_base(p);
+rb_check(physical_count(p,"wood")==200,"asking to build spends no wood before the name");
+rb_check(redspot_base_start_build(p,"My Home"),"a build starts once a name arrives");
+rb_check(redspot_build_jobs.length()==1 and redspot_build_jobs[0].name=="My Home","the requested name is kept for the build");
+// Let the build's own clock run out and let the loop finish it, which is the
+// path the server actually takes and the one that used to lose the name.
+wait(TIME_BASE_BUILD+400);
+redspot_base_loop();
+rb_check(redspot_bases.length()==1,"the finished base exists");
+if(redspot_bases.length()==1)
+{
+redspot_base@ b=redspot_bases[0];
+rb_check(b.name=="My Home","the base keeps the name the builder chose");
+rb_check(b.map=="freeforall" and b.x==40 and b.y==40,"the base stands where it was built");
+rb_check(find_dobject(b.map,b.id) !is null,"the base spawns its own structure on the map");
+rb_check(physical_count(p,"wood")==100,"the hundred wood is charged when the base goes up");
+string near=nearby_things(0);
+rb_check(string_contains(near,"My Home",1)>=0,"the nearby key names the base");
+rb_check(string_contains(near,b.health+"",1)>=0,"the nearby key reports the base's health");
+}
+// A sandbag builds a real wall of sacking, and the nearby key reads its health.
+p.x=40;p.y=40;p.facing=0;
+p.physical_items.set("sandbag",1);
+redspot_use_item(p,"sandbag");
+rb_check(walls.length()==1,"a sandbag builds a wall");
+if(walls.length()==1)
+{
+rb_check(walls[0].type=="wallsandbag","the wall carries Redspot's sandbag tile");
+rb_check(walls[0].health==150000,"the sandbag wall has its authored health");
+string near_sandbag=nearby_things(0);
+rb_check(string_contains(near_sandbag,"150000",1)>=0,"the nearby key reports the sandbag's health");
+// A blast beside it must find the wall and wear it down.
+walls[0].health=150000;
+blast_profile bp;bp.radius=8;bp.damage=1200;bp.owner=p.name;
+damage_walls_in_blast(double(walls[0].x),double(walls[0].y),double(walls[0].miniz),walls[0].map,bp);
+rb_check(walls.length()==1 and walls[0].health<150000,"a blast beside a sandbag wall damages it");
+}
+// The shield grants charges and the health report owns up to them.
+p.redspot_shield=0;p.physical_items.set("shield",1);
+redspot_use_item(p,"shield");
+rb_check(p.redspot_shield>=1 and p.redspot_shield<=15,"using a shield grants one to fifteen charges");
+string report=player_health_report(p);
+rb_check(string_contains(report,p.redspot_shield+"",1)>=0,"the health report shows the shield charges");
+}
+catch{rb_check(false,"Exception: "+get_exception_info()+" at "+get_exception_file()+":"+get_exception_line());}
+rb_results+="Failures: "+rb_failures+"\n";file report_file;report_file.open(report_dir+"/results.txt","wb");report_file.write(rb_results);report_file.close();exit(rb_failures);
+}

@@ -818,6 +818,72 @@ if(unread>0)v.add_action("Mark them all as read","readall");
 return v;
 }
 
+// ---------------------------------------------------------------------------
+// Where updates may come from. The updater follows any repository, branch or
+// commit (updater/source.txt); these read the answering lists from GitHub, so
+// the player picks a name instead of typing one. Used by Update source on the
+// main menu.
+// ---------------------------------------------------------------------------
+// The repositories this copy of the game could be updated from: the game's
+// own repository first, then any copy of it in your GitHub account (a fork,
+// whatever it is called). Signed out, GitHub knows nothing of your account,
+// so the game's repository is the whole list.
+string[] repo_source_repositories()
+{
+string[] candidates;
+candidates.insert_last(repo_slug);
+if(repo_token=="" or repo_user=="")return candidates;
+json_array@ list=repo_array("/user/repos?sort=updated&per_page=100");
+if(list is null)return candidates;
+string game_name=repo_slug.substr(repo_slug.find("/")+1);
+for(uint i=0;i<list.length();i++)
+{
+json_object@ r=list.get_object(i);string full=js(r,"full_name");
+if(full=="" or full==repo_slug)continue;
+int slash=full.find("/");
+string name=slash>=0?full.substr(slash+1):full;
+if(string_to_lower_case(name)!=string_to_lower_case(game_name))continue;
+bool seen=false;for(uint j=0;j<candidates.length();j++)if(candidates[j]==full)seen=true;
+if(!seen)candidates.insert_last(full);
+}
+return candidates;
+}
+// A repository's default branch, or "" with repo_error saying why not.
+string repo_default_branch(const string &in slug)
+{
+json_object@ r=repo_object("/repos/"+slug);
+return r is null?"":js(r,"default_branch");
+}
+// The branches of a repository, as "name" and the commit each is at, in
+// parallel lists. Empty if they could not be read; repo_error says why.
+void repo_branch_list(const string &in slug,string[]@ names,string[]@ shas)
+{
+names.resize(0);shas.resize(0);
+json_array@ list=repo_array("/repos/"+slug+"/branches?per_page=100");
+if(list is null)return;
+for(uint i=0;i<list.length();i++)
+{
+json_object@ b=list.get_object(i);
+names.insert_last(js(b,"name"));shas.insert_last(js(jo(b,"commit"),"sha"));
+}
+}
+// The newest commits of a branch, as "sha" and a one-line "text" each, at
+// most `limit`. Empty if they could not be read; repo_error says why.
+void repo_branch_commits(const string &in slug,const string &in branch,int limit,string[]@ shas,string[]@ texts)
+{
+shas.resize(0);texts.resize(0);
+if(branch=="" or limit<1)return;
+json_array@ list=repo_array("/repos/"+slug+"/commits?sha="+branch+"&per_page="+limit);
+if(list is null)return;
+for(uint i=0;i<list.length();i++)
+{
+json_object@ c=list.get_object(i);json_object@ commit=jo(c,"commit");json_object@ author=jo(commit,"author");
+string who=js(jo(c,"author"),"login");if(who=="")who=js(author,"name");
+shas.insert_last(js(c,"sha"));
+texts.insert_last(repo_first_line(js(commit,"message"))+", by "+who+", "+repo_when(js(author,"date")));
+}
+}
+
 // Does one of a view's actions. Returns what to tell the player. Actions that
 // need words from the player (an issue, a comment) take them as `text` and
 // `title`; the screens ask for them.

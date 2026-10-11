@@ -88,11 +88,34 @@ double reach=b.radius;
 for(uint i=0;i<s.list.length();i++)
 {
 dobject@ o=s.list[i];if(!o.active or o.max_health<=0 or o.health<=0)continue;
+// A base's own tile is skipped here: the base's health, its door and its
+// fittings are the base system's business, and Redspot's damage_bases_in_radius
+// has already been told about this blast. Letting the object take it as well
+// would charge a base twice for one charge.
+if(o.type_id==BASE_DOOR_OBJECT)continue;
 double dz=z<o.bz1?o.bz1-z:(z>o.bz2?z-o.bz2:0),flat=o.distance_to(x,y),distance=sqrt(flat*flat+dz*dz);
 if(distance>=reach)continue;
 if(blast_line_blocked(x,y,z+.3,o.centre_x(),o.centre_y(),o.z+.5,map))continue;
 double pressure=blast_overpressure(distance,reach)*confinement;
 dobject_damage(o,int(double(b.damage)*pressure*b.structure_mult),true,b.owner);
+}
+}
+// Built sandbag walls take a blast the way the source's objects do, and make
+// the sacking's own sound as they give way; without this a charge beside a
+// sandbag wall was silent and only a bullet ever touched it.
+void damage_walls_in_blast(double x,double y,double z,string map,blast_profile@ b)
+{
+for(uint i=0;i<walls.length();i++)
+{
+if(walls[i].health<=0 or walls[i].map!=map)continue;
+double dx=double(walls[i].x)-x,dy=double(walls[i].y)-y,dz=z<double(walls[i].miniz)?double(walls[i].miniz)-z:(z>double(walls[i].maxz)?z-double(walls[i].maxz):0);
+double distance=sqrt(dx*dx+dy*dy+dz*dz);
+if(distance>=b.radius)continue;
+if(blast_line_blocked(x,y,z+.3,double(walls[i].x),double(walls[i].y),double(walls[i].miniz)+.5,map))continue;
+int amount=int(double(b.damage)*blast_overpressure(distance,b.radius));
+if(amount<1)continue;
+if(string_contains(walls[i].type,"sandbag",1)>=0)play(amount>800?"sandbag_hit":"sandbag_impact",walls[i].x,walls[i].y,walls[i].miniz,walls[i].map);
+walls[i].health-=amount;
 }
 }
 // Out of health. Some things burn first; some explode; some leave debris;
@@ -118,7 +141,7 @@ dobject_type@ t=o.type;
 dobject_sound(o,o.type_id=="furniture"?"dest":t.destroy_sound);
 string debris=t.debris;
 if(debris!="")o.become(debris);else o.active=false;
-if(o.type_id=="redspot_base_computer")redspot_base_destroyed(o.id);
+if(o.type_id=="redspot_base_computer" or o.type_id==BASE_DOOR_OBJECT)redspot_base_destroyed(o.id);
 if(o.type_id=="redspot_spy_camera")redspot_camera_destroyed(o.id);
 o.burning=false;o.respawn_timer.restart();
 send_dobject_state(o);
@@ -217,6 +240,9 @@ else if(what=="news" or what=="voice"){dobject_sound(o,t.contact_sound);send_rel
 else if(what=="vend")send_reliable(peer,"dobj_open vend "+o.id+" "+o.stock,0);
 else if(what=="store"){dobject_sound(o,t.contact_sound);send_reliable(peer,"dobj_open store "+o.id,0);}
 else if(what=="base")redspot_base_open(p,o.id);
+// A base's outside tile is a solid door with a keypad on it: knocking on it
+// asks for the code, and a door already open or destroyed is walked through.
+else if(what=="base_door"){redspot_base@ door=redspot_base_find(o.id);if(door !is null)redspot_base_knock(p,door);}
 else if(what=="door")
 {
 o.open=!o.open;dobject_sound(o,o.open?"open":"close");send_dobject_state(o);
@@ -293,13 +319,13 @@ else send_reliable(peer,o.describe()+(t.description!=""?": "+t.description:"."),
 }
 
 // Buying from a vending machine: dobj_buy <id> <offer index>.
-void dobject_buy(uint peer,int id,int offer_index,string payment="wallet")
+void dobject_buy(uint peer,int id,int offer_index,string payment="bank")
 {
 int pi=get_player_index(peer);if(pi<0)return;player@ p=players[pi];
 dobject@ o=dobject_for_use(p,id);if(o is null){send_reliable(peer,"dobj_buy_error You must stay beside the machine.",0);return;}
 dobject_type@ t=o.type;if(t.interaction!="vend" or offer_index<0 or offer_index>=int(t.offers.length())){send_reliable(peer,"dobj_buy_error That is not sold here.",0);return;}
 dobject_offer@ offer=t.offers[offer_index];
-if(payment=="wallet" and p.credits<offer.price){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error Not enough wallet credits.",0);return;}
+if((payment=="bank" or payment=="wallet") and p.credits<offer.price){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error Not enough bank credits.",0);return;}
 if(o.stock<=0){dobject_sound(o,"beep_no_money");send_reliable(peer,"dobj_buy_error The machine is empty. It is refilled over time.",0);return;}
 if(!dobject_ready(o,p,t.cooldown_ms,"another purchase")){send_reliable(peer,"dobj_buy_error The machine is still dispensing.",0);return;}
 if(!physical_payment(p,offer.price,payment)){send_reliable(peer,"dobj_buy_error Payment declined. Nothing was dispensed.",0);return;}

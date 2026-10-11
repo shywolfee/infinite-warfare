@@ -1,120 +1,2186 @@
-// Buildable player bases are map objects with persistent computer state.
-// The server owns stock, access control and shipment delivery.
+// Redspot bases, ported from the source (redspot-main/server/includes/base.nvgt).
+//
+// A base is one solid tile on the outside world and a map of its own on the
+// inside: twenty by twenty of open wooden floor with five fittings on the tiles
+// Redspot puts them on. The computer is at 0 0 0, the exit door at 10 0 0, the
+// generator and main breaker at 20 0 0, the fridge at 0 20 0 and the storage
+// area at 20 20 0. Entering, leaving, keying the door code and picking the lock
+// all happen through that map, exactly as they do in the source.
+//
+// Every number here is Redspot's: 100 wood to build, 45000 health rising to
+// 300000, a door that falls off under 300 and only a lockpick opens, six lock
+// pins plus five boosters of three, three, two, two and two clicks each, five
+// minutes of generator runtime in a gas can, three days in the tank, a hundred
+// and twenty five rounds in a new machinegun and seven hundred in its drum, a
+// barrel that is live for a minute and needs two minutes to cool, three
+// thousand items and five thousand rounds on the shelf, and a fridge that turns
+// food cold thirty seconds at a time while the power is on.
+//
+// What is this engine's rather than the source's:
+//   * the client is asked to type a code or a base name through af_input
+//     instead of Redspot's boxes; the server checks the answer either way
+//   * a base's interior is an instance of content/maps/base_interior rather
+//     than a map registered at runtime, because this engine's maps come from
+//     files
+//   * the base's outside tile is a solid dobject, which is what the interact
+//     key reaches, rather than a dynamic tile the client is told to add
+//   * one hand works a lock at a time: Redspot tracked the lockpick on each
+//     player, so two people could pick the same door at once. The clicks, the
+//     window and the slip are Redspot's.
+
+// ---------------------------------------------------------------------------
+// Redspot's own numbers, for the base to keep.
+// ---------------------------------------------------------------------------
+const int BASE_WOOD_COST=100;
+const int BASE_START_HEALTH=45000;
+const int BASE_MAX_HEALTH=300000;
+const int BASE_DOOR_HEALTH=300;
+const int LOCKPICK_WINDOW_MS=1500;
+const int BASE_LOCKPICK_CLICKS=6;
+const int BASE_MAX_LOCK_BOOSTS=5;
+const int DOOR_OPEN_MS=3000;
+const int BASE_GENERATOR_X=20;
+const int BASE_GENERATOR_Y=0;
+const int BASE_GAS_PER_CAN=300000;
+const int BASE_MAX_GENERATOR_BOOSTS=10;
+const string BASE_OS_VERSION="Redspot base OS 4.2";
+// Building a base takes as long as its own sound of building: 8892 ms,
+// which is the source's TIME_BASE_BUILD.
+const int TIME_BASE_BUILD=8892;
+const int BASE_COMPUTER_HEALTH=8000;
+const int BASE_FRIDGE_HEALTH=5000;
+const int BASE_STORAGE_HEALTH=5000;
+const int BASE_STORAGE_MAX_ITEMS=3000;
+const int BASE_STORAGE_MAX_AMMO=5000;
+const int BASE_FRIDGE_MAX_FOOD=100;
+const int BASE_FRIDGE_MAX_COLD_FOOD=100;
+const int BASE_MAX_GAS=259200000;
+const int BASE_MACHINEGUN_MAX_AMMO=700;
+const int BASE_MACHINEGUN_MAX_LIVE_MS=60000;
+const int BASE_MACHINEGUN_COOLDOWN_MS=120000;
+const string BASE_INTERIOR_TEMPLATE="base_interior";
+const string BASE_DOOR_OBJECT="redspot_base_door";
+const string BASE_ALARM_NONE="none";
+
+// ---------------------------------------------------------------------------
+// One stored pile: what the shelf holds and how much of it.
+// ---------------------------------------------------------------------------
+class base_stored
+{
+string item;
+int amount;
+}
+
+// ---------------------------------------------------------------------------
+// A base.
+// ---------------------------------------------------------------------------
 class redspot_base
 {
-int id,x,y,z;string map,owner,team;bool powered=true;int fuel_seconds=300,lock_boosters=0,generator_boosters=0,fuel_meter=0,structure_health=1000,structure_max_health=1000,fridge_coolant=0;timer fuel_timer,fridge_timer;dictionary storage;
-string picked_by="";timer picked_timer;
-int picking_peer=-1,pick_stage=0,pick_target_ms=0;bool click_sent=false;timer pick_timer;
+int id;
+string name;
+string owner;
+string team;
+string[] owners;
+int x,y,z;
+string map;
+string interior;
+
+int health=BASE_START_HEALTH;
+string lasthit="nothing yet";
+string code="0000";
+bool door_destroyed=false;
+bool door_open=false;
+timer door_open_timer;
+int unlocks=0;
+int lock_boosts=0;
+
+bool powered=false;
+int gas=0;                    // milliseconds of generator runtime left
+int generator_boosts=0;
+timer gas_timer;
+
+bool onfire=false;
+int fire_water=0;
+timer fire_timer;
+
+string alarm=BASE_ALARM_NONE;
+timer alarm_timer;
+
+bool computer_ok=true;
+bool fridge_ok=true;
+bool storage_ok=true;
+int computer_health=BASE_COMPUTER_HEALTH;
+int fridge_health=BASE_FRIDGE_HEALTH;
+int storage_health=BASE_STORAGE_HEALTH;
+
+int fridge_coolant=0;
+int fridge_food=0;
+int fridge_cold_food=0;
+timer fridge_timer;
+
+base_stored@[] storage;
+
+int machinegun_ammo=125;
+bool machinegun_on=false;
+timer mg_timer;
+bool machinegun_overheated=false;
+int mg_heat=0;
+timer mg_heat_timer;
+
+string[] messages;
+timer ambience_timer;
+
+// The lock. One hand at a time on one door: the clicks, the window and the
+// slip are the source's, the single worker is this engine's.
+bool picking=false;
+uint picking_peer=0;
+int pick_stage=0;
+int pick_wait=0;
+bool pick_ready=false;
+timer pick_timer;
+
+bool is_owner(string who)
+{
+if(who==owner)return true;
+return owners.find(who)>-1;
 }
-redspot_base@[] redspot_bases;
+// How many clean clicks this door takes. Six on its own and each booster adds
+// less than the one before it, so a fully boosted door is eighteen clicks
+// rather than the twenty one a flat three each would have made it.
+int lockpick_clicks()
+{
+int[] step={3,3,2,2,2};
+int total=BASE_LOCKPICK_CLICKS;
+for(uint i=0;i<step.length() and int(i)<lock_boosts;i++)total+=step[i];
+return total;
+}
+int stored_count(string item)
+{
+for(uint i=0;i<storage.length();i++)if(storage[i].item==item)return storage[i].amount;
+return 0;
+}
+// What is on a shelf, counted in the two piles it is capped in: rounds have
+// their own ceiling, since a base worth defending needs a great deal more
+// ammunition than it does anything else. What is inside a pack counts, so a
+// pack of twenty is twenty things and not one.
+int stored_total(bool ammo)
+{
+int n=0;
+for(uint i=0;i<storage.length();i++)if(base_storage_is_ammo(storage[i].item)==ammo)n+=storage[i].amount*base_storage_units(storage[i].item);
+return n;
+}
+int storage_room_units(string item)
+{
+bool ammo=base_storage_is_ammo(item);
+int room=(ammo?BASE_STORAGE_MAX_AMMO:BASE_STORAGE_MAX_ITEMS)-stored_total(ammo);
+return room<0?0:room;
+}
+int storage_room_for(string item)
+{
+int units=base_storage_units(item);
+return storage_room_units(item)/units;
+}
+string storage_full_text(string item)
+{
+if(base_storage_is_ammo(item))return "The storage area is holding all "+BASE_STORAGE_MAX_AMMO+" rounds it can take.";
+return "The storage area is holding all "+BASE_STORAGE_MAX_ITEMS+" items it can take.";
+}
+string storage_pile_name(string item)
+{
+return base_storage_is_ammo(item)?"rounds":"items";
+}
+void store(string item,int amount)
+{
+for(uint i=0;i<storage.length();i++)
+{
+if(storage[i].item==item)
+{
+storage[i].amount+=amount;
+if(storage[i].amount<1)storage.remove_at(i);
+return;
+}
+}
+if(amount<1)return;
+base_stored s;
+s.item=item;
+s.amount=amount;
+storage.insert_last(s);
+}
+void log_message(string text)
+{
+messages.insert_last(text);
+if(messages.length()>9)messages.remove_at(0);
+}
+// How much health one piece of wood or metal is worth: the stronger the base
+// already is, the less each piece does.
+int reinforce_value(int per_piece)
+{
+double over=double(health)/double(BASE_START_HEALTH);
+if(over<1.0)over=1.0;
+int v=int(double(per_piece)/over);
+return v<1?1:v;
+}
+string gas_time_string()
+{
+if(gas<1)return "no time at all";
+return base_readable_time(gas);
+}
+string machinegun_cooldown_text()
+{
+return base_readable_time(mg_heat*2)+" to cool down";
+}
+string machinegun_live_text()
+{
+int left=BASE_MACHINEGUN_MAX_LIVE_MS-mg_heat;
+return base_readable_time(left<0?0:left);
+}
+}
+
+// A base being built: the name is taken at the start and the wood at the
+// end, which is the source's own order, so a build that is interrupted
+// costs nobody anything.
+class redspot_build_job{uint peer;string name;timer charge;}
+redspot_build_job@[] redspot_build_jobs;
+redspot_base@[] redspot_bases(0);
 int next_redspot_base_id=9100000;
-timer redspot_base_fuel_save_timer;
 string redspot_base_store_directory="bases";
-redspot_base@ redspot_base_find(int id){for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].id==id)return redspot_bases[i];return null;}
-bool redspot_base_near(player@ p,redspot_base@ b){return p.map==b.map and get_3d_distance(p.x,p.y,p.z,b.x,b.y,b.z)<=3.5;}
-bool redspot_base_access(player@ p,redspot_base@ b){return p.name==b.owner or same_team(p.name,b.owner) or (b.picked_by==p.name and b.picked_timer.elapsed<60000);}
-int redspot_base_stock(redspot_base@ b,string item){int count;return b.storage.get(item,count)?count:0;}
-int redspot_base_used(redspot_base@ b){int total=0;string[] keys=b.storage.get_keys();for(uint i=0;i<keys.length();i++){int units=pack_units(keys[i]);if(units<1)units=1;total+=redspot_base_stock(b,keys[i])*units;}return total;}
-void redspot_base_add(redspot_base@ b,string item,int amount){int n=redspot_base_stock(b,item)+amount;if(n<=0)b.storage.delete(item);else b.storage.set(item,n);}
-void save_redspot_bases()
+timer redspot_base_save_timer;
+
+// ---------------------------------------------------------------------------
+// Shared helpers.
+// ---------------------------------------------------------------------------
+// Redspot's own readable time, used for the generator's fuel and the barrel's
+// heat. Days, hours, minutes and seconds, with only what matters read out.
+string base_readable_time(int ms)
 {
-directory_create(redspot_base_store_directory);string data="";
-for(uint i=0;i<redspot_bases.length();i++){
-redspot_base@ b=redspot_bases[i];dobject@ current=find_dobject(b.map,b.id);if(current !is null and current.active){b.structure_health=current.health;b.structure_max_health=current.max_health;}data+=b.id+"|"+b.x+"|"+b.y+"|"+b.z+"|"+b.map+"|"+b.owner+"|"+(b.team==""?"-":b.team)+"|"+(b.powered?"1":"0")+"|"+b.fuel_seconds+"|"+b.lock_boosters+"|"+b.generator_boosters+"|"+b.structure_health+"|"+b.structure_max_health+"|"+b.fridge_coolant+"|";
-string[] keys=b.storage.get_keys();if(keys.length()==0)data+="-";for(uint j=0;j<keys.length();j++){if(j>0)data+=";";data+=keys[j]+","+redspot_base_stock(b,keys[j]);}data+="\n";
+if(ms<1000)return "less than a second";
+int total=ms/1000;
+int days=total/86400;total-=days*86400;
+int hours=total/3600;total-=hours*3600;
+int minutes=total/60;
+int seconds=total-minutes*60;
+string text;
+if(days>0)text+=days+(days==1?" day, ":" days, ");
+if(hours>0 or days>0)text+=hours+(hours==1?" hour, ":" hours, ");
+if(minutes>0 or hours>0 or days>0)text+=minutes+(minutes==1?" minute, ":" minutes, ");
+text+=seconds+(seconds==1?" second":" seconds");
+return text;
 }
-file_put_contents(redspot_base_store_directory+"/records.txt",data,false);
-}
-void redspot_base_object(redspot_base@ b)
+// Rounds are capped apart from everything else. Redspot files ammunition under
+// its own category; this game's content uses two spellings of it.
+bool base_storage_is_ammo(string item)
 {
-dobject_set@ objects=dobjects_on(b.map);if(objects is null)return;dobject@ existing=find_dobject(b.map,b.id);if(existing !is null){existing.health=b.structure_health;existing.max_health=b.structure_max_health;send_dobject_state(existing);return;}
-dobject@ o=new_dobject(b.id,"redspot_base_computer",b.x,b.y,b.z,0,b.map,b.owner+"'s base computer");if(o is null)return;o.health=b.structure_health;o.max_health=b.structure_max_health;
-objects.list.insert_last(o);objects.index();
-send_reliable_map(b.map,"dobj_spawn "+b.id+" redspot_base_computer "+b.x+" "+b.y+" "+b.z+" 0 "+b.map,0);
+string category=item_prop(item,"category");
+return category=="Ammo" or category=="Ammunition";
 }
-void redspot_base_destroyed(int id)
+// A pack of twenty is twenty things as far as the shelf is concerned, and a
+// package counts as what it will tip out rather than as one thing, which is
+// the source's own storage_units. Its ceiling is the top of the range it
+// rolls, since a shelf is measured against the worst case.
+int base_storage_units(string item)
 {
-for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].id==id){redspot_base@ b=redspot_bases[i];string[] keys=b.storage.get_keys();for(uint j=0;j<keys.length();j++){int count=redspot_base_stock(b,keys[j]);if(count>50)count=50;for(int n=0;n<count;n++)spawn_citem(b.x,b.y,b.z,b.map,keys[j]);}redspot_bases.remove_at(i);save_redspot_bases();return;}
-}
-void load_redspot_bases()
+int units=pack_units(item);
+if(units<=1)
 {
-redspot_bases.resize(0);next_redspot_base_id=9100000;string path=redspot_base_store_directory+"/records.txt";if(!file_exists(path))return;
-string[] lines=string_split(file_get_contents(path),"\n",false);
-for(uint i=0;i<lines.length();i++){
-string[] f=string_split(lines[i],"|",true);if(f.length()!=9 and f.length()!=12 and f.length()!=14 and f.length()!=15)continue;
-redspot_base b;b.id=int(string_to_number(f[0]));b.x=int(string_to_number(f[1]));b.y=int(string_to_number(f[2]));b.z=int(string_to_number(f[3]));b.map=f[4];b.owner=f[5];b.team=f[6]=="-"?"":f[6];b.powered=f[7]=="1";
-if(f.length()>=12){b.fuel_seconds=int(string_to_number(f[8]));b.lock_boosters=int(string_to_number(f[9]));b.generator_boosters=int(string_to_number(f[10]));}
-if(f.length()>=14){b.structure_health=int(string_to_number(f[11]));b.structure_max_health=int(string_to_number(f[12]));}
-if(f.length()==15)b.fridge_coolant=int(string_to_number(f[13]));
-if(b.id<9100000 or get_map_index(b.map)<0 or b.owner=="")continue;
-string[] rows=string_split(f[f.length()-1],";",false);for(uint j=0;j<rows.length();j++){string[] row=string_split(rows[j],",",false);if(row.length()!=2)continue;int count=int(string_to_number(row[1]));if(count>0)b.storage.set(row[0],count);}
-redspot_bases.insert_last(b);if(b.id>=next_redspot_base_id)next_redspot_base_id=b.id+1;redspot_base_object(redspot_bases[redspot_bases.length()-1]);
+string content=item_prop(item,"pack_contents");string[] f=string_split(content,":",false);
+if(f.length()>=2 and f[1]!="")units=int(string_to_number(f[1]));
+if(f.length()>=3){int high=int(string_to_number(f[2]));if(high>units)units=high;}
 }
+return units<1?1:units;
 }
-void build_redspot_base(player@ p)
+void base_play_inside(redspot_base@ b,string sound)
 {
-if(p.death)return;
-for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i]) and redspot_base_access(p,redspot_bases[i])){
-if(physical_count(p,"wood")<1){send_reliable(p.peer_id,"You need wood to repair this base.",2);return;}dobject@ computer=find_dobject(p.map,redspot_bases[i].id);if(computer is null or !computer.active or computer.health>=computer.max_health){send_reliable(p.peer_id,"This base computer is already intact.",2);return;}computer.health+=15;if(computer.health>computer.max_health)computer.health=computer.max_health;send_dobject_state(computer);send_reliable(p.peer_id,"give wood -1",0);save_redspot_bases();send_reliable(p.peer_id,"Repaired the base computer to "+computer.health+" health.",2);return;
+for(uint i=0;i<players.length();i++)if(players[i].map==b.interior)send_reliable(players[i].peer_id,"play_s "+sound+".ogg",0);
 }
-if(p.death or p.arena_return_map!="" or physical_count(p,"wood")<100){send_reliable(p.peer_id,"Building a base requires 100 pieces of wood outside an arena.",2);return;}
-for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i])){send_reliable(p.peer_id,"Build farther from an existing base.",2);return;}
-double rad=double(p.facing)*3.14159265358979323846/180.0;int x=p.x+int(round(sine(rad)*2,0)),y=p.y+int(round(cosine(rad)*2,0));
-if(projectile_solid_tile(get_tile_at(x,y,p.z,p.map))){send_reliable(p.peer_id,"The proposed base site is obstructed.",2);return;}
-dobject_set@ objects=dobjects_on(p.map);if(objects is null or objects.at(x,y,p.z+1)!is null){send_reliable(p.peer_id,"The proposed base site is occupied.",2);return;}
-redspot_base b;b.id=next_redspot_base_id++;b.x=x;b.y=y;b.z=p.z;b.map=p.map;b.owner=p.name;int ti=get_team_index_for_member(p.name);if(ti>=0)b.team=teams[ti].name;
-redspot_bases.insert_last(b);redspot_base_object(redspot_bases[redspot_bases.length()-1]);
-if(find_dobject(p.map,b.id) is null){redspot_bases.remove_at(redspot_bases.length()-1);send_reliable(p.peer_id,"The base computer could not be placed.",2);return;}
-send_reliable(p.peer_id,"give wood -100",0);save_redspot_bases();send_reliable(p.peer_id,"Built a base computer at "+x+", "+y+". Press O beside it for storage and supply orders.",2);
+void redspot_base_message(int index,string text)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+b.log_message(text);
+for(uint i=0;i<players.length();i++)if(players[i].map==b.interior)
+{
+send_reliable(players[i].peer_id,"Base computer: "+text,2);
+send_reliable(players[i].peer_id,"play_s base_comp_alert.ogg",0);
 }
-bool redspot_base_market_access(player@ p)
+}
+
+// ---------------------------------------------------------------------------
+// Lookups.
+// ---------------------------------------------------------------------------
+int redspot_base_index(int id)
+{
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].id==id)return int(i);
+return -1;
+}
+redspot_base@ redspot_base_find(int id)
+{
+int i=redspot_base_index(id);
+return i<0?null:redspot_bases[i];
+}
+int redspot_base_at(int x,int y,int z,string map)
+{
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].map==map and redspot_bases[i].x==x and redspot_bases[i].y==y and redspot_bases[i].z==z)return int(i);
+return -1;
+}
+int redspot_base_in_column(int x,int y,int z,string map)
+{
+for(uint i=0;i<redspot_bases.length();i++)
+{
+redspot_base@ b=redspot_bases[i];
+if(b.map!=map or b.x!=x or b.y!=y)continue;
+if(z>=b.z and z<=b.z+8)return int(i);
+}
+return -1;
+}
+int redspot_base_from_interior(string map)
+{
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].interior==map)return int(i);
+return -1;
+}
+int redspot_base_adjacent(double x,double y,double z,string map)
+{
+for(uint i=0;i<redspot_bases.length();i++)
+{
+redspot_base@ b=redspot_bases[i];
+if(b.map!=map)continue;
+if(get_3d_distance(x,y,z,double(b.x),double(b.y),double(b.z))<=1)return int(i);
+}
+return -1;
+}
+bool redspot_base_near(player@ p,redspot_base@ b)
+{
+if(p is null or b is null)return false;
+return p.map==b.map and get_3d_distance(p.x,p.y,p.z,double(b.x),double(b.y),double(b.z))<=3.5;
+}
+// The base standing where this player is: the one whose interior they are in,
+// or failing that one they are standing beside.
+int redspot_base_here(player@ p)
+{
+int inside=redspot_base_from_interior(p.map);
+if(inside>=0)return inside;
+return redspot_base_adjacent(p.x,p.y,p.z,p.map);
+}
+bool redspot_base_access(player@ p,redspot_base@ b)
+{
+if(p is null or b is null)return false;
+return b.is_owner(p.name) or (b.team!="" and same_team(p.name,b.owner));
+}
+bool redspot_base_powered_near(player@ p)
 {
 for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].powered and redspot_base_near(p,redspot_bases[i]) and redspot_base_access(p,redspot_bases[i]))return true;
 return false;
 }
-int redspot_base_delivery_id(player@ p)
+
+// ---------------------------------------------------------------------------
+// The interior map: one instance per base, out of the shared template.
+// ---------------------------------------------------------------------------
+string redspot_base_interior_name(int id)
 {
-for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].powered and redspot_base_near(p,redspot_bases[i]) and redspot_base_access(p,redspot_bases[i]))return redspot_bases[i].id;
-return -1;
+return "base_"+id;
 }
+// The interior instance exists in maps[] for as long as the base does. It is a
+// copy of the template with the base's own name on it, which is how Redspot's
+// registered map is named too.
+bool redspot_base_interior_open(int index)
+{
+if(index<0 or index>=int(redspot_bases.length()))return false;
+redspot_base@ b=redspot_bases[index];
+if(get_map_index(b.interior)>=0)return true;
+if(indexed_map_path(BASE_INTERIOR_TEMPLATE)=="")return false;
+mapdata instance(BASE_INTERIOR_TEMPLATE);
+instance.name=b.interior;
+instance.rawdata=string_replace(instance.rawdata,"mapname:"+BASE_INTERIOR_TEMPLATE,"mapname:"+b.interior,false);
+instance.rawdata=string_replace(instance.rawdata,"Base interior, main floor",b.name+", main floor",false);
+for(uint i=0;i<instance.mapispawns.length();i++)instance.mapispawns[i].imap=b.interior;
+maps.insert_last(instance);
+int mi=int(maps.length())-1;
+load_map_dobjects(mi);
+spawn_map_vehicles(mi);
+return true;
+}
+// Closes the interior and puts anybody still standing in it outside. A base
+// coming down around somebody is Redspot's own behaviour: they are thrown out
+// into the wreckage rather than left in a map that no longer exists.
+void redspot_base_interior_close(int index)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+for(uint i=0;i<players.length();i++)
+{
+if(players[i].map!=b.interior)continue;
+send_reliable(players[i].peer_id,"The base comes down around you.",2);
+redspot_base_place_outside(players[i],b);
+}
+int mi=get_map_index(b.interior);
+if(mi>=0)maps.remove_at(mi);
+}
+void redspot_base_place_outside(player@ p,redspot_base@ b)
+{
+p.map=b.map;
+p.x=b.x;
+p.y=b.y+1;
+p.z=b.z;
+p.last_x=p.x;p.last_y=p.y;p.last_z=p.z;
+set_player_model_target(p,p.x,p.y,p.z);
+send_reliable(p.peer_id,"mapdata "+(get_map_index(b.map)>=0?maps[get_map_index(b.map)].rawdata:read_whole_file(indexed_map_path(b.map))),0);
+send_reliable(p.peer_id,"setcoords "+p.x+" "+p.y+" "+p.z,0);
+sync_dobjects(p.peer_id,b.map);
+sync_vehicles(p.peer_id,b.map);
+send_reliable(p.peer_id,"base_outside",0);
+send_reliable(0,"online "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+b.map,0);
+}
+// Moves a player to another map without the lobby round trip, telling the
+// client first so it can tell a transfer from a logout. This mirrors the arena
+// transfer, and like it sends the map instance the server actually holds.
+bool redspot_base_transfer(player@ p,string destination,int x,int y,int z,string spoken)
+{
+int mi=get_map_index(destination);
+if(mi<0)return false;
+string old=p.map;
+send_reliable(p.peer_id,"base_transfer "+destination+" "+x+" "+y+" "+z+" "+world_token(spoken),0);
+send_reliable(0,"offline "+p.x+" "+p.y+" "+p.z+" "+p.name+" "+old,0,get_player_index(p.peer_id));
+p.map=destination;p.x=x;p.y=y;p.z=z;p.last_x=x;p.last_y=y;p.last_z=z;
+set_player_model_target(p,x,y,z);
+send_reliable(p.peer_id,"mapdata "+maps[mi].rawdata,0);
+send_reliable(p.peer_id,"setcoords "+x+" "+y+" "+z,0);
+sync_dobjects(p.peer_id,destination);
+sync_vehicles(p.peer_id,destination);
+send_reliable(0,"online "+x+" "+y+" "+z+" "+p.name+" "+destination,0);
+return true;
+}
+
+// ---------------------------------------------------------------------------
+// The base's outside tile: a solid column the interact key reaches.
+// ---------------------------------------------------------------------------
+// Redspot adds a nine-high dynamic tile and a matching tiledel. Object ids from
+// nine million up are this engine's runtime objects, so a base's door is one of
+// those: solid, so the base is something to walk round, and useable, so it is
+// something to knock on.
+void redspot_base_object(redspot_base@ b)
+{
+dobject_set@ objects=dobjects_on(b.map);
+if(objects is null)return;
+dobject@ existing=find_dobject(b.map,b.id);
+if(existing !is null)
+{
+existing.health=b.health;
+existing.active=true;
+send_dobject_state(existing);
+return;
+}
+dobject@ o=new_dobject(b.id,BASE_DOOR_OBJECT,b.x,b.y,b.z,0,b.map,b.name);
+if(o is null)return;
+o.health=b.health;
+o.max_health=BASE_MAX_HEALTH;
+objects.list.insert_last(o);
+objects.index();
+send_reliable_map(b.map,"dobj_spawn "+b.id+" "+BASE_DOOR_OBJECT+" "+b.x+" "+b.y+" "+b.z+" 0 "+b.map,0);
+}
+void redspot_base_sync_structure(redspot_base@ b)
+{
+dobject@ o=find_dobject(b.map,b.id);
+if(o is null)return;
+o.health=b.health;
+send_dobject_state(o);
+}
+void redspot_base_remove_structure(redspot_base@ b)
+{
+dobject_set@ objects=dobjects_on(b.map);
+if(objects is null)return;
+dobject@ o=objects.find(b.id);
+if(o is null)return;
+o.active=false;
+send_dobject_state(o);
+}
+// A base's own health is the structure's; the object carries it only so
+// projectiles and the client's damage display have something to read.
+void redspot_base_set_health(redspot_base@ b,int health)
+{
+if(health>BASE_MAX_HEALTH)health=BASE_MAX_HEALTH;
+if(health<0)health=0;
+b.health=health;
+redspot_base_sync_structure(b);
+}
+
+// ---------------------------------------------------------------------------
+// Building a base.
+// ---------------------------------------------------------------------------
+// A base name goes into the interior map's zone lines, so it cannot contain the
+// characters the map format uses to separate them.
+string redspot_base_clean_name(string name)
+{
+name=string_replace(name,":","",true);
+name=string_replace(name,"\r","",true);
+name=string_replace(name,"\n","",true);
+name=name.trim_whitespace();
+if(name.length()>40)name=name.substr(0,40);
+return name;
+}
+// Wood reinforces a base you are standing at and builds one anywhere else,
+// which is the source's own rule: use_on_base finds the base you are at before
+// it considers a new one.
+void build_redspot_base(player@ p)
+{
+if(redspot_base_used_on_base(p,"wood"))return;
+if(p.death or p.arena_return_map!="")
+{
+send_reliable(p.peer_id,"Building a base is not possible while downed or in an arena.",2);
+return;
+}
+if(redspot_base_from_interior(p.map)>=0)
+{
+send_reliable(p.peer_id,"You cannot build a base inside another base.",2);
+return;
+}
+if(redspot_base_at(p.x,p.y,p.z,p.map)>=0)
+{
+send_reliable(p.peer_id,"There is already a base here.",2);
+return;
+}
+if(projectile_solid_tile(get_tile_at(p.x,p.y,p.z,p.map)) or get_tile_at(p.x,p.y,p.z,p.map)=="" or get_tile_at(p.x,p.y,p.z,p.map)=="blank")
+{
+send_reliable(p.peer_id,"A base has to stand on something solid.",2);
+return;
+}
+if(physical_count(p,"wood")<BASE_WOOD_COST)
+{
+send_reliable(p.peer_id,"You need "+BASE_WOOD_COST+" wood to build a base. You have "+physical_count(p,"wood")+".",2);
+return;
+}
+// The name comes from the player rather than the builder: Redspot asks for it
+// in a box before it charges for the wood.
+send_reliable(p.peer_id,"base_name_request",0);
+}
+// The name has come back from the client. The wood is charged when the build
+// finishes rather than now, so nothing is spent on a base that never goes up.
+bool redspot_base_start_build(player@ p,string requested)
+{
+string name=redspot_base_clean_name(requested);
+if(name=="")name=p.name+"'s base";
+if(physical_count(p,"wood")<BASE_WOOD_COST){send_reliable(p.peer_id,"You need "+BASE_WOOD_COST+" wood to build a base. You have "+physical_count(p,"wood")+".",2);return true;}
+for(uint j=0;j<redspot_build_jobs.length();j++)if(redspot_build_jobs[j].peer==p.peer_id){send_reliable(p.peer_id,"You are already building a base.",2);return true;}
+redspot_build_job job;job.peer=p.peer_id;job.name=name;
+redspot_build_jobs.insert_last(job);
+play("base_create",p.x,p.y,p.z,p.map,get_player_index(p.peer_id));
+send_reliable(0,"play_s base_createdist.ogg",0);
+send_reliable(p.peer_id,"movestop",0);
+send_reliable(0,p.name+" has started building a base called "+name+".",2);
+return true;
+}
+// Called when the build's own time is up. The name is carried in by the caller
+// because the finished job has already been taken off the queue; looking it up
+// here found nothing, so every base went up called "a base" whatever the
+// builder had typed.
+void redspot_base_finish_build_job(uint peer,string name)
+{
+int pi=get_player_index(peer);
+if(pi<0)return;
+player@ p=players[pi];
+if(!p.death)redspot_base_finish_build(p,name);
+send_reliable(peer,"movestart",0);
+}
+bool redspot_base_finish_build(player@ p,string requested)
+{
+string name=redspot_base_clean_name(requested);
+if(name=="")name=p.name+"'s base";
+if(physical_count(p,"wood")<BASE_WOOD_COST)
+{
+send_reliable(p.peer_id,"You no longer have enough wood.",2);
+return true;
+}
+redspot_base b;
+b.id=next_redspot_base_id++;
+b.name=name;
+b.owner=p.name;
+int ti=get_team_index_for_member(p.name);
+if(ti>=0)b.team=teams[ti].name;
+b.owners.insert_last(p.name);
+b.x=p.x;
+b.y=p.y;
+b.z=p.z;
+b.map=p.map;
+b.interior=redspot_base_interior_name(b.id);
+b.code=""+random(1000,9999);
+redspot_bases.insert_last(b);
+int index=int(redspot_bases.length())-1;
+if(!redspot_base_interior_open(index))
+{
+redspot_bases.remove_at(index);
+send_reliable(p.peer_id,"The base interior map is unavailable, so nothing was built.",2);
+return true;
+}
+redspot_base_object(redspot_bases[index]);
+if(find_dobject(p.map,b.id) is null)
+{
+redspot_base_interior_close(index);
+redspot_bases.remove_at(index);
+send_reliable(p.peer_id,"The base could not be placed here.",2);
+return true;
+}
+send_reliable(p.peer_id,"give wood -"+BASE_WOOD_COST,0);
+play("base_door_create",b.x,b.y,b.z,b.map);
+// The base now occupies the tile the builder was standing on, so step them off
+// it rather than leaving them inside their own wall.
+p.y=b.y+1;
+p.last_y=p.y;
+send_reliable(p.peer_id,"setcoords "+p.x+" "+p.y+" "+p.z,0);
+send_reliable(0,"A base called "+name+" has been built at "+b.x+", "+b.y+", "+b.z+" on "+b.map+" by "+p.name+".",2);
+send_reliable(p.peer_id,"Your base is up. The door code is "+b.code+". Tell it to anybody who should be able to get in.",2);
+if(b.team!="")redspot_base_message(index,"Base linked to team "+b.team+".");
+redspot_base_save();
+return true;
+}
+
+// ---------------------------------------------------------------------------
+// Doors, codes and lockpicking.
+// ---------------------------------------------------------------------------
+// Called when a player uses themselves on a base door from the outside.
+void redspot_base_knock(player@ p,redspot_base@ b)
+{
+if(p.death or p.arena_return_map!="")return;
+int index=redspot_base_index(b.id);
+// A door with no lock left, or one already standing open, is walked through.
+// That is what lets somebody follow you in during the few seconds after the
+// code has been keyed.
+if(b.door_destroyed or b.door_open)
+{
+redspot_base_enter(p,index);
+return;
+}
+play("base_knock_ext",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_knock_int");
+send_reliable(p.peer_id,"base_ask_code "+b.id+" "+world_token(b.name),0);
+}
+// The code the player typed, either at the door or from the computer.
+bool redspot_base_try_code(player@ p,int id,string answer)
+{
+int index=redspot_base_index(id);
+if(index<0)return true;
+redspot_base@ b=redspot_bases[index];
+if(p.map!=b.map or get_3d_distance(p.x,p.y,p.z,double(b.x),double(b.y),double(b.z))>1)
+{
+send_reliable(p.peer_id,"You are no longer at the door.",2);
+return true;
+}
+if(answer!=b.code)
+{
+play("base_code_error",b.x,b.y,b.z,b.map);
+play("base_door_locked_ext",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_door_locked_int");
+send_reliable(p.peer_id,"That code is wrong.",2);
+return true;
+}
+redspot_base_unlock_door(index,p.name);
+send_reliable(p.peer_id,"The door is open. Press enter again to go in. It shuts by itself in "+(DOOR_OPEN_MS/1000)+" seconds.",2);
+return true;
+}
+void redspot_base_unlock_door(int index,string who)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+b.door_open=true;
+b.door_open_timer.restart();
+b.unlocks++;
+play("base_code_activate",b.x,b.y,b.z,b.map);
+play("base_door",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_comp_unlocked");
+redspot_base_message(index,"The door was unlocked by "+who+".");
+}
+void redspot_base_enter(player@ p,int index)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+if(!redspot_base_interior_open(index))
+{
+send_reliable(p.peer_id,"The base interior is unavailable.",2);
+return;
+}
+if(!redspot_base_transfer(p,b.interior,5,5,0,b.name))
+{
+send_reliable(p.peer_id,"You cannot get inside right now.",2);
+return;
+}
+send_reliable(p.peer_id,"You are inside "+b.name+". Twenty by twenty of open floor with the computer at 0 0 0, the exit at 10 0 0, the generator and breaker at 20 0 0, the fridge at 0 20 0 and storage at 20 20 0. Each one is on exactly that tile.",2);
+play("base_interact_int",5,5,0,b.interior);
+}
+void redspot_base_leave(player@ p,int index)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+redspot_base_place_outside(p,b);
+play("base_door",b.x,b.y,b.z,b.map);
+}
+// Waiting for the click, then pressing. Pressing too early, letting the click
+// go by, or stepping off the tile ends the whole job: Redspot's hand slips and
+// the lock goes back to where it started.
+void redspot_base_start_lockpick(player@ p)
+{
+int index=redspot_base_adjacent(p.x,p.y,p.z,p.map);
+if(index<0)
+{
+send_reliable(p.peer_id,"There is no base door here to pick.",2);
+return;
+}
+redspot_base@ b=redspot_bases[index];
+if(b.door_destroyed)
+{
+send_reliable(p.peer_id,"This door is already gone.",2);
+return;
+}
+if(physical_count(p,"lockpick")<=0)
+{
+send_reliable(p.peer_id,"You need a lockpick to work this door.",2);
+return;
+}
+// A door standing open is not a door to pick.
+if(b.door_open)
+{
+send_reliable(p.peer_id,"The door is already open.",2);
+return;
+}
+if(b.picking and b.picking_peer!=p.peer_id)
+{
+send_reliable(p.peer_id,"Someone is already working that lock.",2);
+return;
+}
+b.picking=true;
+b.picking_peer=p.peer_id;
+b.pick_stage=0;
+b.pick_ready=false;
+b.pick_wait=random(1400,2600);
+b.pick_timer.restart();
+play("lockpick"+random(1,10),p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"base_pick_start "+b.id+" "+b.lockpick_clicks(),0);
+send_reliable(p.peer_id,"You start working on the lock. Press enter again each time you hear the click, and only then. Stay on this tile. "+b.lockpick_clicks()+" clicks to go.",2);
+}
+void redspot_base_fumble_lockpick(player@ p,int index,string why)
+{
+redspot_base@ b=redspot_bases[index];
+b.picking=false;
+b.picking_peer=0;
+b.pick_stage=0;
+b.pick_ready=false;
+play("lockpick"+random(1,10),p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"base_pick_end failed",0);
+send_reliable(p.peer_id,why,2);
+// A powered base has cameras watching, and they sometimes catch the hand.
+if(b.powered and random(1,4)==1)
+{
+b.alarm="blue";
+b.alarm_timer.restart();
+redspot_base_message(index,"Cameras caught somebody working on the door.");
+}
+}
+bool redspot_base_lockpick_press(player@ p,int id)
+{
+int index=redspot_base_index(id);
+if(index<0)return true;
+redspot_base@ b=redspot_bases[index];
+if(!b.picking or b.picking_peer!=p.peer_id)return true;
+if(p.map!=b.map or get_3d_distance(p.x,p.y,p.z,double(b.x),double(b.y),double(b.z))>1)
+{
+redspot_base_fumble_lockpick(p,index,"You stepped away from the door, so that was all for nothing.");
+return true;
+}
+if(physical_count(p,"lockpick")<=0)
+{
+redspot_base_fumble_lockpick(p,index,"You have no lockpick left to work with.");
+return true;
+}
+if(!b.pick_ready)
+{
+redspot_base_fumble_lockpick(p,index,"Your hand slips and the lock closes up again. Start over.");
+return true;
+}
+b.pick_ready=false;
+b.pick_stage++;
+b.pick_wait=random(1400,2600);
+b.pick_timer.restart();
+int needed=b.lockpick_clicks();
+if(b.pick_stage>=needed)
+{
+// The lockpick is a tool, not a charge: it is not taken off you.
+play("lockpicksuccess",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"base_pick_end opened",0);
+redspot_base_unlock_door(index,"a lockpick");
+redspot_base_message(index,"The door was picked. Change the code.");
+if(b.powered)
+{
+b.alarm="blue";
+b.alarm_timer.restart();
+redspot_base_message(index,"Cameras caught somebody at the door.");
+}
+b.picking=false;
+b.picking_peer=0;
+b.pick_stage=0;
+redspot_base_enter(p,index);
+return true;
+}
+play("lockpicksuccess",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"The lock gives a little. "+(needed-b.pick_stage)+" to go.",2);
+return true;
+}
+void redspot_base_process_lockpick(int index)
+{
+redspot_base@ b=redspot_bases[index];
+if(!b.picking)return;
+int pi=get_player_index(b.picking_peer);
+if(pi<0)
+{
+b.picking=false;
+b.picking_peer=0;
+return;
+}
+player@ p=players[pi];
+if(p.death or p.map!=b.map or get_3d_distance(p.x,p.y,p.z,double(b.x),double(b.y),double(b.z))>1 or physical_count(p,"lockpick")<=0)
+{
+b.picking=false;
+b.picking_peer=0;
+b.pick_stage=0;
+b.pick_ready=false;
+send_reliable(p.peer_id,"You stepped away from the door, so that was all for nothing.",2);
+return;
+}
+// The wait for each click is drawn once, when the turn of the lock begins, so
+// the lock has a rhythm to learn rather than always clicking at the shortest
+// wait the range allows.
+if(!b.pick_ready and b.pick_timer.elapsed>b.pick_wait)
+{
+b.pick_ready=true;
+b.pick_timer.restart();
+play("lockpicksuccess",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"base_lock_click "+b.id,0);
+}
+else if(b.pick_ready and b.pick_timer.elapsed>LOCKPICK_WINDOW_MS)
+redspot_base_fumble_lockpick(p,index,"You let the click go by and the lock closes up again. Start over.");
+}
+
+// ---------------------------------------------------------------------------
+// Using yourself on a fitting inside a base.
+// ---------------------------------------------------------------------------
+bool redspot_base_use_fitting(player@ p)
+{
+int index=redspot_base_from_interior(p.map);
+if(index<0)return false;
+redspot_base@ b=redspot_bases[index];
+// Each fitting owns exactly the tile the game names, so standing on it is what
+// using it means.
+if(p.x==0 and p.y==0){redspot_base_open_computer(p,index);return true;}
+if(p.x==10 and p.y==0){redspot_base_leave(p,index);return true;}
+if(p.x==BASE_GENERATOR_X and p.y==BASE_GENERATOR_Y){redspot_base_toggle_power(p,index);return true;}
+if(p.x==0 and p.y==20){redspot_base_open_fridge(p,index);return true;}
+if(p.x==20 and p.y==20){redspot_base_open_storage(p,index);return true;}
+send_reliable(p.peer_id,"There is nothing to use on this tile. The computer is at 0 0 0, the exit at 10 0 0, the generator at 20 0 0, the fridge at 0 20 0 and storage at 20 20 0.",2);
+return false;
+}
+void redspot_base_toggle_power(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+if(b.powered)
+{
+b.powered=false;
+play("base_breaker_off",p.x,p.y,p.z,p.map);
+play("base_generator_off",p.x,p.y,p.z,p.map);
+play("base_lights_off",p.x,p.y,p.z,p.map);
+play("base_fridge_off",p.x,p.y,p.z,p.map);
+play("base_comp_off",p.x,p.y,p.z,p.map);
+redspot_base_message(index,"Power off.");
+redspot_base_save();
+return;
+}
+if(b.gas<1)
+{
+play("base_comp_error",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"The generator has no fuel. Feed it gas cans from outside.",2);
+return;
+}
+b.powered=true;
+b.gas_timer.restart();
+play("base_breaker_on",p.x,p.y,p.z,p.map);
+play("base_generator_on",p.x,p.y,p.z,p.map);
+play("base_lights_on",p.x,p.y,p.z,p.map);
+play("base_fridge_on",p.x,p.y,p.z,p.map);
+play("base_comp_on",p.x,p.y,p.z,p.map);
+redspot_base_message(index,"Power on.");
+redspot_base_save();
+}
+void redspot_base_open_computer(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+if(!b.computer_ok)
+{
+play("base_comp_error",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"The computer is wrecked. It needs tools.",2);
+return;
+}
+if(!b.powered)
+{
+play("base_comp_off",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"The computer has no power.",2);
+return;
+}
+play("base_comp_usestart",p.x,p.y,p.z,p.map);
+redspot_base_open(p,b.id);
+}
+// The client's own "use" on a computer object, outside an interior.
 void redspot_base_open(player@ p,int id)
 {
-redspot_base@ b=redspot_base_find(id);if(b is null or !redspot_base_near(p,b))return;
-if(!redspot_base_access(p,b)){send_reliable(p.peer_id,"This base computer is locked. Use a lockpick beside it.",2);return;}
+int index=redspot_base_index(id);
+if(index<0)return;
+redspot_base@ b=redspot_bases[index];
+if(!redspot_base_access(p,b))
+{
+send_reliable(p.peer_id,"This base computer is locked.",2);
+return;
+}
 send_reliable(p.peer_id,"base_open "+id,0);
 }
+void redspot_base_set_alarm(int index,string which)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+b.alarm=which;
+b.alarm_timer.restart();
+redspot_base_message(index,"Alarm set to "+which+".");
+redspot_base_save();
+}
+
+// ---------------------------------------------------------------------------
+// The fridge and the storage area, opened from inside.
+// ---------------------------------------------------------------------------
+void redspot_base_open_fridge(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+if(!b.fridge_ok)
+{
+send_reliable(p.peer_id,"The fridge is wrecked. It needs tools.",2);
+return;
+}
+play("base_fridge_open",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"base_fridge "+b.id+" "+b.fridge_food+" "+b.fridge_cold_food+" "+BASE_FRIDGE_MAX_FOOD+" "+BASE_FRIDGE_MAX_COLD_FOOD+" "+b.fridge_coolant,0);
+}
+void redspot_base_open_storage(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+if(!b.storage_ok)
+{
+send_reliable(p.peer_id,"The storage area is wrecked. It needs tools.",2);
+return;
+}
+send_reliable(p.peer_id,"base_storage "+b.id+" "+b.stored_total(false)+" "+BASE_STORAGE_MAX_ITEMS+" "+b.stored_total(true)+" "+BASE_STORAGE_MAX_AMMO,0);
+}
+// The base whose working storage area this player is standing on, or -1. A
+// wrecked storage area does not count, since nothing can go into one.
+int redspot_base_storage_here(player@ p)
+{
+int index=redspot_base_from_interior(p.map);
+if(index<0)return -1;
+if(p.x!=20 or p.y!=20)return -1;
+if(!redspot_bases[index].storage_ok)return -1;
+return index;
+}
+// Tips a shipment straight into the shelf it is opened on, without it ever
+// passing through anybody's pockets: the source's unload_shipment_to_storage.
+// Whatever the shelf has no room for goes to whoever opened the box, so nothing
+// bought is simply lost.
+string redspot_base_unload_shipment(player@ p,shipment_record@ s)
+{
+int index=redspot_base_storage_here(p);
+if(index<0 or s is null)return "";
+redspot_base@ b=redspot_bases[index];
+play("base_shipment_open",p.x,p.y,p.z,p.map);
+string described;
+string spilled;
+for(uint i=0;i<s.items.length();i++)
+{
+string item=s.items[i];
+int amount=s.amounts[i];
+int room=b.storage_room_for(item);
+int fits=amount>room?room:amount;
+if(fits>0)b.store(item,fits);
+if(fits<amount)
+{
+send_reliable(p.peer_id,"give "+item+" "+(amount-fits),0);
+spilled+=(spilled==""?"":", ")+(amount-fits)+" "+citem_display_name(item);
+}
+described+=(described==""?"":", ")+amount+" "+citem_display_name(item);
+}
+// The container itself is not storage's business, so it comes to you.
+send_reliable(p.peer_id,"give empty_pack 1",0);
+play("base_storage_store_all",p.x,p.y,p.z,p.map);
+redspot_base_message(index,p.name+" loaded a shipment into the storage area.");
+redspot_base_save();
+if(described=="")return "The shipment was empty. You keep the pack.";
+return "Loaded "+described+" into the storage area, and kept the pack."+(spilled==""?"":" There was no room for "+spilled+", which is on you.");
+}
+// What comes back to you when a pack is opened over the shelf and there is more
+// left over than it will take: twenty at a time into as many packs as there are
+// to put them in, and what is left after that loose into your pockets.
+string redspot_base_repack(player@ p,string inner,int spare)
+{
+if(spare<1)return "";
+int packs=1+physical_count(p,"empty_pack");
+int capacity=packs*20;
+int packed=spare>capacity?capacity:spare;
+int full=packed/20;
+int part=packed%20;
+int used=full+(part>0?1:0);
+if(used>1)send_reliable(p.peer_id,"give empty_pack -"+(used-1),0);
+if(full>0)send_reliable(p.peer_id,"give pack_containing_20_"+inner+" "+full,0);
+if(part>0)send_reliable(p.peer_id,"give pack_containing_"+part+"_"+inner+" 1",0);
+int loose=spare-packed;
+if(loose>0)send_reliable(p.peer_id,"give "+inner+" "+loose,0);
+return used+(used==1?" pack":" packs")+" of "+citem_display_name(inner)+" back";
+}
+// Putting in as much as the shelf will take. Whole packs go in as packs while
+// there is room for a whole one; the one that straddles the ceiling is opened,
+// what fits goes on the shelf loose, and what does not comes back.
+string redspot_base_store_what_fits(player@ p,int index,string item,int amount)
+{
+redspot_base@ b=redspot_bases[index];
+if(physical_count(p,item)<amount)return "You do not have that many any more.";
+int units=base_storage_units(item);
+int room=b.storage_room_units(item);
+string whole_item=item,inner=item;
+int each=units;
+if(pack_split(item,inner,each))whole_item=item;
+int whole=room/units;
+if(whole>amount)whole=amount;
+string said;
+if(whole>0)
+{
+send_reliable(p.peer_id,"give "+item+" -"+whole,0);
+b.store(item,whole);
+room-=whole*units;
+said=whole+" "+citem_display_name(item)+" went in whole";
+}
+int left=amount-whole;
+if(left>0 and room>0)
+{
+send_reliable(p.peer_id,"give "+item+" -1",0);
+left--;
+b.store(inner,room);
+string back=redspot_base_repack(p,inner,each-room);
+said+=(said==""?"":" , and ")+"one was opened for the last "+room+" "+citem_display_name(inner)+" the shelf would take";
+if(back!="")said+=", which leaves you "+back;
+}
+if(left>0)said+=(said==""?"There was no room at all, so all "+left:", and the other "+left)+" stay with you";
+play("base_storage_store_all",p.x,p.y,p.z,p.map);
+redspot_base_save();
+return said+".";
+}
+
+// ---------------------------------------------------------------------------
+// The machinegun and the weapons terminal.
+// ---------------------------------------------------------------------------
+void redspot_base_weapon_status(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+string state;
+if(b.machinegun_overheated)state=" It is overheated: "+b.machinegun_cooldown_text()+".";
+else if(b.machinegun_on)state=" It is live, with "+b.machinegun_live_text()+" before it overheats.";
+send_reliable(p.peer_id,"The machinegun has "+b.machinegun_ammo+" rounds of "+BASE_MACHINEGUN_MAX_AMMO+"."+state,2);
+}
+bool redspot_base_machinegun_toggle(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+if(b.machinegun_ammo<1)
+{
+send_reliable(p.peer_id,"The machinegun is empty. It takes ammo drums.",2);
+return true;
+}
+if(!b.machinegun_on and b.machinegun_overheated)
+{
+send_reliable(p.peer_id,"The barrel is still too hot. "+b.machinegun_cooldown_text()+".",2);
+return true;
+}
+b.machinegun_on=!b.machinegun_on;
+play("base_machinegun_load",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,b.machinegun_on?("The machinegun is live. It has "+b.machinegun_live_text()+" of firing in it before the barrel is too hot to go on."):("The machinegun is off. The barrel needs "+b.machinegun_cooldown_text()+" to be cold again."),2);
+redspot_base_message(index,"The machinegun was turned "+(b.machinegun_on?"on":"off")+" by "+p.name+".");
+redspot_base_save();
+return true;
+}
+void redspot_base_machinegun_targets(player@ p,int index)
+{
+redspot_base@ b=redspot_bases[index];
+string found;
+for(uint i=0;i<players.length();i++)
+{
+player@ t=players[i];
+if(t.map!=b.map or t.death or t.invisible)continue;
+if(b.team!="" and same_team(t.name,b.owner))continue;
+if(b.is_owner(t.name))continue;
+double d=get_3d_distance(double(b.x),double(b.y),double(b.z),t.x,t.y,t.z);
+if(d<=15)found+=t.name+" at "+int(d)+" feet. ";
+}
+send_reliable(p.peer_id,found==""?"Nothing in range.":found,2);
+}
+
+// ---------------------------------------------------------------------------
+// Information, the log and the scanner.
+// ---------------------------------------------------------------------------
+string redspot_base_info_text(redspot_base@ b,string what)
+{
+if(what=="general")return "Power is "+(b.powered?"on":"off")+". "+b.owners.length()+(b.owners.length()==1?" owner":" owners")+". The generator has "+b.gas_time_string()+" of fuel left.";
+if(what=="location")return "This base is at "+b.x+", "+b.y+", "+b.z+" on the map called "+b.map+".";
+if(what=="fridge")return "The fridge holds "+b.fridge_cold_food+" cold food of "+BASE_FRIDGE_MAX_COLD_FOOD+" and "+b.fridge_food+" food of "+BASE_FRIDGE_MAX_FOOD+", with "+b.fridge_coolant+" coolant.";
+if(what=="health")return "The base has "+b.health+" health of the "+BASE_MAX_HEALTH+" one can be built up to. The last thing to hit it was "+b.lasthit+"."+(b.onfire?" It is on fire.":"");
+if(what=="generator")return "The generator holds "+b.gas_time_string()+" of runtime out of the three days the tank takes, with "+b.generator_boosts+" boosters fitted.";
+if(what=="os")return BASE_OS_VERSION+". This base ID is "+b.id+".";
+if(what=="computer")return "The computer is "+(b.computer_ok?"working, on "+b.computer_health+" of "+BASE_COMPUTER_HEALTH+" health":"wrecked and in need of tools")+".";
+if(what=="fittings")return "The computer is "+(b.computer_ok?"on "+b.computer_health+" of "+BASE_COMPUTER_HEALTH:"wrecked")+", the fridge "+(b.fridge_ok?"on "+b.fridge_health+" of "+BASE_FRIDGE_HEALTH:"wrecked")+", and the storage area "+(b.storage_ok?"on "+b.storage_health+" of "+BASE_STORAGE_HEALTH:"wrecked")+".";
+return "The door has been unlocked "+b.unlocks+" times. "+b.lock_boosts+" lock boosters and "+b.generator_boosts+" generator boosters have been used. The door is "+(b.door_destroyed?"destroyed":(b.door_open?"open":"locked"))+". The machinegun has "+b.machinegun_ammo+" rounds of "+BASE_MACHINEGUN_MAX_AMMO+". The storage area holds "+b.stored_total(false)+" items of "+BASE_STORAGE_MAX_ITEMS+" and "+b.stored_total(true)+" rounds of "+BASE_STORAGE_MAX_AMMO+".";
+}
+// What the nearby-things key says about bases: the base you are standing
+// beside, with its name and its health, or, inside one, the state of its
+// fittings. Redspot reports both, and neither had anywhere to be read before.
+void redspot_base_awareness(player@ me,awareness_contact@[]@ found)
+{
+int inside=redspot_base_from_interior(me.map);
+if(inside>=0)
+{
+redspot_base@ b=redspot_bases[inside];
+awareness_contact c;c.distance=0.5;c.text=b.name+": "+redspot_base_info_text(b,"fittings");
+found.insert_last(c);
+return;
+}
+for(uint i=0;i<redspot_bases.length();i++)
+{
+redspot_base@ b=redspot_bases[i];
+if(b.map!=me.map)continue;
+double d=straight_distance(me.x,me.y,me.z,double(b.x),double(b.y),double(b.z));
+if(d>AWARENESS_RANGE)continue;
+awareness_contact c;c.distance=d;c.text="the base called "+b.name+", "+b.health+" health, "+relative_position(me,double(b.x),double(b.y),double(b.z));
+found.insert_last(c);
+}
+}
+void redspot_base_scan(player@ p,int index,bool for_players)
+{
+redspot_base@ b=redspot_bases[index];
+play("base_scan",p.x,p.y,p.z,p.map);
+string found;
+if(for_players)
+{
+for(uint i=0;i<players.length();i++)
+{
+if(players[i].map!=b.map or players[i].invisible or players[i].afk)continue;
+int dist=int(get_3d_distance(double(b.x),double(b.y),double(b.z),players[i].x,players[i].y,players[i].z));
+if(dist<=50)found+=players[i].name+" is "+dist+" feet away. ";
+}
+}
+else
+{
+for(uint i=0;i<citems.length();i++)
+{
+if(citems[i].map!=b.map)continue;
+int dist=int(get_3d_distance(double(b.x),double(b.y),double(b.z),citems[i].x,citems[i].y,citems[i].z));
+if(dist<=50)found+=citem_display_name(citems[i].name)+" is "+dist+" feet away. ";
+}
+}
+send_reliable(p.peer_id,found==""?"The scan finds nothing within fifty tiles.":found,2);
+}
+
+// ---------------------------------------------------------------------------
+// Using an item on a base: Redspot's use_on_base, item by item.
+// ---------------------------------------------------------------------------
+bool redspot_base_outside_the_base(player@ p,redspot_base@ b)
+{
+if(p.map!=b.interior)return true;
+send_reliable(p.peer_id,"That is fitted to the outside of the door. Step out of the base to do it.",2);
+return false;
+}
+bool redspot_base_at_generator(player@ p,redspot_base@ b)
+{
+if(p.map!=b.interior)return true;
+if(p.x==BASE_GENERATOR_X and p.y==BASE_GENERATOR_Y)return true;
+send_reliable(p.peer_id,"You have to be at the generator at "+BASE_GENERATOR_X+" "+BASE_GENERATOR_Y+" 0, or outside the base, to do that.",2);
+return false;
+}
+void redspot_base_repair_with_tools(player@ p,int index,string item)
+{
+redspot_base@ b=redspot_bases[index];
+int power=item=="tool_box"?4000:1200;
+send_reliable(p.peer_id,"give "+item+" -1",0);
+play("base_tool",p.x,p.y,p.z,p.map);
+if(!b.computer_ok)
+{
+b.computer_health+=power;
+if(b.computer_health>=BASE_COMPUTER_HEALTH)
+{
+b.computer_health=BASE_COMPUTER_HEALTH;
+b.computer_ok=true;
+redspot_base_message(index,"The computer is working again.");
+}
+send_reliable(p.peer_id,"You work on the computer.",2);
+}
+else if(!b.fridge_ok)
+{
+b.fridge_health+=power;
+if(b.fridge_health>=BASE_FRIDGE_HEALTH)
+{
+b.fridge_health=BASE_FRIDGE_HEALTH;
+b.fridge_ok=true;
+redspot_base_message(index,"The fridge is working again.");
+}
+send_reliable(p.peer_id,"You work on the fridge.",2);
+}
+else if(!b.storage_ok)
+{
+b.storage_health+=power;
+if(b.storage_health>=BASE_STORAGE_HEALTH)
+{
+b.storage_health=BASE_STORAGE_HEALTH;
+b.storage_ok=true;
+redspot_base_message(index,"The storage area is working again.");
+}
+send_reliable(p.peer_id,"You work on the storage area.",2);
+}
+else
+{
+send_reliable(p.peer_id,"give "+item+" 1",0);
+send_reliable(p.peer_id,"Nothing here needs repairing.",2);
+}
+redspot_base_save();
+}
+bool redspot_base_used_on_base(player@ p,string item)
+{
+// Repairing the wrecked computer of a base whose door you have broken into is
+// something you do standing at it, inside or outside; everything else on this
+// list is reached from the outside, and fuel from the generator itself.
+int index=redspot_base_from_interior(p.map);
+if(index<0)index=redspot_base_adjacent(p.x,p.y,p.z,p.map);
+bool known=item=="wood" or item=="medal" or item=="gas_can" or item=="empty_gas_can" or item=="tools" or item=="tool_box" or item=="base_lock_booster" or item=="base_generator_booster" or item=="base_fridge_coolant" or item=="base_fridge_coolant_extractor" or item=="base_machinegun_ammo_drum";
+if(index<0)
+{
+if(item=="wood")return false;
+if(known)send_reliable(p.peer_id,"You need to be at a base to use that.",2);
+return known;
+}
+redspot_base@ b=redspot_bases[index];
+if(item=="wood" or item=="medal")
+{
+if(b.health>=BASE_MAX_HEALTH)
+{
+send_reliable(p.peer_id,"This base is as strong as one gets, on "+b.health+" health. There is nowhere for that to go.",2);
+return true;
+}
+int n=physical_count(p,item);
+if(n>25)n=25;
+if(n<1)return true;
+send_reliable(p.peer_id,"give "+item+" -"+n,0);
+int gained=b.reinforce_value(item=="medal"?900:400)*n;
+b.health+=gained;
+string capped;
+if(b.health>BASE_MAX_HEALTH)
+{
+gained-=b.health-BASE_MAX_HEALTH;
+b.health=BASE_MAX_HEALTH;
+capped=" That is as strong as a base gets.";
+}
+redspot_base_set_health(b,b.health);
+play("base_build"+random(1,5),p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"You add "+gained+" health to the base. It is on "+b.health+" of "+BASE_MAX_HEALTH+"."+capped,2);
+redspot_base_save();
+return true;
+}
+if(item=="gas_can")
+{
+if(!redspot_base_at_generator(p,b))return true;
+if(b.gas>=BASE_MAX_GAS)
+{
+send_reliable(p.peer_id,"The tank is full. It holds three days of runtime.",2);
+return true;
+}
+send_reliable(p.peer_id,"give gas_can -1",0);
+send_reliable(p.peer_id,"give empty_gas_can 1",0);
+b.gas+=BASE_GAS_PER_CAN;
+if(b.gas>BASE_MAX_GAS)b.gas=BASE_MAX_GAS;
+play("base_generator_fill",p.x,p.y,p.z,p.map);
+send_reliable(p.peer_id,"The generator now holds "+b.gas_time_string()+".",2);
+redspot_base_message(index,"The generator was fuelled by "+p.name+".");
+redspot_base_save();
+return true;
+}
+if(item=="empty_gas_can")
+{
+if(!redspot_base_at_generator(p,b))return true;
+if(b.gas<BASE_GAS_PER_CAN)
+{
+send_reliable(p.peer_id,"There is not enough fuel in there to siphon.",2);
+return true;
+}
+send_reliable(p.peer_id,"give empty_gas_can -1",0);
+b.gas-=BASE_GAS_PER_CAN;
+send_reliable(p.peer_id,"give gas_can 1",0);
+play("base_generator_take",p.x,p.y,p.z,p.map);
+redspot_base_message(index,"Fuel was siphoned out of the generator.");
+redspot_base_save();
+return true;
+}
+if(item=="tools" or item=="tool_box")
+{
+redspot_base_repair_with_tools(p,index,item);
+return true;
+}
+if(item=="base_lock_booster")
+{
+if(!redspot_base_outside_the_base(p,b))return true;
+if(b.lock_boosts>=BASE_MAX_LOCK_BOOSTS)
+{
+send_reliable(p.peer_id,"This door has all "+BASE_MAX_LOCK_BOOSTS+" boosters it will take. It is on "+b.lockpick_clicks()+" clicks.",2);
+return true;
+}
+send_reliable(p.peer_id,"give base_lock_booster -1",0);
+int before=b.lockpick_clicks();
+b.lock_boosts++;
+play("base_interact_ext",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_interact_int");
+send_reliable(p.peer_id,"Lockpicking this door now takes longer. "+b.lock_boosts+" boosters of "+BASE_MAX_LOCK_BOOSTS+" fitted, and the lock is up from "+before+" clicks to "+b.lockpick_clicks()+".",2);
+redspot_base_message(index,"A lock booster was fitted by "+p.name+".");
+redspot_base_save();
+return true;
+}
+if(item=="base_generator_booster")
+{
+if(b.generator_boosts>=BASE_MAX_GENERATOR_BOOSTS)
+{
+send_reliable(p.peer_id,"This generator has all ten boosters it can take.",2);
+return true;
+}
+send_reliable(p.peer_id,"give base_generator_booster -1",0);
+b.generator_boosts++;
+send_reliable(p.peer_id,"The generator is more efficient. "+b.generator_boosts+" boosters fitted.",2);
+redspot_base_message(index,"A generator booster was fitted by "+p.name+".");
+redspot_base_save();
+return true;
+}
+if(item=="base_fridge_coolant")
+{
+send_reliable(p.peer_id,"give base_fridge_coolant -1",0);
+send_reliable(p.peer_id,"give base_fridge_coolant_extractor 1",0);
+b.fridge_coolant+=100;
+play("base_fridge_on",p.x,p.y,p.z,p.map);
+base_play_inside(b,"base_fridge_on");
+send_reliable(p.peer_id,"The fridge has "+b.fridge_coolant+" coolant.",2);
+redspot_base_save();
+return true;
+}
+if(item=="base_fridge_coolant_extractor")
+{
+if(b.fridge_coolant<100)
+{
+send_reliable(p.peer_id,"There is not enough coolant in there to extract.",2);
+return true;
+}
+send_reliable(p.peer_id,"give base_fridge_coolant_extractor -1",0);
+b.fridge_coolant-=100;
+send_reliable(p.peer_id,"give base_fridge_coolant 1",0);
+play("base_fridge_off",p.x,p.y,p.z,p.map);
+base_play_inside(b,"base_fridge_off");
+send_reliable(p.peer_id,"You draw coolant out of the fridge.",2);
+redspot_base_save();
+return true;
+}
+if(item=="base_machinegun_ammo_drum")
+{
+if(b.machinegun_ammo>=BASE_MACHINEGUN_MAX_AMMO)
+{
+send_reliable(p.peer_id,"The machinegun already holds all "+BASE_MACHINEGUN_MAX_AMMO+" rounds it can take.",2);
+return true;
+}
+send_reliable(p.peer_id,"give base_machinegun_ammo_drum -1",0);
+b.machinegun_ammo+=225;
+string over;
+if(b.machinegun_ammo>BASE_MACHINEGUN_MAX_AMMO)
+{
+b.machinegun_ammo=BASE_MACHINEGUN_MAX_AMMO;
+over=" The rest of the drum would not fit.";
+}
+play("base_machinegun_load",p.x,p.y,p.z,p.map);
+base_play_inside(b,"base_machinegun_load");
+send_reliable(p.peer_id,"The machinegun has "+b.machinegun_ammo+" rounds."+over,2);
+redspot_base_save();
+return true;
+}
+if(item=="water")
+{
+// Five waters put a base fire out, as the source's item use does. The drink
+// itself can put a person's own fire out as well, which is the caller's job.
+if(!b.onfire)return false;
+send_reliable(p.peer_id,"give water -1",0);
+b.fire_water++;
+if(b.fire_water>=5)
+{
+b.onfire=false;
+b.fire_water=0;
+play("base_fireout_ext",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_fireout_int");
+redspot_base_message(index,"The fire is out.");
+}
+else
+{
+play("base_fireout_ext",b.x,b.y,b.z,b.map);
+send_reliable(p.peer_id,"You throw water on the fire. "+(5-b.fire_water)+" more will put it out.",2);
+}
+redspot_base_save();
+return true;
+}
+return false;
+}
+
+// ---------------------------------------------------------------------------
+// Damage.
+// ---------------------------------------------------------------------------
+void redspot_base_damage(int index,int damage,string source,bool flammable=false)
+{
+if(index<0 or index>=int(redspot_bases.length()) or damage<1)return;
+redspot_base@ b=redspot_bases[index];
+b.health-=damage;
+b.lasthit=source;
+// How hard the base was hit decides what it sounds like: a rifle round
+// rattling off the wall is not a mass bomb going off against it.
+string ext="base_bullet_ext";
+string inside="base_bullet_int";
+if(damage>=1500){ext="base_large_ext";inside="base_large_int";}
+else if(damage>=500){ext="base_med_ext";inside="base_med_int";}
+else if(damage>=120){ext="base_small_ext";inside="base_small_int";}
+play(ext,b.x,b.y,b.z,b.map);
+base_play_inside(b,inside);
+if(flammable and !b.onfire and random(1,3)<3)
+{
+b.onfire=true;
+b.fire_water=0;
+b.fire_timer.restart();
+redspot_base_set_alarm(index,"fire");
+play("base_fire_ext",b.x,b.y,b.z,b.map);
+redspot_base_message(index,"The base is on fire. Evacuate and put it out.");
+}
+if(b.health<BASE_DOOR_HEALTH and !b.door_destroyed)
+{
+b.door_destroyed=true;
+play("base_door_dest",b.x,b.y,b.z,b.map);
+redspot_base_message(index,"The door has been destroyed. Anybody can walk in.");
+redspot_base_set_alarm(index,"critical");
+}
+if(b.health<=0){redspot_base_destroy(index,source);return;}
+redspot_base_set_health(b,b.health);
+}
+// A base is a solid column nine tiles high, so a shot anywhere up it counts as
+// a hit on the base rather than only one at its feet. Returns true if there was
+// a base there, so the projectile stops on it the way it stops on a wall.
+bool hit_base_at(double x,double y,double z,string map,int damage,string source,bool flammable=false)
+{
+int index=redspot_base_in_column(int(x),int(y),int(z),map);
+if(index<0)return false;
+redspot_base_damage(index,damage,source,flammable);
+return true;
+}
+void damage_bases_in_radius(double x,double y,double z,string map,double radius,int damage,string source,bool flammable=false)
+{
+for(uint i=0;i<redspot_bases.length();i++)
+{
+redspot_base@ b=redspot_bases[i];
+if(b.map!=map)continue;
+if(get_3d_distance(x,y,z,double(b.x),double(b.y),double(b.z))<=radius)redspot_base_damage(int(i),damage,source,flammable);
+}
+// A blast inside a base hits the base itself and its fittings.
+int inside=redspot_base_from_interior(map);
+if(inside>=0)
+{
+redspot_base_damage(inside,damage,source,flammable);
+redspot_base_blast_fittings(inside,x,y,radius,damage,source);
+}
+}
+// The three things inside a base that can be broken, and where each stands. The
+// computer, the fridge and the storage area are fittings of the building rather
+// than anybody's property: a blast does not ask whose base it is going off in
+// and neither does a bullet.
+int redspot_base_fitting_at(int x,int y)
+{
+if(x==0 and y==0)return 0;
+if(x==0 and y==20)return 1;
+if(x==20 and y==20)return 2;
+return -1;
+}
+void redspot_base_damage_fitting(int index,int which,int damage,string source)
+{
+if(index<0 or index>=int(redspot_bases.length()) or which<0 or which>2 or damage<1)return;
+redspot_base@ b=redspot_bases[index];
+int[] xs={0,0,20};
+int[] ys={0,20,20};
+string[] sounds={"base_comp","base_fridge","base_storage"};
+string[] names={"computer","fridge","storage area"};
+bool ok=which==0?b.computer_ok:(which==1?b.fridge_ok:b.storage_ok);
+if(!ok)return;
+int left=which==0?b.computer_health:(which==1?b.fridge_health:b.storage_health);
+left-=damage;
+play(sounds[which]+"_impact"+random(1,3),xs[which],ys[which],0,b.interior);
+bool gone=left<=0;
+if(gone)left=0;
+if(which==0){b.computer_health=left;b.computer_ok=!gone;}
+else if(which==1){b.fridge_health=left;b.fridge_ok=!gone;}
+else{b.storage_health=left;b.storage_ok=!gone;}
+if(!gone){redspot_base_save();return;}
+play(sounds[which]+"_dest",xs[which],ys[which],0,b.interior);
+redspot_base_message(index,"The "+names[which]+" has been destroyed by "+source+".");
+redspot_base_save();
+}
+// A blast inside a base reaches every fitting within its radius rather than
+// only the one it happened to go off on top of, and falls off with distance the
+// same way it does on a person.
+void redspot_base_blast_fittings(int index,double x,double y,double radius,int damage,string source)
+{
+if(index<0 or index>=int(redspot_bases.length()) or radius<0)return;
+int[] xs={0,0,20};
+int[] ys={0,20,20};
+for(uint i=0;i<xs.length();i++)
+{
+double dist=get_3d_distance(x,y,0,double(xs[i]),double(ys[i]),0);
+if(dist>radius)continue;
+double falloff=1.0-(dist/(radius+1.0))*0.6;
+redspot_base_damage_fitting(index,int(i),int(double(damage)*falloff),source);
+}
+}
+// A shot that comes down on a fitting's tile. Returns true if there was one
+// there to hit, so the projectile stops on it the way it stops on a base.
+bool hit_base_fitting_at(double x,double y,string map,int damage,string source)
+{
+int index=redspot_base_from_interior(map);
+if(index<0)return false;
+int which=redspot_base_fitting_at(int(x),int(y));
+if(which<0)return false;
+redspot_base@ b=redspot_bases[index];
+bool ok=which==0?b.computer_ok:(which==1?b.fridge_ok:b.storage_ok);
+if(!ok)return false;
+redspot_base_damage_fitting(index,which,damage,source);
+return true;
+}
+void redspot_base_destroyed(int id)
+{
+int index=redspot_base_index(id);
+if(index<0)return;
+redspot_base_destroy(index,"something");
+}
+void redspot_base_destroy(int index,string source)
+{
+if(index<0 or index>=int(redspot_bases.length()))return;
+redspot_base@ b=redspot_bases[index];
+play("base_dest",b.x,b.y,b.z,b.map);
+send_reliable(0,"play_s base_destdist.ogg",0);
+send_reliable(0,"The base called "+b.name+" at "+b.x+", "+b.y+", "+b.z+" has been destroyed.",2);
+redspot_base_message(index,"The base was destroyed by "+source+".");
+// Everything on the shelf spills into the wreckage, up to fifty of each kind,
+// which is the source's own limit on what survives a base.
+for(uint i=0;i<b.storage.length();i++)
+{
+int count=b.storage[i].amount;
+if(count>50)count=50;
+for(int n=0;n<count;n++)spawn_citem(b.x,b.y,b.z,b.map,b.storage[i].item);
+}
+string team=b.team;
+redspot_base_interior_close(index);
+redspot_base_remove_structure(b);
+redspot_bases.remove_at(index);
+// Redspot disbands a team when its last base falls, because a team there only
+// exists as long as its bases do. This game's teams are saved accounts with
+// their own membership and permissions, so the last base going is announced
+// and the team is left standing for its members to keep or disband themselves.
+if(team!="")
+{
+bool remaining=false;
+for(uint i=0;i<redspot_bases.length();i++)if(redspot_bases[i].team==team)remaining=true;
+if(!remaining)send_reliable(0,"Team "+team+" has lost its last base.",2);
+}
+redspot_base_save();
+}
+
+// ---------------------------------------------------------------------------
+// The per tick work.
+// ---------------------------------------------------------------------------
+void redspot_base_loop()
+{
+// The build job's own clock. The wood is taken here, so a builder who is
+// killed or interrupted before this costs nobody anything.
+for(int j=int(redspot_build_jobs.length())-1;j>=0;j--)
+{
+if(redspot_build_jobs[j].charge.elapsed<TIME_BASE_BUILD)continue;
+uint peer=redspot_build_jobs[j].peer;
+string built_name=redspot_build_jobs[j].name;
+redspot_build_jobs.remove_at(j);
+redspot_base_finish_build_job(peer,built_name);
+}
+if(redspot_base_save_timer.elapsed>=30000){redspot_base_save_timer.restart();if(redspot_bases.length()>0)redspot_base_save();}
+for(uint i=0;i<redspot_bases.length();i++)
+{
+redspot_base@ b=redspot_bases[i];
+// Three seconds and it shuts again, whether anybody went through or not.
+if(b.door_open and b.door_open_timer.elapsed>DOOR_OPEN_MS)
+{
+b.door_open=false;
+play("base_lock_ext",b.x,b.y,b.z,b.map);
+bool told=false;
+for(uint p=0;p<players.length();p++)
+{
+if(players[p].map==b.interior)
+{
+send_reliable(players[p].peer_id,"play_s base_lock_int.ogg",0);
+send_reliable(players[p].peer_id,"play_s base_comp_locked.ogg",0);
+continue;
+}
+if(players[p].map==b.map and get_3d_distance(players[p].x,players[p].y,players[p].z,double(b.x),double(b.y),double(b.z))<=1)
+{
+send_reliable(players[p].peer_id,"The door shuts again.",2);
+told=true;
+}
+}
+if(told)redspot_base_save();
+}
+// The generator burns fuel while the power is on, and boosters make it last.
+if(b.powered)
+{
+if(b.gas_timer.elapsed>1000)
+{
+int burn=1000-(b.generator_boosts*70);
+if(burn<200)burn=200;
+b.gas-=burn;
+b.gas_timer.restart();
+if(b.gas<=0)
+{
+b.gas=0;
+b.powered=false;
+play("base_generator_off",b.x,b.y,b.z,b.map);
+redspot_base_message(int(i),"The generator has run out of fuel.");
+redspot_base_save();
+}
+}
+// Food turns cold in a powered fridge with coolant in it, thirty seconds at a
+// time, and the cold shelf has a ceiling of its own.
+if(b.fridge_ok and b.fridge_timer.elapsed>30000)
+{
+b.fridge_timer.restart();
+if(b.fridge_coolant>0 and b.fridge_food>0 and b.fridge_cold_food<BASE_FRIDGE_MAX_COLD_FOOD)
+{
+b.fridge_food--;
+b.fridge_cold_food++;
+b.fridge_coolant--;
+redspot_base_save();
+}
+}
+}
+else if(b.fridge_timer.elapsed>60000)
+{
+// Without power the cold food goes back to being ordinary food.
+b.fridge_timer.restart();
+if(b.fridge_cold_food>0)
+{
+b.fridge_cold_food--;
+b.fridge_food++;
+redspot_base_save();
+}
+}
+// Fire eats the base until somebody puts it out.
+if(b.onfire and b.fire_timer.elapsed>3000)
+{
+b.fire_timer.restart();
+b.health-=random(300,900);
+b.lasthit="the fire";
+play("base_fire_ext",b.x,b.y,b.z,b.map, -1,true,false);
+if(b.health<=0)
+{
+redspot_base_destroy(int(i),"the fire");
+continue;
+}
+redspot_base_set_health(b,b.health);
+}
+// The alarm keeps sounding until it is turned off.
+if(b.alarm!=BASE_ALARM_NONE and b.alarm_timer.elapsed>4000)
+{
+b.alarm_timer.restart();
+string s=b.alarm=="critical"?"base_critical_alarm":("base_"+b.alarm+"_alarm");
+play(s,b.x,b.y,b.z,b.map, -1,true,false);
+base_play_inside(b,s);
+}
+// The barrel heats while the gun is live and cools at half that rate while it
+// is off, so a full minute of firing is two minutes of waiting.
+int heatstep=int(b.mg_heat_timer.elapsed);
+if(heatstep>0)
+{
+b.mg_heat_timer.restart();
+b.mg_heat+=b.machinegun_on?heatstep:-(heatstep*BASE_MACHINEGUN_MAX_LIVE_MS/BASE_MACHINEGUN_COOLDOWN_MS);
+if(b.mg_heat<0)b.mg_heat=0;
+if(b.machinegun_on and b.mg_heat>=BASE_MACHINEGUN_MAX_LIVE_MS)
+{
+b.mg_heat=BASE_MACHINEGUN_MAX_LIVE_MS;
+b.machinegun_on=false;
+b.machinegun_overheated=true;
+play("base_machinegun_load",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_machinegun_load");
+redspot_base_message(int(i),"The machinegun has overheated and shut down. It needs two minutes to cool.");
+redspot_base_save();
+}
+else if(b.machinegun_overheated and b.mg_heat<1)
+{
+b.machinegun_overheated=false;
+redspot_base_message(int(i),"The machinegun has cooled down and can be used again.");
+redspot_base_save();
+}
+}
+if(b.machinegun_on and b.powered and b.machinegun_ammo>0 and b.mg_timer.elapsed>350)
+{
+b.mg_timer.restart();
+int target=-1;
+for(uint p=0;p<players.length();p++)
+{
+player@ t=players[p];
+if(t.map!=b.map or t.death or t.invisible or t.afk)continue;
+if(b.is_owner(t.name))continue;
+if(b.team!="" and same_team(t.name,b.owner))continue;
+if(!player_can_be_damaged_by(t,b.owner))continue;
+if(get_3d_distance(double(b.x),double(b.y),double(b.z),t.x,t.y,t.z)<=15){target=int(p);break;}
+}
+if(target>-1)
+{
+b.machinegun_ammo--;
+play("base_machinegun_ext",b.x,b.y,b.z,b.map);
+send_world_sound("base_machinegun_dist.ogg",b.x,b.y,b.z,b.map);
+base_play_inside(b,"base_machinegun_int");
+play("base_machinegun_impact",players[target].x,players[target].y,players[target].z,players[target].map,target);
+apply_player_damage(players[target],random(20,70),"a base machinegun");
+if(b.machinegun_ammo<1)
+{
+b.machinegun_on=false;
+redspot_base_message(int(i),"The machinegun is out of ammunition.");
+}
+redspot_base_save();
+}
+}
+// The general hum of a base, inside and out.
+if(b.ambience_timer.elapsed>8000)
+{
+b.ambience_timer.restart();
+play("base_ambience",b.x,b.y,b.z,b.map, -1,true,false);
+if(b.powered)
+{
+for(uint p=0;p<players.length();p++)
+{
+if(players[p].map!=b.interior)continue;
+send_reliable(players[p].peer_id,"play_s base_generator_loop.ogg",0);
+send_reliable(players[p].peer_id,"play_s base_lights_loop.ogg",0);
+send_reliable(players[p].peer_id,"play_s base_comp_loop.ogg",0);
+if(b.fridge_ok)send_reliable(players[p].peer_id,"play_s base_fridge_loop.ogg",0);
+}
+}
+}
+if(b.picking)redspot_base_process_lockpick(int(i));
+}
+}
+
+// ---------------------------------------------------------------------------
+// Market access and deliveries.
+// ---------------------------------------------------------------------------
+// The supply store is a terminal on the base computer, so it is reached from
+// the computer itself: inside the base, on or beside the computer's tile, with
+// the power on. Standing at the door outside counts for nothing in Redspot.
+bool redspot_base_market_access(player@ p)
+{
+int inside=redspot_base_from_interior(p.map);
+if(inside<0)return false;
+redspot_base@ b=redspot_bases[inside];
+if(!b.computer_ok or !b.powered)return false;
+return get_3d_distance(p.x,p.y,0,0,0,0)<=2.5;
+}
+int redspot_base_delivery_id(player@ p)
+{
+if(p is null)return -1;
+int index=redspot_base_here(p);
+if(index<0)return -1;
+redspot_base@ b=redspot_bases[index];
+if(!b.powered or !redspot_base_access(p,b))return -1;
+return b.id;
+}
+
+// ---------------------------------------------------------------------------
+// Saving, and loading.
+// ---------------------------------------------------------------------------
+void redspot_base_save()
+{
+directory_create(redspot_base_store_directory);
+string data="";
+for(uint i=0;i<redspot_bases.length();i++)
+{
+redspot_base@ b=redspot_bases[i];
+redspot_base_sync_structure(b);
+string owners="";
+for(uint j=0;j<b.owners.length();j++){if(j>0)owners+=",";owners+=b.owners[j];}
+data+=b.id+"|"+b.name+"|"+b.owner+"|"+(b.team==""?"-":b.team)+"|"+b.x+"|"+b.y+"|"+b.z+"|"+b.map+"|"+b.health+"|"+b.code+"|"+(b.door_destroyed?"1":"0")+"|"+b.gas+"|"+b.generator_boosts+"|"+b.lock_boosts+"|"+b.fridge_coolant+"|"+b.fridge_food+"|"+b.fridge_cold_food+"|"+b.machinegun_ammo+"|"+b.unlocks+"|"+owners+"|"+(b.powered?"1":"0")+"|"+(b.computer_ok?"1":"0")+"|"+(b.fridge_ok?"1":"0")+"|"+(b.storage_ok?"1":"0")+"|"+b.computer_health+"|"+b.fridge_health+"|"+b.storage_health+"|"+(b.onfire?"1":"0")+"|"+b.alarm+"|"+b.machinegun_overheated+"|";
+if(b.storage.length()==0)data+="-";
+for(uint j=0;j<b.storage.length();j++){if(j>0)data+=";";data+=b.storage[j].item+","+b.storage[j].amount;}
+data+="\n";
+}
+file_put_contents(redspot_base_store_directory+"/records.txt",data,false);
+}
+// The old record format, from the first Redspot import, is read so a running
+// server does not lose its bases: those files carry fifteen fields and a fuel
+// count in seconds, which becomes the generator's own milliseconds.
+void redspot_base_load_legacy(string[] &in f,string[] &in rows)
+{
+redspot_base b;
+b.id=int(string_to_number(f[0]));
+b.x=int(string_to_number(f[1]));
+b.y=int(string_to_number(f[2]));
+b.z=int(string_to_number(f[3]));
+b.map=f[4];
+b.owner=f[5];
+b.team=f[6]=="-"?  "":f[6];
+b.powered=f[7]=="1";
+b.name=f[5]+"'s base";
+b.owners.insert_last(f[5]);
+if(f.length()>=12){b.gas=int(string_to_number(f[8]))*1000;b.lock_boosts=int(string_to_number(f[9]));b.generator_boosts=int(string_to_number(f[10]));}
+if(f.length()>=14){b.health=int(string_to_number(f[11]));if(b.health<1)b.health=BASE_START_HEALTH;}
+if(f.length()>=15)b.fridge_coolant=int(string_to_number(f[13]))/3;
+for(uint j=0;j<rows.length();j++)
+{
+string[] row=string_split(rows[j],",",false);
+if(row.length()!=2)continue;
+int count=int(string_to_number(row[1]));
+if(count>0)b.store(row[0],count);
+}
+b.interior=redspot_base_interior_name(b.id);
+if(b.id<9100000 or get_map_index(b.map)<0 or b.owner=="")return;
+if(redspot_base_at(b.x,b.y,b.z,b.map)>=0)return;
+redspot_bases.insert_last(b);
+if(b.id>=next_redspot_base_id)next_redspot_base_id=b.id+1;
+int index=int(redspot_bases.length())-1;
+if(!redspot_base_interior_open(index)){redspot_bases.remove_at(index);return;}
+redspot_base_object(redspot_bases[index]);
+}
+void load_redspot_bases()
+{
+redspot_bases.resize(0);
+next_redspot_base_id=9100000;
+string path=redspot_base_store_directory+"/records.txt";
+if(!file_exists(path))return;
+string[] lines=string_split(file_get_contents(path),"\n",false);
+for(uint i=0;i<lines.length();i++)
+{
+if(lines[i].trim_whitespace()=="")continue;
+string[] f=string_split(lines[i],"|",true);
+// The current record is Redspot's field list, extended with this engine's
+// power state, fitting health, fire and alarm.
+if(f.length()>=30)
+{
+redspot_base b;
+b.id=int(string_to_number(f[0]));
+b.name=f[1];
+b.owner=f[2];
+b.team=f[3]=="-"?  "":f[3];
+b.x=int(string_to_number(f[4]));
+b.y=int(string_to_number(f[5]));
+b.z=int(string_to_number(f[6]));
+b.map=f[7];
+b.health=int(string_to_number(f[8]));
+b.code=f[9];
+b.door_destroyed=f[10]=="1";
+b.gas=int(string_to_number(f[11]));
+b.generator_boosts=int(string_to_number(f[12]));
+b.lock_boosts=int(string_to_number(f[13]));
+b.fridge_coolant=int(string_to_number(f[14]));
+b.fridge_food=int(string_to_number(f[15]));
+b.fridge_cold_food=int(string_to_number(f[16]));
+b.machinegun_ammo=int(string_to_number(f[17]));
+b.unlocks=int(string_to_number(f[18]));
+b.owners=string_split(f[19],",",false);
+b.powered=f[20]=="1";
+b.computer_ok=f[21]=="1";
+b.fridge_ok=f[22]=="1";
+b.storage_ok=f[23]=="1";
+b.computer_health=int(string_to_number(f[24]));
+b.fridge_health=int(string_to_number(f[25]));
+b.storage_health=int(string_to_number(f[26]));
+b.onfire=f[27]=="1";
+b.alarm=f[28]=="-" or f[28]==""?BASE_ALARM_NONE:f[28];
+b.machinegun_overheated=f[29]=="1";
+b.interior=redspot_base_interior_name(b.id);
+if(b.owner=="" or b.name=="")b.name=b.owner+"'s base";
+string[] rows=string_split(f[f.length()-1],";",false);
+for(uint j=0;j<rows.length();j++)
+{
+string[] row=string_split(rows[j],",",false);
+if(row.length()!=2)continue;
+int count=int(string_to_number(row[1]));
+if(count>0)b.store(row[0],count);
+}
+if(b.id<9100000 or get_map_index(b.map)<0)continue;
+if(redspot_base_at(b.x,b.y,b.z,b.map)>=0)continue;
+redspot_bases.insert_last(b);
+if(b.id>=next_redspot_base_id)next_redspot_base_id=b.id+1;
+int index=int(redspot_bases.length())-1;
+if(!redspot_base_interior_open(index)){redspot_bases.remove_at(index);continue;}
+redspot_base_object(redspot_bases[index]);
+continue;
+}
+// A record from the first import: fifteen fields, item counts in the last.
+if(f.length()>=15)
+{
+string[] rows=string_split(f[f.length()-1],";",false);
+string[] head=f;head.resize(14);
+redspot_base_load_legacy(head,rows);
+}
+}
+}
+// The first import's name for the save, kept so any caller still finds it.
+void save_redspot_bases(){redspot_base_save();}
+int redspot_base_used(redspot_base@ b){return b is null?0:b.stored_total(false)+b.stored_total(true);}
+void redspot_base_add(redspot_base@ b,string item,int amount){if(b is null)return;b.store(item,amount);}
+int redspot_base_stock(redspot_base@ b,string item){return b is null?0:b.stored_count(item);}
+
+// ---------------------------------------------------------------------------
+// The client's requests.
+// ---------------------------------------------------------------------------
 bool redspot_base_request(uint peer,const string[] &in f)
 {
 if(f.length()==0 or f[0]!="base")return false;
-int pi=get_player_index(peer);if(pi<0 or f.length()<2)return true;player@ p=players[pi];
-if(f[1]=="pick" and f.length()>=3){
-redspot_base@ b=null;for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i]) and !redspot_base_access(p,redspot_bases[i])){@b=redspot_bases[i];break;}
-if(b is null or physical_count(p,"lockpick")<=0){send_reliable(peer,"Stand beside a locked base with a lockpick.",2);return true;}
-if(f[2]=="start"){if(b.picking_peer>=0 and b.picking_peer!=int(peer)){send_reliable(peer,"Someone is already working that lock.",2);return true;}b.picking_peer=int(peer);b.pick_stage=0;b.pick_target_ms=random(600,1400);b.click_sent=false;b.pick_timer.restart();send_reliable(peer,"base_pick_start "+b.id,0);return true;}
-if(f[2]=="click" and f.length()>=4 and b.id==int(string_to_number(f[3])) and b.picking_peer==int(peer)){
-int timing=int(b.pick_timer.elapsed);if(!b.click_sent or timing>b.pick_target_ms+500){b.picking_peer=-1;send_reliable(peer,"base_pick_end failed",0);return true;}
-b.pick_stage++;if(b.pick_stage>=5+b.lock_boosters*2){b.picking_peer=-1;b.picked_by=p.name;b.picked_timer.restart();send_reliable(peer,"base_pick_end opened",0);redspot_base_open(p,b.id);return true;}
-b.pick_target_ms=random(600,1400);b.click_sent=false;b.pick_timer.restart();send_reliable(peer,"Lock pin "+b.pick_stage+" of "+(5+b.lock_boosters*2)+" released. Listen for the next click.",2);return true;
-}
-return true;
-}
-if(f.length()<3)return true;redspot_base@ b=redspot_base_find(int(string_to_number(f[2])));if(b is null or !redspot_base_near(p,b) or !redspot_base_access(p,b))return true;
-if(f[1]=="status")send_reliable(peer,"Base computer: "+b.owner+" owns this base. Power "+(b.powered?"on":"off")+", fuel "+b.fuel_seconds+" seconds, fridge coolant "+b.fridge_coolant+" seconds, lock boosters "+b.lock_boosters+", generator boosters "+b.generator_boosters+". Storage holds "+redspot_base_used(b)+" of 2000 item units.",2);
-else if(f[1]=="list"){string[] keys=b.storage.get_keys();string report="Base storage: ";if(keys.length()==0)report+="empty.";else for(uint i=0;i<keys.length();i++){if(i>0)report+=", ";report+=redspot_base_stock(b,keys[i])+" "+string_replace(keys[i],"_"," ",true);}send_reliable(peer,report,2);}
-else if(f[1]=="power" and p.name==b.owner){if(!b.powered and b.fuel_seconds<=0){send_reliable(peer,"The generator needs gas.",2);return true;}b.powered=!b.powered;b.fuel_timer.restart();save_redspot_bases();send_reliable(peer,b.powered?"Base power on.":"Base power off.",2);}
-else if(f[1]=="deposit" and f.length()>=5){string item=f[3];int amount=int(string_to_number(f[4]));if(amount<1 or amount>1000 or !physical_tracked(item) or physical_count(p,item)<amount or redspot_base_used(b)+pack_units(item)*amount>2000){send_reliable(peer,"Deposit owned physical items within the base's 2000-unit capacity. Packed contents count at full size.",2);return true;}redspot_base_add(b,item,amount);send_reliable(peer,"give "+item+" -"+amount,0);save_redspot_bases();send_reliable(peer,"Stored "+amount+" "+string_replace(item,"_"," ",true)+".",2);}
-else if(f[1]=="withdraw" and f.length()>=5){string item=f[3];int amount=int(string_to_number(f[4]));if(amount<1 or amount>1000 or redspot_base_stock(b,item)<amount){send_reliable(peer,"The base does not hold that quantity.",2);return true;}redspot_base_add(b,item,-amount);save_redspot_bases();send_reliable(peer,"give "+item+" "+amount,0);send_reliable(peer,"Withdrew "+amount+" "+string_replace(item,"_"," ",true)+".",2);}
-return true;
-}
-void redspot_base_loop()
+int pi=get_player_index(peer);
+if(pi<0)return true;
+player@ p=players[pi];
+if(f.length()<2)return true;
+// Using yourself on a fitting inside a base.
+if(f[1]=="here"){redspot_base_use_fitting(p);return true;}
+if(f[1]=="name"){redspot_base_start_build(p,redspot_base_tail(f,2));return true;}
+if(f[1]=="knock" and f.length()>=3)
 {
-if(redspot_base_fuel_save_timer.elapsed>=30000){redspot_base_fuel_save_timer.restart();if(redspot_bases.length()>0)save_redspot_bases();}
-for(uint i=0;i<redspot_bases.length();i++){
-redspot_base@ b=redspot_bases[i];if(b.powered and b.fuel_timer.elapsed>=1000){b.fuel_meter+=int(b.fuel_timer.elapsed/1000);b.fuel_timer.restart();int divisor=1+b.generator_boosters;int burn=b.fuel_meter/divisor;b.fuel_meter%=divisor;if(burn>0){b.fuel_seconds-=burn;if(b.fuel_seconds<=0){b.fuel_seconds=0;b.powered=false;save_redspot_bases();send_reliable_map(b.map,"Base "+b.id+" has run out of generator fuel.",2);}}}
-if(b.powered and b.fridge_coolant>0 and b.fridge_timer.elapsed>=60000){b.fridge_timer.restart();if(redspot_base_stock(b,"food")>0){redspot_base_add(b,"food",-1);redspot_base_add(b,"cold_food",1);b.fridge_coolant-=60;if(b.fridge_coolant<0)b.fridge_coolant=0;save_redspot_bases();}}
-if(b.picking_peer<0)continue;
-int pi=get_player_index(b.picking_peer);if(pi<0 or players[pi].death or !redspot_base_near(players[pi],b) or physical_count(players[pi],"lockpick")<=0){b.picking_peer=-1;continue;}
-if(!b.click_sent and b.pick_timer.elapsed>=b.pick_target_ms){b.click_sent=true;send_reliable(b.picking_peer,"base_lock_click "+b.id,0);}
-else if(b.click_sent and b.pick_timer.elapsed>b.pick_target_ms+500){send_reliable(b.picking_peer,"base_pick_end failed",0);b.picking_peer=-1;}
+redspot_base@ b=redspot_base_find(int(string_to_number(f[2])));
+if(b !is null and redspot_base_near(p,b))redspot_base_knock(p,b);
+return true;
 }
+if(f[1]=="enter" and f.length()>=4)return redspot_base_try_code(p,int(string_to_number(f[2])),f[3]);
+if(f[1]=="pick" and f.length()>=3)
+{
+if(f[2]=="start")redspot_base_start_lockpick(p);
+else if(f[2]=="click" and f.length()>=4)redspot_base_lockpick_press(p,int(string_to_number(f[3])));
+return true;
+}
+// Everything below is the base computer, so it has to be this base, and it has
+// to be in reach of it.
+int index=redspot_base_here(p);
+if(index<0)return true;
+redspot_base@ b=redspot_bases[index];
+bool inside=p.map==b.interior;
+bool at_door=!inside and redspot_base_near(p,b);
+if(!inside and !at_door)return true;
+int action=f.length()>=3?int(string_to_number(f[2])):0;
+if(action!=b.id)return true;
+string verb=f[1];
+// Changing the door code is done from the outside, because that is where the
+// keypad is.
+if(verb=="setcode" and f.length()>=4)
+{
+if(!inside and !redspot_base_outside_the_base(p,b))return true;
+if(!b.is_owner(p.name)){send_reliable(peer,"Only an owner can change the code.",2);return true;}
+if(f[3].length()<3 or !redspot_base_digits(f[3])){send_reliable(peer,"The code has to be at least three digits.",2);return true;}
+b.code=f[3];
+play("base_comp_success",p.x,p.y,p.z,p.map);
+redspot_base_message(index,"The door code was changed by "+p.name+".");
+send_reliable(peer,"The code is now "+f[3]+".",2);
+redspot_base_save();
+return true;
+}
+// The rest needs the computer, which means being inside a powered base.
+if(!inside){send_reliable(peer,"Use the computer inside the base.",2);return true;}
+if(!b.computer_ok){send_reliable(peer,"The computer is wrecked. It needs tools.",2);return true;}
+if(!b.powered){send_reliable(peer,"The computer has no power.",2);return true;}
+if(verb=="status")
+{
+send_reliable(peer,"Base computer: "+b.name+", owned by "+b.owner+(b.team==""?"":" and team "+b.team)+". Power "+(b.powered?"on":"off")+", fuel "+b.gas_time_string()+". Storage holds "+b.stored_total(false)+" of "+BASE_STORAGE_MAX_ITEMS+" items and "+b.stored_total(true)+" of "+BASE_STORAGE_MAX_AMMO+" rounds. The machinegun has "+b.machinegun_ammo+" rounds.",2);
+return true;
+}
+if(verb=="info" and f.length()>=4){send_reliable(peer,redspot_base_info_text(b,f[3]),2);play("base_comp_success",p.x,p.y,p.z,p.map);return true;}
+if(verb=="log")
+{
+if(b.messages.length()<1){send_reliable(peer,"The log is empty.",2);return true;}
+string text="Message log: ";
+for(uint i=0;i<b.messages.length();i++){if(i>0)text+=" | ";text+=b.messages[i];}
+send_reliable(peer,text,2);
+return true;
+}
+if(verb=="message" and f.length()>=4)
+{
+string body=redspot_base_tail(f,3);
+if(body=="")return true;
+redspot_base_message(index,p.name+": "+body);
+redspot_base_save();
+return true;
+}
+if(verb=="scan" and f.length()>=4){redspot_base_scan(p,index,f[3]=="players");return true;}
+if(verb=="alarm" and f.length()>=4)
+{
+redspot_base_set_alarm(index,f[3]);
+return true;
+}
+if(verb=="owners" and f.length()>=4)
+{
+if(!b.is_owner(p.name)){send_reliable(peer,"Only an owner can manage owners.",2);return true;}
+if(f[3]=="list")
+{
+string names="";
+for(uint i=0;i<b.owners.length();i++){if(i>0)names+=", ";names+=b.owners[i];}
+send_reliable(peer,"Owners: "+names,2);
+return true;
+}
+if(f[3]=="add" and f.length()>=5)
+{
+string who=redspot_base_tail(f,4);
+if(who=="" or b.is_owner(who))return true;
+b.owners.insert_last(who);
+redspot_base_message(index,who+" was added as an owner by "+p.name+".");
+send_reliable(peer,who+" is now an owner of this base.",2);
+redspot_base_save();
+return true;
+}
+if(f[3]=="remove" and f.length()>=5)
+{
+string who=redspot_base_tail(f,4);
+if(b.owners.length()<2){send_reliable(peer,"There is only one owner, and a base has to have one.",2);return true;}
+int at=b.owners.find(who);
+if(at<0 or who==b.owner)return true;
+b.owners.remove_at(at);
+redspot_base_message(index,who+" was removed as an owner by "+p.name+".");
+redspot_base_save();
+return true;
+}
+return true;
+}
+if(verb=="door")
+{
+if(b.door_destroyed){send_reliable(peer,"The door has been destroyed. Anybody can walk in.",2);return true;}
+redspot_base_unlock_door(index,p.name);
+send_reliable(peer,"The door is unlocked for a moment.",2);
+return true;
+}
+if(verb=="power"){redspot_base_toggle_power(p,index);return true;}
+if(verb=="fridge")
+{
+if(!b.fridge_ok){send_reliable(peer,"The fridge is wrecked. It needs tools.",2);return true;}
+if(f.length()<4)return true;
+if(f[3]=="info")
+{
+play("base_fridge_close",p.x,p.y,p.z,p.map);
+send_reliable(peer,"The fridge holds "+b.fridge_cold_food+" cold food of "+BASE_FRIDGE_MAX_COLD_FOOD+" and "+b.fridge_food+" food of "+BASE_FRIDGE_MAX_FOOD+", with "+b.fridge_coolant+" coolant.",2);
+return true;
+}
+if(f[3]=="put")
+{
+int n=physical_count(p,"food");
+if(n<1){send_reliable(peer,"You have no food to put in.",2);return true;}
+int room=BASE_FRIDGE_MAX_FOOD-b.fridge_food;
+if(room<1){send_reliable(peer,"The fridge is full. It holds "+BASE_FRIDGE_MAX_FOOD+" food.",2);return true;}
+string over;
+if(n>room){n=room;over=" That fills it; the rest is still on you.";}
+send_reliable(peer,"give food -"+n,0);
+b.fridge_food+=n;
+play("base_fridge_store",p.x,p.y,p.z,p.map);
+send_reliable(peer,"You put "+n+" food in the fridge."+over,2);
+redspot_base_save();
+return true;
+}
+if(f[3]=="take")
+{
+if(b.fridge_food<1){send_reliable(peer,"There is no ordinary food in here.",2);return true;}
+send_reliable(peer,"give food "+b.fridge_food,0);
+send_reliable(peer,"You take "+b.fridge_food+" food.",2);
+b.fridge_food=0;
+play("base_fridge_remove",p.x,p.y,p.z,p.map);
+redspot_base_save();
+return true;
+}
+if(f[3]=="takecold")
+{
+if(b.fridge_cold_food<1){send_reliable(peer,"There is no cold food in here.",2);return true;}
+send_reliable(peer,"give cold_food "+b.fridge_cold_food,0);
+send_reliable(peer,"You take "+b.fridge_cold_food+" cold food.",2);
+b.fridge_cold_food=0;
+play("base_fridge_remove",p.x,p.y,p.z,p.map);
+redspot_base_save();
+return true;
+}
+return true;
+}
+if(verb=="storage")
+{
+if(!b.storage_ok){send_reliable(peer,"The storage area is wrecked. It needs tools.",2);return true;}
+if(f.length()<4)return true;
+if(f[3]=="list")
+{
+// The listing goes out in the form the client picks from, and the totals are
+// said in words as well.
+string entries="";
+string report="Base storage holds "+b.stored_total(false)+" of "+BASE_STORAGE_MAX_ITEMS+" items and "+b.stored_total(true)+" of "+BASE_STORAGE_MAX_AMMO+" rounds. ";
+if(b.storage.length()==0)report+="It is empty.";
+for(uint i=0;i<b.storage.length();i++)
+{
+if(i>0){entries+=";";report+=", ";}
+entries+=b.storage[i].item+":"+b.storage[i].amount;
+report+=b.storage[i].amount+" "+citem_display_name(b.storage[i].item);
+}
+send_reliable(peer,"base_storage_list "+b.id+" "+(entries==""?"-":entries),0);
+send_reliable(peer,report,2);
+return true;
+}
+if(f[3]=="deposit" and f.length()>=6)
+{
+string item=f[4];
+int amount=int(string_to_number(f[5]));
+if(amount<1 or amount>1000 or !physical_tracked(item) or physical_count(p,item)<amount){send_reliable(peer,"Deposit physical items you are carrying, up to a thousand at a time.",2);return true;}
+if(item.find("shipment_")==0)send_reliable(peer,"Load shipments on the shelf itself, by using them while standing on the storage area.",2);
+string said=redspot_base_store_what_fits(p,index,item,amount);
+send_reliable(peer,said,2);
+return true;
+}
+if(f[3]=="withdraw" and f.length()>=6)
+{
+string item=f[4];
+int amount=int(string_to_number(f[5]));
+if(amount<1 or amount>1000 or b.stored_count(item)<amount){send_reliable(peer,"There are not that many stored.",2);return true;}
+b.store(item,-amount);
+send_reliable(peer,"give "+item+" "+amount,0);
+play("base_storage_remove",p.x,p.y,p.z,p.map);
+send_reliable(peer,"Retrieved "+amount+" "+citem_display_name(item)+".",2);
+redspot_base_save();
+return true;
+}
+return true;
+}
+if(verb=="weapons")
+{
+if(f.length()<4)return true;
+if(f[3]=="fire"){redspot_base_machinegun_toggle(p,index);return true;}
+if(f[3]=="ammo"){redspot_base_weapon_status(p,index);return true;}
+if(f[3]=="range"){redspot_base_machinegun_targets(p,index);return true;}
+return true;
+}
+if(verb=="market")
+{
+if(!redspot_base_market_access(p)){send_reliable(peer,"The supply terminal needs the base computer, with the power on.",2);return true;}
+send_reliable(peer,"base_market "+b.id,0);
+return true;
+}
+return true;
+}
+// The tail of a request as one string, so a base name or a message may contain
+// spaces.
+string redspot_base_tail(const string[] &in f,int from)
+{
+string text="";
+for(int i=from;i<int(f.length());i++){if(text!="")text+=" ";text+=f[i];}
+return text;
+}
+bool redspot_base_digits(string text)
+{
+for(uint i=0;i<text.length();i++)
+{
+string ch=text.substr(i,1);
+if(ch<"0" or ch>"9")return false;
+}
+return true;
 }

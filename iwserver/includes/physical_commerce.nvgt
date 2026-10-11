@@ -1,6 +1,6 @@
 // Physical ownership comes only from authoritative inventory grants.
 void spawn_physical_commerce_supply(){int total=0;for(uint i=0;i<item_catalogue.length();i++)total+=item_prop_int(item_catalogue[i].id,"economy_drop_weight",0);if(total<=0)return;int roll=random(1,total);for(uint i=0;i<item_catalogue.length();i++){roll-=item_prop_int(item_catalogue[i].id,"economy_drop_weight",0);if(roll>0)continue;int x,y,z;string map;if(choose_world_drop(x,y,z,map))spawn_citem(x,y,z,map,item_catalogue[i].id);return;}}
-bool physical_tracked(string item){return item.find("health_pod__value__")==0 or item.find("pack_containing_")==0 or item.find("shipment_")==0 or is_credit_chip(item) or item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item_prop(item,"device_profile")!="" or item=="hypercomp" or item=="portable_auction_terminal" or item_prop(item,"use_kind")=="terminal_storage" or item_prop(item,"empty_container")!="";}
+bool physical_tracked(string item){return item.find("satellite_bomb__code__")==0 or item.find("health_pod__value__")==0 or item.find("pack_containing_")==0 or item.find("shipment_")==0 or is_credit_chip(item) or item_prop(item,"currency_kind")!="" or item_flag(item,"disposable") or item_prop(item,"device_profile")!="" or item=="hypercomp" or item=="portable_auction_terminal" or item_prop(item,"use_kind")=="terminal_storage" or item_prop(item,"empty_container")!="";}
 int physical_count(player@ p,string item){if(is_credit_chip(item))return credit_chip_count(p,item);int count;return p.physical_items.get(item,count)?count:0;}
 void track_physical_grant(uint peer,string message)
 {
@@ -19,7 +19,7 @@ bool physical_bank_authenticated(player@ p){return p.bank_authorized_until>doubl
 bool physical_payment(player@ p,int amount,string method)
 {
 if(p.death or p.arena_return_map!="" or !recover_bank_transfer(p)){send_reliable(p.peer_id,"Commerce is unavailable while downed, in an arena, or awaiting bank-transfer recovery.",2);return false;}
-if(amount<=0)return false;if(method=="wallet")return change_player_credits(p,-amount);
+if(amount<=0)return false;if(method=="bank" or method=="wallet")return change_player_credits(p,-amount);
 if(method=="chips")
 {
 string[] keys=p.physical_items.get_keys();if(keys.find("credit_chip_small")<0)keys.insert_last("credit_chip_small");if(keys.find("credit_chip_large")<0)keys.insert_last("credit_chip_large");string[] used;int[] counts;int64 total=0;

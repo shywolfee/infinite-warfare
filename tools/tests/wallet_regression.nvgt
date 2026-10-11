@@ -1,44 +1,37 @@
 #include "bgt_compat.nvgt"
 #include "../../includes/sd.nvgt"
-// This isolated wallet suite uses legacy chips; the commerce suite tests data.
-string item_prop(string item,string key){return "";}
-int physical_item_value(string item){return 0;}
-#include "../../iwserver/includes/account_wallet.nvgt"
+// Isolated migration and chip-ownership checks; commerce runs the real bank.
 const string ACCOUNT_SECRET="isolated regression test key, not a live account key";
 class player {string name;dictionary physical_items;bool bank_transfer_writing=false;int credits=0,er_small_chips=0,er_large_chips=0;uint peer_id=1;}
-bool recover_bank_transfer(player@ p){return true;}
 player@[] players;
+string item_prop(string item,string key){return "";}
+int physical_item_value(string item){return 0;}
+string bank_path(string name){return wallet_accounts_directory+"/"+string_to_lower_case(name)+".bank";}
+string bank_number(){return "770000000001";}
+bool bank_record_valid(savedata@ bank){return bank.d.exists("number") and bank.readn("checking")>=0 and bank.readn("checking")<=2000000000;}
+void load_bank(savedata@ bank){try{bank.load();}catch{bank.d.delete_all();}}
+bool save_bank(savedata@ bank){if(!bank_record_valid(bank))return false;try{bank.save();return true;}catch{return false;}}
+bool recover_bank_transfer(player@ p){return true;}
+#include "../../iwserver/includes/account_wallet.nvgt"
 int get_player_index(uint peer){for(uint i=0;i<players.length();i++)if(players[i].peer_id==peer)return int(i);return -1;}
 void send_reliable(uint peer,string message,uint channel){if(channel==0)track_credit_chip_grant(peer,message);}
 string results;int failed=0;
 void check(bool condition,string label){results+=(condition?"PASS ":"FAIL ")+label+"\n";if(!condition)failed++;}
-void legacy(string name,int balance)
-{savedata data(wallet_accounts_directory+"/"+name+".dat",ACCOUNT_SECRET);data.add("username",name);data.add("password","untouched metadata");data.add("credits",double(balance));data.save();}
-void main()
-{
-wallet_accounts_directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-wallet-regression-"+random(100000,999999999);
-directory_create(wallet_accounts_directory);
+void legacy(string name,int balance){savedata data(wallet_accounts_directory+"/"+name+".dat",ACCOUNT_SECRET);data.add("username",name);data.add("password","untouched metadata");data.add("credits",double(balance));data.save();}
+void main(){
+wallet_accounts_directory=DIRECTORY_LOCAL_APPDATA+"/Temp/IW-bank-regression-"+random(100000,999999999);directory_create(wallet_accounts_directory);
 legacy("regression",100);player@ user=player();user.name="regression";user.credits=load_player_credits(user.name);players.insert_last(user);
-check(user.credits==100,"loads legacy account balance");
-send_reliable(1,"give credit_chip_small 3",0);
-check(user.er_small_chips==3,"authoritative small chip grant updates ownership");
-check(commit_credit_chip_deposit(user,"credit_chip_small"),"first small chip deposits");
-check(user.credits==115 and user.er_small_chips==2 and load_player_credits("REGRESSION")==115,"deposit persists before chip consumption; case-insensitive owner");
-check(commit_credit_chip_deposit(user,"credit_chip_small") and commit_credit_chip_deposit(user,"credit_chip_small"),"all three small chips work");
-check(!commit_credit_chip_deposit(user,"credit_chip_small") and user.credits==145,"cannot redeem a consumed chip again");
-send_reliable(1,"give credit_chip_large 1",0);
-check(commit_credit_chip_deposit(user,"credit_chip_large") and user.credits==205,"large chip adds sixty credits");
-check(change_player_credits(user,-25) and load_player_credits(user.name)==180,"purchase persists deducted balance");
-check(!change_player_credits(user,-999) and user.credits==180,"insufficient-funds rejection preserves balance");
-user.credits=0;user.credits=load_player_credits(user.name);check(user.credits==180,"reconstructing session restores saved balance");
-savedata original(wallet_accounts_directory+"/regression.dat",ACCOUNT_SECRET);original.load();check(original.read("password")=="untouched metadata" and original.readn("credits")==100,"wallet writes do not overwrite account metadata");
-send_reliable(1,"give credit_chip_small 4",0);send_reliable(1,"give credit_chip_small -1",0);check(user.er_small_chips==3,"drop or transfer removes chip ownership");
-legacy("write_failure",50);user.name="write_failure";user.credits=50;user.er_small_chips=1;
-check(save_player_credits(user.name,50),"baseline save for failure case");directory_create(wallet_path(user.name,1));
-check(!commit_credit_chip_deposit(user,"credit_chip_small") and user.credits==50 and user.er_small_chips==1 and load_player_credits(user.name)==50,"failed inactive-slot write preserves chip, live credits and previous disk balance");
-legacy("corruption",35);check(save_player_credits("corruption",35),"baseline for damaged-next-slot recovery");
-file broken;broken.open(wallet_path("corruption",1),"wb");broken.write("incomplete encrypted write");broken.close();check(load_player_credits("corruption")==35,"interrupted next write keeps previous valid balance");
-broken.open(wallet_path("corruption",0),"wb");broken.write("also unreadable");broken.close();check(load_player_credits("corruption")<0 and !save_player_credits("corruption",0),"unrecoverable wallet fails closed instead of resetting to zero");
-results+="Failures: "+failed+"\nTest data: "+wallet_accounts_directory+"\n";
-file report;report.open(wallet_accounts_directory+"/results.txt","wb");report.write(results);report.close();
+check(user.credits==100,"imports legacy account balance into bank checking");
+savedata bank(bank_path(user.name),ACCOUNT_SECRET+"_bank");load_bank(bank);check(bank.readn("checking")==100 and bank.readn("legacy_wallet_imported")==1,"bank records completed one-time migration");
+send_reliable(1,"give credit_chip_small 3",0);check(user.er_small_chips==3,"authoritative chip grant updates ownership");
+check(commit_credit_chip_deposit(user,"credit_chip_small") and user.credits==115 and user.er_small_chips==2,"chip deposit credits bank and consumes one chip");
+check(commit_credit_chip_deposit(user,"credit_chip_small") and commit_credit_chip_deposit(user,"credit_chip_small") and !commit_credit_chip_deposit(user,"credit_chip_small"),"spent chips cannot be redeemed again");
+check(change_player_credits(user,-25) and load_player_credits("REGRESSION")==120,"purchase persists only in bank checking");
+check(!change_player_credits(user,-999) and user.credits==120,"insufficient funds preserve bank checking");
+bank.d.delete_all();load_bank(bank);check(bank.readn("checking")==120,"bank record survives session reconstruction");
+savedata original(wallet_accounts_directory+"/regression.dat",ACCOUNT_SECRET);original.load();check(original.read("password")=="untouched metadata" and original.readn("credits")==100,"legacy account metadata remains untouched");
+check(!file_exists(wallet_path("regression",0)) and !file_exists(wallet_path("regression",1)),"new transactions never recreate a saved wallet");
+send_reliable(1,"give credit_chip_small 4",0);send_reliable(1,"give credit_chip_small -1",0);check(user.er_small_chips==3,"dropping physical chips removes ownership");
+player@ next=player();next.name="regression";next.credits=load_player_credits(next.name);check(next.credits==120 and next.er_small_chips==0,"logout retains bank credits but loses carried chips");
+results+="Failures: "+failed+"\nTest data: "+wallet_accounts_directory+"\n";file report;report.open(wallet_accounts_directory+"/results.txt","wb");report.write(results);report.close();exit(failed);
 }

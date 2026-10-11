@@ -45,6 +45,16 @@ for(uint i=0;i<views.length();i++)dump(views[i]);
 println("REQUESTS "+repo_requests);
 dump("overview");
 println("CACHED "+repo_requests);
+// The update source offer: the repositories, branches and commits GitHub
+// lists for Update source on the main menu.
+println("DEFAULT "+repo_default_branch(repo_slug));
+string[] s_names,s_shas;repo_branch_list(repo_slug,s_names,s_shas);
+string s_branches="";for(uint i=0;i<s_names.length();i++)s_branches+=(i>0?", ":"")+s_names[i];
+println("BRANCHES "+s_branches);
+string[] s_csha,s_ctext;repo_branch_commits(repo_slug,"main",10,s_csha,s_ctext);
+println("COMMITS "+s_csha.length()+" "+(s_ctext.length()>0?s_ctext[0]:""));
+string[] s_out=repo_source_repositories();string s_list="";for(uint i=0;i<s_out.length();i++)s_list+=(i>0?", ":"")+s_out[i];
+println("SOURCESOUT "+s_list);
 repo_forget();repo_api=lines[0]+"/limited";dump("pulls");
 repo_api=lines[0]+"/api";repo_forget();
 // The token only ever goes to GitHub's API.
@@ -62,6 +72,8 @@ file stored;string raw="";if(stored.open(repo_test_data+"/github_sign_in.dat","r
 println("STORED "+(raw!="" and raw.find("good-token")<0));
 repo_token="";repo_user="";repo_token_loaded=false;repo_load_token();println("LOADED "+repo_token+" "+repo_user);
 println("HEADLINE2 "+repo_headline());
+string[] s_in=repo_source_repositories();string s_inlist="";for(uint i=0;i<s_in.length();i++)s_inlist+=(i>0?", ":"")+s_in[i];
+println("SOURCESIN "+s_inlist);
 dump("account");
 dump("overview");
 dump("issue:2");

@@ -34,7 +34,7 @@ CONTENT = {
     "bullet_bomb": ("deployable", 75, 3000, 12, 3000, "", "bullet_bombplace", "bullet_bomb", "bullet_bombdist", {"sensor_kind": "timer", "shootable": "true", "shoot_health": 500}),
     "dynamite": ("deployable", 50, 1500, 10, 1000, "", "dynamite_place", "dynamite_explode", "dynamite_explodedist", {"sensor_kind": "timer", "shootable": "true", "shoot_health": 100}),
     "dynamite_detonator": ("deployable", 10, 0, 1, 1000, "", "dynamite_detonaterplace", "dynamite_detonate", "dynamite_explodedist", {"sensor_kind": "timer", "shootable": "true", "shoot_health": 50}),
-    "satellite_bomb": ("deployable", 35, 1200, 10, 1000, "", "sat_bomb_place", "sat_bomb_explode", "sat_bomb_explode_dist", {"sensor_kind": "timer", "use_kind": "redspot_special_explosive"}),
+    "satellite_bomb": ("deployable", 35, 3800, 25, 1000, "", "sat_bomb_place", "sat_bomb_explode", "sat_bomb_explode_dist", {"sensor_kind": "timer", "use_kind": "redspot_special_explosive", "blast_damage_min": 1500}),
     "sm2_missile": ("deployable", 50, 1300, 12, 1000, "", "sm2_missile_place", "sm2_missile_explode", "sm2_missile_explodedist", {"sensor_kind": "timer"}),
     "sm2_missile_plate": ("deployable", 10, 0, 1, 1000, "", "sm2_missile_plate_place", "sm2_missile_activate", "sm2_missile_explodedist", {"sensor_radius": 1.2}),
     "redspot_claymore": ("deployable", 75, 1500, 7, 1000, "", "mineplace", "minefire", "minedist", {"sensor_kind": "timer"}),
@@ -63,10 +63,27 @@ def install() -> None:
             props["blast_effect"] = payload
         if kind == "thrown":
             props.update(fuse_ms=delay, fuse_variance_ms=0,
-                         flight_loop="explosive_shell_flight_loop.ogg",
-                         pin_sound="frag_grenade_audio_pin")
+                         flight_loop="explosive_shell_flight_loop.ogg")
         else:
             props["arming_ms"] = delay
+        if identifier in {"cyanide_canister", "teargas_canister",
+                          "oxygen_canister", "antibiotic_canister"}:
+            # Redspot activates canisters at the user's feet; they hiss for
+            # TIME_CANISTER (2220 ms) and then burst. They are never thrown.
+            for key in ("thrown", "throw_sound", "fuse_ms", "fuse_variance_ms",
+                        "flight_loop", "hit_sound", "bounce_sound", "landing_sound"):
+                props.pop(key, None)
+            props.update(deployable="true", place_sound="canisteruse",
+                         detonate_ms=2220)
+        if identifier == "satellite_bomb":
+            props.update(fragments=0, place_sound="sat_bomb_place",
+                         explosion_sound="sat_bomb_explode",
+                         distant_sound="sat_bomb_explode_dist.ogg",
+                         hit_sound="sat_bomb_impact")
+            props.pop("bounce_sound", None)
+            props.pop("landing_sound", None)
+        if identifier == "sm2_missile":
+            props["place_sound"] = "redspot_sm2_missile_place"
         props.update(extra)
         (ITEMS / f"{identifier}.item").write_text(
             "".join(f"{key}={value}\n" for key, value in props.items()), encoding="utf-8")
@@ -76,7 +93,8 @@ def install() -> None:
             encoding="utf-8")
         for event, sound in (("launch", launch), ("explode", detonation), ("dist", distant)):
             source = SOURCE / f"{sound}.ogg"
-            target = SOUNDS / f"redspot_{identifier}_{event}.ogg"
+            target_name = "redspot_sm2_missile_place.ogg" if identifier == "sm2_missile" and event == "launch" else f"redspot_{identifier}_{event}.ogg"
+            target = SOUNDS / target_name
             if not target.exists():
                 shutil.copy2(source, target)
             provenance.append({"destination": target.name,
@@ -91,6 +109,15 @@ def install() -> None:
                                        ("redspot_sm2_missile_launch.ogg", "sm2_missile_launch.ogg")):
         source = SOURCE / original
         target = SOUNDS / destination_name
+        if not target.exists():
+            shutil.copy2(source, target)
+        provenance.append({"destination": target.name,
+                           "source": str(source.relative_to(SOURCE.parent))})
+    for name in ("canisteruse", "sat_bomb_set", "sat_bomb_remote",
+                 "sat_bomb_place", "sat_bomb_impact", "sat_bomb_explode",
+                 "sat_bomb_explode_dist"):
+        source = SOURCE / f"{name}.ogg"
+        target = SOUNDS / source.name
         if not target.exists():
             shutil.copy2(source, target)
         provenance.append({"destination": target.name,

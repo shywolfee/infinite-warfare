@@ -59,6 +59,13 @@ return true;
 }
 if(f[1]=="load" and f.length()>=3){string ammo=f[2];if(item_prop(ammo,"turret_ammo_kind")=="")return true;
 if(physical_count(p,ammo)<=0){send_reliable(peer,"You do not carry that turret ammunition.",2);return true;}
+// A base machinegun is part of the base rather than a turret standing on the
+// map, so a drum used at a base goes into the base's own gun first. Away from
+// every base the drum belongs to the standing turret in front of you, so the
+// base system is only asked when there is a base here to ask.
+int base_here=redspot_base_from_interior(p.map);
+if(base_here<0)base_here=redspot_base_adjacent(p.x,p.y,p.z,p.map);
+if(base_here>=0 and redspot_base_used_on_base(p,ammo))return true;
 for(uint i=0;i<turrets.length();i++){turret_actor@ t=turrets[i];if(t.map!=p.map or t.ammo!=ammo)continue;dobject@ o=find_dobject(t.map,t.object_id);if(o is null or !o.active or o.distance_to(p.x,p.y)>2.2 or absolute(o.z-p.z)>2.5)continue;if(t.rounds+t.reload_size>t.capacity){send_reliable(peer,"This turret has no room for a full ammunition pack.",2);return true;}t.rounds+=t.reload_size;send_reliable(peer,"give "+ammo+" -1",0);send_reliable(peer,"Loaded "+t.reload_size+" rounds. "+turret_report(t),2);turret_send(t);return true;}
 send_reliable(peer,"Stand beside a matching turret to load it.",2);return true;
 }

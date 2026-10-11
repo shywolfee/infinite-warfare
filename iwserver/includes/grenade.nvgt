@@ -181,7 +181,7 @@ double dz=nz-double(t.z);if(dz<0 or dz>1.9)continue;
 if(get_3d_distance(nx,ny,0,t.x,t.y,0)>.42)continue;
 if(g.last_struck==t.name)continue;g.last_struck=t.name;
 if(item_flag(g.kind,"sticky")){g.stuck_to=t.name;g.landed=true;g.vx=0;g.vy=0;g.vz=0;send_reliable(t.peer_id,"Something sticks to you!",2);return false;}
-g.vx*=-.15;g.vy*=-.15;g.vz=0;g.bounces++;play("bodyfall",int(t.x),int(t.y),int(t.z),t.map);
+g.vx*=-.15;g.vy*=-.15;g.vz=0;g.bounces++;spawn_bodyfall(int(t.x),int(t.y),int(t.z),t.map);
 send_reliable(t.peer_id,"Something hits you and drops at your feet.",2);
 return true;
 }
@@ -372,6 +372,7 @@ deployable_explosive@ d=deployable_explosives[index];deployable_explosives.remov
 if(d.kind=="sm2_missile_plate"){for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].kind=="sm2_missile" and deployable_explosives[i].owner==d.owner and deployable_explosives[i].map==d.map){deployable_explosives.remove_at(i);play("redspot_sm2_missile_launch",d.x,d.y,d.z,d.map);blast_profile@ missile=blast_profile_for("sm2_missile",d.owner);detonate(d.x,d.y,double(d.z)+.5,d.map,missile);break;}return;}
 if(d.kind=="dynamite_detonator"){for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].kind=="dynamite" and deployable_explosives[i].owner==d.owner and deployable_explosives[i].map==d.map)detonate_deployable(i);return;}
 blast_profile@ b=blast_profile_for(d.kind,d.owner);b.inside_vehicle=d.vehicle_id;
+if(d.kind=="satellite_bomb")b.damage=random(item_prop_int(d.kind,"blast_damage_min"),b.damage);
 if(item_prop(d.kind,"sensor_kind")=="directional")b.blast_dir=d.dir;
 detonate(d.x,d.y,double(d.z)+.3,d.map,b);
 if(d.kind=="bullet_bomb"){while(true){int linked=-1;for(uint i=0;i<deployable_explosives.length();i++)if(deployable_explosives[i].kind=="bullet_bomb" and deployable_explosives[i].map==d.map and get_3d_distance(d.x,d.y,d.z,deployable_explosives[i].x,deployable_explosives[i].y,deployable_explosives[i].z)<=b.radius){linked=int(i);break;}if(linked<0)break;detonate_deployable(linked);}}

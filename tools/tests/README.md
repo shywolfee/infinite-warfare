@@ -7,6 +7,13 @@ The client suite exercises source/blank lines, UTF-8 character review and
 cross-line word review. The commerce suite exercises chip-stack deposits,
 module installation, storage loss, cart validation and receipt replay.
 
+Run `C:/nvgt/nvgt.exe redspot_bases_regression_runner.nvgt` from `iwserver`
+for the Redspot base build. It asks to build, checks that no wood is spent
+before a name arrives, lets the build finish, then checks the base's name,
+position, structure and health report, builds a sandbag wall and damages it
+with a blast, and raises a shield and reads its charges back from the health
+key.
+
 Run `C:/nvgt/nvgt.exe companion_bowling_regression_runner.nvgt` from
 `iwserver` for production companion movement and rolling-bomb physics.
 It uses isolated flat, ramp and ledge maps and checks bounded pilot input,
@@ -27,8 +34,9 @@ external-drive libraries are available. Existing audio is preserved; targeted
 After rebuilding `sounds.dat` with `C:/nvgt/nvgt.exe pack_creator.nvgt /s`,
 run `C:/nvgt/nvgt.exe tools/tests/content_audio_pack_regression.nvgt` to check
 every repaired recording inside the encrypted archive with NVGT's decoder.
-Sound assets and the pack remain ignored local outputs, not Git source files;
-deploy the rebuilt pack with the client and updated content/server files.
+Source recordings and their provenance manifests are committed. The built
+`sounds.dat` remains a local output; rebuild and deploy it with the client
+and updated content/server files.
 
 Run these from source using the same NVGT installation used to build the game:
 

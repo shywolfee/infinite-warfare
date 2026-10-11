@@ -1,7 +1,7 @@
 bool physical_owned_selection_available(string kind){string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++)if(get_item_count(keys[i])>0 and (kind=="refill"?item_flag(keys[i],"currency_refillable"):item_prop(keys[i],"currency_kind")==kind))return true;return false;}
 string physical_pick_owned(string kind,string title){string[] labels,ids;string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++){string item=keys[i];if(get_item_count(item)<=0 or !(kind=="refill"?item_flag(item,"currency_refillable"):item_prop(item,"currency_kind")==kind))continue;labels.insert_last(physical_item_name(item)+"; "+get_item_count(item)+" carried");ids.insert_last(item);}if(ids.length()==0){speak("No suitable physical items are carried.");return "";}int choice=android_select(title,labels);return choice>=0?ids[choice]:"";}
 string physical_choose_payment(){
- string[] labels={"Wallet: Pay from saved wallet credits"},ids={"wallet"};
+ string[] labels={"Bank checking: Pay from saved account credits"},ids={"bank"};
  if(physical_owned_selection_available("chip")){labels.insert_last("Credit chips: Pay with physical currency and receive exact change");ids.insert_last("chips");}
 string[] keys=inv.get_keys();for(uint i=0;i<keys.length();i++){string kind=item_prop(keys[i],"currency_kind");if(get_item_count(keys[i])<=0 or (kind!="stored" and kind!="bank" and kind!="credit"))continue;labels.insert_last(physical_item_name(keys[i])+(kind=="bank" or kind=="credit"?"; "+(kind=="credit"?"credit-line":"checking")+" payment plus "+item_prop_int(keys[i],"currency_fee_percent")+" percent":"; "+physical_item_value(keys[i])+" credits available"));ids.insert_last(keys[i]);}
  int choice=android_select("Choose payment method",labels);return choice>=0?ids[choice]:"";

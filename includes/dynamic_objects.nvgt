@@ -201,7 +201,7 @@ if(!connected){speak("The machine needs a server connection.");return;}
 int credits=ask_balance();if(credits<0){speak("The machine could not reach your account.");return;}
 string root="executioners_rage/"+o.type.sound+"/";
 nv_form f;f.create_window(o.describe(),false,true);
-nv_form_input@ balance=f.add_input("Saved wallet and machine stock","balance",credits+" wallet credits, "+o.stock+" items in the machine. Physical chips and checking balances are separate.","",0,true,true);
+nv_form_input@ balance=f.add_input("Bank balance and machine stock","balance",credits+" bank checking credits, "+o.stock+" items in the machine. Physical chips are separate.","",0,true,true);
 nv_form_list_box@ list=f.add_list("Products","products");
 for(uint i=0;i<o.type.offers.length();i++)
 {
@@ -226,8 +226,8 @@ if(!wait_for_service_response("dobj_buy_",response,3000)){speak("The machine did
 if(string_contains(response,"dobj_buy_ok ",1)==0)
 {
 string[] fields=string_split(response," ",true);if(fields.length()>1)credits=int(string_to_number(fields[1]));int left=fields.length()>3?int(string_to_number(fields[3])):o.stock;
-balance.default_text=credits+" wallet credits, "+left+" items in the machine";
-speak("Bought. Saved wallet balance: "+credits+" credits.");
+balance.default_text=credits+" bank checking credits, "+left+" items in the machine";
+speak("Bought. Bank checking balance: "+credits+" credits.");
 }
 else speak(string_replace(response,"dobj_buy_error ","",false));
 }

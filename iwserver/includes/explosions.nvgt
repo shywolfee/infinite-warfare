@@ -172,8 +172,8 @@ bool reached=distance<=b.radius or occupant;
 if(reached and b.payload=="flash" and !covered){send_reliable(target.peer_id,"play_s flashbang_effect.ogg",0);send_reliable(target.peer_id,"combat_slow "+b.effect_ms,0);}
 else if(reached and (b.payload=="concussion" or b.payload=="emp"))send_reliable(target.peer_id,"combat_slow "+(covered?b.effect_ms/2:b.effect_ms),0);
 if(reached and b.kind=="concussive_grenade" and !covered){int lift=int(8.0*(1.0-distance/b.radius));if(lift<2)lift=2;int raised=0;for(int step=1;step<=lift;step++){string above=get_tile_at(target.x,target.y,target.z+step,target.map);if(above!="" and above!="blank")break;raised++;}if(raised>0){target.z+=raised;set_player_model_target(target,target.x,target.y,target.z);send_reliable(target.peer_id,"setcoords "+target.x+" "+target.y+" "+target.z,0);send_reliable(target.peer_id,"redspot_concussion",0);}}
-else if(reached and b.payload=="oxygen" and !covered){target.redspot_air+=random(20,40);if(target.redspot_air>180)target.redspot_air=180;send_reliable(target.peer_id,"Fresh air refilled your gas mask to "+target.redspot_air+" seconds.",2);}
-else if(reached and b.payload=="antibiotic" and !covered){int restored=120;if(restored>1000-target.health)restored=1000-target.health;if(restored>0)target.health+=restored;send_reliable(target.peer_id,"An airborne antibiotic restored "+restored+" health.",2);}
+else if(reached and b.payload=="oxygen" and !covered){target.redspot_air+=random(20,45);send_reliable(target.peer_id,"Fresh air. "+target.redspot_air+" stored air.",2);}
+else if(reached and b.payload=="antibiotic" and !covered){double strength=redspot_antibiotic_course(target,20);if(strength<=0)send_reliable(target.peer_id,"You breathe in an airborne antibiotic, but you are saturated and it does nothing.",2);else send_reliable(target.peer_id,"You breathe in an airborne antibiotic, working at "+int(strength*100)+" percent strength.",2);}
 else if(reached and b.payload=="deafen" and !covered)send_reliable(target.peer_id,"redspot_deafen "+b.effect_ms,0);
 else if(reached and (b.payload=="incendiary" or b.payload=="thermite") and !covered){target.burning=true;target.burning_owner=b.owner;target.burning_duration_timer.restart();target.burning_tick_timer.restart();}
 if(dealt<=0)continue;
@@ -197,7 +197,10 @@ double pressure=v.id==b.inside_vehicle?2.0:blast_overpressure(get_3d_distance(x,
 if(pressure<=0)continue;int damage=int(double(b.damage)*pressure*b.vehicle_mult);
 damage_authoritative_vehicle(v,damage,owner_index,b.label);
 }
-if(explosion_depth<6)damage_dynamic_objects_blast(x,y,z,map,b,confinement);
+if(explosion_depth<6){damage_dynamic_objects_blast(x,y,z,map,b,confinement);damage_walls_in_blast(x,y,z,map,b);}
+// Bases take the blast on their own terms: the wall, the door health and the
+// three fittings, with an incendiary charge setting a base alight.
+damage_bases_in_radius(x,y,z,map,b.radius,b.damage,b.label,b.payload=="incendiary" or b.payload=="thermite");
 }
 if(b.payload=="emp")vehicles_emp(x,y,z,map,b.radius,b.effect_ms);
 if(b.cloud_ms>0)spawn_cloud(b.payload,x,y,z,map,b.owner,b.label,b.cloud_radius,b.cloud_ms);

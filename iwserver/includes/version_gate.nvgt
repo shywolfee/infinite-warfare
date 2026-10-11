@@ -6,8 +6,8 @@
 // below 0.5.9. A client below minversion is warned and let in, never
 // disconnected, because an open-source game must let people run a build newer
 // (or older) than the repository's.
-string minversion="0.6.0";
-double minversion_number=0.60; // fallback floor for clients that send only a number
+string minversion="0.6.1";
+double minversion_number=0.61; // fallback floor for clients that send only a number
 // Compares dotted version text the way people read it: 0.5.10 is newer than
 // 0.5.9, which is newer than 0.5.9.1. Returns -1, 0 or 1.
 int server_version_compare(string left,string right)

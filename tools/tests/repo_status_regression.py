@@ -311,6 +311,12 @@ check(has("activity", "shywolfee pushed to claude/blissful-albattani-3txqg2") an
 check(has("allowance", "57 of 60 requests are left this hour"), "request allowance")
 
 check(value("REQUESTS ") == value("CACHED "), "opening the overview again asked GitHub again instead of using the cache")
+
+# Where updates may come from: GitHub answers both lists.
+check(value("SOURCESOUT ") == "shywolfee/infinite-warfare", f"the repositories updates could come from while signed out: {value('SOURCESOUT ')}")
+check(value("DEFAULT ") == "main", f"a repository's default branch: {value('DEFAULT ')}")
+check(value("BRANCHES ") == "claude/blissful-albattani-3txqg2, main", f"the branches of a repository: {value('BRANCHES ')}")
+check(value("COMMITS ").startswith("3 chore(release): raise the version to 0.5.8, build 99, by claude, "), f"the newest commits of a branch: {value('COMMITS ')}")
 check(has("pulls", "GitHub allows 60 requests an hour", 1), f"a rate-limited reply is not explained: {view('pulls', 1)['lines']}")
 
 # Signing in.
@@ -323,6 +329,8 @@ check(value("GOODTOKEN ") == "[] test-player", f"a good token with spaces around
 check(value("STORED ") == "true", "the token is stored readable, or not at all")
 check(value("LOADED ") == "good-token test-player", "the stored sign-in does not load back")
 check("Signed in as test-player." in value("HEADLINE2 "), "the headline does not say who is signed in")
+check(value("SOURCESIN ") == "shywolfee/infinite-warfare, test-player/infinite-warfare",
+      f"the repositories updates could come from while signed in: {value('SOURCESIN ')}")
 check(has("account", "Signed in as test-player, Test Player.", 1) and has("account", "4990 of 5000 GitHub requests are left", 1), f"account: {view('account', 1)['lines']}")
 check(has("overview", "You have not starred the repository, and are not watching it.", -1) and has("overview", "You can push to this repository", -1), "signed-in overview")
 ov = output[output.index("VIEW overview", output.index("GOODTOKEN")):]

@@ -138,18 +138,63 @@ else if(selected=="exit"){m.fade_music(10);exit();}
 // Points updates at a fork, another branch or a particular commit. An
 // open-source game should not force everyone onto one repository, so the
 // choice is remembered in updater/source.txt and used by Check for updates.
-// It lives here rather than in updater.nvgt because it needs af_input, which
-// the updater's own regression test does not provide.
+//
+// Both choices are lists GitHub answers with, through the same sign-in as
+// Repository status: the game's repository and any copy of it in your
+// account, then the branches of whichever you picked, and the newest commits
+// of its default branch so pinning to a single commit needs no typing either.
+// It lives here rather than in updater.nvgt because it needs the game's
+// forms, which the updater's own regression test does not provide.
 void updater_source_menu()
 {
+repo_load_token();
 string current_repository=updater_repository();
 string current_branch=updater_branch();
-string repository=af_input("Repository to update from, as owner/name",current_repository,false).trim_whitespace();
+speak("Asking GitHub which repositories updates could come from.");
+string[] repositories=repo_source_repositories();
+string[] labels,ids;
+for(uint i=0;i<repositories.length();i++)
+{
+string note=repositories[i]==repo_slug?", the game's repository":", a copy of the game in your account";
+labels.insert_last(repositories[i]+note+(repositories[i]==current_repository?", currently used for updates":""));
+ids.insert_last(repositories[i]);
+}
+if(repo_token==""){labels.insert_last("Sign in to GitHub, to update from a copy of the game in your own account");ids.insert_last("account:signin");}
+labels.insert_last("Another repository, named by hand because GitHub did not list it");ids.insert_last("account:type");
+string choice=pick_from_list("Update source: which repository should updates come from?",labels,ids);
+if(choice=="")return;
+if(choice=="account:signin"){if(repo_sign_in_dialog())updater_source_menu();return;}
+string repository;
+if(choice=="account:type")
+{
+repository=af_input("Repository to update from, as owner/name",current_repository,false).trim_whitespace();
 if(repository=="")return;
 if(string_contains(repository,"/",1)<0 or string_contains(repository," ",1)>=0 or string_contains(repository,"..",1)>=0){dlg("A repository looks like owner/name, for example shywolfee/infinite-warfare.");return;}
-string branch=af_input("Branch or commit to update from",current_branch,false).trim_whitespace();
+}
+else repository=choice;
+speak("Reading the branches of "+repository+" from GitHub.");
+string[] names,shas;
+repo_branch_list(repository,names,shas);
+if(names.length()==0){dlg("The branches of "+repository+" could not be read. "+(repo_error==""?"GitHub did not answer.":repo_error));return;}
+string default_branch=repo_default_branch(repository);if(default_branch=="")default_branch="main";
+string default_sha="";
+for(uint i=0;i<names.length();i++)if(names[i]==default_branch)default_sha=shas[i];
+string[] branch_labels,branch_ids;
+for(uint i=0;i<names.length();i++)
+{
+string note=names[i]==default_branch?"the default branch":(shas[i]==default_sha?"identical to "+default_branch:"differs from "+default_branch);
+branch_labels.insert_last("Branch "+names[i]+", "+note+", at "+repo_short(shas[i])+(repository==current_repository and names[i]==current_branch?", currently used for updates":""));
+branch_ids.insert_last(names[i]);
+}
+string[] commit_shas,commit_texts;
+repo_branch_commits(repository,default_branch,10,commit_shas,commit_texts);
+for(uint i=0;i<commit_shas.length();i++)
+{
+branch_labels.insert_last("Commit "+repo_short(commit_shas[i])+" on "+default_branch+", "+commit_texts[i]+(repository==current_repository and commit_shas[i]==current_branch?", currently used for updates":""));
+branch_ids.insert_last(commit_shas[i]);
+}
+string branch=pick_from_list("Update source: which branch of "+repository+"?",branch_labels,branch_ids);
 if(branch=="")return;
-if(string_contains(branch," ",1)>=0 or string_contains(branch,"..",1)>=0){dlg("Enter a branch name or a commit hash, with no spaces.");return;}
 updater_set_source(repository,branch);
 speak("Updates will now come from "+repository+" ("+branch+").");
 }

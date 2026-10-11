@@ -2,11 +2,11 @@
 
 ## Three kinds of money
 
-Your saved wallet is the persistent credit balance earned through combat. A bank account has its own checking and savings balances. Physical credit chips and prepaid credsticks are items you carry: they are not automatically part of either balance.
+Bank checking is the persistent credit balance earned through combat. Savings and credit-line debt belong to the same bank account. Physical credit chips and credsticks are items you carry: they are not automatically part of the bank balance and are lost when you log out.
 
-Each kill awards 10 to 20 wallet credits; five kills awards 40 bonus credits and ten kills awards 75. Ordinary rewards do not apply inside arenas. Wallet and bank balances survive death; carried currency can be lost with your inventory.
+Each kill awards 10 to 20 bank credits; five kills awards 40 bonus credits and ten kills awards 75. Ordinary rewards do not apply inside arenas. Bank balances survive death and logout; carried currency can be lost with your inventory and is cleared on logout.
 
-Type /credits in chat or use account information to read wallet credits. Use banking to read checking, savings and credit debt.
+Type /credits in chat or use account information to read checking. Use banking to read checking, savings and credit debt.
 
 ## Create and connect your account
 
@@ -47,6 +47,6 @@ Empty reloadable sticks can be recovered and reloaded. Other rubbish has no paym
 
 Do not assume that a timeout means a transaction failed. Inspect your balances and inventory before retrying.
 
-Bank and wallet records are verified before a successful financial operation is reported. An interrupted wallet/checking transfer has a recovery journal so reopening banking or making a wallet transaction can finish recovery without transferring the amount twice. Unreadable records block transactions instead of resetting a balance.
+Bank records are verified before a successful financial operation is reported. Existing wallet credits are imported into bank checking once. A pending transfer from an older version is recovered at login before the import; unreadable records block transactions instead of resetting a balance.
 
-Server operators must back up the entire accounts directory, including .dat, .wallet0, .wallet1, .bank, .bank0, .bank1 and .bank.transfer files. Legacy bank accounts migrate when their next successful change is saved. Do not delete financial records to recreate a balance.
+Server operators must back up the entire accounts directory, including .dat, .wallet0, .wallet1, .bank, .bank0, .bank1 and .bank.transfer files. Legacy wallet balances migrate into bank checking on login. Keep the old records as migration evidence; do not delete financial records to recreate a balance.

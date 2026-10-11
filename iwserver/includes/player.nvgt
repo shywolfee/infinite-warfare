@@ -162,6 +162,12 @@ bool poisoned=false;string poison_owner="";timer poison_duration_timer,poison_ti
 int redspot_shield=0,redspot_air=0;bool redspot_mask=false,redspot_quad=false,redspot_invisible=false;
 timer redspot_quad_timer,redspot_invisible_timer;
 timer redspot_air_timer;
+timer redspot_horn_timer,redspot_antibiotic_timer,redspot_immunity_timer;
+// Redspot's own antibiotics: courses run one after another and immunity
+// climbs with each, so a second dose is worth less than the first.
+double redspot_antibiotic_immunity=0;
+int[] redspot_antibiotic_seconds;
+double[] redspot_antibiotic_potency;
 bool redspot_scrambled=false;timer redspot_scrambler_timer;
 timer redspot_food_warm_timer;
 bool redspot_corpse_bomb_worn=false;
@@ -216,7 +222,20 @@ int remaining=0;if(p.damage_taken_recent){int value=30000-p.damage_taken_timer.e
 // enforces: spectators are untouchable and harmless, and arena combatants only
 // fight their own arena. Callers check this before spending armour on a hit.
 bool player_can_be_damaged_by(player@ p,string attacker_name){if(p.arena_role=="spectator")return false;int attacker=get_player_index_from(attacker_name);if(attacker<0 or players[attacker].name==p.name)return true;return players[attacker].arena_role!="spectator" and players[attacker].arena_id==p.arena_id;}
-int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p) or p.arena_role=="spectator")return 0;int attacker=combat_attacker_index(source);if(attacker>=0 and players[attacker].name!=p.name){if(players[attacker].arena_role=="spectator" or players[attacker].arena_id!=p.arena_id)return 0;players[attacker].damage_dealt_recent=true;players[attacker].damage_dealt_timer.restart();if(players[attacker].redspot_quad and players[attacker].redspot_quad_timer.elapsed<30000)amount*=4;}if(p.redspot_shield>0 and source.find("fall")<0 and source.find("cyanide")<0 and source.find("poison")<0 and source.find("rocket")<0){p.redspot_shield--;send_reliable(p.peer_id,"Shield absorbed the hit; "+p.redspot_shield+" charges remain.",2);return 0;}if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;p.damage_taken_recent=true;p.damage_taken_timer.restart();if(source!="")p.hitby=source;return amount;}
+int apply_player_damage(player@ p,int amount,string source=""){if(amount<=0 or player_has_spawn_grace(p) or p.arena_role=="spectator")return 0;int attacker=combat_attacker_index(source);if(attacker>=0 and players[attacker].name!=p.name){if(players[attacker].arena_role=="spectator" or players[attacker].arena_id!=p.arena_id)return 0;players[attacker].damage_dealt_recent=true;players[attacker].damage_dealt_timer.restart();if(players[attacker].redspot_quad and players[attacker].redspot_quad_timer.elapsed<30000)amount*=4;}if(p.redspot_shield>0 and source.find("fall")<0 and source.find("cyanide")<0 and source.find("poison")<0 and source.find("rocket")<0){p.redspot_shield--;play("shieldhit",p.x,p.y,p.z,p.map);if(p.redspot_shield<1){play("shieldbreak",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"Your shield is gone.",2);}else send_reliable(p.peer_id,"Shield absorbed the hit; "+p.redspot_shield+" charges remain.",2);return 0;}if(p.damage_event_timer.elapsed>150 or p.last_damage_event_source!=source){p.last_damage_event_source=source;p.damage_event_total=0;p.damage_event_timer.restart();}int remaining=900-p.damage_event_total;if(remaining<=0)return 0;if(amount>remaining)amount=remaining;p.damage_event_total+=amount;p.health-=amount;p.damage_taken_recent=true;p.damage_taken_timer.restart();if(source!="")p.hitby=source;return amount;}
+// What the health key reads out. Redspot names the shielded shots a charged
+// shield has left here, with the health itself, because in a fight that is the
+// number that decides whether the next hit lands; the charges used to be
+// visible only through a stat ping.
+string player_health_report(player@ p)
+{
+int hp_pct=(p.health*100)/1000;
+if(hp_pct<0)hp_pct=0;
+string report=p.health+" health: "+hp_pct+"%";
+if(p.redspot_shield>0)report+=", with "+p.redspot_shield+" shielded shots";
+report+=", last hit by "+p.hitby;
+return report;
+}
 int scaled_fall_damage(int distance)
 {
 // The first three vertical units are survivable. Beyond that, kinetic energy
@@ -363,7 +382,38 @@ if(players[i].poisoned and !players[i].death)
 if(players[i].poison_duration_timer.elapsed>=12000)players[i].poisoned=false;
 else if(players[i].poison_tick_timer.elapsed>=2000){players[i].poison_tick_timer.restart();players[i].health-=12;players[i].hitby=players[i].poison_owner+"'s poison";send_reliable(players[i].peer_id,"play_s bleeding_tick1.ogg",0);}
 }
-if(players[i].redspot_mask and !players[i].death and players[i].redspot_air_timer.elapsed>=1000){players[i].redspot_air_timer.restart();players[i].redspot_air--;if(players[i].redspot_air<=0){players[i].redspot_mask=false;players[i].redspot_air=0;send_reliable(players[i].peer_id,"Your gas mask ran out of air and came off.",2);}}
+// A mask draws one unit of air every two seconds. With the tank empty it
+// stays on your face and starts hurting you, which is what the source's own
+// loop does: "Take the mask off or find air."
+if(players[i].redspot_mask and !players[i].death and players[i].redspot_air_timer.elapsed>=2000)
+{
+players[i].redspot_air_timer.restart();
+if(players[i].redspot_air>0)
+{
+players[i].redspot_air--;
+if(players[i].redspot_air==5)send_reliable(players[i].peer_id,"Your air is nearly gone.",2);
+play("gas_maskbreathe",players[i].x,players[i].y,players[i].z,players[i].map);
+}
+else
+{
+apply_player_damage(players[i],random(80,200),"suffocation in an empty gas mask");
+send_reliable(players[i].peer_id,"You are suffocating. Take the mask off or find air.",2);
+}
+}
+// Every course runs its own clock and heals at the strength it started at,
+// seven to forty five a second. Immunity decays on its own, 0.08 a second
+// plus a fraction of itself, so somebody who stops dosing recovers.
+if(players[i].redspot_antibiotic_seconds.length()>0 and !players[i].death and players[i].redspot_antibiotic_timer.elapsed>=1000)
+{
+players[i].redspot_antibiotic_timer.restart();
+redspot_antibiotic_tick(players[i]);
+}
+if(players[i].redspot_antibiotic_immunity>0 and players[i].redspot_immunity_timer.elapsed>=1000)
+{
+players[i].redspot_immunity_timer.restart();
+players[i].redspot_antibiotic_immunity-=0.08+players[i].redspot_antibiotic_immunity*0.002;
+if(players[i].redspot_antibiotic_immunity<0)players[i].redspot_antibiotic_immunity=0;
+}
 if(players[i].redspot_quad and players[i].redspot_quad_timer.elapsed>=30000){players[i].redspot_quad=false;send_reliable(players[i].peer_id,"Quad damage has worn off.",2);}
 if(players[i].redspot_invisible and players[i].redspot_invisible_timer.elapsed>=30000){players[i].redspot_invisible=false;send_reliable(players[i].peer_id,"Your invisibility shield has faded.",2);}
 if(players[i].redspot_scrambled and players[i].redspot_scrambler_timer.elapsed>=30000){players[i].redspot_scrambled=false;send_reliable(players[i].peer_id,"Your frequency scrambler has faded.",2);}
@@ -569,6 +619,7 @@ p1.last_x=x;
 p1.last_y=y;
 p1.last_z=z;
 players.insert_last(p1);
+if(players[players.length()-1].credits<0)recover_bank_transfer(players[players.length()-1]);
 world_sound_from("spawn",players[players.length()-1]);
 send_reliable(pi,"spawn_position "+x+" "+y+" "+z,0);
 sync_dobjects(pi,map);sync_vehicles(pi,map);

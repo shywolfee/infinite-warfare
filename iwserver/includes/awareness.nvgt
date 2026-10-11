@@ -172,6 +172,30 @@ c.distance=d;
 c.text=(chests[i].type==""?"a chest":"a "+string_replace(chests[i].type,"_"," ",true))+", "+relative_position(me,chests[i].x,chests[i].y,chests[i].z);
 found.insert_last(c);
 }
+// Built structures are things near you too: this is how a sandbag wall or a
+// ladder is found, and it says how much of it is left, which tells a fresh
+// wall from one about to come apart. Redspot shows both with their health.
+for(uint i=0;i<walls.length();i++)
+{
+if(walls[i].map!=me.map)continue;
+double d=straight_distance(me.x,me.y,me.z,double(walls[i].x),double(walls[i].y),double(walls[i].miniz));
+if(d>AWARENESS_RANGE)continue;
+awareness_contact c;
+c.distance=d;
+c.text=(string_contains(walls[i].type,"sandbag",1)>=0?"a sandbag wall":"a wall")+", "+walls[i].health+" health, "+relative_position(me,double(walls[i].x),double(walls[i].y),double(walls[i].miniz));
+found.insert_last(c);
+}
+for(uint i=0;i<ladders.length();i++)
+{
+if(ladders[i].map!=me.map)continue;
+double d=straight_distance(me.x,me.y,me.z,double(ladders[i].x),double(ladders[i].y),double(ladders[i].miniz));
+if(d>AWARENESS_RANGE)continue;
+awareness_contact c;
+c.distance=d;
+c.text="a ladder, "+ladders[i].health+" health, "+relative_position(me,double(ladders[i].x),double(ladders[i].y),double(ladders[i].miniz));
+found.insert_last(c);
+}
+redspot_base_awareness(me,found);
 return awareness_join(found,8,"things");
 }
 

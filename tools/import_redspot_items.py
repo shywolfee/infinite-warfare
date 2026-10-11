@@ -7,8 +7,14 @@ from pathlib import Path
 from import_redspot_content import AMMO_PACKS
 
 ROOT = Path(__file__).resolve().parents[1]
-ITEMS = ROOT / "iwserver/content/items/redspot"
-OFFERS = ROOT / "iwserver/content/marketplace/redspot"
+ITEMS = ROOT / "iwserver/content/items"
+OFFERS = ROOT / "iwserver/content/marketplace"
+CATEGORY_DIR = {"Packages": "packages", "Ammunition": "ammunition",
+                "Medical": "medical", "Thrown": "throwables", "Bases": "bases",
+                "Explosives": "explosives", "Utility": "utility", "Boosts": "boosts",
+                "Defense": "defense", "Structures": "structures", "Mobility": "mobility",
+                "Currency": "currency", "Loot": "loot", "Delivery": "delivery",
+                "Companions": "companions", "Surveillance": "electronics"}
 
 # ID: name, category, Redspot description adapted to IW, shop price, pack yield.
 CONTENT = {
@@ -126,13 +132,17 @@ def install() -> None:
         if identifier in {"spy_camera", "spy_camera_controller", "battery_pack"}:
             props = [f"name={name}", "category=Surveillance", f"summary={summary}",
                      "give_amount=1", "disposable=true", "use_kind=redspot_camera"]
-        (ITEMS / f"{identifier}.item").write_text("\n".join(props) + "\n", encoding="utf-8")
+        item_dir = ITEMS / CATEGORY_DIR[category]
+        item_dir.mkdir(parents=True, exist_ok=True)
+        (item_dir / f"{identifier}.item").write_text("\n".join(props) + "\n", encoding="utf-8")
         if identifier in {"horn", "empty_gas_can", "health_boost"}:
             continue
         offer = [f"name={name}", f"category={category}", f"summary={summary}",
                  f"item={identifier}", "quantity=1", f"price={price}",
                  "max_order=20", "enabled=true"]
-        (OFFERS / f"{identifier}.offer").write_text("\n".join(offer) + "\n", encoding="utf-8")
+        offer_dir = OFFERS / CATEGORY_DIR[category]
+        offer_dir.mkdir(parents=True, exist_ok=True)
+        (offer_dir / f"{identifier}.offer").write_text("\n".join(offer) + "\n", encoding="utf-8")
     weapons = ROOT / "iwserver/content/weapons/archery"
     for identifier, (effect, reach, low, high, velocity, kind) in THROWN.items():
         props = [f"name={CONTENT[identifier][0]}", "wclass=archery",

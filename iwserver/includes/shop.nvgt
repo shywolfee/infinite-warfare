@@ -23,7 +23,7 @@ void handle_online_shop_request(uint peer,const string[] &in parsed){
  if(parsed[0]=="market_catalog"){send_reliable(peer,online_shop_catalogue_packet(),0);return;}
  string payment,cart;
  if(parsed[0]=="market_checkout" and parsed.length()==3){payment=parsed[1];cart=parsed[2];}
- else if(parsed[0]=="market_buy" and (parsed.length()==2 or parsed.length()==3)){payment=parsed.length()==3?parsed[2]:"wallet";cart=parsed[1]+",1";}
+ else if(parsed[0]=="market_buy" and (parsed.length()==2 or parsed.length()==3)){payment=parsed.length()==3?parsed[2]:"bank";cart=parsed[1]+",1";}
  else{send_reliable(peer,"market_purchase_error Invalid purchase request.",0);return;}
  string[] rows=string_split(cart,";",true),ids;market_offer@[] chosen;int[] counts;int64 total=0;int units=0;
  if(rows.length()<1 or rows.length()>32){send_reliable(peer,"market_purchase_error A cart must contain one to thirty-two distinct listings.",0);return;}
@@ -37,5 +37,5 @@ void handle_online_shop_request(uint peer,const string[] &in parsed){
  if(!physical_payment(p,int(total),payment)){send_reliable(peer,"market_purchase_error Payment declined. Nothing was delivered.",0);return;}
  int shipment=queue_market_shipment(p,chosen,counts);
  shipment_record@ receipt=shipment_find(shipment);string destination=receipt.base_id>=0?"your base storage":"your order location";
- send_reliable(peer,"market_purchase_ok Shipment "+shipment+" is on its way to "+destination+", "+receipt.x+", "+receipt.y+", "+receipt.z+" on "+receipt.map+". It contains "+units+" inventory units across "+chosen.length()+" listings. Charged "+total+" credits using "+payment+". Wallet balance "+p.credits+" credits.",0);
+ send_reliable(peer,"market_purchase_ok Shipment "+shipment+" is on its way to "+destination+", "+receipt.x+", "+receipt.y+", "+receipt.z+" on "+receipt.map+". It contains "+units+" inventory units across "+chosen.length()+" listings. Charged "+total+" credits using "+payment+". Bank checking balance "+p.credits+" credits.",0);
 }

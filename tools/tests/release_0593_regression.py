@@ -9,10 +9,10 @@ def props(path):
     return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8-sig").splitlines()
                 if "=" in line and not line.startswith("#"))
 
-assert (ROOT / "version.txt").read_text().strip() == "0.6.0"
+assert (ROOT / "version.txt").read_text().strip() == "0.6.1"
 client = (ROOT / "Infinite Warfare.nvgt").read_text(encoding="utf-8-sig")
-assert 'string version_name="0.6.0";' in client
-assert re.search(r"int build_number\s*=\s*105;", client)
+assert 'string version_name="0.6.1";' in client
+assert re.search(r"int build_number\s*=\s*106;", client)
 items = {p.stem: props(p) for p in (CONTENT / "items").rglob("*.item")}
 weapons = {p.stem: props(p) for p in (CONTENT / "weapons").rglob("*.wpn")}
 offers = {}
@@ -29,7 +29,11 @@ for path in (CONTENT / "marketplace").rglob("*.offer"):
         assert items[d["item"]].get("market_excluded") != "true", path
     offers[path.stem] = d
 assert len(offers) >= 350
-assert all(id in offers for id in weapons), "Every firearm needs an explicit offer"
+# A thrown item names the projectile definition it flies as (throw_weapon).
+# Those are not firearms: nothing is bought and no shop ever lists them, so they
+# are the only weapon files without an offer of their own.
+projectiles = {d["throw_weapon"] for d in items.values() if d.get("throw_weapon")}
+assert all(id in offers or id in projectiles for id in weapons), "Every firearm needs an explicit offer"
 assert items["translocator_cell"]["category"] == "Utility"
 assert (CONTENT / "items/utility/translocator_cell.item").exists()
 assert items["bomb_vest"]["category"] == "Explosives"
@@ -45,4 +49,4 @@ for path in (CONTENT / "device_modules").rglob("*.app"):
     assert int(d["size"]) > 0 and int(d["price"]) >= 0, path
     for id in d["devices"].split(","):
         assert devices[id]["device_extensible"] == "true", path
-print(f"PASS 0.6.0: {len(offers)} offers, {len(devices)} devices, valid release metadata")
+print(f"PASS 0.6.1: {len(offers)} offers, {len(devices)} devices, valid release metadata")

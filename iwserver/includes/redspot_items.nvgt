@@ -1,19 +1,97 @@
 // Redspot consumables and packages are checked against server-owned stock.
 // The item data's use_kind opts into this path; no unknown item is consumed.
+//
+// Every number is the source's own, out of redspot-main's player.nvgt,
+// item_use.nvgt and gadgets.nvgt: an air tank tops up twelve to twenty five
+// units rather than the forty to seventy its own help text promises (the source
+// says as much in a comment of its), a course of antibiotics runs forty five
+// seconds at whatever strength the body could still take, a course heals seven
+// to forty five a second, and blood moved between two people takes thirty
+// seconds during which neither of them can move.
+const int REDSPOT_ANTIBIOTIC_MAX_COURSES=10;
+const int REDSPOT_ANTIBIOTIC_SECONDS=45;
+const double REDSPOT_ANTIBIOTIC_IMMUNITY_BASE=5.0;
+const double REDSPOT_ANTIBIOTIC_IMMUNITY_GROWTH=0.15;
+const double REDSPOT_ANTIBIOTIC_IMMUNITY_HALF=50.0;
+const int REDSPOT_HEALTH_MOVER_MS=30000;
+const int REDSPOT_GRABBER_LIMIT=120;
+const int REDSPOT_HORN_INTERVAL_MS=10000;
+// The source's own time_* constants for the devices that charge before
+// they fire. A grabber really does pressurize for thirty seconds.
+const int TIME_ITEM_GRABBER=30013;
+const int TIME_ROCKET_BATTERY=4997;
+double redspot_antibiotic_potency(player@ p){return 1.0/(1.0+p.redspot_antibiotic_immunity/REDSPOT_ANTIBIOTIC_IMMUNITY_HALF);}
+// Starts a course and hands back what it will run at, or zero when the body has
+// all ten courses it will take. Immunity climbs faster the more of it there is.
+double redspot_antibiotic_course(player@ p,int seconds)
+{
+if(int(p.redspot_antibiotic_seconds.length())>=REDSPOT_ANTIBIOTIC_MAX_COURSES)return 0;
+double potency=redspot_antibiotic_potency(p);
+p.redspot_antibiotic_seconds.insert_last(seconds);
+p.redspot_antibiotic_potency.insert_last(potency);
+p.redspot_antibiotic_immunity+=REDSPOT_ANTIBIOTIC_IMMUNITY_BASE+p.redspot_antibiotic_immunity*REDSPOT_ANTIBIOTIC_IMMUNITY_GROWTH;
+return potency;
+}
+string redspot_antibiotic_text(player@ p)
+{
+if(p.redspot_antibiotic_seconds.length()<1)return "no antibiotics working, immunity "+int(p.redspot_antibiotic_immunity)+" percent";
+int longest=0;
+for(uint i=0;i<p.redspot_antibiotic_seconds.length();i++)if(p.redspot_antibiotic_seconds[i]>longest)longest=p.redspot_antibiotic_seconds[i];
+return p.redspot_antibiotic_seconds.length()+" of "+REDSPOT_ANTIBIOTIC_MAX_COURSES+" courses working, finishing in "+longest+" seconds, immunity "+int(p.redspot_antibiotic_immunity)+" percent, so a fresh one would be worth "+int(redspot_antibiotic_potency(p)*100)+" percent";
+}
+// Every course runs its own clock and heals at the strength it started at.
+void redspot_antibiotic_tick(player@ p)
+{
+int healed=0;
+for(int c=int(p.redspot_antibiotic_seconds.length())-1;c>=0;c--)
+{
+healed+=int(double(random(7,45))*p.redspot_antibiotic_potency[c]);
+p.redspot_antibiotic_seconds[c]--;
+if(p.redspot_antibiotic_seconds[c]<1){p.redspot_antibiotic_seconds.remove_at(c);p.redspot_antibiotic_potency.remove_at(c);}
+}
+if(healed>0 and !p.death)
+{
+p.health+=healed;
+if(p.health>1000)p.health=1000;
+}
+if(p.redspot_antibiotic_seconds.length()<1)send_reliable(p.peer_id,"The antibiotics have finished working.",2);
+}
+// Blood moved from one person to another: both stand on the tile the job began
+// on, neither may move, and what is left of the giver goes over thirty seconds
+// later. The source's own words are "with another player on your tile".
+class redspot_heal_job{uint peer;string target;int x,y,z;string map;timer pressure;}
+redspot_heal_job@[] redspot_heal_jobs;
 class redspot_grab_job{uint peer;int x,y,z;string map;timer pressure;}
 redspot_grab_job@[] redspot_grab_jobs;
 class redspot_launch_job{uint peer;int x,y,z,facing;string map;timer charge;}
 redspot_launch_job@[] redspot_launch_jobs;
-bool redspot_grabber_locked(uint peer){for(uint j=0;j<redspot_grab_jobs.length();j++)if(redspot_grab_jobs[j].peer==peer and redspot_grab_jobs[j].pressure.elapsed<3000)return true;return false;}
-bool redspot_action_locked(uint peer){if(redspot_grabber_locked(peer))return true;for(uint j=0;j<redspot_launch_jobs.length();j++)if(redspot_launch_jobs[j].peer==peer and redspot_launch_jobs[j].charge.elapsed<3000)return true;return false;}
-void redspot_launch_rocket(player@ p,int heading,string kind)
+bool redspot_grabber_locked(uint peer){for(uint j=0;j<redspot_grab_jobs.length();j++)if(redspot_grab_jobs[j].peer==peer and redspot_grab_jobs[j].pressure.elapsed<TIME_ITEM_GRABBER)return true;return false;}
+bool redspot_action_locked(uint peer){if(redspot_grabber_locked(peer))return true;for(uint j=0;j<redspot_heal_jobs.length();j++)if(redspot_heal_jobs[j].peer==peer and redspot_heal_jobs[j].pressure.elapsed<REDSPOT_HEALTH_MOVER_MS)return true;for(uint j=0;j<redspot_launch_jobs.length();j++)if(redspot_launch_jobs[j].peer==peer and redspot_launch_jobs[j].charge.elapsed<TIME_ROCKET_BATTERY)return true;return false;}
+// The tile a launch is aimed at: the source's point_ahead_clear, which walks
+// the heading a tile at a time and comes down against the first thing in the
+// way rather than sailing straight through it.
+void redspot_point_ahead(player@ p,double heading,int distance,int &out ox,int &out oy)
 {
-weapon rocket(p.x,p.y,p.z+1,heading,90,"m72_guided_rocket_launcher",p.name,p.map);rocket.range=120;rocket.gravity=2.8;rocket.drag=.01;rocket.explosive_radius=kind=="stp429"?8:10;rocket.blast_damage=kind=="stp429"?550:700;rocket.kill_label=kind=="stp429"?"STP429 mini missile":"rocket battery";rocket.explosion_sound=kind=="stp429"?"redspot_stp429_explode":"redspot_rocket_battery_explode";rocket.explosion_distant=kind=="stp429"?"redspot_stp429_dist.ogg":"redspot_rocket_battery_dist.ogg";rocket.muzzle_velocity=kind=="stp429"?105:70;double rad=double(heading)*3.14159265358979323846/180.0;rocket.vx=sine(rad)*rocket.muzzle_velocity;rocket.vy=cosine(rad)*rocket.muzzle_velocity;rocket.vz=kind=="stp429"?3:5;weapons.insert_last(rocket);start_projectile_audio(weapons[weapons.length()-1]);
+double rad=heading*3.14159265358979323846/180.0;double sx=sine(rad),sy=cosine(rad);
+ox=p.x;oy=p.y;
+for(int i=0;i<distance;i++)
+{
+int nx=int(round(double(p.x)+sx*double(i+1),0)),ny=int(round(double(p.y)+sy*double(i+1),0));
+string tile=get_tile_at(nx,ny,p.z,p.map);
+if(tile=="" or tile=="blank" or projectile_solid_tile(tile))break;
+ox=nx;oy=ny;
+}
+}
+void redspot_launch_rocket(player@ p,int heading,string kind){redspot_launch_rocket_from(p,double(heading),p.x,p.y,kind);}
+void redspot_launch_rocket_from(player@ p,double heading,int x,int y,string kind)
+{
+weapon rocket(x,y,p.z+1,heading,90,"m72_guided_rocket_launcher",p.name,p.map);rocket.range=120;rocket.gravity=2.8;rocket.drag=.01;rocket.explosive_radius=kind=="stp429"?8:10;rocket.blast_damage=kind=="stp429"?550:700;rocket.kill_label=kind=="stp429"?"STP429 mini missile":"rocket battery";rocket.explosion_sound=kind=="stp429"?"redspot_stp429_explode":"redspot_rocket_battery_explode";rocket.explosion_distant=kind=="stp429"?"redspot_stp429_dist.ogg":"redspot_rocket_battery_dist.ogg";rocket.muzzle_velocity=kind=="stp429"?105:70;double rad=heading*3.14159265358979323846/180.0;rocket.vx=sine(rad)*rocket.muzzle_velocity;rocket.vy=cosine(rad)*rocket.muzzle_velocity;rocket.vz=kind=="stp429"?3:5;weapons.insert_last(rocket);start_projectile_audio(weapons[weapons.length()-1]);
 }
 void redspot_item_loop()
 {
-for(int j=int(redspot_grab_jobs.length())-1;j>=0;j--){redspot_grab_job@ job=redspot_grab_jobs[j];if(job.pressure.elapsed<3000)continue;int pi=get_player_index(job.peer);if(pi>=0){player@ p=players[pi];if(!p.death and p.map==job.map and p.x==job.x and p.y==job.y and p.z==job.z){int pulled=0;for(uint i=0;i<citems.length();i++)if(citems[i].map==job.map and get_3d_distance(citems[i].x,citems[i].y,citems[i].z,job.x,job.y,job.z)<=20){citems[i].x=job.x;citems[i].y=job.y;citems[i].z=job.z;pulled++;}play("redspot_item_grabber_fire",job.x,job.y,job.z,job.map);send_reliable(job.peer,"Item grabber pulled "+pulled+" loose items to you.",2);}send_reliable(job.peer,"movestart",0);}redspot_grab_jobs.remove_at(j);}
-for(int j=int(redspot_launch_jobs.length())-1;j>=0;j--){redspot_launch_job@ job=redspot_launch_jobs[j];if(job.charge.elapsed<3000)continue;int pi=get_player_index(job.peer);if(pi>=0){player@ p=players[pi];if(!p.death and p.map==job.map and p.x==job.x and p.y==job.y and p.z==job.z){int[] headings={job.facing-12,job.facing+12,job.facing-90,job.facing+90,job.facing+180};for(uint r=0;r<headings.length();r++)redspot_launch_rocket(p,(headings[r]+360)%360,"battery");play("redspot_rocket_battery_use",p.x,p.y,p.z,p.map);send_reliable(job.peer,"Rocket battery launched five ballistic rockets.",2);}send_reliable(job.peer,"movestart",0);}redspot_launch_jobs.remove_at(j);}
+for(int j=int(redspot_grab_jobs.length())-1;j>=0;j--){redspot_grab_job@ job=redspot_grab_jobs[j];if(job.pressure.elapsed<TIME_ITEM_GRABBER)continue;int pi=get_player_index(job.peer);if(pi>=0){player@ p=players[pi];if(!p.death and p.map==job.map and p.x==job.x and p.y==job.y and p.z==job.z){int reach=random(15,40),pulled=0;for(uint i=0;i<citems.length() and pulled<REDSPOT_GRABBER_LIMIT;i++)if(citems[i].map==job.map and get_3d_distance(citems[i].x,citems[i].y,citems[i].z,job.x,job.y,job.z)<=reach){citems[i].x=job.x;citems[i].y=job.y;citems[i].z=job.z;pulled++;}play("itemgrabberfire",job.x,job.y,job.z,job.map);send_reliable(job.peer,"The grabber drags "+pulled+" items to you.",2);}send_reliable(job.peer,"movestart",0);}redspot_grab_jobs.remove_at(j);}
+for(int j=int(redspot_heal_jobs.length())-1;j>=0;j--){redspot_heal_job@ job=redspot_heal_jobs[j];if(job.pressure.elapsed<REDSPOT_HEALTH_MOVER_MS)continue;int pi=get_player_index(job.peer),ti=get_player_index_from(job.target);if(pi>=0){player@ p=players[pi];send_reliable(p.peer_id,"movestart",0);if(ti>=0 and !players[ti].death and players[ti].map==job.map and players[ti].x==job.x and players[ti].y==job.y and players[ti].z==job.z){int moved=2000;if(p.health<=moved)moved=p.health-1;if(moved>0){p.health-=moved;players[ti].health+=moved;if(players[ti].health>1000)players[ti].health=1000;play("health_mover_stop",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"You transfer "+moved+" health to "+players[ti].name+".",2);send_reliable(players[ti].peer_id,p.name+" transfers "+moved+" health to you.",2);}}else send_reliable(p.peer_id,"They moved off your tile, so nothing was transferred.",2);}if(ti>=0)send_reliable(players[ti].peer_id,"movestart",0);redspot_heal_jobs.remove_at(j);}
+for(int j=int(redspot_launch_jobs.length())-1;j>=0;j--){redspot_launch_job@ job=redspot_launch_jobs[j];if(job.charge.elapsed<TIME_ROCKET_BATTERY)continue;int pi=get_player_index(job.peer);if(pi>=0){player@ p=players[pi];if(!p.death and p.map==job.map and p.x==job.x and p.y==job.y and p.z==job.z){double[] headings={job.facing,job.facing+90,job.facing+180,job.facing+270,job.facing};int[] distances={12,12,12,12,22};for(uint r=0;r<headings.length();r++){double heading=headings[r];while(heading>=360)heading-=360;int ox=p.x,oy=p.y;redspot_point_ahead(p,heading,distances[r],ox,oy);redspot_launch_rocket_from(p,heading,ox,oy,"battery");}play("rocket_batteryuse",p.x,p.y,p.z,p.map);send_reliable(job.peer,"Rocket battery launched five ballistic rockets.",2);}send_reliable(job.peer,"movestart",0);}redspot_launch_jobs.remove_at(j);}
 }
 bool redspot_use_item(player@ p,string id)
 {
@@ -22,52 +100,48 @@ if(item_prop(id,"use_kind")!="redspot_item" and !filled_pod)return false;
 if(p.death or physical_count(p,id)<1){send_reliable(p.peer_id,"You do not have that item available.",2);return true;}
 bool consume=true;int heal=0;string message="";
 if(id=="stored_health")heal=random(70,110);
-else if(id=="antibiotic"){start_residual_healing(p,random(300,900),45);message="The antibiotic is working over the next 45 seconds.";}
+else if(id=="antibiotic"){double strength=redspot_antibiotic_course(p,REDSPOT_ANTIBIOTIC_SECONDS);play("antibiotic",p.x,p.y,p.z,p.map);if(strength<=0)message="You already have ten courses running. Your body will not take another, and this one does nothing at all.";else message="Antibiotics working at "+int(strength*100)+" percent strength. "+redspot_antibiotic_text(p)+".";}
 else if(id=="poison_drink"){p.poisoned=false;heal=random(300,500);message="Poison cured.";}
-else if(id=="food")heal=random(30,70);
-else if(id=="cold_food")heal=random(75,140);
-else if(id=="water"){if(!p.burning){send_reliable(p.peer_id,"You are not on fire.",2);return true;}p.burning=false;message="The water put out the flames.";}
-else if(id=="shield"){p.redspot_shield=random(1,15);message="Shield equipped with "+p.redspot_shield+" charges.";}
-else if(id=="air_tank"){p.redspot_air+=random(40,70);if(p.redspot_air>180)p.redspot_air=180;message="Gas mask air: "+p.redspot_air+" seconds.";}
+else if(id=="food"){heal=random(80,200);message="You eat.";}
+else if(id=="cold_food"){heal=random(250,500);message="You eat.";}
+// Water goes on you before it goes on a base, which is the source's own order in
+// use_water: a burning player douses themselves first, and only a base fire
+// takes the rest. A base that is not on fire returns false rather than drinking
+// the throw, so the message below is the one that lands.
+else if(id=="water"){if(p.burning){p.burning=false;message="The water put out the flames.";}else if(redspot_base_used_on_base(p,"water")){consume=false;}else{send_reliable(p.peer_id,"You are not on fire.",2);return true;}}
+else if(id=="shield"){p.redspot_shield=random(1,15);play("shieldon",p.x,p.y,p.z,p.map);message="Shield up. "+p.redspot_shield+" shielded shots.";}
+else if(id=="air_tank"){p.redspot_air+=random(12,25);play("airtank",p.x,p.y,p.z,p.map);message="Air topped up. "+p.redspot_air+" stored air.";}
 else if(id=="gas_mask"){consume=false;if(!p.redspot_mask and p.redspot_air<=0){send_reliable(p.peer_id,"Fill the gas mask with an air tank first.",2);return true;}p.redspot_mask=!p.redspot_mask;p.redspot_air_timer.restart();message=p.redspot_mask?"Gas mask on.":"Gas mask off.";}
 else if(id=="stored_quad"){p.redspot_quad=true;p.redspot_quad_timer.restart();message="Quad damage active for thirty seconds.";}
 else if(id=="invisibility_shield"){p.redspot_invisible=true;p.redspot_invisible_timer.restart();message="Invisible to player tracking for thirty seconds.";}
 else if(id=="candy"){send_reliable(p.peer_id,"redspot_candy 30000",0);message="Candy speed active for thirty seconds.";}
 else if(id=="frequency_scrambler"){p.redspot_scrambled=true;p.redspot_scrambler_timer.restart();message="Robot frequency scrambler active for thirty seconds.";}
-else if(id=="bitcoin"){if(!market_access(p)){send_reliable(p.peer_id,"Scan bitcoins beside a base computer or while connected to a supply store.",2);return true;}int value=random(250,350);if(!change_player_credits(p,value)){send_reliable(p.peer_id,"The bitcoin could not be credited.",2);return true;}message="Scanned a bitcoin for "+value+" marketplace credits.";}
+else if(id=="bitcoin"){if(!redspot_base_market_access(p)){send_reliable(p.peer_id,"Use bitcoins at a powered base computer.",2);return true;}play("base_comp_bitcoin_insert",p.x,p.y,p.z,p.map);int value=random(250,350);if(!change_player_credits(p,value)){send_reliable(p.peer_id,"The bitcoin could not be credited.",2);return true;}play("base_comp_bitcoin_use",p.x,p.y,p.z,p.map);message="Scanned a bitcoin for "+value+" credits in your bank account.";}
 else if(id=="health_boost")heal=random(70,110);
 else if(id=="food_cooler"){consume=false;message="Your carried cold food will stay cold while you have the cooler.";}
-else if(id=="item_grabber"){if(redspot_action_locked(p.peer_id)){send_reliable(p.peer_id,"Another device is already charging.",2);return true;}redspot_grab_job job;job.peer=p.peer_id;job.x=p.x;job.y=p.y;job.z=p.z;job.map=p.map;redspot_grab_jobs.insert_last(job);send_reliable(p.peer_id,"movestop",0);send_reliable_map(p.map,p.name+" is pressurizing an item grabber!",2);play("redspot_item_grabber_start",p.x,p.y,p.z,p.map);message="Hold still while the item grabber pressurizes.";}
+else if(id=="item_grabber"){if(redspot_action_locked(p.peer_id)){send_reliable(p.peer_id,"Another device is already charging.",2);return true;}redspot_grab_job job;job.peer=p.peer_id;job.x=p.x;job.y=p.y;job.z=p.z;job.map=p.map;redspot_grab_jobs.insert_last(job);send_reliable(p.peer_id,"movestop",0);send_reliable_map(p.map,p.name+" is pressurizing an item grabber!",2);play("itemgrabberstart",p.x,p.y,p.z,p.map);send_reliable(0,"play_s itemgrabberdist.ogg",0);message="Hold still while the item grabber pressurizes.";}
 else if(id=="rocket_battery"){if(redspot_action_locked(p.peer_id)){send_reliable(p.peer_id,"Another device is already charging.",2);return true;}redspot_launch_job job;job.peer=p.peer_id;job.x=p.x;job.y=p.y;job.z=p.z;job.map=p.map;job.facing=p.facing;redspot_launch_jobs.insert_last(job);send_reliable(p.peer_id,"movestop",0);send_reliable_map(p.map,p.name+" is powering a rocket battery!",2);message="Rocket battery charging for three seconds.";}
-else if(id=="stp429_mini_missile"){redspot_launch_rocket(p,p.facing,"stp429");play("redspot_stp429_launch",p.x,p.y,p.z,p.map);message="Launched the STP429 mini missile.";}
+else if(id=="stp429_mini_missile"){play("stp429_launch",p.x,p.y,p.z,p.map);send_reliable(0,"dist_sound stp429_launch_dist.ogg",0);int ox=p.x,oy=p.y;redspot_point_ahead(p,double(p.facing),30,ox,oy);redspot_launch_rocket_from(p,double(p.facing),ox,oy,"stp429");play("stp429_warn",ox,oy,p.z,p.map);message="Launched the STP429 mini missile.";}
 else if(id=="corpse_bomb"){consume=false;p.redspot_corpse_bomb_worn=!p.redspot_corpse_bomb_worn;message=p.redspot_corpse_bomb_worn?"Corpse bomb strapped on. It will destroy your body if you die.":"Corpse bomb removed.";}
 else if(id=="empty_health_pod"){int stored=p.health-50;if(stored>200)stored=200;if(stored<20){send_reliable(p.peer_id,"You need at least seventy health to fill a pod.",2);return true;}p.health-=stored;send_reliable(p.peer_id,"give health_pod__value__"+stored+" 1",0);message="Stored "+stored+" of your health in a pod.";}
 else if(filled_pod){int stored=int(string_to_number(id.substr(19)));if(stored<20 or stored>200 or id!="health_pod__value__"+stored){send_reliable(p.peer_id,"That health pod is malformed.",2);return true;}heal=stored;send_reliable(p.peer_id,"give empty_health_pod 1",0);}
-else if(id=="health_mover"){int found=-1;double distance=1.7;for(uint i=0;i<players.length();i++)if(players[i].name!=p.name and !players[i].death and players[i].map==p.map and same_team(p.name,players[i].name)){double d=get_3d_distance(p.x,p.y,p.z,players[i].x,players[i].y,players[i].z);if(d<distance){distance=d;found=int(i);}}if(found<0){send_reliable(p.peer_id,"Stand beside a living teammate to transfer health.",2);return true;}int amount=p.health-50;if(amount>500)amount=500;if(amount>1000-players[found].health)amount=1000-players[found].health;if(amount<=0){send_reliable(p.peer_id,"There is no health to transfer.",2);return true;}p.health-=amount;players[found].health+=amount;send_reliable(p.peer_id,"combat_slow 3000",0);send_reliable(players[found].peer_id,"combat_slow 3000",0);message="Transferred "+amount+" health to "+players[found].name+".";send_reliable(players[found].peer_id,p.name+" transferred "+amount+" health to you.",2);}
+else if(id=="health_mover"){int found=-1;for(uint i=0;i<players.length();i++)if(players[i].name!=p.name and !players[i].death and players[i].map==p.map and players[i].x==p.x and players[i].y==p.y and players[i].z==p.z){found=int(i);break;}if(found<0){send_reliable(p.peer_id,"Nobody is standing on your tile.",2);return true;}if(redspot_action_locked(p.peer_id)){send_reliable(p.peer_id,"Another device is already charging.",2);return true;}redspot_heal_job job;job.peer=p.peer_id;job.target=players[found].name;job.x=p.x;job.y=p.y;job.z=p.z;job.map=p.map;redspot_heal_jobs.insert_last(job);play("health_mover_start",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"movestop",0);send_reliable(players[found].peer_id,"movestop",0);send_reliable(players[found].peer_id,p.name+" is moving health into you. Neither of you can move.",2);message="You are moving health into "+players[found].name+". Neither of you can move while it works.";}
 else if(id=="bomb_defuser"){int removed=0;for(int i=int(deployable_explosives.length())-1;i>=0;i--)if(deployable_explosives[i].map==p.map and deployable_explosives[i].kind!="barricade_bomb" and get_3d_distance(p.x,p.y,p.z,deployable_explosives[i].x,deployable_explosives[i].y,deployable_explosives[i].z)<=8){deployable_explosives.remove_at(i);removed++;}for(int i=int(fraggrenades.length())-1;i>=0;i--)if(fraggrenades[i].map==p.map and get_3d_distance(p.x,p.y,p.z,fraggrenades[i].x,fraggrenades[i].y,fraggrenades[i].z)<=8){if(fraggrenades[i].audio_id>=0)send_reliable_map(p.map,"projectile_audio_stop "+fraggrenades[i].audio_id,0);fraggrenades.remove_at(i);removed++;}message="Defused "+removed+" nearby bombs.";}
 else if(id=="claymore_remote"){consume=false;int oldest=-1;for(uint i=0;i<deployable_explosives.length();i++)if(deployable_explosives[i].owner==p.name and deployable_explosives[i].map==p.map and deployable_explosives[i].kind=="redspot_claymore"){oldest=int(i);break;}if(oldest<0){send_reliable(p.peer_id,"You have no armed Redspot claymore on this map.",2);return true;}detonate_deployable(oldest);message="Detonated your oldest Redspot claymore.";}
 else if(id=="bullet_bomb_locater"){consume=false;int found=0;string report="Bullet bombs: ";for(uint i=0;i<deployable_explosives.length();i++){deployable_explosive@ d=deployable_explosives[i];if(d.kind!="bullet_bomb" or d.map!=p.map or (d.owner!=p.name and !same_team(d.owner,p.name)))continue;if(found>0)report+=", ";report+=d.x+", "+d.y+", "+d.z;found++;}message=found>0?report:"No friendly bullet bombs on this map.";}
 else if(id=="satellite_bomb_remote"){consume=false;message="Enter a four-digit launch code on the remote to fire matching bombs.";}
 else if(id=="dynamite_set"){send_reliable(p.peer_id,"give dynamite 1",0);send_reliable(p.peer_id,"give dynamite_detonator 1",0);message="Unpacked dynamite and its shootable detonator.";}
 else if(id=="sm2_missile_set"){send_reliable(p.peer_id,"give sm2_missile 1",0);send_reliable(p.peer_id,"give sm2_missile_plate 1",0);message="Unpacked an SM2 missile and its pressure plate.";}
-else if(id=="horn"){consume=false;play("redspot_horn",p.x,p.y,p.z,p.map);message="You sounded the horn.";}
+else if(id=="horn"){consume=false;if(p.redspot_horn_timer.elapsed<REDSPOT_HORN_INTERVAL_MS){send_reliable(p.peer_id,"The horn has just been sounded. Give it ten seconds between blasts.",2);return true;}p.redspot_horn_timer.restart();send_reliable(0,"play_s horn.ogg",0);send_reliable_map(p.map,"For some reason, "+p.name+" really wants your attention.",2);message="You sounded the horn.";}
+// Base items are the base system's own work, ported from Redspot's use_on_base:
+// wood and metal reinforce the walls with the returns falling off as a base
+// gets stronger, gas cans fill and drain the generator, tools repair the three
+// fittings, boosters harden the door and stretch the fuel, coolant charges the
+// fridge and a machinegun drum loads the base's own gun. Each one decides for
+// itself whether you are standing close enough and in the right place.
 else if(id=="medal" or id=="gas_can" or id=="empty_gas_can" or id=="tools" or id=="tool_box" or id=="base_lock_booster" or id=="base_generator_booster" or id=="base_fridge_coolant" or id=="base_fridge_coolant_extractor"){
-redspot_base@ base=null;for(uint i=0;i<redspot_bases.length();i++)if(redspot_base_near(p,redspot_bases[i])){@base=redspot_bases[i];break;}
-if(base is null or (id!="empty_gas_can" and id!="base_fridge_coolant_extractor" and !redspot_base_access(p,base))){send_reliable(p.peer_id,"Stand beside a base computer you can access.",2);return true;}
-dobject@ computer=find_dobject(base.map,base.id);
-if(id=="medal" or id=="tools" or id=="tool_box"){
-if(computer is null or !computer.active){send_reliable(p.peer_id,"That base computer cannot be repaired.",2);return true;}
-int gain=id=="medal"?100:(id=="tools"?200:500);if(id=="medal"){if(computer.max_health>=100000){send_reliable(p.peer_id,"The base cannot hold more metal.",2);return true;}computer.max_health+=gain;}
-if(computer.health>=computer.max_health){send_reliable(p.peer_id,"The computer is already fully repaired.",2);return true;}
-computer.health+=gain;if(computer.health>computer.max_health)computer.health=computer.max_health;send_dobject_state(computer);message="Base computer repaired to "+computer.health+" of "+computer.max_health+" health.";
-}
-else if(id=="gas_can"){if(base.fuel_seconds>=3600){send_reliable(p.peer_id,"The generator tank is full.",2);return true;}base.fuel_seconds+=300;if(base.fuel_seconds>3600)base.fuel_seconds=3600;base.powered=true;base.fuel_timer.restart();send_reliable(p.peer_id,"give empty_gas_can 1",0);message="Added generator gas; "+base.fuel_seconds+" seconds remain.";}
-else if(id=="empty_gas_can"){if(base.fuel_seconds<300){send_reliable(p.peer_id,"The generator holds less than a full can of gas.",2);return true;}base.fuel_seconds-=300;if(base.fuel_seconds==0)base.powered=false;send_reliable(p.peer_id,"give gas_can 1",0);message="Siphoned five minutes of gas from the base generator.";}
-else if(id=="base_lock_booster"){if(base.owner!=p.name or base.lock_boosters>=5){send_reliable(p.peer_id,"Only the owner can fit up to five lock boosters.",2);return true;}base.lock_boosters++;message="Base door now requires "+(5+base.lock_boosters*2)+" timed lock pins.";}
-else if(id=="base_generator_booster"){if(base.owner!=p.name or base.generator_boosters>=10){send_reliable(p.peer_id,"Only the owner can fit up to ten generator boosters.",2);return true;}base.generator_boosters++;message="Generator fuel efficiency improved to one unit per "+(1+base.generator_boosters)+" seconds.";}
-else if(id=="base_fridge_coolant"){if(base.fridge_coolant>=3600){send_reliable(p.peer_id,"The fridge coolant tank is full.",2);return true;}base.fridge_coolant+=300;if(base.fridge_coolant>3600)base.fridge_coolant=3600;send_reliable(p.peer_id,"give base_fridge_coolant_extractor 1",0);message="Added five minutes of base fridge coolant.";}
-else if(id=="base_fridge_coolant_extractor"){if(base.fridge_coolant<300){send_reliable(p.peer_id,"The fridge holds less than a full extractor of coolant.",2);return true;}base.fridge_coolant-=300;send_reliable(p.peer_id,"give base_fridge_coolant 1",0);message="Extracted five minutes of fridge coolant.";}
-save_redspot_bases();
+consume=false;
+redspot_base_used_on_base(p,id);
 }
 else if(id=="sandbag" or id=="ladder"){
 double rad=double(p.facing)*3.14159265358979323846/180.0;int x=p.x+int(round(sine(rad),0)),y=p.y+int(round(cosine(rad),0)),z=p.z;
@@ -75,8 +149,10 @@ if(projectile_solid_tile(get_tile_at(x,y,z,p.map))){send_reliable(p.peer_id,"The
 int count=0;if(id=="sandbag"){for(uint i=0;i<walls.length();i++)if(walls[i].map==p.map and walls[i].x==x and walls[i].y==y){z=walls[i].maxz+1;count++;}}
 else{for(uint i=0;i<ladders.length();i++)if(ladders[i].map==p.map and ladders[i].x==x and ladders[i].y==y){z=ladders[i].maxz+1;count++;}}
 if(count>=3){send_reliable(p.peer_id,"This stack cannot safely hold another section.",2);return true;}
-int height=id=="sandbag"?15:10;if(id=="sandbag")spawn_wall(x,y,z,z+height,p.map,150000);else spawn_ladder(x,y,z,z+height,p.map,1000);
-send_reliable_map(p.map,(id=="sandbag"?"wall_spawned ":"ladder_spawned ")+x+" "+y+" "+z+" "+p.map+" "+height,0);message="Built a "+citem_display_name(id)+" at "+x+", "+y+", height "+z+".";
+int height=id=="sandbag"?15:10;string walltype=id=="sandbag"?"wallsandbag":"wallwood";
+if(id=="sandbag"){spawn_wall(x,y,z,z+height,p.map,150000,walltype);play("sandbag_place",p.x,p.y,p.z,p.map);}
+else{spawn_ladder(x,y,z,z+height,p.map,1000);play("ladder_place",p.x,p.y,p.z,p.map);}
+send_reliable_map(p.map,(id=="sandbag"?"wall_spawned ":"ladder_spawned ")+x+" "+y+" "+z+" "+p.map+" "+height+" "+walltype,0);message="Built a "+citem_display_name(id)+" at "+x+", "+y+", height "+z+".";
 }
 else if(id=="bike"){
 consume=false;if(get_tile_at(p.x,p.y,p.z,p.map)=="blank"){send_reliable(p.peer_id,"The bike needs solid ground.",2);return true;}
@@ -93,9 +169,11 @@ weapons.insert_last(shot);start_projectile_audio(weapons[weapons.length()-1]);pl
 }
 else{
 string content=item_prop(id,"pack_contents");string[] f=string_split(content,":",false);
-if(f.length()!=2 or item_info(f[0]) is null){send_reliable(p.peer_id,"This package has no available contents.",2);return true;}
-int amount=int(string_to_number(f[1]));if(amount<1 or amount>500)return true;
-send_reliable(p.peer_id,"give "+f[0]+" "+amount,0);message="Opened "+citem_display_name(id)+" for "+amount+" "+citem_display_name(f[0])+".";
+if(f.length()<2 or item_info(f[0]) is null){send_reliable(p.peer_id,"This package has no available contents.",2);return true;}
+int low=int(string_to_number(f[1])),amount=low;
+if(f.length()>=3){int high=int(string_to_number(f[2]));if(low<1 or high<low){send_reliable(p.peer_id,"That package's contents are malformed.",2);return true;}amount=random(low,high);}
+if(amount<1 or amount>500)return true;
+play("box_open",p.x,p.y,p.z,p.map);send_reliable(p.peer_id,"give "+f[0]+" "+amount,0);message="The "+citem_display_name(id)+" contains "+amount+" "+citem_display_name(f[0])+".";
 }
 if(heal>0){int actual=heal;if(actual>1000-p.health)actual=1000-p.health;if(actual>0)p.health+=actual;message+=" Restored "+actual+" health.";}
 if(consume)send_reliable(p.peer_id,"give "+id+" -1",0);

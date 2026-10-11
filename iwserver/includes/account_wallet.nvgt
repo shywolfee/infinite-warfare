@@ -15,7 +15,8 @@ balance=int(amount);revision=rev;return true;
 }
 catch{return false;}
 }
-int load_player_credits(string name)
+// Read the retired wallet only for one-time migration. No transaction writes it.
+int legacy_wallet_balance(string name)
 {
 double a,b;int av,bv;bool first=read_wallet_slot(name,0,a,av),second=read_wallet_slot(name,1,b,bv);
 if(first or second)return first and (!second or a>=b)?av:bv;
@@ -30,26 +31,38 @@ return int(balance);
 }
 catch{return -1;}
 }
+bool ensure_credit_bank(string name)
+{
+savedata bank(bank_path(name),ACCOUNT_SECRET+"_bank");load_bank(bank);
+bool exists=file_exists(bank.fn) or file_exists(bank.fn+"0") or file_exists(bank.fn+"1");
+if(exists and !bank_record_valid(bank))return false;
+if(bank_record_valid(bank) and bank.readn("legacy_wallet_imported")==1)return true;
+savedata journal(bank.fn+".transfer",bank.key);try{journal.load();}catch{return false;}
+if(journal.readn("pending")==1)return false;
+int legacy=legacy_wallet_balance(name);if(legacy<0)return false;
+if(!bank_record_valid(bank)){bank.add("number",bank_number());bank.add("pin","");bank.add("checking",double(0));bank.add("savings",double(0));bank.add("debt",double(0));bank.add("cards","");}
+double checking=bank.readn("checking")+legacy;if(checking>2000000000)return false;
+bank.add("checking",checking);bank.add("legacy_wallet_imported",double(1));return save_bank(bank);
+}
+int load_player_credits(string name)
+{
+if(!ensure_credit_bank(name))return -1;
+savedata bank(bank_path(name),ACCOUNT_SECRET+"_bank");load_bank(bank);
+return bank_record_valid(bank)?int(bank.readn("checking")):-1;
+}
 bool save_player_credits(string name,int amount)
 {
-if(amount<0 or amount>2000000000 or load_player_credits(name)<0)return false;
-double a,b;int av,bv;bool first=read_wallet_slot(name,0,a,av),second=read_wallet_slot(name,1,b,bv);
-int slot=first and (!second or a>=b)?1:0;
-double revision=(a>b?a:b)+1;if(revision<1)revision=1;
-try
-{
-savedata next(wallet_path(name,slot),ACCOUNT_SECRET);next.add("owner",string_to_lower_case(name));next.add("balance",double(amount));next.add("revision",revision);next.save();
-double check_revision;int check_balance;
-return read_wallet_slot(name,slot,check_revision,check_balance) and check_revision==revision and check_balance==amount;
-}
-catch{return false;}
+if(amount<0 or amount>2000000000 or !ensure_credit_bank(name))return false;
+savedata bank(bank_path(name),ACCOUNT_SECRET+"_bank");load_bank(bank);
+if(!bank_record_valid(bank))return false;
+bank.add("checking",double(amount));return save_bank(bank);
 }
 bool change_player_credits(player@ user,int delta)
 {
 if(!user.bank_transfer_writing and !recover_bank_transfer(user)){send_reliable(user.peer_id,"Credit transaction blocked by an unrecovered bank transfer. Contact staff.",2);return false;}
-int64 next=int64(user.credits)+delta;
-if(user.credits<0 or next<0 or next>2000000000 or !save_player_credits(user.name,int(next)))
-{send_reliable(user.peer_id,"Credit transaction failed: the account balance could not be saved. No credits were changed. Please contact a developer if this continues.",2);return false;}
+int current=load_player_credits(user.name);int64 next=int64(current)+delta;
+if(current<0 or next<0 or next>2000000000 or !save_player_credits(user.name,int(next)))
+{send_reliable(user.peer_id,"Credit transaction failed: the bank balance could not be saved. No credits were changed. Please contact a developer if this continues.",2);return false;}
 user.credits=int(next);return true;
 }
 

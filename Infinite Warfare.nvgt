@@ -411,10 +411,10 @@ menu_music_save_timer.restart();
 // `version` stays a bare number because it travels inside the space-delimited
 // connect_me handshake and the server parses it with string_to_number. Anything
 // a person actually reads uses version_name instead.
-double version=0.60;
-string version_name="0.6.0";
-int build_number=105;
-string build_date="2026-10-10";
+double version=0.61;
+string version_name="0.6.1";
+int build_number=106;
+string build_date="2026-10-11";
 const string sound_pack_key="roflagerfkseuihfdruifysegyksGTRYHTTRGYJTHYT^$%%^#$%&^DTGRFGgdfygeyfgyjedfgydfgvGGBDGTRHR$#$5463r427547gERGRGHERsdfghjkl69";
 string name;
 double facing=0;
@@ -2417,11 +2417,12 @@ if(item=="spy_camera"){send_reliable(0,"spy_camera place",0);return;}
 if(item=="spy_camera_controller"){send_reliable(0,"spy_camera list",0);return;}
 if(item=="battery_pack"){send_reliable(0,"spy_camera charge_near",0);return;}
 if(item=="satellite_bomb" or item=="satellite_bomb_remote"){
-string code=af_input(item=="satellite_bomb"?"Program satellite bomb":"Satellite bomb launch code","Enter a four-digit code",true).trim_whitespace();
-if(code!="")send_reliable(0,"redspot_explosive "+(item=="satellite_bomb"?"sat_place":"sat_fire")+" "+code,0);return;
+string code=af_input(item=="satellite_bomb"?"Program satellite bomb":"Satellite bomb launch code","Enter a numeric code, up to eight digits",true).trim_whitespace();
+if(code!="")send_reliable(0,"redspot_explosive "+(item=="satellite_bomb"?"sat_program":"sat_fire")+" "+code,0);return;
 }
+if(item.find("satellite_bomb__code__")==0){send_reliable(0,"redspot_explosive sat_place "+item.substr(22),0);return;}
 if(item=="programmable_timebomb"){
-string seconds=af_input("Program timebomb","Seconds until detonation, 1 to 3600",true).trim_whitespace();
+string seconds=af_input("Program timebomb","How many seconds should the timer run for? Up to 60.",true).trim_whitespace();
 if(seconds!="")send_reliable(0,"redspot_explosive timer_place "+seconds,0);return;
 }
 if(item_prop(item,"use_kind")=="redspot_item"){send_reliable(0,"use "+item,0);return;}
@@ -4237,18 +4238,23 @@ send_reliable(0,item_use_command(sel_item),0);
 }
 }
 bool vehicle_key_alt=key_down(KEY_LMENU) or key_down(KEY_RMENU),vehicle_key_shift=key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
-if(((action_pressed("vehicle_door") and !vehicle_key_alt and !vehicle_key_shift) or gk_interact) and can_move==true)
+// O opens and closes vehicle doors and does nothing else. Everything it used to
+// do outside a vehicle now runs on the use key while you are using yourself.
+if((action_pressed("vehicle_door") and !vehicle_key_alt and !vehicle_key_shift) and can_move==true)
+{
+if (in_vehicle)
+vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
+}
+// Using yourself: the turret you are facing, the map object you face, the base
+// fitting you are standing on, or a nearby chest. The use key in yourself mode
+// and the touch interact gesture both arrive here through gk_interact.
+if(gk_interact and can_move==true)
 {
 if(turret_try_control()){}
-else if (in_vehicle)
-vehicle_toggle_door(int(mr.x), int(mr.y), int(me.z));
-else
-{
-// O uses the map object you face; failing that, a nearby chest.
-if(use_dobject_in_reach()){}
+else if(use_dobject_in_reach()){}
+else if(base_fitting_use()){}
 else
 send_reliable(0, "check_chest", 0);
-}
 }
 if(((action_pressed("vehicle_enter") and !vehicle_key_alt and !vehicle_key_shift) or gk_vehicle) and can_move==true)
 {
@@ -4331,7 +4337,7 @@ send_reliable(0, sitting ? "posture sitting" : "posture standing", 0);
 }
 if((action_pressed("jump") or gk_jump) and !parachute_open and jumping==false and falling==false and can_move==true and !in_vehicle and (!sitting or seated_jump_timer.elapsed>=7000))
 {
-p.play_stationary("executioners_rage/jump.wav", false);
+p.play_stationary(spring_boots_equipped and get_item_count("spring_coil")>0?"spring_bootsjump.ogg":"executioners_rage/jump.wav", false);
 send_reliable(0, "jump", 0);
 jumping=true;
 jumptimer.restart();
@@ -5104,7 +5110,10 @@ int x=string_to_number(parsed[1]);
 int y=string_to_number(parsed[2]);
 int z=string_to_number(parsed[3]);
 string map=parsed[4];
-spawn_wall(x,y,z,z+(parsed.length()>5?string_to_number(parsed[5]):10),map,"wallwood");
+// The server names the Redspot tile it put down, so a sandbag wall sounds like
+// sacking and not like a plank fence. An older server sends no tile and the
+// wooden default stands.
+spawn_wall(x,y,z,z+(parsed.length()>5?string_to_number(parsed[5]):10),map,parsed.length()>6?parsed[6]:"wallwood");
 }
 else if(parsed[0]=="ladder_spawned" and parsed.length()>4)
  {
@@ -5583,12 +5592,12 @@ me.z++;changed=true;checkzone();
 while(target_z<me.z)
 {
 me.z--;changed=true;checkzone();string tile=get_tile_at(mr.x,mr.y,me.z);
-if(tile!="" and tile!="blank"){jump_vertical_position=me.z;jump_vertical_velocity=0;p.play_stationary(tile+"land.ogg",false);send_reliable(1,"land",0);jumping=false;break;}
+if(tile!="" and tile!="blank"){jump_vertical_position=me.z;jump_vertical_velocity=0;p.play_stationary(spring_boots_equipped?"spring_bootsland.ogg":tile+"land.ogg",false);send_reliable(1,"land",0);jumping=false;break;}
 }
 if(changed)send_reliable(1,"move_to_a "+me.x+" "+me.y+" "+me.z,0);
 if(jumping and jump_vertical_velocity<0 and me.z<=jumplandz)
 {
-string tile=get_tile_at(mr.x,mr.y,me.z);if(tile=="" or tile=="blank"){falling=true;falldistance=0;falltimer.restart();jumping=false;}else{p.play_stationary(surface_land_sound(tile),false);send_reliable(0,"land",0);jumping=false;}
+string tile=get_tile_at(mr.x,mr.y,me.z);if(tile=="" or tile=="blank"){falling=true;falldistance=0;falltimer.restart();jumping=false;}else{p.play_stationary(spring_boots_equipped?"spring_bootsland.ogg":surface_land_sound(tile),false);send_reliable(0,"land",0);jumping=false;}
 }
 }
 }
@@ -5704,9 +5713,7 @@ string family=surface_family(tile);
 int count=family==""?0:available_terrain_step_sound_count(family);
 cue=count>0?family+"step"+random(1,count)+".ogg":"cameraair.ogg";
 }
-bool object_here=false;
-for (uint i=0; i<walls.length(); i++)if(camera.x==walls[i].x and camera.y==walls[i].y and camera.z>=walls[i].miniz and camera.z<=walls[i].maxz)object_here=true;
-if(object_here)cue="wallwood.ogg";
+for (uint i=0; i<walls.length(); i++)if(camera.x==walls[i].x and camera.y==walls[i].y and camera.z>=walls[i].miniz and camera.z<=walls[i].maxz){cue=surface_wall_sound(walls[i].type);break;}
 for (uint i=0; i<ladders.length(); i++)if(camera.x==ladders[i].x and camera.y==ladders[i].y and camera.z>=ladders[i].miniz and camera.z<=ladders[i].maxz)cue="ladderstep"+random(1,5)+".ogg";
 p.play_3d(cue,me.x,me.y,me.z,camera.x,camera.y,camera.z,theta,false);
 }

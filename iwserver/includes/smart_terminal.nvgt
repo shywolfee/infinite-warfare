@@ -26,7 +26,7 @@ string terminal_catalogue_packet(player@ p){
 string bank_path(string name){return wallet_accounts_directory+"/"+string_to_lower_case(name)+".bank";}
 string bank_number(){string n="77";for(int i=0;i<10;i++)n+=random(0,9);return n;}
 bool bank_record_valid(savedata@ bank){
- if(!bank.d.exists("number") or bank.read("pin")=="")return false;string[] fields={"checking","savings","debt"};
+ if(!bank.d.exists("number"))return false;string[] fields={"checking","savings","debt"};
  for(uint i=0;i<fields.length();i++){double n=bank.readn(fields[i]);if(n<0 or n>2000000000 or n!=floor(n))return false;}return true;
 }
 void load_bank(savedata@ bank){
@@ -38,30 +38,31 @@ try{
  if(!bank_record_valid(bank))return false;savedata a(bank.fn+"0",bank.key),b(bank.fn+"1",bank.key);a.load();b.load();bool av=bank_record_valid(a),bv=bank_record_valid(b);
  int slot=av and (!bv or a.readn("revision")>=b.readn("revision"))?1:0;double revision=bank.readn("revision")+1;
  savedata next(bank.fn+slot,bank.key);next.d=bank.d;next.add("revision",revision);next.save();savedata check(next.fn,bank.key);check.load();
- if(!bank_record_valid(check) or check.readn("revision")!=revision or check.read("number")!=bank.read("number") or check.read("pin")!=bank.read("pin") or check.readn("checking")!=bank.readn("checking") or check.readn("savings")!=bank.readn("savings") or check.readn("debt")!=bank.readn("debt") or check.read("cards")!=bank.read("cards"))return false;
- bank.d=check.d;return true;
+ if(!bank_record_valid(check) or check.readn("revision")!=revision or check.read("number")!=bank.read("number") or check.read("pin")!=bank.read("pin") or check.readn("checking")!=bank.readn("checking") or check.readn("savings")!=bank.readn("savings") or check.readn("debt")!=bank.readn("debt") or check.read("cards")!=bank.read("cards") or check.readn("legacy_wallet_imported")!=bank.readn("legacy_wallet_imported"))return false;
+ bank.d=check.d;for(uint i=0;i<players.length();i++)if(bank_path(players[i].name)==bank.fn)players[i].credits=int(check.readn("checking"));return true;
 }catch{return false;}
 }
 bool bank_pin_valid(string pin){if(pin.length()<4 or pin.length()>12)return false;for(uint i=0;i<pin.length();i++)if(pin.substr(i,1)<"0" or pin.substr(i,1)>"9")return false;return true;}
 bool recover_bank_transfer(player@ p){
 try{
  savedata journal(bank_path(p.name)+".transfer",ACCOUNT_SECRET+"_bank");journal.load();if(journal.readn("pending")!=1)return true;
- savedata bank(bank_path(p.name),ACCOUNT_SECRET+"_bank");load_bank(bank);double before=journal.readn("wallet_before"),after=journal.readn("wallet_after"),checking=bank.readn("checking");int wallet=load_player_credits(p.name);
+ savedata bank(bank_path(p.name),ACCOUNT_SECRET+"_bank");load_bank(bank);double before=journal.readn("wallet_before"),after=journal.readn("wallet_after"),checking=bank.readn("checking");int wallet=legacy_wallet_balance(p.name);
 if(!bank_record_valid(bank) or !journal.d.exists("wallet_before") or !journal.d.exists("wallet_after") or !journal.d.exists("checking_before") or !journal.d.exists("checking_after") or before<0 or after<0 or before>2000000000 or after>2000000000 or journal.readn("checking_before")<0 or journal.readn("checking_after")<0 or journal.readn("checking_before")>2000000000 or journal.readn("checking_after")>2000000000 or before==after or before+ journal.readn("checking_before")!=after+journal.readn("checking_after"))return false;
  if(wallet==after and checking==journal.readn("checking_before")){bank.add("checking",journal.readn("checking_after"));if(!save_bank(bank))return false;}
  else if(!((wallet==before and checking==journal.readn("checking_before")) or (wallet==after and checking==journal.readn("checking_after"))))return false;
- p.credits=wallet;journal.add("pending",double(0));journal.save();savedata verify(journal.fn,journal.key);verify.load();return verify.readn("pending")==0;
+ journal.add("pending",double(0));journal.save();savedata verify(journal.fn,journal.key);verify.load();if(verify.readn("pending")!=0)return false;p.credits=load_player_credits(p.name);return p.credits>=0;
 }catch{return false;}
 }
 void bank_handle(player@ p,const string[] &in parsed){
 uint peer=p.peer_id;string cmd=parsed[0];if(p.arena_return_map!="" or !physical_bank_access(p)){send_reliable(peer,"bank_error Leave your arena and stay beside a cash machine or carry a BankLink Banking PDA.",0);return;}
  savedata bank(bank_path(p.name),ACCOUNT_SECRET+"_bank");load_bank(bank);
  if(!bank_record_valid(bank) and (file_exists(bank.fn) or file_exists(bank.fn+"0") or file_exists(bank.fn+"1"))){send_reliable(peer,"bank_error Bank records cannot be read. Contact staff; no balance was changed.",0);return;}
- if(cmd=="bank_exists"){send_reliable(peer,"bank_status "+(bank.d.exists("number")?"exists":"none"),0);return;}
+ if(cmd=="bank_exists"){send_reliable(peer,"bank_status "+(bank.read("pin")!=""?"exists":"none"),0);return;}
  if(cmd=="bank_create"){
-  if(bank.d.exists("number")){send_reliable(peer,"bank_error You already have an account.",0);return;}
+  if(bank.read("pin")!=""){send_reliable(peer,"bank_error You already have an account.",0);return;}
   if(parsed.length()!=2 or !bank_pin_valid(parsed[1])){send_reliable(peer,"bank_error Choose a numeric PIN of four to twelve digits.",0);return;}
-  bank.add("number",bank_number());bank.add("pin",string_encrypt(parsed[1],ACCOUNT_SECRET+"_pin"));bank.add("checking",double(0));bank.add("savings",double(0));bank.add("debt",double(0));bank.add("cards","");
+  if(!bank.d.exists("number")){bank.add("number",bank_number());bank.add("checking",double(0));bank.add("savings",double(0));bank.add("debt",double(0));bank.add("cards","");bank.add("legacy_wallet_imported",double(1));}
+  bank.add("pin",string_encrypt(parsed[1],ACCOUNT_SECRET+"_pin"));
   send_reliable(peer,save_bank(bank)?"bank_ok Account created. Number "+bank.read("number")+".":"bank_error Account could not be saved.",0);return;
  }
  if(!bank.d.exists("number")){send_reliable(peer,"bank_error Create an account first.",0);return;}
@@ -71,20 +72,12 @@ if(parsed.length()<2 or bank.read("pin")!=string_encrypt(parsed[1],ACCOUNT_SECRE
  if(cmd=="bank_status"){send_reliable(peer,"bank_status "+bank.read("number")+"|"+int(bank.readn("checking"))+"|"+int(bank.readn("savings"))+"|"+int(bank.readn("debt"))+"|"+bank.read("cards"),0);return;}
 if(cmd=="bank_repay" and parsed.length()==3){double amount=string_to_number(parsed[2]);if(amount<=0 or amount!=floor(amount) or amount>bank.readn("debt") or amount>bank.readn("checking")){send_reliable(peer,"bank_error Choose a whole-credit repayment within your debt and checking balance.",0);return;}bank.add("checking",bank.readn("checking")-amount);bank.add("debt",bank.readn("debt")-amount);send_reliable(peer,save_bank(bank)?"bank_ok Credit-line repayment complete.":"bank_error Repayment could not be saved.",0);return;}
 if(cmd=="bank_cash" and parsed.length()==4){string item=parsed[2];double count=string_to_number(parsed[3]);int value=physical_item_value(item);double amount=count*value;if(!is_credit_chip(item) or value<=0 or count<1 or count>100000 or count!=floor(count) or amount>bank.readn("checking")){send_reliable(peer,"bank_error Choose a valid denomination and quantity within your checking balance.",0);return;}bank.add("checking",bank.readn("checking")-amount);if(!save_bank(bank)){send_reliable(peer,"bank_error Cash withdrawal could not be saved.",0);return;}send_reliable(peer,"give "+item+" "+int(count),0);send_reliable(peer,"bank_ok Withdrew "+int(amount)+" credits as physical chips.",0);return;}
- if((cmd=="bank_deposit" or cmd=="bank_withdraw" or cmd=="bank_save" or cmd=="bank_unsave") and parsed.length()==3){
+ if((cmd=="bank_save" or cmd=="bank_unsave") and parsed.length()==3){
   double amount=string_to_number(parsed[2]);if(amount<=0 or amount>2000000000 or amount!=floor(amount)){send_reliable(peer,"bank_error Enter a positive whole-credit amount.",0);return;}double checking=bank.readn("checking"),savings=bank.readn("savings");
-  if(cmd=="bank_save" or cmd=="bank_unsave"){
-   if((cmd=="bank_save" and checking<amount) or (cmd=="bank_unsave" and savings<amount)){send_reliable(peer,"bank_error Insufficient funds.",0);return;}
-   bank.add("checking",checking+(cmd=="bank_save"?-amount:amount));bank.add("savings",savings+(cmd=="bank_save"?amount:-amount));send_reliable(peer,save_bank(bank)?"bank_ok Transfer complete.":"bank_error Transfer could not be saved.",0);return;
-  }
-  if((cmd=="bank_deposit" and p.credits<amount) or (cmd=="bank_withdraw" and checking<amount) or (cmd=="bank_withdraw" and int64(p.credits)+int64(amount)>2000000000) or (cmd=="bank_deposit" and checking+amount>2000000000)){send_reliable(peer,"bank_error Insufficient funds or balance limit exceeded.",0);return;}
-  savedata journal(bank.fn+".transfer",bank.key);journal.add("checking_before",checking);journal.add("checking_after",checking+(cmd=="bank_deposit"?amount:-amount));journal.add("wallet_before",double(p.credits));journal.add("wallet_after",double(p.credits)+(cmd=="bank_deposit"?-amount:amount));journal.add("pending",double(1));journal.save();
-  savedata verify(journal.fn,journal.key);verify.load();if(verify.readn("pending")!=1 or verify.readn("wallet_before")!=journal.readn("wallet_before") or verify.readn("wallet_after")!=journal.readn("wallet_after") or verify.readn("checking_before")!=checking or verify.readn("checking_after")!=journal.readn("checking_after")){send_reliable(peer,"bank_error Transfer journal could not be saved.",0);return;}
-  p.bank_transfer_writing=true;bool paid=change_player_credits(p,cmd=="bank_deposit"?-int(amount):int(amount));p.bank_transfer_writing=false;
-  if(!paid){journal.add("pending",double(0));journal.save();send_reliable(peer,"bank_error Wallet update failed.",0);return;}
-  bank.add("checking",journal.readn("checking_after"));if(!save_bank(bank)){send_reliable(peer,"bank_error Transfer is pending recovery. Reopen banking before making another payment.",0);return;}
-  journal.add("pending",double(0));journal.save();send_reliable(peer,"bank_ok Transaction complete.",0);return;
+  if((cmd=="bank_save" and checking<amount) or (cmd=="bank_unsave" and savings<amount)){send_reliable(peer,"bank_error Insufficient funds.",0);return;}
+  bank.add("checking",checking+(cmd=="bank_save"?-amount:amount));bank.add("savings",savings+(cmd=="bank_save"?amount:-amount));send_reliable(peer,save_bank(bank)?"bank_ok Transfer complete.":"bank_error Transfer could not be saved.",0);return;
  }
+ if(cmd=="bank_deposit" or cmd=="bank_withdraw"){send_reliable(peer,"bank_error The saved wallet has been retired. Deposit physical chips or withdraw them from checking.",0);return;}
  if(cmd=="bank_card" and parsed.length()==3){
   string type=parsed[2];if(type!="debit" and type!="credit" and type!="prepaid" and type!="virtual"){send_reliable(peer,"bank_error Unknown card type.",0);return;}
   string cards=bank.read("cards");if(cards.length()>2000){send_reliable(peer,"bank_error Card limit reached.",0);return;}
@@ -124,7 +117,7 @@ void terminal_handle(uint peer,string raw,const string[] &in parsed){
   else if(app=="medical")report="Health "+p.health+" of 1000. "+(p.bleeding?"Active bleeding. ":"No bleeding. ")+"Medication toxicity "+p.medication_toxicity+" percent; remaining treatment "+p.medication_heal_remaining+".";
   else if(app=="armoury")report="Weapon "+p.current_weapon+". Equipped armour mass "+p.equipped_armor_weight+".";
   else if(app=="diagnostics" or app=="files")report="OS "+p.terminal_os+". Storage "+terminal_used(p)+" of "+p.terminal_storage+" GB. "+p.terminal_apps.length()+" downloaded applications. Network connected.";
-  else if(app=="wallet")report="Wallet "+p.credits+" credits. Physical chips are separate from wallet and checking.";
+  else if(app=="wallet")report="Bank checking "+p.credits+" credits. Physical chips and credsticks are lost on logout.";
   else if(app=="notes")report=p.terminal_notes;
   else if(app=="scanner" or app=="tracker"){
    int contacts=0;for(uint q=0;q<players.length();q++){player@ other=players[q];if(other.map!=p.map or other.name==p.name or other.death or get_3d_distance(p.x,p.y,p.z,other.x,other.y,other.z)>40)continue;string state=contact_state(p,other,true);if(state=="")continue;contacts++;report+=other.name+": "+relative_position(p,other.x,other.y,other.z)+", "+state+". ";}

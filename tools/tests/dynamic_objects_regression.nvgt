@@ -29,9 +29,17 @@ string root="";string[] candidates={"","../../",SCRIPT_MAIN_PATH+"/../../"};
 for(uint i=0;i<candidates.length();i++)if(directory_exists(candidates[i]+"iwserver/content/objects")){root=candidates[i];break;}
 int loaded=load_dobject_types(root+"iwserver/content/objects");
 check(loaded>=40,"loads every object type ("+loaded+")");
+// A ported Redspot fixture has no folder of its own, and that is the source's
+// own shape rather than a missing asset: the source names its recordings bare
+// in the code that fires them (base_door, base_knock_ext, base_comp_on,
+// redspot_spy_camera_place, redspot_base_machinegun_fire), and this engine
+// sends those bare names to the client unchanged. Those interactions are
+// handled by the base, camera and turret systems, which play the source's
+// recordings themselves, so asking them for a folder would be inventing one.
+// Every other type still has to name the folder its own events are read from.
 string[] ids=dobject_types.get_keys();int unsound=0,undescribed=0;
-for(uint i=0;i<ids.length();i++){dobject_type@ t=dobject_type_of(ids[i]);if(t.sound=="" and t.id!="furniture")unsound++;if(t.description=="")undescribed++;}
-check(unsound==0,"every type names its sound folder");
+for(uint i=0;i<ids.length();i++){dobject_type@ t=dobject_type_of(ids[i]);bool system_cues=(t.interaction=="base_door" or t.interaction=="base" or t.interaction=="spy_camera" or t.interaction=="turret");if(t.sound=="" and t.id!="furniture" and !system_cues)unsound++;if(t.description=="")undescribed++;}
+check(unsound==0,"every type names its sound folder, unless the source names its recordings bare");
 check(undescribed==0,"every type has a description");
 // Types that turn into others must name real types.
 int dangling=0;for(uint i=0;i<ids.length();i++){dobject_type@ t=dobject_type_of(ids[i]);if(t.debris!="" and dobject_type_of(t.debris) is null)dangling++;}

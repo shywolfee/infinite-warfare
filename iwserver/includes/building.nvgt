@@ -7,7 +7,9 @@ int miniz;
 int maxz;
 string map;
 int health;
-wall(int wx,int wy,int wminiz,int wmaxz,string wmap,int whealth)
+// Sandbags retain their own tile and collapse sound.
+string type;
+wall(int wx,int wy,int wminiz,int wmaxz,string wmap,int whealth,string wtype)
 {
 health=whealth;
 x=wx;
@@ -15,13 +17,15 @@ y=wy;
 miniz=wminiz;
 maxz=wmaxz;
 map=wmap;
+type=wtype;
 }
 }
-void spawn_wall(int x,int y,int miniz,int maxz,string map,int health)
+void spawn_wall(int x,int y,int miniz,int maxz,string map,int health,string type="wallwood")
 {
-wall e1(x,y,miniz,maxz,map,health);
+wall e1(x,y,miniz,maxz,map,health,type);
 walls.insert_last(e1);
 }
+string structure_destroy_sound(string type){return string_contains(type,"sandbag",1)>=0?"sandbag_destroy":"wallremove";}
 void wallloop()
 {
 for (uint i=0; i<walls.length(); i++)
@@ -29,12 +33,12 @@ for (uint i=0; i<walls.length(); i++)
 if(walls[i].health<=0)
 {
 send_reliable(0, "wallremove "+walls[i].x+" "+walls[i].y+" "+walls[i].miniz, 0);
-play("wallremove", walls[i].x, walls[i].y, walls[i].miniz, walls[i].map, -1, true, false, 5);
+play(structure_destroy_sound(walls[i].type), walls[i].x, walls[i].y, walls[i].miniz, walls[i].map, -1, true, false, 5);
 walls.remove_at(i);
 return;
 }
 }
-} 
+}
 ladder@[] ladders(0);
 class ladder
 {
@@ -66,9 +70,9 @@ for (uint i=0; i<ladders.length(); i++)
 if(ladders[i].health<=0)
 {
 send_reliable(0, "ladderremove "+ladders[i].x+" "+ladders[i].y+" "+ladders[i].miniz, 0);
-play("ladderremove", ladders[i].x, ladders[i].y, ladders[i].miniz, ladders[i].map, -1, true, false, 5);
+play("ladder_collapse", ladders[i].x, ladders[i].y, ladders[i].miniz, ladders[i].map, -1, true, false, 5);
 ladders.remove_at(i);
 return;
 }
 }
-} 
+}
